@@ -1,4 +1,4 @@
-import { Building2, CircleDollarSign, Receipt, TrendingDown, TrendingUp, Users, WalletCards, Zap, Crown } from 'lucide-react'
+import { Building2, CircleDollarSign, Crown, Percent, Receipt, TrendingDown, TrendingUp, Users, WalletCards, Zap } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
-import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora } from '../services/domain'
+import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getComissoesApresentadoras, getComissoesMarcas, getComissoesResumo, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { asArray, asNumber, asString, currentPeriod, formatDate, formatMoney, periodToParam } from '../utils/format'
@@ -18,13 +18,15 @@ import { BoletosPanel } from './BoletosPage'
 import type { JsonRecord } from '../types/models'
 
 const icons = [CircleDollarSign, TrendingUp, TrendingDown, Receipt]
+type FinanceiroTab = 'operacional' | 'cliente' | 'recebiveis' | 'boletos' | 'comissoes' | 'franqueadora'
 
 export function FinanceiroPage() {
   const user = useCurrentUser()
   const isCliente = user?.papel === 'cliente_parceiro'
   const [params, setParams] = useSearchParams()
-  const initialTab = isCliente || params.get('tab') === 'boletos' ? 'boletos' : 'operacional'
-  const [tab, setTab] = useState<'operacional' | 'cliente' | 'recebiveis' | 'boletos' | 'franqueadora'>(initialTab)
+  const requestedTab = params.get('tab')
+  const initialTab: FinanceiroTab = isCliente ? 'boletos' : requestedTab === 'boletos' || requestedTab === 'comissoes' ? requestedTab : 'operacional'
+  const [tab, setTab] = useState<FinanceiroTab>(initialTab)
   const [custo, setCusto] = useState({
     descricao: '',
     valor: '',
@@ -38,6 +40,9 @@ export function FinanceiroPage() {
   const custos = useQuery({ queryKey: ['financeiro-custos', custo.competencia], queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
   const franqueadora = useQuery({ queryKey: ['financeiro-franqueadora'], queryFn: () => getFinanceiroFranqueadora(), enabled: user?.papel === 'franqueador_master' })
   const boletos = useQuery({ queryKey: ['boletos'], queryFn: getBoletos })
+  const comissoesResumo = useQuery({ queryKey: ['comissoes-resumo'], queryFn: () => getComissoesResumo(), enabled: !isCliente && tab === 'comissoes' })
+  const comissoesApresentadoras = useQuery({ queryKey: ['comissoes-apresentadoras'], queryFn: () => getComissoesApresentadoras(), enabled: !isCliente && tab === 'comissoes' })
+  const comissoesMarcas = useQuery({ queryKey: ['comissoes-marcas'], queryFn: () => getComissoesMarcas(), enabled: !isCliente && tab === 'comissoes' })
   const createCusto = useMutation({
     mutationFn: createFinanceiroCusto,
     onSuccess: () => {
@@ -90,10 +95,19 @@ export function FinanceiroPage() {
   function switchTab(next: typeof tab) {
     setTab(next)
     const nextParams = new URLSearchParams(params)
-    if (next === 'boletos') nextParams.set('tab', 'boletos')
+    if (next === 'boletos' || next === 'comissoes') nextParams.set('tab', next)
     else nextParams.delete('tab')
     setParams(nextParams, { replace: true })
   }
+
+  const comissoesResumoRaw = comissoesResumo.data ?? {}
+  const comissoesTotais = (comissoesResumoRaw.totais ?? {}) as JsonRecord
+  const comissoesCards = [
+    moneyMetric('Comissão total', comissoesTotais.comissao ?? comissoesResumoRaw.comissao_total ?? comissoesResumoRaw.comissao_apresentadoras, 'apresentadoras, franquia e franqueadora', 'brand'),
+    moneyMetric('GMV base', comissoesTotais.gmv ?? comissoesResumoRaw.gmv_total, 'base de cálculo', 'success'),
+    moneyMetric('GMV lives', comissoesResumoRaw.gmv_lives, 'lives incluídas', 'neutral'),
+    moneyMetric('GMV vídeos', comissoesResumoRaw.gmv_videos, 'vídeos incluídos', 'warning'),
+  ]
 
   return (
     <div className="space-y-6">
@@ -105,6 +119,7 @@ export function FinanceiroPage() {
           ['cliente', Users, 'Por cliente'],
           ['recebiveis', TrendingUp, 'Recebíveis'],
           ['boletos', WalletCards, 'Boletos'],
+          ['comissoes', Percent, 'Comissões'],
           ...(user?.papel === 'franqueador_master' ? [['franqueadora', Crown, 'Franqueadora']] : []),
         ].map(([key, Icon, label]) => (
           <button
@@ -225,6 +240,71 @@ export function FinanceiroPage() {
           <MetricCard metric={metrics[3]} icon={Receipt} />
           <BoletosPanel embedded />
         </section>
+      ) : null}
+
+      {tab === 'comissoes' ? (
+        <>
+          {comissoesResumo.isLoading || comissoesApresentadoras.isLoading || comissoesMarcas.isLoading ? (
+            <LoadingState />
+          ) : comissoesResumo.isError || comissoesApresentadoras.isError || comissoesMarcas.isError ? (
+            <ErrorState
+              message={extractErrorMessage(comissoesResumo.error ?? comissoesApresentadoras.error ?? comissoesMarcas.error)}
+              onRetry={() => {
+                void comissoesResumo.refetch()
+                void comissoesApresentadoras.refetch()
+                void comissoesMarcas.refetch()
+              }}
+            />
+          ) : (
+            <section className="space-y-4">
+              <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {comissoesCards.map((item, index) => (
+                  <MetricCard key={item.label} metric={item} icon={[Percent, CircleDollarSign, TrendingUp, Receipt][index]} />
+                ))}
+              </section>
+
+              <section className="grid gap-4 xl:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <p className="text-base font-bold text-ink">Comissão por apresentador</p>
+                    <p className="mt-1 text-xs text-ink-muted">GMV base, vídeos e lives incluídos no cálculo.</p>
+                  </CardHeader>
+                  <CardBody>
+                    <DataTable<JsonRecord>
+                      data={comissoesApresentadoras.data ?? []}
+                      columns={[
+                        { key: 'apresentadora_nome', header: 'Apresentador', render: (item) => asString(item.apresentadora_nome ?? item.nome, 'Sem apresentador') },
+                        { key: 'gmv_total', header: 'GMV base', align: 'right', render: (item) => formatMoney(item.gmv_total) },
+                        { key: 'gmv_videos', header: 'Vídeos', align: 'right', render: (item) => formatMoney(item.gmv_videos) },
+                        { key: 'registros', header: 'Registros', align: 'right', render: (item) => asNumber(item.registros).toLocaleString('pt-BR') },
+                        { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => formatMoney(item.comissao_apresentadora ?? item.comissao_total) },
+                      ]}
+                    />
+                  </CardBody>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <p className="text-base font-bold text-ink">Comissão por marca</p>
+                    <p className="mt-1 text-xs text-ink-muted">Valores por marca, cliente ou afiliada.</p>
+                  </CardHeader>
+                  <CardBody>
+                    <DataTable<JsonRecord>
+                      data={comissoesMarcas.data ?? []}
+                      columns={[
+                        { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome ?? item.nome) },
+                        { key: 'marca_tipo', header: 'Tipo', render: (item) => asString(item.marca_tipo ?? item.tipo, 'cliente') },
+                        { key: 'gmv_total', header: 'GMV base', align: 'right', render: (item) => formatMoney(item.gmv_total) },
+                        { key: 'comissao_apresentadoras', header: 'Apresentadores', align: 'right', render: (item) => formatMoney(item.comissao_apresentadoras) },
+                        { key: 'comissao_franquia', header: 'Franquia', align: 'right', render: (item) => formatMoney(item.comissao_franquia) },
+                      ]}
+                    />
+                  </CardBody>
+                </Card>
+              </section>
+            </section>
+          )}
+        </>
       ) : null}
 
       {tab === 'franqueadora' ? (

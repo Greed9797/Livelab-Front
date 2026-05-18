@@ -38,6 +38,10 @@ export function updateLead(id: string, payload: JsonRecord) {
   return apiPatch<Lead>(`/leads/${id}`, payload)
 }
 
+export function ganharLead(id: string, payload: JsonRecord = {}) {
+  return apiPost<JsonRecord>(`/leads/${id}/ganhar`, payload)
+}
+
 export function deleteLead(id: string) {
   return apiDelete(`/leads/${id}`)
 }
@@ -52,6 +56,10 @@ export function addLeadTarefa(id: string, payload: JsonRecord) {
 
 export function getClientes() {
   return apiGet<JsonRecord[]>('/clientes')
+}
+
+export function createCliente(payload: JsonRecord) {
+  return apiPost<JsonRecord>('/clientes', payload)
 }
 
 export function getUsuarios(params: Record<string, unknown> = {}) {
@@ -224,6 +232,10 @@ export function createCabine(payload: JsonRecord) {
 
 export function updateCabine(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/cabines/${id}`, payload)
+}
+
+export function deleteCabine(id: string) {
+  return apiDelete(`/cabines/${id}`)
 }
 
 export function liberarCabine(id: string) {

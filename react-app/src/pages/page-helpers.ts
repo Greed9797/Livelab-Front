@@ -31,15 +31,33 @@ export function normalizeHome(raw: JsonRecord) {
   const liveCabines = cabines.filter((cabine) => asString(cabine.status, '').includes('ao_vivo'))
   const ocupacao = getRecord(raw.ocupacao_cabines_hoje)
   const alertas = getRecord(raw.alertas)
+  const livesMes = asNumber(raw.lives_mes ?? resumo.lives_mes)
+  const gmvMes = raw.gmv_lives_mes ?? raw.gmv_mes ?? resumo.gmv_lives_mes ?? raw.fat_bruto
+  const ticketMedio = raw.ticket_medio_live_mes ?? (livesMes > 0 ? asNumber(gmvMes) / livesMes : 0)
+  const liveNow = asArray<JsonRecord>(raw.live_now ?? raw.lives_acontecendo_agora ?? liveCabines)
+  const operationalAlerts = asArray<JsonRecord>(raw.alertas_operacionais).length > 0
+    ? asArray<JsonRecord>(raw.alertas_operacionais)
+    : [
+        { label: 'Conflitos de agenda', valor: alertas.conflitos_agenda ?? raw.conflitos_agenda ?? 0, prioridade: 'alta' },
+        { label: 'Lives sem apresentadora definida', valor: raw.lives_sem_apresentador ?? 0, prioridade: 'media' },
+        { label: 'Cabines em manutenção', valor: raw.cabines_manutencao ?? 0, prioridade: 'baixa' },
+      ]
 
   return {
+    hero: {
+      gmvMes,
+      livesMes,
+      ticketMedio,
+      variacaoMesAnterior: raw.variacao_gmv_mes_anterior_pct ?? raw.gmv_crescimento_pct ?? 0,
+    },
     metrics: [
-      moneyMetric('GMV do mês', raw.gmv_lives_mes ?? raw.gmv_mes ?? resumo.gmv_lives_mes ?? raw.fat_bruto, 'lives e vendas do período', 'brand'),
-      moneyMetric('Pipeline aberto', resumo.pipeline_aberto ?? raw.valor_pipeline ?? raw.pipeline_aberto, 'oportunidades comerciais', 'info'),
-      percentMetric('Taxa de conversão', raw.taxa_conversao ?? resumo.taxa_conversao, 'últimos 90 dias', 'success'),
-      metric('Clientes ativos', resumo.clientes_ativos ?? raw.clientes_ativos ?? 0, 'contratos faturando', 'neutral'),
+      moneyMetric('GMV do mês', gmvMes, 'lives e vendas do período', 'brand'),
+      moneyMetric('GMV ao vivo agora', raw.gmv_ao_vivo_agora ?? liveNow.reduce((acc, cabine) => acc + asNumber(cabine.gmv_atual), 0), 'cabines em live', 'success'),
+      metric('Lives hoje', raw.lives_hoje ?? raw.lives_do_dia ?? 0, 'realizadas e em andamento', 'info'),
+      metric('Cabines em live', raw.lives_ativas_agora ?? ocupacao.ao_vivo ?? liveNow.length, `${asNumber(ocupacao.operacionais ?? cabines.length)} operacionais`, 'neutral'),
     ],
-    liveCabines,
+    liveNow,
+    liveCabines: liveNow,
     alerts: [
       metric('Contratos aguardando', alertas.contratos_aguardando_assinatura ?? raw.contratos_aguardando_assinatura ?? 0, 'assinatura pendente', 'warning'),
       metric('Boletos vencidos', alertas.boletos_vencidos ?? raw.boletos_vencidos ?? 0, 'atenção financeira', 'danger'),
@@ -50,7 +68,11 @@ export function normalizeHome(raw: JsonRecord) {
       total: asNumber(ocupacao.operacionais ?? cabines.length),
     },
     ranking: asArray<JsonRecord>(raw.ranking_dia ?? raw.ranking ?? raw.ranking_clientes ?? raw.top_clientes),
+    rankingGmvDia: asArray<JsonRecord>(raw.ranking_dia ?? raw.ranking ?? raw.ranking_clientes ?? raw.top_clientes),
+    rankingApresentadoras: asArray<JsonRecord>(raw.ranking_apresentadoras_hoje ?? raw.ranking_apresentadoras ?? raw.ranking_apresentadores),
     upcoming: asArray<JsonRecord>(raw.proximas_lives_dia ?? raw.proximas_lives),
+    agendaHoje: asArray<JsonRecord>(raw.agenda_hoje ?? raw.agendaHoje),
+    operationalAlerts,
   }
 }
 

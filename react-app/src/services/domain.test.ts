@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive } from './domain'
+import { createCliente, ganharLead, getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive } from './domain'
 import { apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -30,6 +30,22 @@ describe('domain live operations', () => {
       cliente_id: 'cliente-1',
       tiktok_username: 'marca_live',
     })
+  })
+
+  it('posts manual customer creation to /clientes', async () => {
+    vi.mocked(apiPost).mockResolvedValue({ id: 'cliente-1' })
+
+    await createCliente({ nome: 'Marca A', celular: '47999999999' })
+
+    expect(apiPost).toHaveBeenCalledWith('/clientes', { nome: 'Marca A', celular: '47999999999' })
+  })
+
+  it('converts a lead through the ganhar endpoint', async () => {
+    vi.mocked(apiPost).mockResolvedValue({ ok: true, cliente_id: 'cliente-1' })
+
+    await ganharLead('lead-1')
+
+    expect(apiPost).toHaveBeenCalledWith('/leads/lead-1/ganhar', {})
   })
 
   it('loads a selected live by id from the canonical lives endpoint', async () => {

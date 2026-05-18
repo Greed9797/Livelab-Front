@@ -1,5 +1,6 @@
 import { AtSign, KeyRound, Lock, Moon, Plug, Save, Sun, Target, Users } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
@@ -12,8 +13,12 @@ import { useThemeStore } from '../stores/theme-store'
 import { SettingsUsuariosPanel } from './SettingsUsuariosPanel'
 import type { JsonRecord } from '../types/models'
 
+type SettingsTab = 'unidade' | 'usuarios' | 'aparencia' | 'integracoes' | 'seguranca'
+const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'aparencia', 'integracoes', 'seguranca']
+
 export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boolean }) {
   const client = useQueryClient()
+  const [params, setParams] = useSearchParams()
   const query = useQuery({ queryKey: ['configuracoes', clienteMode], queryFn: getConfiguracoes, enabled: !clienteMode })
   const period = currentPeriod()
   const perfilQuery = useQuery({ queryKey: ['cliente-perfil'], queryFn: getClientePerfil, enabled: clienteMode })
@@ -22,7 +27,8 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   const [tiktok, setTiktok] = useState('')
   const [metaGmv, setMetaGmv] = useState('')
   const [senha, setSenha] = useState({ senha_atual: '', nova_senha: '' })
-  const [settingsTab, setSettingsTab] = useState<'unidade' | 'usuarios' | 'aparencia' | 'integracoes' | 'seguranca'>('unidade')
+  const requestedTab = params.get('tab') as SettingsTab | null
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>(requestedTab && settingsTabs.includes(requestedTab) ? requestedTab : 'unidade')
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
   const mutation = useMutation({
@@ -187,6 +193,14 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     mutation.mutate(form)
   }
 
+  function switchSettingsTab(next: SettingsTab) {
+    setSettingsTab(next)
+    const nextParams = new URLSearchParams(params)
+    if (next === 'unidade') nextParams.delete('tab')
+    else nextParams.set('tab', next)
+    setParams(nextParams, { replace: true })
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Administração" accent="Configurações" title="da unidade" subtitle="Campos principais da franquia e integrações expostos pelo backend." />
@@ -194,7 +208,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
         {[
           ['unidade', Save, 'Unidade'],
-          ['usuarios', Users, 'Usuários'],
+          ['usuarios', Users, 'Usuários e equipe'],
           ['aparencia', Sun, 'Aparência'],
           ['integracoes', Plug, 'Integrações'],
           ['seguranca', Lock, 'Segurança'],
@@ -202,7 +216,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
           <button
             key={String(key)}
             className={settingsTab === key ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white' : 'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted'}
-            onClick={() => setSettingsTab(key as typeof settingsTab)}
+            onClick={() => switchSettingsTab(key as SettingsTab)}
             type="button"
           >
             <Icon className="h-4 w-4" />
@@ -227,6 +241,9 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
             </Button>
             <Button type="button" variant={theme === 'dark' ? 'primary' : 'secondary'} icon={Moon} onClick={() => setTheme('dark')}>
               Escuro
+            </Button>
+            <Button type="button" variant={theme === 'system' ? 'primary' : 'secondary'} icon={Sun} onClick={() => setTheme('system')}>
+              Sistema
             </Button>
           </div>
         </CardBody>

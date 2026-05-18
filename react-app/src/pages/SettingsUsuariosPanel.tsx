@@ -1,4 +1,4 @@
-import { KeyRound, LogOut, MailPlus, RefreshCcw, Shield, UserPlus } from 'lucide-react'
+import { CheckCircle2, KeyRound, LogOut, MailPlus, RefreshCcw, Shield, UserPlus } from 'lucide-react'
 import { FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
-import { asString } from '../utils/format'
+import { asNumber, asString, formatMoney } from '../utils/format'
 import { extractErrorMessage } from '../services/api'
 import {
   convidarUsuario,
@@ -22,13 +22,17 @@ import type { JsonRecord } from '../types/models'
 
 const papeis = [
   'gerente',
-  'gerente_comercial',
-  'financeiro',
   'operacional',
   'apresentador',
-  'apresentadora',
   'cliente_parceiro',
 ]
+
+const papelLabels: Record<string, string> = {
+  gerente: 'Gerente',
+  operacional: 'Operacional',
+  apresentador: 'Apresentador',
+  cliente_parceiro: 'Cliente parceiro',
+}
 
 const emptyForm = {
   nome: '',
@@ -94,7 +98,7 @@ export function SettingsUsuariosPanel() {
       email: form.email,
       papel: form.papel,
       ...(form.papel === 'cliente_parceiro' ? { cliente_id: form.cliente_id } : {}),
-      ...((form.papel === 'apresentador' || form.papel === 'apresentadora') && form.apresentadora_id ? { apresentadora_id: form.apresentadora_id } : {}),
+      ...(form.papel === 'apresentador' && form.apresentadora_id ? { apresentadora_id: form.apresentadora_id } : {}),
       ...(form.senha_temporaria ? { senha_temporaria: form.senha_temporaria } : {}),
     })
   }
@@ -103,7 +107,8 @@ export function SettingsUsuariosPanel() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <p className="text-base font-bold text-ink">Enviar convite</p>
+          <p className="text-base font-bold text-ink">Novo usuário da equipe</p>
+          <p className="mt-1 text-xs text-ink-muted">Crie acessos usando apenas os papéis oficiais da unidade.</p>
         </CardHeader>
         <CardBody>
           <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={onSubmit}>
@@ -118,7 +123,7 @@ export function SettingsUsuariosPanel() {
             <label className="block">
               <span className="text-sm font-semibold text-ink">Papel</span>
               <select className="design-input mt-2 h-11 w-full px-4" value={form.papel} onChange={(event) => setField('papel', event.target.value)}>
-                {papeis.map((papel) => <option key={papel} value={papel}>{papel}</option>)}
+                {papeis.map((papel) => <option key={papel} value={papel}>{papelLabels[papel] ?? papel}</option>)}
               </select>
             </label>
             <label className="block">
@@ -129,7 +134,7 @@ export function SettingsUsuariosPanel() {
               </select>
             </label>
             <label className="block">
-              <span className="text-sm font-semibold text-ink">Apresentadora</span>
+              <span className="text-sm font-semibold text-ink">Perfil de apresentador</span>
               <select className="design-input mt-2 h-11 w-full px-4" value={form.apresentadora_id} onChange={(event) => setField('apresentadora_id', event.target.value)}>
                 <option value="">Opcional</option>
                 {(apresentadoras.data ?? []).map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome)}</option>)}
@@ -153,7 +158,7 @@ export function SettingsUsuariosPanel() {
           <div className="flex flex-wrap gap-2">
             <select className="design-input h-10 px-3 text-sm" value={papelFilter} onChange={(event) => setPapelFilter(event.target.value)}>
               <option value="all">Todos os papéis</option>
-              {papeis.map((papel) => <option key={papel} value={papel}>{papel}</option>)}
+              {papeis.map((papel) => <option key={papel} value={papel}>{papelLabels[papel] ?? papel}</option>)}
             </select>
             <select className="design-input h-10 px-3 text-sm" value={ativoFilter} onChange={(event) => setAtivoFilter(event.target.value)}>
               <option value="all">Todos os status</option>
@@ -167,7 +172,8 @@ export function SettingsUsuariosPanel() {
 
       <Card>
         <CardHeader>
-          <p className="text-base font-bold text-ink">Usuários</p>
+          <p className="text-base font-bold text-ink">Usuários e equipe</p>
+          <p className="mt-1 text-xs text-ink-muted">Ações de acesso, vínculo operacional e status do usuário.</p>
         </CardHeader>
         <CardBody>
           <DataTable<JsonRecord>
@@ -175,7 +181,19 @@ export function SettingsUsuariosPanel() {
             columns={[
               { key: 'nome', header: 'Nome', render: (item) => <span className="font-semibold">{asString(item.nome)}</span> },
               { key: 'email', header: 'E-mail', render: (item) => asString(item.email) },
-              { key: 'papel', header: 'Papel', render: (item) => <Badge tone="brand">{asString(item.papel)}</Badge> },
+              { key: 'papel', header: 'Papel', render: (item) => <Badge tone="brand">{papelLabels[asString(item.papel)] ?? asString(item.papel)}</Badge> },
+              {
+                key: 'pode_apresentar_live',
+                header: 'Pode apresentar',
+                render: (item) => {
+                  const papel = asString(item.papel)
+                  const podeApresentar = item.pode_apresentar_live === true || papel === 'apresentador' || papel === 'apresentadora'
+                  return podeApresentar ? <Badge tone="success">sim</Badge> : <Badge tone="neutral">não</Badge>
+                },
+              },
+              { key: 'fixo', header: 'Fixo', align: 'right', render: (item) => formatMoney(item.fixo_mensal ?? item.fixo) },
+              { key: 'comissao', header: 'Comissão', align: 'right', render: (item) => `${asNumber(item.comissao_live_pct ?? item.comissao_pct).toLocaleString('pt-BR')}%` },
+              { key: 'meta', header: 'Meta diária', align: 'right', render: (item) => formatMoney(item.meta_diaria_gmv) },
               { key: 'ativo', header: 'Status', render: (item) => <Badge tone={statusTone(ativoValue(item.ativo) ? 'ativo' : 'inativo')}>{ativoValue(item.ativo) ? 'ativo' : 'inativo'}</Badge> },
               {
                 key: 'acoes',
@@ -186,7 +204,7 @@ export function SettingsUsuariosPanel() {
                   const ativo = ativoValue(item.ativo)
                   return (
                     <div className="flex flex-wrap justify-end gap-2">
-                      <Button variant="ghost" icon={Shield} disabled={updateMutation.isPending} onClick={() => updateMutation.mutate({ id, payload: { ativo: !ativo } })}>{ativo ? 'Inativar' : 'Ativar'}</Button>
+                      <Button variant="ghost" icon={ativo ? Shield : CheckCircle2} disabled={updateMutation.isPending} onClick={() => updateMutation.mutate({ id, payload: { ativo: !ativo } })}>{ativo ? 'Inativar' : 'Reativar'}</Button>
                       <Button variant="ghost" icon={KeyRound} disabled={resetMutation.isPending} onClick={() => resetMutation.mutate(id)}>Resetar</Button>
                       <Button variant="ghost" icon={MailPlus} disabled={resendMutation.isPending} onClick={() => resendMutation.mutate(id)}>Convite</Button>
                       <Button variant="ghost" icon={LogOut} disabled={logoutMutation.isPending} onClick={() => logoutMutation.mutate(id)}>Logout</Button>

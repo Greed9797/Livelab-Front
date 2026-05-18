@@ -15,14 +15,11 @@ import { ClienteLivesPage } from '../pages/ClienteLivesPage'
 import { ClienteAgendaPage } from '../pages/ClienteAgendaPage'
 import { ConteudoPage } from '../pages/ConteudoPage'
 import { SolicitacoesPage } from '../pages/SolicitacoesPage'
-import { ApresentadorasPage } from '../pages/ApresentadorasPage'
 import { FinanceiroPage } from '../pages/FinanceiroPage'
 import { ConfiguracoesPage } from '../pages/ConfiguracoesPage'
 import { KnowledgePage } from '../pages/KnowledgePage'
 import { OnboardingPage } from '../pages/OnboardingPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
-import { ComissoesPendentesPage } from '../pages/ComissoesPendentesPage'
-import { LiveManualPage } from '../pages/LiveManualPage'
 
 export function AppRouter() {
   return (
@@ -73,7 +70,7 @@ export function AppRouter() {
             <Route element={<ProtectedRoute allowedRoles={opsRoles} />}>
               {/* /solicitacoes mantida apenas para acesso histórico — não é mais fluxo principal */}
               <Route path="/solicitacoes" element={<SolicitacoesPage />} />
-              <Route path="/apresentadoras" element={<ApresentadorasPage />} />
+              <Route path="/apresentadoras" element={<Navigate to="/configuracoes?tab=usuarios" replace />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={[...financeRoles, ...commercialRoles]} />}>
@@ -89,11 +86,11 @@ export function AppRouter() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'franqueado']} />}>
-              <Route path="/comissoes/pendentes" element={<ComissoesPendentesPage />} />
+              <Route path="/comissoes/pendentes" element={<Navigate to="/financeiro?tab=comissoes" replace />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'franqueado']} />}>
-              <Route path="/lives/manual" element={<LiveManualPage />} />
+              <Route path="/lives/manual" element={<Navigate to="/conteudo?tab=lives" replace />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'admin_master', 'franqueado', 'gerente']} />}>

@@ -141,7 +141,7 @@ function Sidebar({
 export function Shell() {
   const [open, setOpen] = useState(false)
   const [desktopExpanded, setDesktopExpanded] = useState(false)
-  const theme = useThemeStore((state) => state.theme)
+  const theme = useThemeStore((state) => state.resolvedTheme)
   const user = useAuthStore((state) => state.user)
 
   return (

@@ -95,7 +95,7 @@ export function BoletosPanel({ embedded = false }: { embedded?: boolean }) {
         <Card className="border-[var(--warning)]/35 bg-[var(--warning-soft)]">
           <CardBody className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between">
             <div className="flex gap-3">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/70 text-[var(--warning)]">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-surface text-[var(--warning)]">
                 <AlertTriangle className="h-5 w-5" />
               </span>
               <div>

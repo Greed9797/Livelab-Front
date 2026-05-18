@@ -1,4 +1,4 @@
-import { Activity, CalendarClock, Edit2, MonitorPlay, PlayCircle, Plus, Power, Presentation, RefreshCcw, Search, StopCircle, Wrench, type LucideIcon } from 'lucide-react'
+import { Activity, CalendarClock, Edit2, EyeOff, MonitorPlay, PlayCircle, Plus, Power, Presentation, RefreshCcw, Search, StopCircle, Trash2, Wrench, type LucideIcon } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import clsx from 'clsx'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,16 +9,16 @@ import { Badge, statusTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
-import { atualizarStatusCabine, createCabine, encerrarLive, getCabineHistorico, getCabines, getClientes, getContratos, iniciarLive, liberarCabine, reservarCabine, updateCabine } from '../services/domain'
+import { atualizarStatusCabine, createCabine, deleteCabine, encerrarLive, getCabineHistorico, getCabines, getClientes, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatDate, formatMoney } from '../utils/format'
 import { useCurrentUser } from '../stores/auth-store'
 import type { Cabine, JsonRecord } from '../types/models'
 import { useSelectedLive } from '../hooks/useSelectedLive'
 
-const writeCabineRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'produtor_live'])
-const writeLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'apresentador', 'apresentadora', 'produtor_live'])
-const readClientesForLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'produtor_live'])
+const writeCabineRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'operacional', 'produtor_live'])
+const writeLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'operacional', 'apresentador', 'apresentadora', 'produtor_live'])
+const readClientesForLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'operacional', 'produtor_live'])
 const availableCabineStatus = 'disponivel'
 const emptyCabineForm = { nome: '', descricao: '' }
 const emptyStartForm = { cliente_id: '', tiktok_username: '' }
@@ -34,6 +34,10 @@ function suggestedTiktokUsername(cabine?: Cabine | null): string {
   return asString((cabine as (Cabine & JsonRecord) | undefined)?.tiktok_username, '')
 }
 
+function isCabineActive(cabine: Cabine): boolean {
+  return (cabine as Cabine & JsonRecord).ativo !== false
+}
+
 export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
   const user = useCurrentUser()
   const [params, setParams] = useSearchParams()
@@ -46,14 +50,12 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
   const [editingId, setEditingId] = useState('')
   const [cabineForm, setCabineForm] = useState(emptyCabineForm)
   const [startForm, setStartForm] = useState(emptyStartForm)
-  const [contratoId, setContratoId] = useState('')
   const [liveType, setLiveType] = useState<'cliente' | 'afiliado' | 'teste'>('cliente')
   const [gmvModalLiveId, setGmvModalLiveId] = useState<string | null>(null)
   const client = useQueryClient()
   const explicitCabineId = params.get('cabine') ?? ''
   const explicitLiveId = params.get('live') ?? ''
   const query = useQuery({ queryKey: ['cabines'], queryFn: getCabines, refetchInterval: 20_000 })
-  const contratosQuery = useQuery({ queryKey: ['contratos'], queryFn: () => getContratos(), enabled: canWriteCabine })
   const clientesQuery = useQuery({ queryKey: ['clientes', 'live-start'], queryFn: getClientes, enabled: canWriteLive && readClientesForLiveRoles.has(user?.papel ?? '') })
   const historicoQuery = useQuery({ queryKey: ['cabine-historico', selectedId], queryFn: () => getCabineHistorico(selectedId), enabled: Boolean(selectedId) })
   const selectedLive = useSelectedLive({
@@ -75,16 +77,20 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
     mutationFn: liberarCabine,
     onSuccess: () => client.invalidateQueries({ queryKey: ['cabines'] }),
   })
-  const reservarMutation = useMutation({
-    mutationFn: ({ id, contrato }: { id: string; contrato: string }) => reservarCabine(id, contrato),
-    onSuccess: () => {
-      setContratoId('')
-      void client.invalidateQueries({ queryKey: ['cabines'] })
-    },
-  })
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => atualizarStatusCabine(id, status),
     onSuccess: () => client.invalidateQueries({ queryKey: ['cabines'] }),
+  })
+  const activeMutation = useMutation({
+    mutationFn: ({ id, ativo }: { id: string; ativo: boolean }) => updateCabine(id, { ativo }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['cabines'] }),
+  })
+  const deleteMutation = useMutation({
+    mutationFn: deleteCabine,
+    onSuccess: () => {
+      setSelectedId('')
+      void client.invalidateQueries({ queryKey: ['cabines'] })
+    },
   })
   const encerrarMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => encerrarLive(id, payload),
@@ -109,28 +115,33 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
   })
 
   const cabines = query.data ?? []
-  const liveCount = cabines.filter((item) => item.status === 'ao_vivo').length
-  const maintenanceCount = cabines.filter((item) => item.status === 'manutencao').length
-  const freeCount = cabines.filter((item) => item.status === availableCabineStatus).length
+  const activeCabines = cabines.filter(isCabineActive)
+  const inactiveCount = cabines.length - activeCabines.length
+  const liveCount = activeCabines.filter((item) => item.status === 'ao_vivo').length
+  const maintenanceCount = activeCabines.filter((item) => item.status === 'manutencao').length
+  const freeCount = activeCabines.filter((item) => item.status === availableCabineStatus).length
   const counts = {
-    all: cabines.length,
+    all: activeCabines.length,
     live: liveCount,
     maintenance: maintenanceCount,
     free: freeCount,
-    busy: Math.max(cabines.length - liveCount - maintenanceCount - freeCount, 0),
+    busy: Math.max(activeCabines.length - liveCount - maintenanceCount - freeCount, 0),
+    inactive: inactiveCount,
   }
   const visible = cabines.filter((cabine) => {
     const normalized = `${cabine.numero ?? ''} ${cabine.cliente_nome ?? ''} ${cabine.apresentador_nome ?? ''}`.toLowerCase()
+    const active = isCabineActive(cabine)
     const statusMatch =
-      filter === 'all' ||
-      (filter === 'live' && cabine.status === 'ao_vivo') ||
-      (filter === 'free' && cabine.status === availableCabineStatus) ||
-      (filter === 'maintenance' && cabine.status === 'manutencao') ||
-      (filter === 'busy' && !['ao_vivo', availableCabineStatus, 'manutencao'].includes(cabine.status ?? ''))
+      (filter === 'all' && active) ||
+      (filter === 'inactive' && !active) ||
+      (filter === 'live' && active && cabine.status === 'ao_vivo') ||
+      (filter === 'free' && active && cabine.status === availableCabineStatus) ||
+      (filter === 'maintenance' && active && cabine.status === 'manutencao') ||
+      (filter === 'busy' && active && !['ao_vivo', availableCabineStatus, 'manutencao'].includes(cabine.status ?? ''))
     return statusMatch && normalized.includes(search.trim().toLowerCase())
   })
-  const totalGmv = cabines.reduce((sum, cabine) => sum + asNumber(cabine.gmv_atual), 0)
-  const totalViewers = cabines.reduce((sum, cabine) => sum + asNumber(cabine.viewer_count), 0)
+  const totalGmv = activeCabines.reduce((sum, cabine) => sum + asNumber(cabine.gmv_atual), 0)
+  const totalViewers = activeCabines.reduce((sum, cabine) => sum + asNumber(cabine.viewer_count), 0)
   const occupancyRows: Array<{ label: string; value: number; color: string; icon: LucideIcon }> = [
     { label: 'Ao vivo', value: counts.live, color: 'bg-brand', icon: MonitorPlay },
     { label: 'Preparando', value: counts.busy, color: 'bg-[var(--info)]', icon: Activity },
@@ -139,7 +150,6 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
   ]
   const explicitSelection = Boolean(selectedId || explicitCabineId || explicitLiveId)
   const selectedCabine = visible.find((cabine) => cabine.id === selectedId) ?? (!explicitSelection ? visible[0] : undefined)
-  const activeContracts = (contratosQuery.data ?? []).filter((contrato) => asString(contrato.status).toLowerCase() === 'ativo')
 
   useEffect(() => {
     if (!cabines.length) return
@@ -197,11 +207,6 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
   function onCabineSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     saveCabineMutation.mutate(cabineForm)
-  }
-
-  function onReservar(cabineId: string) {
-    if (!contratoId) return
-    reservarMutation.mutate({ id: cabineId, contrato: contratoId })
   }
 
   function onStartLive(cabine: Cabine) {
@@ -291,6 +296,7 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                   ['busy', 'Preparando', counts.busy],
                   ['free', 'Livres', counts.free],
                   ['maintenance', 'Manutenção', counts.maintenance],
+                  ['inactive', 'Inativas', counts.inactive],
                 ].map(([key, label, count]) => (
                   <button
                     key={String(key)}
@@ -307,6 +313,8 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
           <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
             {visible.map((cabine) => {
           const live = cabine.status === 'ao_vivo'
+          const active = isCabineActive(cabine)
+          const displayStatus = active ? asString(cabine.status) : 'inativa'
           return (
             <Card
               key={cabine.id}
@@ -323,7 +331,7 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                       <p className="mt-0.5 text-xs text-ink-muted">{asString(cabine.cliente_nome, 'sem cliente vinculado')}</p>
                     </div>
                   </div>
-                  <Badge tone={statusTone(cabine.status)}>{asString(cabine.status)}</Badge>
+                  <Badge tone={statusTone(displayStatus)}>{displayStatus}</Badge>
                 </div>
               </CardHeader>
               <CardBody className="space-y-4">
@@ -349,7 +357,7 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                   <Button variant="secondary" icon={MonitorPlay} onClick={() => selectCabine(cabine)}>
                     Detalhes
                   </Button>
-                  {canWriteLive && !live ? (
+                  {active && canWriteLive && !live ? (
                     <Button
                       icon={PlayCircle}
                       isLoading={iniciarMutation.isPending}
@@ -367,29 +375,6 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                     >
                       Iniciar live
                     </Button>
-                  ) : null}
-                  {canWriteCabine ? (
-                    <Button variant="secondary" icon={Edit2} onClick={() => openEditForm(cabine)}>
-                      Editar
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="ghost"
-                    icon={Power}
-                    disabled={!canWriteCabine || !cabine.id || liberarMutation.isPending}
-                    onClick={() => void liberarMutation.mutate(cabine.id)}
-                  >
-                    Liberar
-                  </Button>
-                  {canWriteCabine ? (
-                    <>
-                      <Button variant="ghost" icon={Wrench} disabled={statusMutation.isPending} onClick={() => void statusMutation.mutate({ id: cabine.id, status: 'manutencao' })}>
-                        Manutenção
-                      </Button>
-                      <Button variant="ghost" icon={CalendarClock} disabled={statusMutation.isPending} onClick={() => void statusMutation.mutate({ id: cabine.id, status: 'disponivel' })}>
-                        Disponível
-                      </Button>
-                    </>
                   ) : null}
                 </div>
               </CardBody>
@@ -504,19 +489,46 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
 
               {selectedCabine && canWriteCabine ? (
                 <div className="space-y-3 rounded-2xl border border-line bg-surface-muted p-3">
-                  <p className="text-sm font-bold text-ink">Reservar por contrato ativo</p>
-                  <select className="design-input h-10 w-full px-3 text-sm" value={contratoId} onChange={(event) => setContratoId(event.target.value)}>
-                    <option value="">Selecione um contrato</option>
-                    {activeContracts.map((contrato) => (
-                      <option key={asString(contrato.id)} value={asString(contrato.id)}>
-                        {asString(contrato.cliente_nome)} · {asString(contrato.status)}
-                      </option>
-                    ))}
-                  </select>
-                  {contratosQuery.isError ? <p className="text-xs font-medium text-[var(--danger)]">{extractErrorMessage(contratosQuery.error)}</p> : null}
-                  <Button variant="secondary" icon={CalendarClock} disabled={!contratoId || reservarMutation.isPending} onClick={() => onReservar(selectedCabine.id)}>
-                    Reservar cabine
-                  </Button>
+                  <p className="text-sm font-bold text-ink">Ações administrativas</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" icon={Edit2} onClick={() => openEditForm(selectedCabine)}>
+                      Editar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      icon={Power}
+                      disabled={!selectedCabine.id || liberarMutation.isPending}
+                      onClick={() => void liberarMutation.mutate(selectedCabine.id)}
+                    >
+                      Liberar
+                    </Button>
+                    <Button variant="ghost" icon={Wrench} disabled={statusMutation.isPending} onClick={() => void statusMutation.mutate({ id: selectedCabine.id, status: 'manutencao' })}>
+                      Manutenção
+                    </Button>
+                    <Button variant="ghost" icon={CalendarClock} disabled={statusMutation.isPending} onClick={() => void statusMutation.mutate({ id: selectedCabine.id, status: 'disponivel' })}>
+                      Disponível
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      icon={EyeOff}
+                      disabled={activeMutation.isPending}
+                      onClick={() => void activeMutation.mutate({ id: selectedCabine.id, ativo: !isCabineActive(selectedCabine) })}
+                    >
+                      {isCabineActive(selectedCabine) ? 'Inativar' : 'Reativar'}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      icon={Trash2}
+                      disabled={deleteMutation.isPending}
+                      onClick={() => {
+                        if (window.confirm('Excluir esta cabine apenas se ela não tiver histórico?')) {
+                          void deleteMutation.mutate(selectedCabine.id)
+                        }
+                      }}
+                    >
+                      Excluir
+                    </Button>
+                  </div>
                 </div>
               ) : null}
 
@@ -589,9 +601,9 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                 </div>
               ) : null}
 
-              {reservarMutation.isError || statusMutation.isError || liberarMutation.isError || iniciarMutation.isError || encerrarMutation.isError || selectedLive.error || historicoQuery.isError ? (
+              {statusMutation.isError || liberarMutation.isError || activeMutation.isError || deleteMutation.isError || iniciarMutation.isError || encerrarMutation.isError || selectedLive.error || historicoQuery.isError ? (
                 <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
-                  {selectedLive.error ?? extractErrorMessage(reservarMutation.error ?? statusMutation.error ?? liberarMutation.error ?? iniciarMutation.error ?? encerrarMutation.error ?? historicoQuery.error)}
+                  {selectedLive.error ?? extractErrorMessage(statusMutation.error ?? liberarMutation.error ?? activeMutation.error ?? deleteMutation.error ?? iniciarMutation.error ?? encerrarMutation.error ?? historicoQuery.error)}
                 </p>
               ) : null}
             </CardBody>

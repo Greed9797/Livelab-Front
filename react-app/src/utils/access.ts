@@ -2,10 +2,8 @@ import {
   BookOpen,
   Building2,
   CalendarClock,
-  CheckSquare,
   ChartNoAxesCombined,
   CircleDollarSign,
-  FilePlus,
   Gauge,
   Home,
   LayoutDashboard,
@@ -13,7 +11,6 @@ import {
   Presentation,
   Settings,
   Store,
-  Users,
   Workflow,
 } from 'lucide-react'
 import type { OfficialRole, Role, User } from '../types/models'
@@ -173,10 +170,7 @@ export const menuItems: MenuItem[] = [
   { label: 'Financeiro', path: '/financeiro?tab=boletos', icon: CircleDollarSign, roles: clienteRoles },
   { label: 'Configurações', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles },
   { label: 'Conteúdo', path: '/conteudo', icon: Presentation, roles: cabineRoles },
-  { label: 'Apresentadoras', path: '/apresentadoras', icon: Users, roles: opsRoles },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
-  { label: 'Comissões', path: '/comissoes/pendentes', icon: CheckSquare, roles: ['franqueador_master', 'franqueado'] },
-  { label: 'Live Manual', path: '/lives/manual', icon: FilePlus, roles: ['franqueador_master', 'franqueado'] },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora', 'cliente_parceiro'] },
   { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'franqueado'] },
 ]
