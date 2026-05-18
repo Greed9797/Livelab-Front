@@ -84,7 +84,7 @@ export function AppRouter() {
               <Route path="/boletos" element={<Navigate to="/financeiro?tab=boletos" replace />} />
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'admin_master', 'franqueado']} />}>
+            <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'admin_master', 'franqueado', 'gerente']} />}>
               <Route path="/configuracoes" element={<ConfiguracoesPage />} />
             </Route>
 

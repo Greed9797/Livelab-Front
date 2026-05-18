@@ -14,7 +14,7 @@ import {
   Users,
   Workflow,
 } from 'lucide-react'
-import type { Role, User } from '../types/models'
+import type { OfficialRole, Role, User } from '../types/models'
 
 export interface MenuItem {
   label: string
@@ -23,19 +23,29 @@ export interface MenuItem {
   roles: Role[]
 }
 
+/**
+ * Master roles - system-level access
+ * Only includes the official franqueador_master
+ */
 export const masterRoles: Role[] = [
   'franqueador_master',
-  'admin_master',
-  'gerente_regional',
+  // Legacy roles mapped to official: admin_master, gerente_regional
+  // Still accepted in JWTs but normalized to franqueador_master
 ]
 
+/**
+ * Internal roles - franchise/operational access
+ * Includes official roles: franqueado, operacional
+ * Legacy roles are kept for JWT compatibility but should be normalized via normalizeRole()
+ */
 export const internalRoles: Role[] = [
   'franqueado',
+  'operacional',
+  // Legacy roles kept for backward compatibility:
   'gerente',
   'gerente_comercial',
   'financeiro',
   'financeiro_readonly',
-  'operacional',
   'auditor',
   'suporte',
   'produtor_live',
@@ -86,12 +96,56 @@ export const cabineRoles: Role[] = [
 
 export const clienteRoles: Role[] = ['cliente_parceiro']
 
+export function normalizeRole(role: Role): OfficialRole {
+  switch (role) {
+    // Master role mapping
+    case 'admin_master':
+    case 'gerente_regional':
+      return 'franqueador_master'
+
+    // Franqueado mappings
+    case 'financeiro':
+      return 'franqueado'
+
+    // Operacional mappings
+    case 'gerente':
+    case 'gerente_comercial':
+    case 'financeiro_readonly':
+    case 'auditor':
+    case 'suporte':
+    case 'produtor_live':
+    case 'marketing':
+    case 'comercial_readonly':
+      return 'operacional'
+
+    // Apresentador typo fix
+    case 'apresentadora':
+      return 'apresentador'
+
+    // Already official
+    case 'franqueador_master':
+    case 'franqueado':
+    case 'operacional':
+    case 'apresentador':
+    case 'cliente_parceiro':
+      return role
+
+    // Default fallback for any unknown role
+    default:
+      return 'cliente_parceiro'
+  }
+}
+
 export function routeForRole(role?: Role, onboardingCompleted = true): string {
   if (!role) return '/login'
-  if (masterRoles.includes(role)) return '/master'
-  if (role === 'apresentador' || role === 'apresentadora') return '/conteudo'
-  if (role === 'cliente_parceiro') return onboardingCompleted ? '/cliente' : '/onboarding'
-  if (internalRoles.includes(role)) return '/'
+
+  const normalized = normalizeRole(role)
+
+  if (normalized === 'franqueador_master') return '/master'
+  if (normalized === 'apresentador') return '/conteudo'
+  if (normalized === 'cliente_parceiro') return onboardingCompleted ? '/cliente' : '/onboarding'
+  if (['franqueado', 'operacional'].includes(normalized)) return '/'
+
   return '/login'
 }
 
@@ -130,23 +184,26 @@ export function menuForUser(user: User | null): MenuItem[] {
 
 export function roleLabel(role?: Role): string {
   const labels: Record<string, string> = {
+    // Official roles
     franqueador_master: 'Franqueador Master',
-    admin_master: 'Admin Master',
-    gerente_regional: 'Gerente Regional',
     franqueado: 'Franqueado',
-    gerente: 'Gerente',
-    gerente_comercial: 'Gerente Comercial',
-    financeiro: 'Financeiro',
-    financeiro_readonly: 'Financeiro Leitura',
     operacional: 'Operacional',
-    auditor: 'Auditor',
-    suporte: 'Suporte',
-    produtor_live: 'Produtor Live',
-    marketing: 'Marketing',
-    comercial_readonly: 'Comercial Leitura',
     apresentador: 'Apresentador',
-    apresentadora: 'Apresentadora',
     cliente_parceiro: 'Cliente Parceiro',
+
+    // Legacy roles (marked as deprecated)
+    admin_master: 'Admin Master (legado)',
+    gerente_regional: 'Gerente Regional (legado)',
+    gerente: 'Gerente (legado)',
+    gerente_comercial: 'Gerente Comercial (legado)',
+    financeiro: 'Financeiro (legado)',
+    financeiro_readonly: 'Financeiro Leitura (legado)',
+    auditor: 'Auditor (legado)',
+    suporte: 'Suporte (legado)',
+    produtor_live: 'Produtor Live (legado)',
+    marketing: 'Marketing (legado)',
+    comercial_readonly: 'Comercial Leitura (legado)',
+    apresentadora: 'Apresentadora (legado)',
   }
   return role ? labels[role] ?? role : 'Sem papel'
 }

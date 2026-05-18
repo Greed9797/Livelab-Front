@@ -1,22 +1,37 @@
+/**
+ * Official roles in the product (5)
+ * @see OfficialRole for the canonical set
+ */
 export type Role =
   | 'franqueador_master'
-  | 'admin_master'
-  | 'gerente_regional'
+  | /** @deprecated use franqueador_master */ 'admin_master'
+  | /** @deprecated use franqueador_master */ 'gerente_regional'
   | 'franqueado'
-  | 'gerente'
-  | 'gerente_comercial'
-  | 'financeiro'
-  | 'financeiro_readonly'
+  | /** @deprecated use franqueado or operacional */ 'gerente'
+  | /** @deprecated use operacional */ 'gerente_comercial'
+  | /** @deprecated use franqueado */ 'financeiro'
+  | /** @deprecated use operacional */ 'financeiro_readonly'
   | 'operacional'
-  | 'auditor'
-  | 'suporte'
-  | 'produtor_live'
-  | 'marketing'
-  | 'comercial_readonly'
+  | /** @deprecated use operacional */ 'auditor'
+  | /** @deprecated use operacional */ 'suporte'
+  | /** @deprecated use operacional */ 'produtor_live'
+  | /** @deprecated use operacional */ 'marketing'
+  | /** @deprecated use operacional */ 'comercial_readonly'
   | 'apresentador'
-  | 'apresentadora'
+  | /** @deprecated use apresentador (typo fix) */ 'apresentadora'
   | 'cliente_parceiro'
   | string
+
+/**
+ * The 5 official roles in the product
+ * Use this for new code; legacy roles in Role should be normalized via normalizeRole()
+ */
+export type OfficialRole =
+  | 'franqueador_master'
+  | 'franqueado'
+  | 'operacional'
+  | 'apresentador'
+  | 'cliente_parceiro'
 
 export type JsonRecord = Record<string, unknown>
 
