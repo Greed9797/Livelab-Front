@@ -21,6 +21,8 @@ import { ConfiguracoesPage } from '../pages/ConfiguracoesPage'
 import { KnowledgePage } from '../pages/KnowledgePage'
 import { OnboardingPage } from '../pages/OnboardingPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
+import { ComissoesPendentesPage } from '../pages/ComissoesPendentesPage'
+import { LiveManualPage } from '../pages/LiveManualPage'
 
 export function AppRouter() {
   return (
@@ -84,6 +86,14 @@ export function AppRouter() {
 
             <Route element={<ProtectedRoute allowedRoles={[...financeRoles, 'cliente_parceiro']} />}>
               <Route path="/boletos" element={<Navigate to="/financeiro?tab=boletos" replace />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'franqueado']} />}>
+              <Route path="/comissoes/pendentes" element={<ComissoesPendentesPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'franqueado']} />}>
+              <Route path="/lives/manual" element={<LiveManualPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'admin_master', 'franqueado', 'gerente']} />}>

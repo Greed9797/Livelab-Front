@@ -261,7 +261,7 @@ export function getLivePorId(liveId: string): Promise<LiveAtual> {
 }
 
 export function publishLive(liveId: string, statusPublicacao: 'revisado' | 'publicado'): Promise<LiveAtual> {
-  return apiPatch<LiveAtual>(`/lives/${liveId}`, { status_publicacao: statusPublicacao })
+  return apiPatch<LiveAtual>(`/lives/${liveId}/publicar`, { status_publicacao: statusPublicacao })
 }
 
 export function iniciarLive(payload: JsonRecord) {
@@ -370,4 +370,32 @@ export function getKnowledgeCategories() {
 
 export function getKnowledgeArticles(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/knowledge/articles', params)
+}
+
+export function getComissoesPendentes() {
+  return apiGet<JsonRecord[]>('/comissoes/pendentes')
+}
+
+export function aprovarComissao(id: string) {
+  return apiPatch<JsonRecord>(`/comissoes/${id}/aprovar`, {})
+}
+
+export function reprovarComissao(id: string, motivo: string) {
+  return apiPatch<JsonRecord>(`/comissoes/${id}/reprovar`, { motivo })
+}
+
+export function getFinanceiroFranqueadora(filters: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>('/financeiro/franqueadora', filters)
+}
+
+export function exportarDadosCliente(clienteId: string) {
+  return apiGet<JsonRecord>(`/clientes/${clienteId}/exportar-dados`)
+}
+
+export function criarLiveManual(payload: JsonRecord) {
+  return apiPost<JsonRecord>('/lives/manual', payload)
+}
+
+export function getHistoricoGmv(liveId: string) {
+  return apiGet<JsonRecord[]>(`/lives/${liveId}/historico-gmv`)
 }

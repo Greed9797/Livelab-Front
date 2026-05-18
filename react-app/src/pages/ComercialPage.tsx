@@ -1,13 +1,15 @@
-import { Building2, CircleDollarSign, Handshake, LayoutDashboard, Store, Users, Workflow } from 'lucide-react'
+import { Building2, CircleDollarSign, Handshake, LayoutDashboard, Store, Users, Workflow, FileText } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { MetricCard } from '../components/ui/MetricCard'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { LoadingState, ErrorState } from '../components/ui/States'
-import { getClientes, getCrmSummary, getLeads, getMarcas } from '../services/domain'
+import { Button } from '../components/ui/Button'
+import { getClientes, getCrmSummary, getLeads, getMarcas, exportarDadosCliente } from '../services/domain'
+import { useCurrentUser } from '../stores/auth-store'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
 import { metric, moneyMetric, percentMetric } from './page-helpers'
@@ -17,11 +19,13 @@ import type { JsonRecord } from '../types/models'
 type ComercialTab = 'dashboard' | 'crm' | 'ativos'
 
 export function ComercialPage() {
+  const user = useCurrentUser()
   const [tab, setTab] = useState<ComercialTab>('dashboard')
   const summaryQuery = useQuery({ queryKey: ['crm-summary'], queryFn: getCrmSummary })
   const leadsQuery = useQuery({ queryKey: ['leads'], queryFn: getLeads })
   const clientesQuery = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
   const marcasQuery = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
+  const exportMutation = useMutation({ mutationFn: exportarDadosCliente })
 
   const isLoading = summaryQuery.isLoading || leadsQuery.isLoading || clientesQuery.isLoading || marcasQuery.isLoading
   const error = summaryQuery.error ?? leadsQuery.error ?? clientesQuery.error ?? marcasQuery.error
@@ -49,6 +53,25 @@ export function ComercialPage() {
     metric('Afiliados ativos', marcas.filter((item) => asString(item.tipo) === 'afiliada').length, 'marcas afiliadas', 'brand'),
     metric('Marcas ativas', marcas.length, 'operação comercial', 'neutral'),
   ]
+
+  const canExportData = user?.papel === 'franqueador_master' || user?.papel === 'franqueado'
+
+  function handleExportarDados(clienteId: string) {
+    exportMutation.mutate(clienteId, {
+      onSuccess: (data) => {
+        const jsonString = JSON.stringify(data, null, 2)
+        const blob = new Blob([jsonString], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `dados-cliente-${clienteId}.json`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      },
+    })
+  }
 
   const ativos = useMemo(() => {
     const marcasPorCliente = new Map<string, JsonRecord[]>()
@@ -168,6 +191,23 @@ export function ComercialPage() {
                   },
                 },
                 { key: 'responsavel', header: 'Responsável', render: (item) => asString(item.responsavel_nome ?? item.gerente_nome) },
+                ...(canExportData ? [{
+                  key: 'acoes',
+                  header: 'Ações',
+                  align: 'right' as const,
+                  render: (item: JsonRecord) => (
+                    item.tipo_operacional === 'cliente' ? (
+                      <Button
+                        variant="ghost"
+                        icon={FileText}
+                        disabled={exportMutation.isPending}
+                        onClick={() => handleExportarDados(asString(item.id))}
+                      >
+                        Exportar
+                      </Button>
+                    ) : null
+                  ),
+                }] : []),
               ]}
             />
           </CardBody>

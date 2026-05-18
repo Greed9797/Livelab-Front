@@ -1,4 +1,4 @@
-import { Building2, CircleDollarSign, Receipt, TrendingDown, TrendingUp, Users, WalletCards, Zap } from 'lucide-react'
+import { Building2, CircleDollarSign, Receipt, TrendingDown, TrendingUp, Users, WalletCards, Zap, Crown } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
-import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo } from '../services/domain'
+import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { asArray, asNumber, asString, currentPeriod, formatDate, formatMoney, periodToParam } from '../utils/format'
@@ -24,7 +24,7 @@ export function FinanceiroPage() {
   const isCliente = user?.papel === 'cliente_parceiro'
   const [params, setParams] = useSearchParams()
   const initialTab = isCliente || params.get('tab') === 'boletos' ? 'boletos' : 'operacional'
-  const [tab, setTab] = useState<'operacional' | 'cliente' | 'recebiveis' | 'boletos'>(initialTab)
+  const [tab, setTab] = useState<'operacional' | 'cliente' | 'recebiveis' | 'boletos' | 'franqueadora'>(initialTab)
   const [custo, setCusto] = useState({
     descricao: '',
     valor: '',
@@ -36,6 +36,7 @@ export function FinanceiroPage() {
   const fluxo = useQuery({ queryKey: ['financeiro-fluxo'], queryFn: () => getFinanceiroFluxo(), enabled: !isCliente })
   const faturamento = useQuery({ queryKey: ['financeiro-faturamento'], queryFn: () => getFinanceiroFaturamento(), enabled: !isCliente })
   const custos = useQuery({ queryKey: ['financeiro-custos', custo.competencia], queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
+  const franqueadora = useQuery({ queryKey: ['financeiro-franqueadora'], queryFn: () => getFinanceiroFranqueadora(), enabled: user?.papel === 'franqueador_master' })
   const boletos = useQuery({ queryKey: ['boletos'], queryFn: getBoletos })
   const createCusto = useMutation({
     mutationFn: createFinanceiroCusto,
@@ -104,6 +105,7 @@ export function FinanceiroPage() {
           ['cliente', Users, 'Por cliente'],
           ['recebiveis', TrendingUp, 'Recebíveis'],
           ['boletos', WalletCards, 'Boletos'],
+          ...(user?.papel === 'franqueador_master' ? [['franqueadora', Crown, 'Franqueadora']] : []),
         ].map(([key, Icon, label]) => (
           <button
             key={String(key)}
@@ -223,6 +225,44 @@ export function FinanceiroPage() {
           <MetricCard metric={metrics[3]} icon={Receipt} />
           <BoletosPanel embedded />
         </section>
+      ) : null}
+
+      {tab === 'franqueadora' ? (
+        <>
+          {franqueadora.isLoading ? (
+            <LoadingState />
+          ) : franqueadora.isError ? (
+            <ErrorState message={extractErrorMessage(franqueadora.error)} onRetry={() => void franqueadora.refetch()} />
+          ) : (
+            <>
+              <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  moneyMetric('GMV total', franqueadora.data?.total_gmv, 'gross merchandise value', 'brand'),
+                  moneyMetric('Royalties', franqueadora.data?.total_royalties, 'taxa arrecadada', 'success'),
+                  metric('Franqueados', franqueadora.data?.total_franqueados, 'unidades ativas', 'neutral'),
+                ].map((item, index) => (
+                  <MetricCard key={item.label} metric={item} icon={[CircleDollarSign, TrendingUp, Building2][index]} />
+                ))}
+              </section>
+
+              <Card>
+                <CardHeader>
+                  <p className="text-base font-bold text-ink">Desempenho por franqueado</p>
+                  <p className="mt-1 text-xs text-ink-muted">GMV e faturamento de cada unidade franqueada.</p>
+                </CardHeader>
+                <CardBody>
+                  <DataTable<JsonRecord>
+                    data={asArray<JsonRecord>(franqueadora.data?.franqueados ?? [])}
+                    columns={[
+                      { key: 'nome', header: 'Franqueado', render: (item) => asString(item.nome) },
+                      { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv ?? item.total_gmv) },
+                    ]}
+                  />
+                </CardBody>
+              </Card>
+            </>
+          )}
+        </>
       ) : null}
     </div>
   )

@@ -2,8 +2,10 @@ import {
   BookOpen,
   Building2,
   CalendarClock,
+  CheckSquare,
   ChartNoAxesCombined,
   CircleDollarSign,
+  FilePlus,
   Gauge,
   Home,
   LayoutDashboard,
@@ -173,8 +175,10 @@ export const menuItems: MenuItem[] = [
   { label: 'Conteúdo', path: '/conteudo', icon: Presentation, roles: cabineRoles },
   { label: 'Apresentadoras', path: '/apresentadoras', icon: Users, roles: opsRoles },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
+  { label: 'Comissões', path: '/comissoes/pendentes', icon: CheckSquare, roles: ['franqueador_master', 'franqueado'] },
+  { label: 'Live Manual', path: '/lives/manual', icon: FilePlus, roles: ['franqueador_master', 'franqueado'] },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora', 'cliente_parceiro'] },
-  { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'admin_master', 'franqueado'] },
+  { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'franqueado'] },
 ]
 
 export function menuForUser(user: User | null): MenuItem[] {

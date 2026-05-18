@@ -8,6 +8,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { HistoricoGmvModal } from './HistoricoGmvModal'
 import { atualizarStatusCabine, createCabine, encerrarLive, getCabineHistorico, getCabineLiveAtual, getCabines, getClientes, getContratos, iniciarLive, liberarCabine, reservarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatDate, formatMoney } from '../utils/format'
@@ -45,6 +46,8 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
   const [cabineForm, setCabineForm] = useState(emptyCabineForm)
   const [startForm, setStartForm] = useState(emptyStartForm)
   const [contratoId, setContratoId] = useState('')
+  const [liveType, setLiveType] = useState<'cliente' | 'afiliado' | 'teste'>('cliente')
+  const [gmvModalLiveId, setGmvModalLiveId] = useState<string | null>(null)
   const client = useQueryClient()
   const query = useQuery({ queryKey: ['cabines'], queryFn: getCabines, refetchInterval: 20_000 })
   const contratosQuery = useQuery({ queryKey: ['contratos'], queryFn: () => getContratos(), enabled: canWriteCabine })
@@ -205,6 +208,7 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
       cabine_id: cabine.id,
       ...(clienteId ? { cliente_id: clienteId } : {}),
       tiktok_username: tiktokUsername || null,
+      tipo: liveType,
     })
   }
 
@@ -467,6 +471,18 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                       onChange={(event) => setStartField('tiktok_username', event.target.value)}
                     />
                   </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold text-ink-muted">Tipo de live</span>
+                    <select
+                      className="design-input mt-2 h-10 w-full px-3 text-sm"
+                      value={liveType}
+                      onChange={(event) => setLiveType(event.target.value as 'cliente' | 'afiliado' | 'teste')}
+                    >
+                      <option value="cliente">Cliente</option>
+                      <option value="afiliado">Afiliado</option>
+                      <option value="teste">Teste</option>
+                    </select>
+                  </label>
                   <Button
                     className="w-full"
                     icon={PlayCircle}
@@ -542,8 +558,19 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                   <div className="mt-3 space-y-2">
                     {asArray<JsonRecord>(historicoQuery.data.lives_recentes).slice(0, 3).map((live) => (
                       <div key={asString(live.id)} className="rounded-xl bg-surface p-3">
-                        <p className="truncate text-xs font-bold text-ink">{asString(live.cliente_nome, 'Cliente')}</p>
-                        <p className="mt-1 text-[11px] text-ink-muted">{formatDate(asString(live.iniciado_em, ''))} · {formatMoney(live.fat_gerado)}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-bold text-ink">{asString(live.cliente_nome, 'Cliente')}</p>
+                            <p className="mt-1 text-[11px] text-ink-muted">{formatDate(asString(live.iniciado_em, ''))} · {formatMoney(live.fat_gerado)}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setGmvModalLiveId(asString(live.id, ''))}
+                            className="shrink-0"
+                          >
+                            Hist. GMV
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -559,6 +586,8 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
           </Card>
         </aside>
       </section>
+
+      <HistoricoGmvModal liveId={gmvModalLiveId} onClose={() => setGmvModalLiveId(null)} />
     </div>
   )
 }
