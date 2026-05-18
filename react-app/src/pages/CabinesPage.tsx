@@ -50,6 +50,9 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
   const contratosQuery = useQuery({ queryKey: ['contratos'], queryFn: () => getContratos(), enabled: canWriteCabine })
   const clientesQuery = useQuery({ queryKey: ['clientes', 'live-start'], queryFn: getClientes, enabled: canWriteLive && readClientesForLiveRoles.has(user?.papel ?? '') })
   const historicoQuery = useQuery({ queryKey: ['cabine-historico', selectedId], queryFn: () => getCabineHistorico(selectedId), enabled: Boolean(selectedId) })
+  // TODO(PR-7): migrate to useSelectedLive({ cabineId: selectedId, autoRefreshMs: 20_000 })
+  // Current direct useQuery call returns raw JsonRecord instead of typed LiveAtual,
+  // which caused the bug of stale/wrong live data in the Live Toolkit panel.
   const liveAtualQuery = useQuery({ queryKey: ['cabine-live-atual', selectedId], queryFn: () => getCabineLiveAtual(selectedId), enabled: Boolean(selectedId) })
   const saveCabineMutation = useMutation({
     mutationFn: (payload: JsonRecord) => editingId ? updateCabine(editingId, payload) : createCabine(payload),

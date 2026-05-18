@@ -1,4 +1,4 @@
-import type { Cabine, JsonRecord, Lead, Period, Solicitacao } from '../types/models'
+import type { Cabine, JsonRecord, Lead, LiveAtual, Period, Solicitacao } from '../types/models'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 import { periodToParam } from '../utils/format'
 
@@ -224,6 +224,20 @@ export function getCabineLiveAtual(id: string) {
 
 export function getLives() {
   return apiGet<JsonRecord[]>('/lives')
+}
+
+export async function getLiveAtualDaCabine(cabineId: string): Promise<LiveAtual | null> {
+  const res = await apiGet<JsonRecord>(`/cabines/${cabineId}/live-atual`)
+  if (!res.live_ativa) return null
+  return res as unknown as LiveAtual
+}
+
+export function getLivePorId(liveId: string): Promise<LiveAtual> {
+  return apiGet<LiveAtual>(`/lives/${liveId}`)
+}
+
+export function publishLive(liveId: string, statusPublicacao: 'revisado' | 'publicado'): Promise<LiveAtual> {
+  return apiPatch<LiveAtual>(`/lives/${liveId}`, { status_publicacao: statusPublicacao })
 }
 
 export function iniciarLive(payload: JsonRecord) {

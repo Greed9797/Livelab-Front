@@ -127,3 +127,30 @@ export interface ApiListResponse<T> {
   rows?: T[]
   results?: T[]
 }
+
+export interface LiveAtual {
+  id: string
+  status: 'em_andamento' | 'encerrada' | 'cancelada'
+  tipo: 'cliente' | 'afiliado' | 'teste'
+  status_publicacao: 'rascunho' | 'revisado' | 'publicado'
+  origem_dados: 'manual' | 'api'
+  cabine_id: string
+  cabine_numero?: number
+  cliente_id?: string | null
+  cliente_nome?: string | null
+  apresentador_id?: string | null
+  apresentador_nome?: string | null
+  fat_gerado?: number
+  qtd_pedidos?: number
+  iniciado_em: string
+  encerrado_em?: string | null
+  agenda_evento_id?: string | null
+  agenda_data_inicio?: string | null
+  agenda_titulo?: string | null
+  // métricas manuais
+  manual_views?: number
+  manual_likes?: number
+  manual_comments?: number
+  manual_shares?: number
+  manual_gmv?: number
+}
