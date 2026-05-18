@@ -2,7 +2,7 @@ import { Activity, CalendarClock, Edit2, EyeOff, MonitorPlay, PlayCircle, Plus, 
 import { FormEvent, useEffect, useState } from 'react'
 import clsx from 'clsx'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Badge, statusTone } from '../components/ui/Badge'
@@ -40,6 +40,7 @@ function isCabineActive(cabine: Cabine): boolean {
 
 export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
   const user = useCurrentUser()
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const canWriteCabine = writeCabineRoles.has(user?.papel ?? '')
   const canWriteLive = writeLiveRoles.has(user?.papel ?? '')
@@ -175,6 +176,14 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
     if (liveId) nextParams.set('live', liveId)
     else nextParams.delete('live')
     setParams(nextParams, { replace: true })
+  }
+
+  function scheduleCabine(cabine: Cabine) {
+    selectCabine(cabine)
+    const nextParams = new URLSearchParams()
+    nextParams.set('tab', 'agenda')
+    nextParams.set('cabine', cabine.id)
+    navigate(`/conteudo?${nextParams.toString()}`)
   }
 
   function setStartField(key: keyof typeof emptyStartForm, value: string) {
@@ -357,6 +366,11 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                   <Button variant="secondary" icon={MonitorPlay} onClick={() => selectCabine(cabine)}>
                     Detalhes
                   </Button>
+                  {active && canWriteCabine ? (
+                    <Button variant="secondary" icon={CalendarClock} onClick={() => scheduleCabine(cabine)}>
+                      Agendar
+                    </Button>
+                  ) : null}
                   {active && canWriteLive && !live ? (
                     <Button
                       icon={PlayCircle}
@@ -431,6 +445,16 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                     <p className="text-sm font-bold text-ink">Iniciar live agora</p>
                     <p className="mt-1 text-xs text-ink-muted">Usa o fluxo operacional antigo e coloca a cabine em ao vivo.</p>
                   </div>
+                  {canWriteCabine ? (
+                    <Button
+                      className="w-full"
+                      variant="secondary"
+                      icon={CalendarClock}
+                      onClick={() => scheduleCabine(selectedCabine)}
+                    >
+                      Agendar esta cabine
+                    </Button>
+                  ) : null}
                   <label className="block">
                     <span className="text-xs font-semibold text-ink-muted">Cliente ou marca</span>
                     <select

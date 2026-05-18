@@ -26,6 +26,11 @@ function resolveTheme(theme: ThemeMode): ResolvedTheme {
   return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
+function applyResolvedTheme(theme: ResolvedTheme) {
+  if (typeof document === 'undefined') return
+  document.documentElement.dataset.theme = theme
+}
+
 function writeStoredTheme(theme: ThemeMode) {
   if (typeof window === 'undefined') return
 
@@ -44,18 +49,24 @@ interface ThemeState {
 }
 
 const initialTheme = readStoredTheme()
+const initialResolvedTheme = resolveTheme(initialTheme)
+applyResolvedTheme(initialResolvedTheme)
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
   theme: initialTheme,
-  resolvedTheme: resolveTheme(initialTheme),
+  resolvedTheme: initialResolvedTheme,
   setTheme: (theme) => {
+    const resolvedTheme = resolveTheme(theme)
     writeStoredTheme(theme)
-    set({ theme, resolvedTheme: resolveTheme(theme) })
+    applyResolvedTheme(resolvedTheme)
+    set({ theme, resolvedTheme })
   },
   toggleTheme: () => {
     const theme = get().resolvedTheme === 'light' ? 'dark' : 'light'
+    const resolvedTheme = resolveTheme(theme)
     writeStoredTheme(theme)
-    set({ theme, resolvedTheme: resolveTheme(theme) })
+    applyResolvedTheme(resolvedTheme)
+    set({ theme, resolvedTheme })
   },
 }))
 

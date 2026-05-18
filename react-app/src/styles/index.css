@@ -80,6 +80,20 @@
   --shadow-card-lg: 0 24px 54px rgba(0, 0, 0, 0.36);
 }
 
+:root,
+[data-theme="light"],
+[data-theme="dark"] {
+  --color-brand: var(--primary);
+  --color-brand-hover: var(--primary-hover);
+  --color-brand-soft: var(--primary-soft);
+  --color-canvas: var(--bg-base);
+  --color-surface: var(--bg-elev-1);
+  --color-surface-muted: var(--bg-elev-3);
+  --color-ink: var(--text-primary);
+  --color-ink-muted: var(--text-muted);
+  --color-line: var(--border);
+}
+
 * {
   box-sizing: border-box;
 }

@@ -1,5 +1,5 @@
 import { BarChart3, CalendarClock, MonitorPlay, Plus, Presentation, RefreshCcw, Video } from 'lucide-react'
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -38,6 +38,7 @@ const emptyAgendaEvent = {
   tipo: 'live',
   cabine_id: '',
   marca_id: '',
+  cliente_id: '',
   apresentadora_id: '',
   data: today(),
   hora_inicio: '09:00',
@@ -113,11 +114,18 @@ function liveTypeFromMarca(marca?: JsonRecord): 'cliente' | 'afiliado' | 'teste'
   return 'teste'
 }
 
+function normalizeConteudoTab(value: string | null): ConteudoTab {
+  if (!value || value === 'calendario' || value === 'agenda') return 'agenda'
+  if (['cabines', 'lives', 'videos', 'analytics'].includes(value)) return value as ConteudoTab
+  return 'agenda'
+}
+
 export function ConteudoPage() {
   const [params, setParams] = useSearchParams()
-  const initialParam = params.get('tab')
-  const initialTab = initialParam === 'calendario' || !initialParam ? 'agenda' : (initialParam as ConteudoTab)
-  const [tab, setTab] = useState<ConteudoTab>(initialTab)
+  const requestedTab = normalizeConteudoTab(params.get('tab'))
+  const requestedCabineId = params.get('cabine') ?? ''
+  const requestedDate = params.get('data') ?? ''
+  const [tab, setTab] = useState<ConteudoTab>(requestedTab)
   const [agendaDate, setAgendaDate] = useState(today())
   const [agendaView, setAgendaView] = useState<'dia' | 'semana'>('dia')
   const [agendaForm, setAgendaForm] = useState(emptyAgendaEvent)
@@ -147,8 +155,9 @@ export function ConteudoPage() {
       return createAgendaEvento(payload)
     },
     onSuccess: () => {
-      setAgendaForm({ ...emptyAgendaEvent, data: agendaDate })
+      setAgendaForm((current) => ({ ...emptyAgendaEvent, data: agendaDate, cabine_id: current.cabine_id }))
       void client.invalidateQueries({ queryKey: ['agenda'] })
+      void client.invalidateQueries({ queryKey: ['marcas'] })
     },
   })
   const createVideoMutation = useMutation({
@@ -180,6 +189,19 @@ export function ConteudoPage() {
     },
   })
 
+  useEffect(() => {
+    setTab(requestedTab)
+  }, [requestedTab])
+
+  useEffect(() => {
+    if (!requestedCabineId && !requestedDate) return
+    setAgendaForm((current) => ({
+      ...current,
+      cabine_id: requestedCabineId || current.cabine_id,
+      data: requestedDate || current.data,
+    }))
+  }, [requestedCabineId, requestedDate])
+
   const selectedLiveId = params.get('live') ?? ''
   const selectedLive = useMemo(() => {
     const rows = lives.data ?? []
@@ -203,6 +225,22 @@ export function ConteudoPage() {
   const agendaRows = agenda.data ?? []
   const cabineRows = cabines.data ?? []
   const activeCabines = cabineRows.filter((cabine) => (cabine as unknown as JsonRecord).ativo !== false && asString(cabine.status, '') !== 'inativa')
+  const marcaRows = marcas.data ?? []
+  const clienteRows = clientes.data ?? []
+  const clientesComMarca = new Set(marcaRows.map((marca) => asString(marca.cliente_id, '')).filter(Boolean))
+  const agendaAccountValue = agendaForm.marca_id ? `marca:${agendaForm.marca_id}` : agendaForm.cliente_id ? `cliente:${agendaForm.cliente_id}` : ''
+  const agendaAccountOptions = [
+    ...marcaRows.map((marca) => ({
+      value: `marca:${asString(marca.id, '')}`,
+      label: asString(marca.nome ?? marca.cliente_nome, 'Marca'),
+    })),
+    ...clienteRows
+      .filter((cliente) => !clientesComMarca.has(asString(cliente.id, '')))
+      .map((cliente) => ({
+        value: `cliente:${asString(cliente.id, '')}`,
+        label: asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente'),
+      })),
+  ].filter((option) => option.value !== 'marca:' && option.value !== 'cliente:')
   const todayLives = (lives.data ?? []).filter((live) => isSameLocalDate(live.iniciado_em, agendaDate)).length
   const todayRecordings = agendaRows.filter((event) => event.tipo === 'gravacao_video' && isSameLocalDate(event.data_inicio, agendaDate)).length
   const liveGmv = cabineRows.filter((cabine) => cabine.status === 'ao_vivo').reduce((sum, cabine) => sum + asNumber(cabine.gmv_atual), 0)
@@ -231,6 +269,28 @@ export function ConteudoPage() {
     setAgendaForm((current) => ({ ...current, [key]: value }))
   }
 
+  function setAgendaAccount(value: string) {
+    if (value.startsWith('marca:')) {
+      const marcaId = value.slice('marca:'.length)
+      const marca = (marcas.data ?? []).find((item) => asString(item.id, '') === marcaId)
+      setAgendaForm((current) => ({
+        ...current,
+        marca_id: marcaId,
+        cliente_id: asString(marca?.cliente_id, ''),
+      }))
+      return
+    }
+    if (value.startsWith('cliente:')) {
+      setAgendaForm((current) => ({
+        ...current,
+        marca_id: '',
+        cliente_id: value.slice('cliente:'.length),
+      }))
+      return
+    }
+    setAgendaForm((current) => ({ ...current, marca_id: '', cliente_id: '' }))
+  }
+
   function setVideoField(key: keyof typeof emptyVideo, value: string) {
     setVideoForm((current) => ({ ...current, [key]: value }))
   }
@@ -246,7 +306,8 @@ export function ConteudoPage() {
     createAgendaMutation.mutate({
       tipo: agendaForm.tipo,
       cabine_id: agendaForm.cabine_id || null,
-      marca_id: agendaForm.tipo === 'bloqueio_manutencao' ? null : agendaForm.marca_id,
+      marca_id: agendaForm.tipo === 'bloqueio_manutencao' ? null : agendaForm.marca_id || null,
+      cliente_id: agendaForm.tipo === 'bloqueio_manutencao' ? null : agendaForm.cliente_id || null,
       apresentadora_id: agendaForm.apresentadora_id || null,
       data_inicio: dataInicio,
       data_fim: dataFim,
@@ -385,7 +446,7 @@ export function ConteudoPage() {
                                 {events.map((event) => (
                                   <div key={asString(event.id)} className="mb-2 rounded-xl border border-brand/20 bg-brand-soft p-2 text-xs">
                                     <p className="font-bold text-brand">{typeLabel(event.tipo)} · {formatTime(event.data_inicio)}</p>
-                                    <p className="mt-1 truncate text-ink">{asString(event.marca_nome ?? event.observacoes, 'Bloqueio')}</p>
+                                    <p className="mt-1 truncate text-ink">{asString(event.marca_nome ?? event.cliente_nome ?? event.observacoes, 'Bloqueio')}</p>
                                     <p className="mt-1 truncate text-ink-muted">{asString(event.apresentadora_nome ?? event.responsavel_marketing)}</p>
                                     {event.tipo === 'live' && !['ao_vivo', 'concluido', 'cancelado'].includes(asString(event.status)) ? (
                                       <Button className="mt-2 h-8 px-2 text-xs" icon={MonitorPlay} isLoading={startLiveMutation.isPending} onClick={() => onStartAgendaLive(event)}>
@@ -455,10 +516,11 @@ export function ConteudoPage() {
                 {agendaForm.tipo !== 'bloqueio_manutencao' ? (
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">Marca/cliente</span>
-                    <select className="design-input mt-2 h-11 w-full px-4" value={agendaForm.marca_id} onChange={(event) => setAgendaField('marca_id', event.target.value)} required>
-                      <option value="">Selecione uma marca</option>
-                      {(marcas.data ?? []).map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome)}</option>)}
+                    <select className="design-input mt-2 h-11 w-full px-4" value={agendaAccountValue} onChange={(event) => setAgendaAccount(event.target.value)} required>
+                      <option value="">Selecione uma marca ou cliente</option>
+                      {agendaAccountOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
+                    {!agendaAccountOptions.length ? <p className="mt-2 text-xs text-ink-muted">Cadastre um cliente em Comercial ou uma marca afiliada para agendar lives.</p> : null}
                   </label>
                 ) : null}
                 <label className="block">
