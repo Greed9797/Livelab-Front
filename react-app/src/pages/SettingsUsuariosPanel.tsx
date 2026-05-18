@@ -82,7 +82,28 @@ export function SettingsUsuariosPanel() {
     onSuccess: () => void client.invalidateQueries({ queryKey: ['usuarios'] }),
   })
 
-  const rows = useMemo(() => usuarios.data ?? [], [usuarios.data])
+  const rows = useMemo(() => {
+    const userRows = usuarios.data ?? []
+    const linkedPresenterIds = new Set(userRows.map((item) => asString(item.apresentadora_id, '')).filter(Boolean))
+    const linkedUserIds = new Set(userRows.map((item) => asString(item.id, '')).filter(Boolean))
+    const presenterOnlyRows = (apresentadoras.data ?? [])
+      .filter((item) => {
+        const apresentadoraId = asString(item.id, '')
+        const userId = asString(item.user_id, '')
+        return !linkedPresenterIds.has(apresentadoraId) && (!userId || !linkedUserIds.has(userId))
+      })
+      .map((item) => ({
+        ...item,
+        id: `apresentadora:${asString(item.id, '')}`,
+        user_id: asString(item.user_id, ''),
+        apresentadora_id: asString(item.id, ''),
+        papel: 'apresentador',
+        email: asString(item.email, 'sem acesso criado'),
+        pode_apresentar_live: true,
+        origem_perfil: 'apresentadora',
+      }))
+    return [...userRows, ...presenterOnlyRows]
+  }, [usuarios.data, apresentadoras.data])
 
   if (usuarios.isLoading || clientes.isLoading || apresentadoras.isLoading) return <LoadingState />
   if (usuarios.isError) return <ErrorState message={extractErrorMessage(usuarios.error)} onRetry={() => void usuarios.refetch()} />
@@ -201,13 +222,14 @@ export function SettingsUsuariosPanel() {
                 align: 'right',
                 render: (item) => {
                   const id = asString(item.id, '')
+                  const presenterOnly = asString(item.origem_perfil) === 'apresentadora'
                   const ativo = ativoValue(item.ativo)
                   return (
                     <div className="flex flex-wrap justify-end gap-2">
-                      <Button variant="ghost" icon={ativo ? Shield : CheckCircle2} disabled={updateMutation.isPending} onClick={() => updateMutation.mutate({ id, payload: { ativo: !ativo } })}>{ativo ? 'Inativar' : 'Reativar'}</Button>
-                      <Button variant="ghost" icon={KeyRound} disabled={resetMutation.isPending} onClick={() => resetMutation.mutate(id)}>Resetar</Button>
-                      <Button variant="ghost" icon={MailPlus} disabled={resendMutation.isPending} onClick={() => resendMutation.mutate(id)}>Convite</Button>
-                      <Button variant="ghost" icon={LogOut} disabled={logoutMutation.isPending} onClick={() => logoutMutation.mutate(id)}>Logout</Button>
+                      <Button variant="ghost" icon={ativo ? Shield : CheckCircle2} disabled={presenterOnly || updateMutation.isPending} onClick={() => updateMutation.mutate({ id, payload: { ativo: !ativo } })}>{ativo ? 'Inativar' : 'Reativar'}</Button>
+                      <Button variant="ghost" icon={KeyRound} disabled={presenterOnly || resetMutation.isPending} onClick={() => resetMutation.mutate(id)}>Resetar</Button>
+                      <Button variant="ghost" icon={MailPlus} disabled={presenterOnly || resendMutation.isPending} onClick={() => resendMutation.mutate(id)}>Convite</Button>
+                      <Button variant="ghost" icon={LogOut} disabled={presenterOnly || logoutMutation.isPending} onClick={() => logoutMutation.mutate(id)}>Logout</Button>
                     </div>
                   )
                 },

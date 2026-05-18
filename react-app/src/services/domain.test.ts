@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, ganharLead, getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive } from './domain'
-import { apiGet, apiPatch, apiPost } from './api'
+import { createCliente, deleteCabine, ganharLead, getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive } from './domain'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
   apiDelete: vi.fn(),
@@ -12,6 +12,7 @@ vi.mock('./api', () => ({
 describe('domain live operations', () => {
   beforeEach(() => {
     vi.mocked(apiGet).mockReset()
+    vi.mocked(apiDelete).mockReset()
     vi.mocked(apiPatch).mockReset()
     vi.mocked(apiPost).mockReset()
   })
@@ -38,6 +39,14 @@ describe('domain live operations', () => {
     await createCliente({ nome: 'Marca A', celular: '47999999999' })
 
     expect(apiPost).toHaveBeenCalledWith('/clientes', { nome: 'Marca A', celular: '47999999999' })
+  })
+
+  it('sends explicit CABINE confirmation when deleting a cabine with history', async () => {
+    vi.mocked(apiDelete).mockResolvedValue({ ok: true })
+
+    await deleteCabine('cabine-1', 'CABINE')
+
+    expect(apiDelete).toHaveBeenCalledWith('/cabines/cabine-1?confirmacao=CABINE')
   })
 
   it('converts a lead through the ganhar endpoint', async () => {

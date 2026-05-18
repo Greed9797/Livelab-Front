@@ -87,7 +87,7 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
     onSuccess: () => client.invalidateQueries({ queryKey: ['cabines'] }),
   })
   const deleteMutation = useMutation({
-    mutationFn: deleteCabine,
+    mutationFn: ({ id, confirmacao }: { id: string; confirmacao?: string }) => deleteCabine(id, confirmacao),
     onSuccess: () => {
       setSelectedId('')
       void client.invalidateQueries({ queryKey: ['cabines'] })
@@ -244,6 +244,12 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
         manual_likes: asNumber(live.likes_count),
       },
     })
+  }
+
+  function confirmDeleteCabine(cabine: Cabine) {
+    const confirmacao = window.prompt(`Para excluir a Cabine ${asString(cabine.numero)}, digite CABINE.`)
+    if (confirmacao !== 'CABINE') return
+    deleteMutation.mutate({ id: cabine.id, confirmacao })
   }
 
   return (
@@ -544,11 +550,7 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                       variant="danger"
                       icon={Trash2}
                       disabled={deleteMutation.isPending}
-                      onClick={() => {
-                        if (window.confirm('Excluir esta cabine apenas se ela não tiver histórico?')) {
-                          void deleteMutation.mutate(selectedCabine.id)
-                        }
-                      }}
+                      onClick={() => confirmDeleteCabine(selectedCabine)}
                     >
                       Excluir
                     </Button>

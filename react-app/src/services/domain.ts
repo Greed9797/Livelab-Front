@@ -234,8 +234,9 @@ export function updateCabine(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/cabines/${id}`, payload)
 }
 
-export function deleteCabine(id: string) {
-  return apiDelete(`/cabines/${id}`)
+export function deleteCabine(id: string, confirmacao?: string) {
+  const suffix = confirmacao ? `?confirmacao=${encodeURIComponent(confirmacao)}` : ''
+  return apiDelete(`/cabines/${id}${suffix}`)
 }
 
 export function liberarCabine(id: string) {

@@ -7,10 +7,10 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { DataTable } from '../components/ui/DataTable'
-import { MetricCard } from '../components/ui/MetricCard'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
+import { getAgendaEventLayout, publicationStatusLabel } from './conteudo-helpers'
 import {
   createAgendaEvento,
   createVideo,
@@ -26,8 +26,7 @@ import {
   iniciarLive,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asNumber, asString, currentPeriod, formatDate, formatMoney } from '../utils/format'
-import { metric, moneyMetric } from './page-helpers'
+import { asNumber, asString, formatDate, formatMoney } from '../utils/format'
 import type { JsonRecord } from '../types/models'
 
 type ConteudoTab = 'agenda' | 'cabines' | 'lives' | 'videos' | 'analytics'
@@ -63,6 +62,7 @@ const emptyVideo = {
 const emptyManualLive = {
   cabine_id: '',
   cliente_id: '',
+  marca_id: '',
   apresentador_id: '',
   data: today(),
   hora_inicio: '09:00',
@@ -93,10 +93,14 @@ function formatTime(value: unknown) {
   return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
-function isSameLocalDate(value: unknown, date: string) {
-  const parsed = typeof value === 'string' ? new Date(value) : null
-  if (!parsed || Number.isNaN(parsed.getTime())) return false
-  return parsed.toISOString().slice(0, 10) === date
+function eventIntersectsLocalDate(event: JsonRecord, date: string) {
+  const start = typeof event.data_inicio === 'string' ? new Date(event.data_inicio) : null
+  const end = typeof event.data_fim === 'string' ? new Date(event.data_fim) : null
+  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false
+  const dayStart = new Date(`${date}T00:00:00`)
+  const dayEnd = new Date(dayStart)
+  dayEnd.setDate(dayStart.getDate() + 1)
+  return start < dayEnd && end > dayStart
 }
 
 function typeLabel(tipo: unknown) {
@@ -132,7 +136,6 @@ export function ConteudoPage() {
   const [videoForm, setVideoForm] = useState(emptyVideo)
   const [manualLiveForm, setManualLiveForm] = useState(emptyManualLive)
   const [showManualLive, setShowManualLive] = useState(false)
-  const period = currentPeriod()
   const client = useQueryClient()
 
   const range = dayRange(agendaDate, agendaView === 'semana' ? 7 : 1)
@@ -241,22 +244,27 @@ export function ConteudoPage() {
         label: asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente'),
       })),
   ].filter((option) => option.value !== 'marca:' && option.value !== 'cliente:')
-  const todayLives = (lives.data ?? []).filter((live) => isSameLocalDate(live.iniciado_em, agendaDate)).length
-  const todayRecordings = agendaRows.filter((event) => event.tipo === 'gravacao_video' && isSameLocalDate(event.data_inicio, agendaDate)).length
-  const liveGmv = cabineRows.filter((cabine) => cabine.status === 'ao_vivo').reduce((sum, cabine) => sum + asNumber(cabine.gmv_atual), 0)
-  const videosMonth = (videos.data ?? []).filter((video) => {
-    const date = new Date(asString(video.data, ''))
-    return !Number.isNaN(date.getTime()) && date.getMonth() + 1 === period.mes && date.getFullYear() === period.ano
-  }).reduce((sum, video) => sum + asNumber(video.quantidade), 0)
-
-  const metrics = [
-    metric('Cabines ativas', activeCabines.length, 'recursos físicos', 'neutral'),
-    metric('Lives hoje', todayLives, 'realizadas e em andamento', 'success'),
-    metric('Gravações hoje', todayRecordings, 'agenda de produção', 'brand'),
-    moneyMetric('GMV ao vivo agora', liveGmv, 'cabines em live', 'info'),
-    metric('Vídeos mês', videosMonth, 'gravados no período', 'warning'),
-  ]
-
+  const manualAccountValue = manualLiveForm.marca_id ? `marca:${manualLiveForm.marca_id}` : manualLiveForm.cliente_id ? `cliente:${manualLiveForm.cliente_id}` : ''
+  const manualAccountOptions = manualLiveForm.tipo === 'afiliado'
+    ? marcaRows
+      .filter((marca) => ['afiliada', 'parceira', 'propria'].includes(asString(marca.tipo, '')))
+      .map((marca) => ({
+        value: `marca:${asString(marca.id, '')}`,
+        label: asString(marca.nome ?? marca.cliente_nome, 'Afiliada'),
+      }))
+    : [
+      ...marcaRows
+        .filter((marca) => asString(marca.tipo, 'cliente') === 'cliente')
+        .map((marca) => ({
+          value: `marca:${asString(marca.id, '')}`,
+          label: asString(marca.nome ?? marca.cliente_nome, 'Marca'),
+        })),
+      ...clienteRows.map((cliente) => ({
+        value: `cliente:${asString(cliente.id, '')}`,
+        label: asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente'),
+      })),
+    ]
+  const manualAccountRequired = manualLiveForm.tipo !== 'teste'
   function switchTab(next: ConteudoTab) {
     setTab(next)
     const nextParams = new URLSearchParams(params)
@@ -299,6 +307,32 @@ export function ConteudoPage() {
     setManualLiveForm((current) => ({ ...current, [key]: value }))
   }
 
+  function setManualLiveType(value: string) {
+    setManualLiveForm((current) => ({ ...current, tipo: value, cliente_id: '', marca_id: '' }))
+  }
+
+  function setManualLiveAccount(value: string) {
+    if (value.startsWith('marca:')) {
+      const marcaId = value.slice('marca:'.length)
+      const marca = (marcas.data ?? []).find((item) => asString(item.id, '') === marcaId)
+      setManualLiveForm((current) => ({
+        ...current,
+        marca_id: marcaId,
+        cliente_id: asString(marca?.cliente_id, ''),
+      }))
+      return
+    }
+    if (value.startsWith('cliente:')) {
+      setManualLiveForm((current) => ({
+        ...current,
+        marca_id: '',
+        cliente_id: value.slice('cliente:'.length),
+      }))
+      return
+    }
+    setManualLiveForm((current) => ({ ...current, marca_id: '', cliente_id: '' }))
+  }
+
   function onAgendaSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const dataInicio = makeDateTime(agendaForm.data, agendaForm.hora_inicio)
@@ -334,7 +368,8 @@ export function ConteudoPage() {
     event.preventDefault()
     createManualLiveMutation.mutate({
       cabine_id: manualLiveForm.cabine_id,
-      cliente_id: manualLiveForm.tipo === 'cliente' ? manualLiveForm.cliente_id : undefined,
+      cliente_id: manualLiveForm.cliente_id || undefined,
+      marca_id: manualLiveForm.marca_id || undefined,
       apresentador_id: manualLiveForm.apresentador_id || undefined,
       data: manualLiveForm.data,
       hora_inicio: manualLiveForm.hora_inicio,
@@ -386,12 +421,6 @@ export function ConteudoPage() {
         }}>Atualizar</Button>}
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {metrics.map((item, index) => (
-          <MetricCard key={item.label} metric={item} icon={[Presentation, MonitorPlay, Video, BarChart3, CalendarClock][index]} />
-        ))}
-      </section>
-
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
         {[
           ['agenda', CalendarClock, 'Agenda'],
@@ -429,37 +458,56 @@ export function ConteudoPage() {
               {agendaView === 'dia' ? (
                 <div className="overflow-x-auto">
                   <div className="min-w-[920px]">
-                    <div className="grid border-b border-line pb-2" style={{ gridTemplateColumns: `90px repeat(${Math.max(activeCabines.length, 1)}, minmax(150px, 1fr))` }}>
+                    <div className="grid border-b border-line pb-2" style={{ gridTemplateColumns: `90px repeat(${Math.max(activeCabines.length, 1)}, minmax(160px, 1fr))` }}>
                       <p className="text-xs font-bold uppercase tracking-[0.12em] text-ink-muted">Horário</p>
                       {activeCabines.map((cabine) => (
                         <p key={cabine.id} className="text-xs font-bold uppercase tracking-[0.12em] text-ink-muted">Cabine {asString(cabine.numero)}</p>
                       ))}
                     </div>
-                    <div className="divide-y divide-line">
-                      {hours.map((hour) => (
-                        <div key={hour} className="grid min-h-20 py-2" style={{ gridTemplateColumns: `90px repeat(${Math.max(activeCabines.length, 1)}, minmax(150px, 1fr))` }}>
-                          <p className="pt-2 text-sm font-bold text-ink-muted">{String(hour).padStart(2, '0')}:00</p>
-                          {activeCabines.map((cabine) => {
-                            const events = agendaRows.filter((event) => asString(event.cabine_id) === cabine.id && new Date(asString(event.data_inicio, '')).getHours() === hour)
-                            return (
-                              <div key={cabine.id} className="min-h-16 border-l border-line px-2">
-                                {events.map((event) => (
-                                  <div key={asString(event.id)} className="mb-2 rounded-xl border border-brand/20 bg-brand-soft p-2 text-xs">
-                                    <p className="font-bold text-brand">{typeLabel(event.tipo)} · {formatTime(event.data_inicio)}</p>
-                                    <p className="mt-1 truncate text-ink">{asString(event.marca_nome ?? event.cliente_nome ?? event.observacoes, 'Bloqueio')}</p>
-                                    <p className="mt-1 truncate text-ink-muted">{asString(event.apresentadora_nome ?? event.responsavel_marketing)}</p>
-                                    {event.tipo === 'live' && !['ao_vivo', 'concluido', 'cancelado'].includes(asString(event.status)) ? (
-                                      <Button className="mt-2 h-8 px-2 text-xs" icon={MonitorPlay} isLoading={startLiveMutation.isPending} onClick={() => onStartAgendaLive(event)}>
-                                        Iniciar
-                                      </Button>
-                                    ) : null}
-                                  </div>
-                                ))}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ))}
+                    <div
+                      className="grid"
+                      style={{
+                        gridTemplateColumns: `90px repeat(${Math.max(activeCabines.length, 1)}, minmax(160px, 1fr))`,
+                        height: `${hours.length * 72}px`,
+                      }}
+                    >
+                      <div className="relative border-r border-line">
+                        {hours.map((hour, index) => (
+                          <div key={hour} className="absolute left-0 right-3 border-t border-line pt-2 text-sm font-bold text-ink-muted" style={{ top: `${index * 72}px` }}>
+                            {String(hour).padStart(2, '0')}:00
+                          </div>
+                        ))}
+                      </div>
+                      {activeCabines.map((cabine) => {
+                        const events = agendaRows.filter((event) => asString(event.cabine_id) === cabine.id && eventIntersectsLocalDate(event, agendaDate))
+                        return (
+                          <div key={cabine.id} className="relative border-r border-line">
+                            {hours.map((hour, index) => (
+                              <div key={hour} className="absolute left-0 right-0 border-t border-line" style={{ top: `${index * 72}px` }} />
+                            ))}
+                            {events.map((event) => {
+                              const layout = getAgendaEventLayout(event, { startHour: hours[0], endHour: hours[hours.length - 1] + 1, rowHeight: 72 })
+                              const canStart = event.tipo === 'live' && !['ao_vivo', 'concluido', 'cancelado'].includes(asString(event.status))
+                              return (
+                                <div
+                                  key={asString(event.id)}
+                                  className="absolute left-2 right-2 overflow-hidden rounded-xl border border-brand/35 bg-brand-soft p-2 text-xs shadow-sm"
+                                  style={{ top: `${layout.top + 4}px`, height: `${Math.max(44, layout.height - 8)}px` }}
+                                >
+                                  <p className="font-bold text-brand">{typeLabel(event.tipo)} · {formatTime(event.data_inicio)}-{formatTime(event.data_fim)}</p>
+                                  <p className="mt-1 truncate text-ink">{asString(event.marca_nome ?? event.cliente_nome ?? event.observacoes, 'Bloqueio')}</p>
+                                  <p className="mt-1 truncate text-ink-muted">{asString(event.apresentadora_nome ?? event.responsavel_marketing, 'Sem apresentadora')}</p>
+                                  {canStart && layout.height >= 92 ? (
+                                    <Button className="mt-2 h-8 px-2 text-xs" icon={MonitorPlay} isLoading={startLiveMutation.isPending} onClick={() => onStartAgendaLive(event)}>
+                                      Iniciar
+                                    </Button>
+                                  ) : null}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
@@ -578,10 +626,10 @@ export function ConteudoPage() {
                   { key: 'iniciado_em', header: 'Data', render: (item) => formatDate(asString(item.iniciado_em, '')) },
                   { key: 'cliente_nome', header: 'Marca/cliente', render: (item) => asString(item.marca_nome ?? item.cliente_nome) },
                   { key: 'cabine_numero', header: 'Cabine', render: (item) => asString(item.cabine_numero) },
-                  { key: 'apresentador_nome', header: 'Apresentadora', render: (item) => asString(item.apresentador_nome) },
+                  { key: 'apresentador_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome ?? item.apresentador_nome) },
                   { key: 'fat_gerado', header: 'GMV', align: 'right', render: (item) => formatMoney(item.fat_gerado ?? item.manual_gmv) },
                   { key: 'final_orders_count', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.final_orders_count ?? item.manual_orders).toLocaleString('pt-BR') },
-                  { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status))}>{asString(item.status)}</Badge> },
+                  { key: 'status_publicacao', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status_publicacao, 'rascunho'))}>{publicationStatusLabel(item.status_publicacao)}</Badge> },
                   { key: 'selecionar', header: '', align: 'right', render: (item) => <Button variant="ghost" onClick={() => setParams({ live: asString(item.id, ''), tab: 'lives' })}>Selecionar</Button> },
                 ]}
               />
@@ -603,7 +651,7 @@ export function ConteudoPage() {
                   </label>
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">Tipo</span>
-                    <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.tipo} onChange={(event) => setManualLiveField('tipo', event.target.value)}>
+                    <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.tipo} onChange={(event) => setManualLiveType(event.target.value)}>
                       <option value="cliente">Cliente/e-commerce</option>
                       <option value="afiliado">Afiliada</option>
                       <option value="teste">Interna/teste</option>
@@ -611,10 +659,15 @@ export function ConteudoPage() {
                   </label>
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">Marca/cliente</span>
-                    <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.cliente_id} onChange={(event) => setManualLiveField('cliente_id', event.target.value)} required={manualLiveForm.tipo === 'cliente'}>
-                      <option value="">Selecione um cliente</option>
-                      {(clientes.data ?? []).map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome)}</option>)}
+                    <select className="design-input mt-2 h-11 w-full px-4" value={manualAccountValue} onChange={(event) => setManualLiveAccount(event.target.value)} required={manualAccountRequired}>
+                      <option value="">{manualLiveForm.tipo === 'afiliado' ? 'Selecione uma afiliada' : 'Selecione uma marca ou cliente'}</option>
+                      {manualAccountOptions
+                        .filter((option) => option.value !== 'marca:' && option.value !== 'cliente:')
+                        .map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
+                    {manualLiveForm.tipo === 'afiliado' && !manualAccountOptions.length ? (
+                      <p className="mt-2 text-xs text-ink-muted">Cadastre uma marca afiliada em Comercial para lançar essa live.</p>
+                    ) : null}
                   </label>
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">Apresentadora</span>
