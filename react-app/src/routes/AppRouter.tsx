@@ -61,13 +61,15 @@ export function AppRouter() {
               <Route path="/cliente/configuracoes" element={<ConfiguracoesPage clienteMode />} />
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={cabineRoles} />}>
+            <Route element={<ProtectedRoute allowedRoles={[...cabineRoles, 'apresentador']} />}>
               <Route path="/conteudo" element={<ConteudoPage />} />
               <Route path="/cabines" element={<Navigate to="/conteudo" replace />} />
-              <Route path="/agendamentos" element={<Navigate to="/solicitacoes" replace />} />
+              {/* /agendamentos agora redireciona para /conteudo — solicitações foi depreciada */}
+              <Route path="/agendamentos" element={<Navigate to="/conteudo" replace />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={opsRoles} />}>
+              {/* /solicitacoes mantida apenas para acesso histórico — não é mais fluxo principal */}
               <Route path="/solicitacoes" element={<SolicitacoesPage />} />
               <Route path="/apresentadoras" element={<ApresentadorasPage />} />
             </Route>
