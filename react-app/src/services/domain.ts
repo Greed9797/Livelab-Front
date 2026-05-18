@@ -253,7 +253,15 @@ export function getLives() {
 export async function getLiveAtualDaCabine(cabineId: string): Promise<LiveAtual | null> {
   const res = await apiGet<JsonRecord>(`/cabines/${cabineId}/live-atual`)
   if (!res.live_ativa) return null
-  return res as unknown as LiveAtual
+  return {
+    ...res,
+    id: String(res.live_id ?? res.id ?? ''),
+    status: 'em_andamento',
+    tipo: 'cliente',
+    status_publicacao: 'rascunho',
+    origem_dados: 'api',
+    cabine_id: cabineId,
+  } as unknown as LiveAtual
 }
 
 export function getLivePorId(liveId: string): Promise<LiveAtual> {
@@ -261,7 +269,7 @@ export function getLivePorId(liveId: string): Promise<LiveAtual> {
 }
 
 export function publishLive(liveId: string, statusPublicacao: 'revisado' | 'publicado'): Promise<LiveAtual> {
-  return apiPatch<LiveAtual>(`/lives/${liveId}`, { status_publicacao: statusPublicacao })
+  return apiPatch<LiveAtual>(`/lives/${liveId}/publicar`, { status_publicacao: statusPublicacao })
 }
 
 export function iniciarLive(payload: JsonRecord) {
