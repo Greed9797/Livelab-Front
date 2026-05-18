@@ -29,14 +29,6 @@ export function ComercialPage() {
 
   const isLoading = summaryQuery.isLoading || leadsQuery.isLoading || clientesQuery.isLoading || marcasQuery.isLoading
   const error = summaryQuery.error ?? leadsQuery.error ?? clientesQuery.error ?? marcasQuery.error
-  if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
-    void summaryQuery.refetch()
-    void leadsQuery.refetch()
-    void clientesQuery.refetch()
-    void marcasQuery.refetch()
-  }} />
-
   const summary = getRecord(summaryQuery.data?.summary)
   const totals = getRecord(summaryQuery.data?.totals)
   const leads = leadsQuery.data ?? []
@@ -55,24 +47,6 @@ export function ComercialPage() {
   ]
 
   const canExportData = user?.papel === 'franqueador_master' || user?.papel === 'franqueado'
-
-  function handleExportarDados(clienteId: string) {
-    exportMutation.mutate(clienteId, {
-      onSuccess: (data) => {
-        const jsonString = JSON.stringify(data, null, 2)
-        const blob = new Blob([jsonString], { type: 'application/json' })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `dados-cliente-${clienteId}.json`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
-      },
-    })
-  }
-
   const ativos = useMemo(() => {
     const marcasPorCliente = new Map<string, JsonRecord[]>()
     marcas.forEach((marca) => {
@@ -97,6 +71,31 @@ export function ComercialPage() {
 
     return [...clientesRows, ...marcasSemCliente]
   }, [clientes, marcas])
+
+  if (isLoading) return <LoadingState />
+  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
+    void summaryQuery.refetch()
+    void leadsQuery.refetch()
+    void clientesQuery.refetch()
+    void marcasQuery.refetch()
+  }} />
+
+  function handleExportarDados(clienteId: string) {
+    exportMutation.mutate(clienteId, {
+      onSuccess: (data) => {
+        const jsonString = JSON.stringify(data, null, 2)
+        const blob = new Blob([jsonString], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `dados-cliente-${clienteId}.json`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      },
+    })
+  }
 
   return (
     <div className="space-y-6">
