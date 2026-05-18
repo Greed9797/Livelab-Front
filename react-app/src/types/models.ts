@@ -1,22 +1,37 @@
+/**
+ * Official roles in the product (5)
+ * @see OfficialRole for the canonical set
+ */
 export type Role =
   | 'franqueador_master'
-  | 'admin_master'
-  | 'gerente_regional'
+  | /** @deprecated use franqueador_master */ 'admin_master'
+  | /** @deprecated use franqueador_master */ 'gerente_regional'
   | 'franqueado'
-  | 'gerente'
-  | 'gerente_comercial'
-  | 'financeiro'
-  | 'financeiro_readonly'
+  | /** @deprecated use franqueado or operacional */ 'gerente'
+  | /** @deprecated use operacional */ 'gerente_comercial'
+  | /** @deprecated use franqueado */ 'financeiro'
+  | /** @deprecated use operacional */ 'financeiro_readonly'
   | 'operacional'
-  | 'auditor'
-  | 'suporte'
-  | 'produtor_live'
-  | 'marketing'
-  | 'comercial_readonly'
+  | /** @deprecated use operacional */ 'auditor'
+  | /** @deprecated use operacional */ 'suporte'
+  | /** @deprecated use operacional */ 'produtor_live'
+  | /** @deprecated use operacional */ 'marketing'
+  | /** @deprecated use operacional */ 'comercial_readonly'
   | 'apresentador'
-  | 'apresentadora'
+  | /** @deprecated use apresentador (typo fix) */ 'apresentadora'
   | 'cliente_parceiro'
   | string
+
+/**
+ * The 5 official roles in the product
+ * Use this for new code; legacy roles in Role should be normalized via normalizeRole()
+ */
+export type OfficialRole =
+  | 'franqueador_master'
+  | 'franqueado'
+  | 'operacional'
+  | 'apresentador'
+  | 'cliente_parceiro'
 
 export type JsonRecord = Record<string, unknown>
 
@@ -111,4 +126,31 @@ export interface ApiListResponse<T> {
   items?: T[]
   rows?: T[]
   results?: T[]
+}
+
+export interface LiveAtual {
+  id: string
+  status: 'em_andamento' | 'encerrada' | 'cancelada'
+  tipo: 'cliente' | 'afiliado' | 'teste'
+  status_publicacao: 'rascunho' | 'revisado' | 'publicado'
+  origem_dados: 'manual' | 'api'
+  cabine_id: string
+  cabine_numero?: number
+  cliente_id?: string | null
+  cliente_nome?: string | null
+  apresentador_id?: string | null
+  apresentador_nome?: string | null
+  fat_gerado?: number
+  qtd_pedidos?: number
+  iniciado_em: string
+  encerrado_em?: string | null
+  agenda_evento_id?: string | null
+  agenda_data_inicio?: string | null
+  agenda_titulo?: string | null
+  // métricas manuais
+  manual_views?: number
+  manual_likes?: number
+  manual_comments?: number
+  manual_shares?: number
+  manual_gmv?: number
 }

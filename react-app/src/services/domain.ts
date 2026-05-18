@@ -1,4 +1,4 @@
-import type { Cabine, JsonRecord, Lead, Period, Solicitacao } from '../types/models'
+import type { Cabine, JsonRecord, Lead, LiveAtual, Period, Solicitacao } from '../types/models'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 import { periodToParam } from '../utils/format'
 
@@ -114,6 +114,30 @@ export function deleteAgendaEvento(id: string) {
   return apiDelete(`/agenda/${id}`)
 }
 
+export function getAgendaConflitos(cabineId: string, dataInicio: string, dataFim: string) {
+  return apiGet<JsonRecord>(`/agenda/conflitos?cabine_id=${cabineId}&data_inicio=${encodeURIComponent(dataInicio)}&data_fim=${encodeURIComponent(dataFim)}`)
+}
+
+export function criarEventoAgenda(payload: {
+  tipo: string
+  cabine_id: string
+  marca_id?: string
+  data_inicio: string
+  data_fim: string
+  recorrencia?: {
+    frequencia: 'diaria' | 'semanal' | 'quinzenal' | 'mensal'
+    ate?: string
+    total_ocorrencias?: number
+    dias_semana?: number[]
+  }
+}) {
+  return apiPost<JsonRecord>('/agenda', payload)
+}
+
+export function atualizarEventoAgenda(id: string, payload: Record<string, unknown>, modoRecorrencia = 'apenas_este') {
+  return apiPatch<JsonRecord>(`/agenda/${id}`, { ...payload, modo_recorrencia: modoRecorrencia })
+}
+
 export function getVideos(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/videos', params)
 }
@@ -224,6 +248,20 @@ export function getCabineLiveAtual(id: string) {
 
 export function getLives() {
   return apiGet<JsonRecord[]>('/lives')
+}
+
+export async function getLiveAtualDaCabine(cabineId: string): Promise<LiveAtual | null> {
+  const res = await apiGet<JsonRecord>(`/cabines/${cabineId}/live-atual`)
+  if (!res.live_ativa) return null
+  return res as unknown as LiveAtual
+}
+
+export function getLivePorId(liveId: string): Promise<LiveAtual> {
+  return apiGet<LiveAtual>(`/lives/${liveId}`)
+}
+
+export function publishLive(liveId: string, statusPublicacao: 'revisado' | 'publicado'): Promise<LiveAtual> {
+  return apiPatch<LiveAtual>(`/lives/${liveId}`, { status_publicacao: statusPublicacao })
 }
 
 export function iniciarLive(payload: JsonRecord) {

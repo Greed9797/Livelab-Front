@@ -1,5 +1,23 @@
 import type { Session, User } from '../types/models'
 
+// LGPD / Segurança — nota sobre armazenamento de JWT em localStorage:
+// O access token e refresh token são persistidos em localStorage por compatibilidade
+// com o fluxo atual (SPA sem BFF). Isso expõe os tokens a ataques XSS caso um
+// script malicioso seja injetado na página.
+//
+// Tradeoff documentado:
+//   - localStorage: simples, funciona em todos os browsers, sem config de servidor.
+//     Risco: XSS pode ler os tokens diretamente via document.cookie/localStorage.
+//   - httpOnly cookie: imune a XSS (JS não acessa), mas requer configuração de
+//     Same-Site + CORS + backend BFF para emitir o cookie — mudança de arquitetura.
+//
+// Mitigações atuais (não eliminam o risco, apenas reduzem):
+//   1. Access token de curta duração (15min via JWT_EXPIRES_IN).
+//   2. token_version no banco invalida tokens comprometidos via /redefinir-senha.
+//   3. CSP habilitado (helmet) bloqueia scripts inline não autorizados.
+//
+// TODO (melhoria de segurança futura): migrar para httpOnly cookie com refresh
+// rotation gerenciado pelo backend, eliminando exposição via localStorage.
 const accessKey = 'livelab.react.access_token'
 const refreshKey = 'livelab.react.refresh_token'
 const userKey = 'livelab.react.user'
