@@ -114,6 +114,30 @@ export function deleteAgendaEvento(id: string) {
   return apiDelete(`/agenda/${id}`)
 }
 
+export function getAgendaConflitos(cabineId: string, dataInicio: string, dataFim: string) {
+  return apiGet<JsonRecord>(`/agenda/conflitos?cabine_id=${cabineId}&data_inicio=${encodeURIComponent(dataInicio)}&data_fim=${encodeURIComponent(dataFim)}`)
+}
+
+export function criarEventoAgenda(payload: {
+  tipo: string
+  cabine_id: string
+  marca_id?: string
+  data_inicio: string
+  data_fim: string
+  recorrencia?: {
+    frequencia: 'diaria' | 'semanal' | 'quinzenal' | 'mensal'
+    ate?: string
+    total_ocorrencias?: number
+    dias_semana?: number[]
+  }
+}) {
+  return apiPost<JsonRecord>('/agenda', payload)
+}
+
+export function atualizarEventoAgenda(id: string, payload: Record<string, unknown>, modoRecorrencia = 'apenas_este') {
+  return apiPatch<JsonRecord>(`/agenda/${id}`, { ...payload, modo_recorrencia: modoRecorrencia })
+}
+
 export function getVideos(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/videos', params)
 }
