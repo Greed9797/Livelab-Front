@@ -1,4 +1,4 @@
-import { CheckCircle2, KeyRound, LogOut, MailPlus, RefreshCcw, Shield, UserPlus } from 'lucide-react'
+import { CheckCircle2, Edit2, KeyRound, LogOut, MailPlus, RefreshCcw, Shield, Trash2, UserPlus } from 'lucide-react'
 import { FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
@@ -6,10 +6,12 @@ import { Button } from '../components/ui/Button'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { Modal } from '../components/ui/Modal'
 import { asNumber, asString, formatMoney } from '../utils/format'
 import { extractErrorMessage } from '../services/api'
 import {
   convidarUsuario,
+  deleteUsuario,
   forceLogoutUsuario,
   getApresentadoras,
   getClientes,
@@ -43,6 +45,12 @@ const emptyForm = {
   senha_temporaria: '',
 }
 
+const emptyEditForm = {
+  nome: '',
+  papel: 'gerente',
+  ativo: true,
+}
+
 function ativoValue(value: unknown) {
   return value === true || value === 'true'
 }
@@ -50,6 +58,8 @@ function ativoValue(value: unknown) {
 export function SettingsUsuariosPanel() {
   const client = useQueryClient()
   const [form, setForm] = useState(emptyForm)
+  const [editingUser, setEditingUser] = useState<JsonRecord | null>(null)
+  const [editForm, setEditForm] = useState(emptyEditForm)
   const [papelFilter, setPapelFilter] = useState('all')
   const [ativoFilter, setAtivoFilter] = useState('all')
   const usuarios = useQuery({
@@ -73,7 +83,19 @@ export function SettingsUsuariosPanel() {
   })
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateUsuario(id, payload),
-    onSuccess: () => void client.invalidateQueries({ queryKey: ['usuarios'] }),
+    onSuccess: () => {
+      setEditingUser(null)
+      setEditForm(emptyEditForm)
+      void client.invalidateQueries({ queryKey: ['usuarios'] })
+    },
+  })
+  const deleteMutation = useMutation({
+    mutationFn: deleteUsuario,
+    onSuccess: () => {
+      setEditingUser(null)
+      setEditForm(emptyEditForm)
+      void client.invalidateQueries({ queryKey: ['usuarios'] })
+    },
   })
   const resetMutation = useMutation({ mutationFn: resetSenhaUsuario })
   const logoutMutation = useMutation({ mutationFn: forceLogoutUsuario })
@@ -112,6 +134,19 @@ export function SettingsUsuariosPanel() {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
+  function openEditUser(item: JsonRecord) {
+    setEditingUser(item)
+    setEditForm({
+      nome: asString(item.nome, ''),
+      papel: asString(item.papel, 'gerente'),
+      ativo: ativoValue(item.ativo),
+    })
+  }
+
+  function setEditField(key: keyof typeof emptyEditForm, value: string | boolean) {
+    setEditForm((current) => ({ ...current, [key]: value }))
+  }
+
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     inviteMutation.mutate({
@@ -122,6 +157,25 @@ export function SettingsUsuariosPanel() {
       ...(form.papel === 'apresentador' && form.apresentadora_id ? { apresentadora_id: form.apresentadora_id } : {}),
       ...(form.senha_temporaria ? { senha_temporaria: form.senha_temporaria } : {}),
     })
+  }
+
+  function onEditSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!editingUser) return
+    updateMutation.mutate({
+      id: asString(editingUser.id, ''),
+      payload: {
+        nome: editForm.nome,
+        papel: editForm.papel,
+        ativo: editForm.ativo,
+      },
+    })
+  }
+
+  function onDeleteUser(item: JsonRecord) {
+    const label = asString(item.nome ?? item.email, 'usuário')
+    if (!window.confirm(`Excluir/desativar o usuário "${label}"?`)) return
+    deleteMutation.mutate(asString(item.id, ''))
   }
 
   return (
@@ -227,18 +281,20 @@ export function SettingsUsuariosPanel() {
                   return (
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button variant="ghost" icon={ativo ? Shield : CheckCircle2} disabled={presenterOnly || updateMutation.isPending} onClick={() => updateMutation.mutate({ id, payload: { ativo: !ativo } })}>{ativo ? 'Inativar' : 'Reativar'}</Button>
+                      <Button variant="secondary" icon={Edit2} disabled={presenterOnly} onClick={() => openEditUser(item)}>Editar</Button>
                       <Button variant="ghost" icon={KeyRound} disabled={presenterOnly || resetMutation.isPending} onClick={() => resetMutation.mutate(id)}>Resetar</Button>
                       <Button variant="ghost" icon={MailPlus} disabled={presenterOnly || resendMutation.isPending} onClick={() => resendMutation.mutate(id)}>Convite</Button>
                       <Button variant="ghost" icon={LogOut} disabled={presenterOnly || logoutMutation.isPending} onClick={() => logoutMutation.mutate(id)}>Logout</Button>
+                      <Button variant="danger" icon={Trash2} disabled={presenterOnly || deleteMutation.isPending} onClick={() => onDeleteUser(item)}>Excluir</Button>
                     </div>
                   )
                 },
               },
             ]}
           />
-          {updateMutation.isError || resetMutation.isError || logoutMutation.isError || resendMutation.isError ? (
+          {updateMutation.isError || resetMutation.isError || logoutMutation.isError || resendMutation.isError || deleteMutation.isError ? (
             <p className="mt-4 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
-              {extractErrorMessage(updateMutation.error ?? resetMutation.error ?? logoutMutation.error ?? resendMutation.error)}
+              {extractErrorMessage(updateMutation.error ?? resetMutation.error ?? logoutMutation.error ?? resendMutation.error ?? deleteMutation.error)}
             </p>
           ) : null}
           {resetMutation.data ? (
@@ -248,6 +304,40 @@ export function SettingsUsuariosPanel() {
           ) : null}
         </CardBody>
       </Card>
+
+      <Modal
+        open={!!editingUser}
+        title="Editar usuário"
+        subtitle={editingUser ? asString(editingUser.email, '') : undefined}
+        onClose={() => setEditingUser(null)}
+        size="md"
+      >
+        <form className="grid gap-4 md:grid-cols-2" id="usuario-edit-form" onSubmit={onEditSubmit}>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-semibold text-ink">Nome</span>
+            <input className="design-input mt-2 h-11 w-full px-4" value={editForm.nome} onChange={(event) => setEditField('nome', event.target.value)} required />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Papel</span>
+            <select className="design-input mt-2 h-11 w-full px-4" value={editForm.papel} onChange={(event) => setEditField('papel', event.target.value)}>
+              {papeis.map((papel) => <option key={papel} value={papel}>{papelLabels[papel] ?? papel}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Status</span>
+            <select className="design-input mt-2 h-11 w-full px-4" value={editForm.ativo ? 'true' : 'false'} onChange={(event) => setEditField('ativo', event.target.value === 'true')}>
+              <option value="true">Ativo</option>
+              <option value="false">Inativo</option>
+            </select>
+          </label>
+          {updateMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(updateMutation.error)}</p> : null}
+          <div className="flex flex-wrap gap-2 md:col-span-2">
+            <Button type="submit" icon={CheckCircle2} isLoading={updateMutation.isPending}>Salvar usuário</Button>
+            {editingUser ? <Button type="button" variant="danger" icon={Trash2} isLoading={deleteMutation.isPending} onClick={() => onDeleteUser(editingUser)}>Excluir</Button> : null}
+            <Button type="button" variant="secondary" onClick={() => setEditingUser(null)}>Cancelar</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

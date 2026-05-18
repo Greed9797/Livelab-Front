@@ -78,6 +78,10 @@ export function updateUsuario(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/usuarios/${id}`, payload)
 }
 
+export function deleteUsuario(id: string) {
+  return apiDelete(`/usuarios/${id}`)
+}
+
 export function resetSenhaUsuario(id: string) {
   return apiPost<JsonRecord>(`/usuarios/${id}/reset-senha`, {})
 }
@@ -283,6 +287,14 @@ export function getLivePorId(liveId: string): Promise<LiveAtual> {
 
 export function publishLive(liveId: string, statusPublicacao: 'revisado' | 'publicado'): Promise<LiveAtual> {
   return apiPatch<LiveAtual>(`/lives/${liveId}/publicar`, { status_publicacao: statusPublicacao })
+}
+
+export function updateLive(id: string, payload: JsonRecord) {
+  return apiPatch<JsonRecord>(`/lives/${id}`, payload)
+}
+
+export function deleteLive(id: string) {
+  return apiDelete(`/lives/${id}`)
 }
 
 export function iniciarLive(payload: JsonRecord) {

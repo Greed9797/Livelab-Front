@@ -1,4 +1,4 @@
-import { ClipboardCheck, Edit2, PhoneCall, Plus, Search, Trash2, Trophy, Workflow, XCircle } from 'lucide-react'
+import { ClipboardCheck, Edit2, GripVertical, PhoneCall, Plus, Search, Trash2, Trophy, Workflow, XCircle } from 'lucide-react'
 import { FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MetricCard } from '../components/ui/MetricCard'
@@ -6,6 +6,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { Modal } from '../components/ui/Modal'
 import { addLeadContato, addLeadTarefa, createLead, deleteLead, ganharLead, getCrmSummary, getLeads, updateLead } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatDate, formatMoney, getRecord } from '../utils/format'
@@ -23,6 +24,8 @@ export const CRM_STAGES = [
   { key: 'perdido', label: 'Perdido' },
 ] as const
 
+type CrmStageKey = (typeof CRM_STAGES)[number]['key']
+
 const CRM_STAGE_KEYS = new Set(CRM_STAGES.map((stage) => stage.key))
 
 const emptyLeadForm = {
@@ -36,11 +39,12 @@ const emptyLeadForm = {
   crm_etapa: 'lead_novo',
   contato_email: '',
   contato_whatsapp: '',
+  observacoes_internas: '',
 }
 
 export function normalizeCrmStage(lead: JsonRecord) {
   const stage = asString(lead.crm_etapa, '')
-  return CRM_STAGE_KEYS.has(stage as (typeof CRM_STAGES)[number]['key']) ? stage : 'lead_novo'
+  return CRM_STAGE_KEYS.has(stage as CrmStageKey) ? stage : 'lead_novo'
 }
 
 export function groupLeadsByStage<T extends JsonRecord>(leads: T[]) {
@@ -48,6 +52,12 @@ export function groupLeadsByStage<T extends JsonRecord>(leads: T[]) {
     stage,
     leads: leads.filter((lead) => normalizeCrmStage(lead) === stage.key),
   }))
+}
+
+export function moveLeadToStage<T extends JsonRecord>(leads: T[], leadId: string, stage: CrmStageKey) {
+  return leads.map((lead) => (
+    asString(lead.id, '') === leadId ? { ...lead, crm_etapa: stage } : lead
+  ))
 }
 
 function leadTitle(lead: JsonRecord) {
@@ -58,12 +68,18 @@ function leadValue(lead: JsonRecord) {
   return lead.valor_oportunidade ?? lead.valor_estimado ?? lead.fat_estimado
 }
 
+function stageLabel(stage: unknown) {
+  return CRM_STAGES.find((item) => item.key === normalizeCrmStage({ crm_etapa: stage }))?.label ?? 'Novo lead'
+}
+
 export function CrmPage() {
   const [search, setSearch] = useState('')
   const [activityFilter, setActivityFilter] = useState('todos')
-  const [showForm, setShowForm] = useState(false)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'detail' | null>(null)
   const [editingId, setEditingId] = useState('')
+  const [selectedLead, setSelectedLead] = useState<JsonRecord | null>(null)
   const [leadForm, setLeadForm] = useState(emptyLeadForm)
+  const [dragLeadId, setDragLeadId] = useState('')
   const client = useQueryClient()
   const summaryQuery = useQuery({ queryKey: ['crm-summary'], queryFn: getCrmSummary })
   const leadsQuery = useQuery({ queryKey: ['leads'], queryFn: getLeads })
@@ -73,38 +89,54 @@ export function CrmPage() {
     void client.invalidateQueries({ queryKey: ['crm-summary'] })
   }
 
+  const closeModal = () => {
+    setModalMode(null)
+    setEditingId('')
+    setSelectedLead(null)
+    setLeadForm(emptyLeadForm)
+  }
+
   const saveMutation = useMutation({
     mutationFn: (payload: JsonRecord) => editingId ? updateLead(editingId, payload) : createLead(payload),
     onSuccess: () => {
-      setShowForm(false)
-      setEditingId('')
-      setLeadForm(emptyLeadForm)
+      closeModal()
       invalidateCrm()
     },
   })
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateLead(id, payload),
     onSuccess: invalidateCrm,
+    onError: invalidateCrm,
   })
-  const deleteMutation = useMutation({ mutationFn: deleteLead, onSuccess: invalidateCrm })
+  const deleteMutation = useMutation({
+    mutationFn: deleteLead,
+    onSuccess: () => {
+      closeModal()
+      invalidateCrm()
+    },
+  })
   const contatoMutation = useMutation({
-    mutationFn: (id: string) => addLeadContato(id, { tipo: 'whatsapp', resumo: 'Contato registrado pelo painel React.' }),
+    mutationFn: ({ id, resumo }: { id: string; resumo: string }) => addLeadContato(id, { tipo: 'whatsapp', resumo }),
     onSuccess: invalidateCrm,
   })
   const tarefaMutation = useMutation({
-    mutationFn: (id: string) => addLeadTarefa(id, { titulo: 'Follow-up comercial', concluida: false }),
+    mutationFn: ({ id, titulo }: { id: string; titulo: string }) => addLeadTarefa(id, { titulo, concluida: false }),
     onSuccess: invalidateCrm,
   })
   const ganharMutation = useMutation({
     mutationFn: (id: string) => ganharLead(id),
     onSuccess: () => {
+      closeModal()
       invalidateCrm()
       void client.invalidateQueries({ queryKey: ['clientes'] })
     },
   })
   const perderMutation = useMutation({
-    mutationFn: (id: string) => updateLead(id, { crm_etapa: 'perdido' }),
-    onSuccess: invalidateCrm,
+    mutationFn: ({ id, motivo }: { id: string; motivo?: string }) => updateLead(id, { crm_etapa: 'perdido', ...(motivo ? { motivo_perda: motivo } : {}) }),
+    onSuccess: () => {
+      closeModal()
+      invalidateCrm()
+    },
   })
 
   const raw = summaryQuery.data ?? {}
@@ -149,28 +181,39 @@ export function CrmPage() {
     setLeadForm((current) => ({ ...current, [key]: value }))
   }
 
-  function openCreateForm() {
-    setEditingId('')
-    setLeadForm(emptyLeadForm)
-    setShowForm(true)
+  function fillForm(lead: JsonRecord) {
+    setLeadForm({
+      nome: leadTitle(lead) === 'Lead' ? '' : leadTitle(lead),
+      nicho: asString(lead.nicho, ''),
+      origem: asString(lead.origem, 'Cliente'),
+      cidade: asString(lead.cidade, ''),
+      estado: asString(lead.estado, ''),
+      valor_oportunidade: asString(lead.valor_oportunidade ?? lead.valor_estimado, ''),
+      responsavel_nome: asString(lead.responsavel_nome, ''),
+      crm_etapa: normalizeCrmStage(lead),
+      contato_email: asString(lead.contato_email, ''),
+      contato_whatsapp: asString(lead.contato_whatsapp, ''),
+      observacoes_internas: asString(lead.observacoes_internas, ''),
+    })
   }
 
-  function openEditForm(lead: Lead) {
-    const record = lead as Lead & JsonRecord
-    setEditingId(lead.id)
-    setLeadForm({
-      nome: leadTitle(record) === 'Lead' ? '' : leadTitle(record),
-      nicho: asString(record.nicho, ''),
-      origem: asString(record.origem, 'Cliente'),
-      cidade: asString(record.cidade, ''),
-      estado: asString(record.estado, ''),
-      valor_oportunidade: asString(record.valor_oportunidade ?? record.valor_estimado, ''),
-      responsavel_nome: asString(record.responsavel_nome, ''),
-      crm_etapa: normalizeCrmStage(record),
-      contato_email: asString(record.contato_email, ''),
-      contato_whatsapp: asString(record.contato_whatsapp, ''),
-    })
-    setShowForm(true)
+  function openCreateForm() {
+    setEditingId('')
+    setSelectedLead(null)
+    setLeadForm(emptyLeadForm)
+    setModalMode('create')
+  }
+
+  function openDetail(lead: JsonRecord) {
+    setSelectedLead(lead)
+    setModalMode('detail')
+  }
+
+  function openEditForm(lead: JsonRecord) {
+    setSelectedLead(lead)
+    setEditingId(asString(lead.id, ''))
+    fillForm(lead)
+    setModalMode('edit')
   }
 
   function onLeadSubmit(event: FormEvent<HTMLFormElement>) {
@@ -186,79 +229,52 @@ export function CrmPage() {
       crm_etapa: leadForm.crm_etapa,
       contato_email: leadForm.contato_email || undefined,
       contato_whatsapp: leadForm.contato_whatsapp || undefined,
+      observacoes_internas: leadForm.observacoes_internas || undefined,
     })
   }
 
+  function moveLead(id: string, stage: CrmStageKey) {
+    const currentLead = leads.find((lead) => asString(lead.id, '') === id) as JsonRecord | undefined
+    if (!currentLead || normalizeCrmStage(currentLead) === stage) return
+    client.setQueryData<Lead[]>(['leads'], (current = []) => moveLeadToStage(current as unknown as JsonRecord[], id, stage) as unknown as Lead[])
+    updateMutation.mutate({ id, payload: { crm_etapa: stage } })
+  }
+
+  function registerContact(lead: JsonRecord) {
+    const resumo = window.prompt('Resumo do contato')
+    if (!resumo?.trim()) return
+    contatoMutation.mutate({ id: asString(lead.id, ''), resumo: resumo.trim() })
+  }
+
+  function createTask(lead: JsonRecord) {
+    const titulo = window.prompt('Título da tarefa')
+    if (!titulo?.trim()) return
+    tarefaMutation.mutate({ id: asString(lead.id, ''), titulo: titulo.trim() })
+  }
+
+  function markLost(lead: JsonRecord) {
+    const motivo = window.prompt('Motivo da perda')
+    perderMutation.mutate({ id: asString(lead.id, ''), motivo: motivo?.trim() || undefined })
+  }
+
+  function deleteSelectedLead(lead: JsonRecord) {
+    if (!window.confirm(`Excluir o lead "${leadTitle(lead)}"?`)) return
+    deleteMutation.mutate(asString(lead.id, ''))
+  }
+
   const mutationError = updateMutation.error ?? deleteMutation.error ?? contatoMutation.error ?? tarefaMutation.error ?? ganharMutation.error ?? perderMutation.error
+  const selectedHistory = selectedLead ? asArray<JsonRecord>(selectedLead.historico_contatos) : []
+  const selectedTasks = selectedLead ? asArray<JsonRecord>(selectedLead.tarefas) : []
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-base font-bold text-ink">CRM</p>
-          <p className="mt-1 text-sm text-ink-muted">Pipeline por etapa, sem duplicar leads entre colunas.</p>
+          <p className="mt-1 text-sm text-ink-muted">Kanban comercial com drag and drop, detalhe em popup e ações de pipeline.</p>
         </div>
         <Button icon={Plus} onClick={openCreateForm}>Novo lead</Button>
       </div>
-
-      {showForm ? (
-        <Card>
-          <CardHeader>
-            <p className="text-base font-bold text-ink">{editingId ? 'Editar lead' : 'Novo lead'}</p>
-          </CardHeader>
-          <CardBody>
-            <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={onLeadSubmit}>
-              <label className="block xl:col-span-2">
-                <span className="text-sm font-semibold text-ink">Nome da marca/lead</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.nome} onChange={(event) => setLeadField('nome', event.target.value)} required />
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">Origem</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.origem} onChange={(event) => setLeadField('origem', event.target.value)} />
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">Nicho</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.nicho} onChange={(event) => setLeadField('nicho', event.target.value)} />
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">Cidade</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.cidade} onChange={(event) => setLeadField('cidade', event.target.value)} />
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">UF</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.estado} onChange={(event) => setLeadField('estado', event.target.value)} maxLength={2} />
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">Valor oportunidade</span>
-                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={leadForm.valor_oportunidade} onChange={(event) => setLeadField('valor_oportunidade', event.target.value)} />
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">Etapa</span>
-                <select className="design-input mt-2 h-11 w-full px-4" value={leadForm.crm_etapa} onChange={(event) => setLeadField('crm_etapa', event.target.value)}>
-                  {CRM_STAGES.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">WhatsApp</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.contato_whatsapp} onChange={(event) => setLeadField('contato_whatsapp', event.target.value)} />
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">E-mail</span>
-                <input className="design-input mt-2 h-11 w-full px-4" type="email" value={leadForm.contato_email} onChange={(event) => setLeadField('contato_email', event.target.value)} />
-              </label>
-              <label className="block md:col-span-2">
-                <span className="text-sm font-semibold text-ink">Responsável</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.responsavel_nome} onChange={(event) => setLeadField('responsavel_nome', event.target.value)} />
-              </label>
-              {saveMutation.isError ? <p className="md:col-span-2 xl:col-span-4 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(saveMutation.error)}</p> : null}
-              <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-4">
-                <Button type="submit" icon={Plus} isLoading={saveMutation.isPending}>{editingId ? 'Salvar lead' : 'Criar lead'}</Button>
-                <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancelar</Button>
-              </div>
-            </form>
-          </CardBody>
-        </Card>
-      ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {metrics.map((item) => <MetricCard key={item.label} metric={item} icon={Workflow} />)}
@@ -287,7 +303,17 @@ export function CrmPage() {
       <div className="overflow-x-auto pb-2">
         <section className="grid min-w-[1500px] grid-cols-8 gap-4">
           {leadsByStage.map(({ stage, leads: stageLeads }) => (
-            <Card key={stage.key} className="min-h-80">
+            <Card
+              key={stage.key}
+              className="min-h-96"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault()
+                const leadId = event.dataTransfer.getData('text/plain') || dragLeadId
+                if (leadId) moveLead(leadId, stage.key)
+                setDragLeadId('')
+              }}
+            >
               <CardHeader>
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate text-sm font-bold text-ink">{stage.label}</p>
@@ -296,31 +322,33 @@ export function CrmPage() {
               </CardHeader>
               <CardBody className="space-y-3">
                 {stageLeads.map((lead) => (
-                  <div key={asString(lead.id)} className="rounded-2xl border border-line bg-surface-muted p-3">
-                    <p className="truncate text-sm font-bold text-ink">{leadTitle(lead)}</p>
+                  <button
+                    key={asString(lead.id)}
+                    type="button"
+                    draggable
+                    onDragStart={(event) => {
+                      const id = asString(lead.id, '')
+                      setDragLeadId(id)
+                      event.dataTransfer.effectAllowed = 'move'
+                      event.dataTransfer.setData('text/plain', id)
+                    }}
+                    onDragEnd={() => setDragLeadId('')}
+                    onClick={() => openDetail(lead)}
+                    className="w-full cursor-grab rounded-2xl border border-line bg-surface-muted p-3 text-left transition hover:border-brand/50 active:cursor-grabbing"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="truncate text-sm font-bold text-ink">{leadTitle(lead)}</p>
+                      <GripVertical className="h-4 w-4 shrink-0 text-ink-muted" />
+                    </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-ink-muted">
                       <span>{asString(lead.responsavel_nome, 'sem responsável')}</span>
                       <span>{formatMoney(leadValue(lead))}</span>
                     </div>
                     <p className="mt-2 text-[11px] text-ink-muted">Atualizado {formatDate(asString(lead.atualizado_em ?? lead.criado_em, ''))}</p>
-                    <select
-                      className="design-input mt-3 h-9 w-full px-3 text-xs"
-                      value={normalizeCrmStage(lead)}
-                      disabled={updateMutation.isPending}
-                      onChange={(event) => updateMutation.mutate({ id: asString(lead.id), payload: { crm_etapa: event.target.value } })}
-                    >
-                      {CRM_STAGES.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
-                    </select>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button variant="ghost" icon={PhoneCall} disabled={contatoMutation.isPending} onClick={() => void contatoMutation.mutate(asString(lead.id))}>Contato</Button>
-                      <Button variant="ghost" icon={ClipboardCheck} disabled={tarefaMutation.isPending} onClick={() => void tarefaMutation.mutate(asString(lead.id))}>Tarefa</Button>
-                      <Button variant="secondary" icon={Edit2} onClick={() => openEditForm(lead as unknown as Lead)}>Editar</Button>
-                      {stage.key !== 'ganho' ? <Button variant="secondary" icon={Trophy} disabled={ganharMutation.isPending} onClick={() => void ganharMutation.mutate(asString(lead.id))}>Ganho</Button> : null}
-                      {stage.key !== 'perdido' ? <Button variant="ghost" icon={XCircle} disabled={perderMutation.isPending} onClick={() => void perderMutation.mutate(asString(lead.id))}>Perdido</Button> : null}
-                    </div>
-                  </div>
+                    <p className="mt-2 text-[11px] font-semibold text-brand">Clique para abrir · arraste para mover</p>
+                  </button>
                 ))}
-                {stageLeads.length === 0 ? <p className="rounded-xl border border-dashed border-line p-4 text-center text-xs text-ink-muted">vazio</p> : null}
+                {stageLeads.length === 0 ? <p className="rounded-xl border border-dashed border-line p-4 text-center text-xs text-ink-muted">Solte um lead aqui</p> : null}
               </CardBody>
             </Card>
           ))}
@@ -333,27 +361,131 @@ export function CrmPage() {
         </p>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <p className="text-sm font-bold text-ink">Lista de leads</p>
-        </CardHeader>
-        <CardBody>
-          <div className="grid gap-3">
-            {visibleLeads.map((lead) => (
-              <div key={lead.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-4">
-                <div>
-                  <p className="font-bold text-ink">{leadTitle(lead as JsonRecord)}</p>
-                  <p className="mt-1 text-sm text-ink-muted">{asString((lead as JsonRecord).origem ?? (lead as JsonRecord).nicho)} · {formatMoney(leadValue(lead as JsonRecord))}</p>
+      <Modal
+        open={modalMode === 'create' || modalMode === 'edit'}
+        title={modalMode === 'edit' ? 'Editar lead' : 'Novo lead'}
+        subtitle="Campos básicos do pipeline comercial."
+        onClose={closeModal}
+        size="lg"
+      >
+        <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" id="lead-form" onSubmit={onLeadSubmit}>
+          <label className="block xl:col-span-2">
+            <span className="text-sm font-semibold text-ink">Nome da marca/lead</span>
+            <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.nome} onChange={(event) => setLeadField('nome', event.target.value)} required />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Origem</span>
+            <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.origem} onChange={(event) => setLeadField('origem', event.target.value)} />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Nicho</span>
+            <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.nicho} onChange={(event) => setLeadField('nicho', event.target.value)} />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Cidade</span>
+            <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.cidade} onChange={(event) => setLeadField('cidade', event.target.value)} />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">UF</span>
+            <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.estado} onChange={(event) => setLeadField('estado', event.target.value)} maxLength={2} />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Valor oportunidade</span>
+            <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={leadForm.valor_oportunidade} onChange={(event) => setLeadField('valor_oportunidade', event.target.value)} />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Etapa</span>
+            <select className="design-input mt-2 h-11 w-full px-4" value={leadForm.crm_etapa} onChange={(event) => setLeadField('crm_etapa', event.target.value)}>
+              {CRM_STAGES.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">WhatsApp</span>
+            <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.contato_whatsapp} onChange={(event) => setLeadField('contato_whatsapp', event.target.value)} />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">E-mail</span>
+            <input className="design-input mt-2 h-11 w-full px-4" type="email" value={leadForm.contato_email} onChange={(event) => setLeadField('contato_email', event.target.value)} />
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-semibold text-ink">Responsável</span>
+            <input className="design-input mt-2 h-11 w-full px-4" value={leadForm.responsavel_nome} onChange={(event) => setLeadField('responsavel_nome', event.target.value)} />
+          </label>
+          <label className="block md:col-span-2 xl:col-span-4">
+            <span className="text-sm font-semibold text-ink">Observações internas</span>
+            <textarea className="design-input mt-2 min-h-24 w-full px-4 py-3" value={leadForm.observacoes_internas} onChange={(event) => setLeadField('observacoes_internas', event.target.value)} />
+          </label>
+          {saveMutation.isError ? <p className="md:col-span-2 xl:col-span-4 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(saveMutation.error)}</p> : null}
+          <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-4">
+            <Button type="submit" icon={Plus} isLoading={saveMutation.isPending}>{editingId ? 'Salvar lead' : 'Criar lead'}</Button>
+            <Button type="button" variant="secondary" onClick={closeModal}>Cancelar</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={modalMode === 'detail' && !!selectedLead}
+        title={selectedLead ? leadTitle(selectedLead) : 'Lead'}
+        subtitle={selectedLead ? `${stageLabel(selectedLead.crm_etapa)} · ${formatMoney(leadValue(selectedLead))}` : undefined}
+        onClose={closeModal}
+        size="lg"
+      >
+        {selectedLead ? (
+          <div className="space-y-5">
+            <div className="grid gap-3 md:grid-cols-2">
+              {[
+                ['Responsável', asString(selectedLead.responsavel_nome, 'sem responsável')],
+                ['Origem', asString(selectedLead.origem, '—')],
+                ['Nicho', asString(selectedLead.nicho, '—')],
+                ['Cidade/UF', `${asString(selectedLead.cidade, '—')}/${asString(selectedLead.estado, '—')}`],
+                ['WhatsApp', asString(selectedLead.contato_whatsapp, '—')],
+                ['E-mail', asString(selectedLead.contato_email, '—')],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-line bg-surface-muted p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</p>
+                  <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" icon={Edit2} onClick={() => openEditForm(lead)}>Editar</Button>
-                  <Button variant="danger" icon={Trash2} disabled={deleteMutation.isPending} onClick={() => void deleteMutation.mutate(lead.id)}>Excluir</Button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" icon={Edit2} onClick={() => openEditForm(selectedLead)}>Editar</Button>
+              <Button variant="secondary" icon={PhoneCall} disabled={contatoMutation.isPending} onClick={() => registerContact(selectedLead)}>Registrar contato</Button>
+              <Button variant="secondary" icon={ClipboardCheck} disabled={tarefaMutation.isPending} onClick={() => createTask(selectedLead)}>Criar tarefa</Button>
+              {normalizeCrmStage(selectedLead) !== 'ganho' ? <Button variant="secondary" icon={Trophy} disabled={ganharMutation.isPending} onClick={() => ganharMutation.mutate(asString(selectedLead.id, ''))}>Marcar ganho</Button> : null}
+              {normalizeCrmStage(selectedLead) !== 'perdido' ? <Button variant="ghost" icon={XCircle} disabled={perderMutation.isPending} onClick={() => markLost(selectedLead)}>Marcar perdido</Button> : null}
+              <Button variant="danger" icon={Trash2} disabled={deleteMutation.isPending} onClick={() => deleteSelectedLead(selectedLead)}>Excluir</Button>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-line bg-surface-muted p-4">
+                <p className="text-sm font-bold text-ink">Histórico de contatos</p>
+                <div className="mt-3 space-y-2">
+                  {selectedHistory.map((item, index) => (
+                    <div key={index} className="rounded-xl bg-surface p-3 text-sm text-ink">
+                      <p className="font-semibold">{asString(item.tipo, 'Contato')}</p>
+                      <p className="mt-1 text-ink-muted">{asString(item.resumo)}</p>
+                    </div>
+                  ))}
+                  {!selectedHistory.length ? <p className="text-sm text-ink-muted">Nenhum contato registrado.</p> : null}
                 </div>
               </div>
-            ))}
+              <div className="rounded-2xl border border-line bg-surface-muted p-4">
+                <p className="text-sm font-bold text-ink">Tarefas</p>
+                <div className="mt-3 space-y-2">
+                  {selectedTasks.map((item, index) => (
+                    <div key={index} className="rounded-xl bg-surface p-3 text-sm text-ink">
+                      <p className="font-semibold">{asString(item.titulo, 'Tarefa')}</p>
+                      <p className="mt-1 text-ink-muted">{item.concluida ? 'Concluída' : 'Aberta'}</p>
+                    </div>
+                  ))}
+                  {!selectedTasks.length ? <p className="text-sm text-ink-muted">Nenhuma tarefa criada.</p> : null}
+                </div>
+              </div>
+            </div>
           </div>
-        </CardBody>
-      </Card>
+        ) : null}
+      </Modal>
     </div>
   )
 }

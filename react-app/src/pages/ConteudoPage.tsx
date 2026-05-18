@@ -1,4 +1,4 @@
-import { BarChart3, CalendarClock, MonitorPlay, Plus, Presentation, RefreshCcw, Video } from 'lucide-react'
+import { BarChart3, CheckCircle2, CalendarClock, Edit2, Eye, MonitorPlay, Plus, Presentation, RefreshCcw, Trash2, Video } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { DataTable } from '../components/ui/DataTable'
 import { LoadingState, ErrorState } from '../components/ui/States'
+import { Modal } from '../components/ui/Modal'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
 import { getAgendaEventLayout, publicationStatusLabel } from './conteudo-helpers'
@@ -15,6 +16,7 @@ import {
   createAgendaEvento,
   createVideo,
   criarLiveManual,
+  deleteLive,
   getAgenda,
   getAgendaConflitos,
   getApresentadoras,
@@ -24,6 +26,7 @@ import {
   getMarcas,
   getVideos,
   iniciarLive,
+  updateLive,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatDate, formatMoney } from '../utils/format'
@@ -93,6 +96,20 @@ function formatTime(value: unknown) {
   return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
+function toDateInput(value: unknown) {
+  const date = typeof value === 'string' ? new Date(value) : null
+  if (!date || Number.isNaN(date.getTime())) return today()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+function toTimeInput(value: unknown) {
+  const date = typeof value === 'string' ? new Date(value) : null
+  if (!date || Number.isNaN(date.getTime())) return '09:00'
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
 function eventIntersectsLocalDate(event: JsonRecord, date: string) {
   const start = typeof event.data_inicio === 'string' ? new Date(event.data_inicio) : null
   const end = typeof event.data_fim === 'string' ? new Date(event.data_fim) : null
@@ -135,7 +152,8 @@ export function ConteudoPage() {
   const [agendaForm, setAgendaForm] = useState(emptyAgendaEvent)
   const [videoForm, setVideoForm] = useState(emptyVideo)
   const [manualLiveForm, setManualLiveForm] = useState(emptyManualLive)
-  const [showManualLive, setShowManualLive] = useState(false)
+  const [liveModalMode, setLiveModalMode] = useState<'create' | 'edit' | 'detail' | null>(null)
+  const [selectedLiveRecord, setSelectedLiveRecord] = useState<JsonRecord | null>(null)
   const client = useQueryClient()
 
   const range = dayRange(agendaDate, agendaView === 'semana' ? 7 : 1)
@@ -175,7 +193,27 @@ export function ConteudoPage() {
     mutationFn: criarLiveManual,
     onSuccess: () => {
       setManualLiveForm(emptyManualLive)
-      setShowManualLive(false)
+      setLiveModalMode(null)
+      setSelectedLiveRecord(null)
+      void client.invalidateQueries({ queryKey: ['lives'] })
+      void client.invalidateQueries({ queryKey: ['cabines'] })
+    },
+  })
+  const updateLiveMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateLive(id, payload),
+    onSuccess: () => {
+      setLiveModalMode(null)
+      setSelectedLiveRecord(null)
+      setManualLiveForm(emptyManualLive)
+      void client.invalidateQueries({ queryKey: ['lives'] })
+      void client.invalidateQueries({ queryKey: ['cabines'] })
+    },
+  })
+  const deleteLiveMutation = useMutation({
+    mutationFn: deleteLive,
+    onSuccess: () => {
+      setLiveModalMode(null)
+      setSelectedLiveRecord(null)
       void client.invalidateQueries({ queryKey: ['lives'] })
       void client.invalidateQueries({ queryKey: ['cabines'] })
     },
@@ -211,6 +249,12 @@ export function ConteudoPage() {
     if (!selectedLiveId) return null
     return rows.find((live) => asString(live.id, '') === selectedLiveId) ?? null
   }, [lives.data, selectedLiveId])
+
+  useEffect(() => {
+    if (!selectedLive || liveModalMode) return
+    setSelectedLiveRecord(selectedLive)
+    setLiveModalMode('detail')
+  }, [liveModalMode, selectedLive])
 
   const isLoading = agenda.isLoading || cabines.isLoading || lives.isLoading || videos.isLoading || marcas.isLoading || clientes.isLoading || apresentadoras.isLoading
   const error = agenda.error ?? cabines.error ?? lives.error ?? videos.error ?? marcas.error ?? clientes.error ?? apresentadoras.error
@@ -333,6 +377,52 @@ export function ConteudoPage() {
     setManualLiveForm((current) => ({ ...current, marca_id: '', cliente_id: '' }))
   }
 
+  function openCreateLiveModal() {
+    setSelectedLiveRecord(null)
+    setManualLiveForm(emptyManualLive)
+    setLiveModalMode('create')
+  }
+
+  function fillLiveForm(live: JsonRecord) {
+    setManualLiveForm({
+      cabine_id: asString(live.cabine_id, ''),
+      cliente_id: asString(live.cliente_id, ''),
+      marca_id: asString(live.marca_id, ''),
+      apresentador_id: asString(live.apresentadora_id, ''),
+      data: toDateInput(live.iniciado_em),
+      hora_inicio: toTimeInput(live.iniciado_em),
+      hora_fim: toTimeInput(live.encerrado_em),
+      fat_gerado: asString(live.fat_gerado ?? live.manual_gmv ?? 0, '0'),
+      qtd_pedidos: asString(live.final_orders_count ?? live.manual_orders ?? 0, '0'),
+      manual_views: asString(live.manual_views ?? ''),
+      manual_likes: asString(live.manual_likes ?? ''),
+      resumo: asString(live.resumo, ''),
+      status_publicacao: asString(live.status_publicacao, 'rascunho'),
+      tipo: asString(live.tipo, 'cliente'),
+    })
+  }
+
+  function openLiveDetail(live: JsonRecord) {
+    setSelectedLiveRecord(live)
+    setLiveModalMode('detail')
+    setParams({ tab: 'lives', live: asString(live.id, '') }, { replace: true })
+  }
+
+  function openEditLive(live: JsonRecord) {
+    setSelectedLiveRecord(live)
+    fillLiveForm(live)
+    setLiveModalMode('edit')
+  }
+
+  function closeLiveModal() {
+    setLiveModalMode(null)
+    setSelectedLiveRecord(null)
+    setManualLiveForm(emptyManualLive)
+    const nextParams = new URLSearchParams(params)
+    nextParams.delete('live')
+    setParams(nextParams, { replace: true })
+  }
+
   function onAgendaSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const dataInicio = makeDateTime(agendaForm.data, agendaForm.hora_inicio)
@@ -366,7 +456,7 @@ export function ConteudoPage() {
 
   function onManualLiveSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    createManualLiveMutation.mutate({
+    const payload = {
       cabine_id: manualLiveForm.cabine_id,
       cliente_id: manualLiveForm.cliente_id || undefined,
       marca_id: manualLiveForm.marca_id || undefined,
@@ -383,7 +473,18 @@ export function ConteudoPage() {
       resumo: manualLiveForm.resumo || undefined,
       status_publicacao: manualLiveForm.status_publicacao,
       tipo: manualLiveForm.tipo,
-    })
+    }
+    if (liveModalMode === 'edit' && selectedLiveRecord) {
+      updateLiveMutation.mutate({ id: asString(selectedLiveRecord.id, ''), payload })
+      return
+    }
+    createManualLiveMutation.mutate(payload)
+  }
+
+  function onDeleteLive(live: JsonRecord) {
+    const label = asString(live.marca_nome ?? live.cliente_nome ?? live.id, 'live')
+    if (!window.confirm(`Excluir a live "${label}"?`)) return
+    deleteLiveMutation.mutate(asString(live.id, ''))
   }
 
   function onStartAgendaLive(event: JsonRecord) {
@@ -611,12 +712,12 @@ export function ConteudoPage() {
       {tab === 'cabines' ? <CabinesPage title="Cabines de conteúdo" /> : null}
 
       {tab === 'lives' ? (
-        <section className="grid gap-4 xl:grid-cols-[1fr_400px]">
+        <section>
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-base font-bold text-ink">Lives realizadas</p>
-                <Button icon={Plus} onClick={() => setShowManualLive((value) => !value)}>Cadastrar live manual</Button>
+                <Button icon={Plus} onClick={openCreateLiveModal}>Cadastrar live manual</Button>
               </div>
             </CardHeader>
             <CardBody>
@@ -630,112 +731,150 @@ export function ConteudoPage() {
                   { key: 'fat_gerado', header: 'GMV', align: 'right', render: (item) => formatMoney(item.fat_gerado ?? item.manual_gmv) },
                   { key: 'final_orders_count', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.final_orders_count ?? item.manual_orders).toLocaleString('pt-BR') },
                   { key: 'status_publicacao', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status_publicacao, 'rascunho'))}>{publicationStatusLabel(item.status_publicacao)}</Badge> },
-                  { key: 'selecionar', header: '', align: 'right', render: (item) => <Button variant="ghost" onClick={() => setParams({ live: asString(item.id, ''), tab: 'lives' })}>Selecionar</Button> },
+                  {
+                    key: 'acoes',
+                    header: 'Ações',
+                    align: 'right',
+                    render: (item) => (
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" icon={Eye} onClick={() => openLiveDetail(item)}>Abrir</Button>
+                        <Button variant="secondary" icon={Edit2} onClick={() => openEditLive(item)}>Editar</Button>
+                        <Button variant="danger" icon={Trash2} disabled={deleteLiveMutation.isPending} onClick={() => onDeleteLive(item)}>Excluir</Button>
+                      </div>
+                    ),
+                  },
                 ]}
               />
             </CardBody>
           </Card>
-          <Card>
-            <CardHeader>
-              <p className="text-base font-bold text-ink">{showManualLive ? 'Cadastrar live manual' : 'Live selecionada'}</p>
-            </CardHeader>
-            <CardBody>
-              {showManualLive ? (
-                <form className="space-y-3" onSubmit={onManualLiveSubmit}>
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Cabine</span>
-                    <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.cabine_id} onChange={(event) => setManualLiveField('cabine_id', event.target.value)} required>
-                      <option value="">Selecione uma cabine</option>
-                      {activeCabines.map((cabine) => <option key={cabine.id} value={cabine.id}>Cabine {asString(cabine.numero)}</option>)}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Tipo</span>
-                    <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.tipo} onChange={(event) => setManualLiveType(event.target.value)}>
-                      <option value="cliente">Cliente/e-commerce</option>
-                      <option value="afiliado">Afiliada</option>
-                      <option value="teste">Interna/teste</option>
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Marca/cliente</span>
-                    <select className="design-input mt-2 h-11 w-full px-4" value={manualAccountValue} onChange={(event) => setManualLiveAccount(event.target.value)} required={manualAccountRequired}>
-                      <option value="">{manualLiveForm.tipo === 'afiliado' ? 'Selecione uma afiliada' : 'Selecione uma marca ou cliente'}</option>
-                      {manualAccountOptions
-                        .filter((option) => option.value !== 'marca:' && option.value !== 'cliente:')
-                        .map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                    {manualLiveForm.tipo === 'afiliado' && !manualAccountOptions.length ? (
-                      <p className="mt-2 text-xs text-ink-muted">Cadastre uma marca afiliada em Comercial para lançar essa live.</p>
-                    ) : null}
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Apresentadora</span>
-                    <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.apresentador_id} onChange={(event) => setManualLiveField('apresentador_id', event.target.value)}>
-                      <option value="">Opcional</option>
-                      {(apresentadoras.data ?? []).map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome)}</option>)}
-                    </select>
-                  </label>
-                  <div className="grid grid-cols-3 gap-3">
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Data</span>
-                      <input className="design-input mt-2 h-11 w-full px-3" type="date" value={manualLiveForm.data} onChange={(event) => setManualLiveField('data', event.target.value)} required />
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Início</span>
-                      <input className="design-input mt-2 h-11 w-full px-3" type="time" value={manualLiveForm.hora_inicio} onChange={(event) => setManualLiveField('hora_inicio', event.target.value)} required />
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Fim</span>
-                      <input className="design-input mt-2 h-11 w-full px-3" type="time" value={manualLiveForm.hora_fim} onChange={(event) => setManualLiveField('hora_fim', event.target.value)} required />
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">GMV</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={manualLiveForm.fat_gerado} onChange={(event) => setManualLiveField('fat_gerado', event.target.value)} required />
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Pedidos</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={manualLiveForm.qtd_pedidos} onChange={(event) => setManualLiveField('qtd_pedidos', event.target.value)} required />
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Viewers</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={manualLiveForm.manual_views} onChange={(event) => setManualLiveField('manual_views', event.target.value)} />
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Likes</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={manualLiveForm.manual_likes} onChange={(event) => setManualLiveField('manual_likes', event.target.value)} />
-                    </label>
-                  </div>
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Status de publicação</span>
-                    <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.status_publicacao} onChange={(event) => setManualLiveField('status_publicacao', event.target.value)}>
-                      <option value="rascunho">Rascunho</option>
-                      <option value="revisado">Revisado</option>
-                      <option value="publicado">Publicado</option>
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Observações</span>
-                    <textarea className="design-input mt-2 min-h-24 w-full px-4 py-3" value={manualLiveForm.resumo} onChange={(event) => setManualLiveField('resumo', event.target.value)} />
-                  </label>
-                  {createManualLiveMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createManualLiveMutation.error)}</p> : null}
-                  <Button type="submit" icon={Plus} isLoading={createManualLiveMutation.isPending}>Salvar live manual</Button>
-                </form>
-              ) : selectedLive ? (
-                <dl className="space-y-3 text-sm">
-                  <div className="flex justify-between gap-4"><dt className="text-ink-muted">Cliente</dt><dd className="font-semibold text-ink">{asString(selectedLive.cliente_nome)}</dd></div>
-                  <div className="flex justify-between gap-4"><dt className="text-ink-muted">GMV</dt><dd className="font-semibold text-ink">{formatMoney(selectedLive.fat_gerado ?? selectedLive.manual_gmv)}</dd></div>
-                  <div className="flex justify-between gap-4"><dt className="text-ink-muted">Pedidos</dt><dd className="font-semibold text-ink">{asNumber(selectedLive.final_orders_count ?? selectedLive.manual_orders).toLocaleString('pt-BR')}</dd></div>
-                </dl>
-              ) : (
-                <p className="rounded-2xl border border-dashed border-line p-4 text-center text-sm text-ink-muted">Nenhuma live selecionada.</p>
-              )}
-            </CardBody>
-          </Card>
+
+          <Modal
+            open={liveModalMode === 'create' || liveModalMode === 'edit'}
+            title={liveModalMode === 'edit' ? 'Editar live realizada' : 'Cadastrar live manual'}
+            subtitle="Registro operacional da live, GMV, pedidos e status de publicação."
+            onClose={closeLiveModal}
+            size="lg"
+          >
+            <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={onManualLiveSubmit}>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Cabine</span>
+                <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.cabine_id} onChange={(event) => setManualLiveField('cabine_id', event.target.value)} required>
+                  <option value="">Selecione uma cabine</option>
+                  {activeCabines.map((cabine) => <option key={cabine.id} value={cabine.id}>Cabine {asString(cabine.numero)}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Tipo</span>
+                <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.tipo} onChange={(event) => setManualLiveType(event.target.value)}>
+                  <option value="cliente">Cliente/e-commerce</option>
+                  <option value="afiliado">Afiliada</option>
+                  <option value="teste">Interna/teste</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Marca/cliente</span>
+                <select className="design-input mt-2 h-11 w-full px-4" value={manualAccountValue} onChange={(event) => setManualLiveAccount(event.target.value)} required={manualAccountRequired}>
+                  <option value="">{manualLiveForm.tipo === 'afiliado' ? 'Selecione uma afiliada' : 'Selecione uma marca ou cliente'}</option>
+                  {manualAccountOptions
+                    .filter((option) => option.value !== 'marca:' && option.value !== 'cliente:')
+                    .map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+                {manualLiveForm.tipo === 'afiliado' && !manualAccountOptions.length ? (
+                  <p className="mt-2 text-xs text-ink-muted">Cadastre uma marca afiliada em Comercial para lançar essa live.</p>
+                ) : null}
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Apresentadora</span>
+                <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.apresentador_id} onChange={(event) => setManualLiveField('apresentador_id', event.target.value)}>
+                  <option value="">Opcional</option>
+                  {(apresentadoras.data ?? []).map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome)}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Data</span>
+                <input className="design-input mt-2 h-11 w-full px-3" type="date" value={manualLiveForm.data} onChange={(event) => setManualLiveField('data', event.target.value)} required />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Início</span>
+                  <input className="design-input mt-2 h-11 w-full px-3" type="time" value={manualLiveForm.hora_inicio} onChange={(event) => setManualLiveField('hora_inicio', event.target.value)} required />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Fim</span>
+                  <input className="design-input mt-2 h-11 w-full px-3" type="time" value={manualLiveForm.hora_fim} onChange={(event) => setManualLiveField('hora_fim', event.target.value)} required />
+                </label>
+              </div>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">GMV</span>
+                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={manualLiveForm.fat_gerado} onChange={(event) => setManualLiveField('fat_gerado', event.target.value)} required />
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Pedidos</span>
+                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={manualLiveForm.qtd_pedidos} onChange={(event) => setManualLiveField('qtd_pedidos', event.target.value)} required />
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Viewers</span>
+                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={manualLiveForm.manual_views} onChange={(event) => setManualLiveField('manual_views', event.target.value)} />
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Likes</span>
+                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={manualLiveForm.manual_likes} onChange={(event) => setManualLiveField('manual_likes', event.target.value)} />
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Status de publicação</span>
+                <select className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.status_publicacao} onChange={(event) => setManualLiveField('status_publicacao', event.target.value)}>
+                  <option value="rascunho">Rascunho</option>
+                  <option value="revisado">Revisado</option>
+                  <option value="publicado">Publicado</option>
+                </select>
+              </label>
+              <label className="block md:col-span-2 xl:col-span-3">
+                <span className="text-sm font-semibold text-ink">Observações</span>
+                <textarea className="design-input mt-2 min-h-24 w-full px-4 py-3" value={manualLiveForm.resumo} onChange={(event) => setManualLiveField('resumo', event.target.value)} />
+              </label>
+              {createManualLiveMutation.isError || updateLiveMutation.isError ? (
+                <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2 xl:col-span-3">{extractErrorMessage(createManualLiveMutation.error ?? updateLiveMutation.error)}</p>
+              ) : null}
+              <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-3">
+                <Button type="submit" icon={CheckCircle2} isLoading={createManualLiveMutation.isPending || updateLiveMutation.isPending}>{liveModalMode === 'edit' ? 'Salvar live' : 'Cadastrar live'}</Button>
+                <Button type="button" variant="secondary" onClick={closeLiveModal}>Cancelar</Button>
+              </div>
+            </form>
+          </Modal>
+
+          <Modal
+            open={liveModalMode === 'detail' && !!selectedLiveRecord}
+            title="Live realizada"
+            subtitle={selectedLiveRecord ? `${asString(selectedLiveRecord.marca_nome ?? selectedLiveRecord.cliente_nome, 'Sem marca')} · Cabine ${asString(selectedLiveRecord.cabine_numero)}` : undefined}
+            onClose={closeLiveModal}
+            size="md"
+          >
+            {selectedLiveRecord ? (
+              <div className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {[
+                    ['Data', `${formatDate(asString(selectedLiveRecord.iniciado_em, ''))} ${formatTime(selectedLiveRecord.iniciado_em)}-${formatTime(selectedLiveRecord.encerrado_em)}`],
+                    ['Apresentadora', asString(selectedLiveRecord.apresentadora_nome ?? selectedLiveRecord.apresentador_nome, '—')],
+                    ['GMV', formatMoney(selectedLiveRecord.fat_gerado ?? selectedLiveRecord.manual_gmv)],
+                    ['Pedidos', asNumber(selectedLiveRecord.final_orders_count ?? selectedLiveRecord.manual_orders).toLocaleString('pt-BR')],
+                    ['Status', publicationStatusLabel(selectedLiveRecord.status_publicacao)],
+                    ['Origem', asString(selectedLiveRecord.origem_dados, 'manual')],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-line bg-surface-muted p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</p>
+                      <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                {selectedLiveRecord.resumo ? <p className="rounded-2xl border border-line bg-surface-muted p-3 text-sm text-ink">{asString(selectedLiveRecord.resumo)}</p> : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" icon={Edit2} onClick={() => openEditLive(selectedLiveRecord)}>Editar</Button>
+                  <Button variant="danger" icon={Trash2} isLoading={deleteLiveMutation.isPending} onClick={() => onDeleteLive(selectedLiveRecord)}>Excluir</Button>
+                </div>
+                {deleteLiveMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(deleteLiveMutation.error)}</p> : null}
+              </div>
+            ) : null}
+          </Modal>
         </section>
       ) : null}
 

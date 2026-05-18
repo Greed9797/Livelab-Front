@@ -189,10 +189,9 @@ export function Shell() {
               </span>
               <div>
                 <h1 className="m-0 text-[22px] font-bold leading-tight tracking-[-0.02em] text-ink">
-                  Boa tarde, <span className="font-medium text-[var(--text-secondary)]">{user?.nome?.split(' ')[0] ?? 'Admin'}</span>{' '}
-                  <span className="serif text-brand">{roleLabel(user?.papel).replace('Franqueador ', '')}</span>
+                  {user?.tenant_nome ?? 'Livelab'}
                 </h1>
-                <p className="mt-1 text-sm text-ink-muted">{user?.tenant_nome ?? 'Operação Livelab'}</p>
+                <p className="mt-1 text-sm text-ink-muted">{user?.nome ?? 'Usuário'} · {roleLabel(user?.papel)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">

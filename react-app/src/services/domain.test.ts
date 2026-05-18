@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, deleteCabine, ganharLead, getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive } from './domain'
+import { createCliente, deleteCabine, deleteLive, deleteUsuario, ganharLead, getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive, updateLive } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -71,6 +71,25 @@ describe('domain live operations', () => {
     await publishLive('live-1', 'publicado')
 
     expect(apiPatch).toHaveBeenCalledWith('/lives/live-1/publicar', { status_publicacao: 'publicado' })
+  })
+
+  it('updates and deletes lives through CRUD endpoints', async () => {
+    vi.mocked(apiPatch).mockResolvedValue({ ok: true })
+    vi.mocked(apiDelete).mockResolvedValue({})
+
+    await updateLive('live-1', { status_publicacao: 'revisado' })
+    await deleteLive('live-1')
+
+    expect(apiPatch).toHaveBeenCalledWith('/lives/live-1', { status_publicacao: 'revisado' })
+    expect(apiDelete).toHaveBeenCalledWith('/lives/live-1')
+  })
+
+  it('soft-deletes users through the usuarios endpoint', async () => {
+    vi.mocked(apiDelete).mockResolvedValue({})
+
+    await deleteUsuario('user-1')
+
+    expect(apiDelete).toHaveBeenCalledWith('/usuarios/user-1')
   })
 
   it('normalizes cabine live-atual payload into the selected live shape', async () => {
