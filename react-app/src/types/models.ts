@@ -130,6 +130,8 @@ export interface ApiListResponse<T> {
 
 export interface LiveAtual {
   id: string
+  live_ativa?: boolean
+  live_id?: string
   status: 'em_andamento' | 'encerrada' | 'cancelada'
   tipo: 'cliente' | 'afiliado' | 'teste'
   status_publicacao: 'rascunho' | 'revisado' | 'publicado'
@@ -142,6 +144,14 @@ export interface LiveAtual {
   apresentador_nome?: string | null
   fat_gerado?: number
   qtd_pedidos?: number
+  viewer_count?: number
+  total_viewers?: number
+  total_orders?: number
+  gmv_atual?: number
+  likes_count?: number
+  comments_count?: number
+  gifts_diamonds?: number
+  shares_count?: number
   iniciado_em: string
   encerrado_em?: string | null
   agenda_evento_id?: string | null

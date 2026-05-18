@@ -34,5 +34,5 @@ jobs:
 
       - name: Build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL || '' }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: cd react-app && npm run build

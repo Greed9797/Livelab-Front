@@ -9,11 +9,12 @@ import { Badge, statusTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
-import { atualizarStatusCabine, createCabine, encerrarLive, getCabineHistorico, getCabineLiveAtual, getCabines, getClientes, getContratos, iniciarLive, liberarCabine, reservarCabine, updateCabine } from '../services/domain'
+import { atualizarStatusCabine, createCabine, encerrarLive, getCabineHistorico, getCabines, getClientes, getContratos, iniciarLive, liberarCabine, reservarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatDate, formatMoney } from '../utils/format'
 import { useCurrentUser } from '../stores/auth-store'
 import type { Cabine, JsonRecord } from '../types/models'
+import { useSelectedLive } from '../hooks/useSelectedLive'
 
 const writeCabineRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'produtor_live'])
 const writeLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'apresentador', 'apresentadora', 'produtor_live'])
@@ -49,14 +50,18 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
   const [liveType, setLiveType] = useState<'cliente' | 'afiliado' | 'teste'>('cliente')
   const [gmvModalLiveId, setGmvModalLiveId] = useState<string | null>(null)
   const client = useQueryClient()
+  const explicitCabineId = params.get('cabine') ?? ''
+  const explicitLiveId = params.get('live') ?? ''
   const query = useQuery({ queryKey: ['cabines'], queryFn: getCabines, refetchInterval: 20_000 })
   const contratosQuery = useQuery({ queryKey: ['contratos'], queryFn: () => getContratos(), enabled: canWriteCabine })
   const clientesQuery = useQuery({ queryKey: ['clientes', 'live-start'], queryFn: getClientes, enabled: canWriteLive && readClientesForLiveRoles.has(user?.papel ?? '') })
   const historicoQuery = useQuery({ queryKey: ['cabine-historico', selectedId], queryFn: () => getCabineHistorico(selectedId), enabled: Boolean(selectedId) })
-  // TODO(PR-7): migrate to useSelectedLive({ cabineId: selectedId, autoRefreshMs: 20_000 })
-  // Current direct useQuery call returns raw JsonRecord instead of typed LiveAtual,
-  // which caused the bug of stale/wrong live data in the Live Toolkit panel.
-  const liveAtualQuery = useQuery({ queryKey: ['cabine-live-atual', selectedId], queryFn: () => getCabineLiveAtual(selectedId), enabled: Boolean(selectedId) })
+  const selectedLive = useSelectedLive({
+    liveId: explicitLiveId || undefined,
+    cabineId: selectedId || undefined,
+    autoRefreshMs: selectedId || explicitLiveId ? 20_000 : 0,
+  })
+  const liveAtualData = selectedLive.live as unknown as JsonRecord | null
   const saveCabineMutation = useMutation({
     mutationFn: (payload: JsonRecord) => editingId ? updateCabine(editingId, payload) : createCabine(payload),
     onSuccess: () => {
@@ -85,7 +90,7 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => encerrarLive(id, payload),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['cabines'] })
-      void client.invalidateQueries({ queryKey: ['cabine-live-atual'] })
+      selectedLive.refresh()
     },
   })
   const iniciarMutation = useMutation({
@@ -99,7 +104,7 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
       setParams(nextParams, { replace: true })
       void client.invalidateQueries({ queryKey: ['cabines'] })
       void client.invalidateQueries({ queryKey: ['lives'] })
-      void client.invalidateQueries({ queryKey: ['cabine-live-atual'] })
+      selectedLive.refresh()
     },
   })
 
@@ -132,8 +137,6 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
     { label: 'Livres', value: counts.free, color: 'bg-[var(--success)]', icon: CalendarClock },
     { label: 'Manutenção', value: counts.maintenance, color: 'bg-[var(--warning)]', icon: Wrench },
   ]
-  const explicitCabineId = params.get('cabine') ?? ''
-  const explicitLiveId = params.get('live') ?? ''
   const explicitSelection = Boolean(selectedId || explicitCabineId || explicitLiveId)
   const selectedCabine = visible.find((cabine) => cabine.id === selectedId) ?? (!explicitSelection ? visible[0] : undefined)
   const activeContracts = (contratosQuery.data ?? []).filter((contrato) => asString(contrato.status).toLowerCase() === 'ativo')
@@ -213,16 +216,16 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
   }
 
   function onEncerrarLive(live: JsonRecord) {
-    const liveId = asString(live.live_id, '')
+    const liveId = asString(live.live_id ?? live.id, '')
     if (!liveId) return
     encerrarMutation.mutate({
       id: liveId,
       payload: {
-        fat_gerado: asNumber(live.gmv_atual),
-        qtd_pedidos: asNumber(live.total_orders),
+        fat_gerado: asNumber(live.gmv_atual ?? live.manual_gmv ?? live.fat_gerado),
+        qtd_pedidos: asNumber(live.total_orders ?? live.final_orders_count ?? live.qtd_pedidos),
         resumo: 'Live encerrada pelo painel React.',
-        manual_gmv: asNumber(live.gmv_atual),
-        manual_orders: asNumber(live.total_orders),
+        manual_gmv: asNumber(live.gmv_atual ?? live.manual_gmv ?? live.fat_gerado),
+        manual_orders: asNumber(live.total_orders ?? live.final_orders_count ?? live.qtd_pedidos),
         manual_views: asNumber(live.total_viewers ?? live.viewer_count),
         manual_likes: asNumber(live.likes_count),
       },
@@ -517,25 +520,34 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                 </div>
               ) : null}
 
-              {liveAtualQuery.isLoading ? <LoadingState label="Carregando live atual" /> : null}
-              {liveAtualQuery.data ? (
+              {selectedLive.loading ? <LoadingState label="Carregando live atual" /> : null}
+              {!selectedLive.loading && selectedCabine && !liveAtualData ? (
                 <div className="rounded-2xl border border-line bg-surface-muted p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold text-ink">Live atual</p>
-                      <p className="mt-1 text-xs text-ink-muted">{liveAtualQuery.data.live_ativa ? asString(liveAtualQuery.data.cliente_nome, 'Cliente em live') : asString(liveAtualQuery.data.message, 'Nenhuma live ativa')}</p>
+                      <p className="mt-1 text-xs text-ink-muted">Nenhuma live ativa nesta cabine</p>
                     </div>
-                    <Badge tone={liveAtualQuery.data.live_ativa ? 'success' : 'neutral'}>{liveAtualQuery.data.live_ativa ? 'ativa' : 'sem live'}</Badge>
+                    <Badge tone="neutral">sem live</Badge>
                   </div>
-                  {liveAtualQuery.data.live_ativa ? (
-                    <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">Viewers</p><p className="num font-bold text-ink">{asNumber(liveAtualQuery.data.viewer_count)}</p></div>
-                      <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">GMV</p><p className="num font-bold text-brand">{formatMoney(liveAtualQuery.data.gmv_atual)}</p></div>
-                      <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">Pedidos</p><p className="num font-bold text-ink">{asNumber(liveAtualQuery.data.total_orders)}</p></div>
+                </div>
+              ) : null}
+              {liveAtualData ? (
+                <div className="rounded-2xl border border-line bg-surface-muted p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-ink">Live atual</p>
+                      <p className="mt-1 text-xs text-ink-muted">{asString(liveAtualData.cliente_nome, 'Cliente em live')}</p>
                     </div>
-                  ) : null}
-                  {liveAtualQuery.data.live_ativa && canWriteLive ? (
-                    <Button className="mt-4" variant="danger" icon={StopCircle} isLoading={encerrarMutation.isPending} onClick={() => onEncerrarLive(liveAtualQuery.data ?? {})}>
+                    <Badge tone={asString(liveAtualData.status, 'em_andamento') === 'em_andamento' ? 'success' : 'neutral'}>{asString(liveAtualData.status, 'em_andamento') === 'em_andamento' ? 'ativa' : asString(liveAtualData.status)}</Badge>
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">Viewers</p><p className="num font-bold text-ink">{asNumber(liveAtualData.viewer_count ?? liveAtualData.manual_views)}</p></div>
+                    <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">GMV</p><p className="num font-bold text-brand">{formatMoney(liveAtualData.gmv_atual ?? liveAtualData.manual_gmv ?? liveAtualData.fat_gerado)}</p></div>
+                    <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">Pedidos</p><p className="num font-bold text-ink">{asNumber(liveAtualData.total_orders ?? liveAtualData.final_orders_count ?? liveAtualData.qtd_pedidos)}</p></div>
+                  </div>
+                  {asString(liveAtualData.status, 'em_andamento') === 'em_andamento' && canWriteLive ? (
+                    <Button className="mt-4" variant="danger" icon={StopCircle} isLoading={encerrarMutation.isPending} onClick={() => onEncerrarLive(liveAtualData)}>
                       Encerrar live
                     </Button>
                   ) : null}
@@ -577,9 +589,9 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
                 </div>
               ) : null}
 
-              {reservarMutation.isError || statusMutation.isError || liberarMutation.isError || iniciarMutation.isError || encerrarMutation.isError || liveAtualQuery.isError || historicoQuery.isError ? (
+              {reservarMutation.isError || statusMutation.isError || liberarMutation.isError || iniciarMutation.isError || encerrarMutation.isError || selectedLive.error || historicoQuery.isError ? (
                 <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
-                  {extractErrorMessage(reservarMutation.error ?? statusMutation.error ?? liberarMutation.error ?? iniciarMutation.error ?? encerrarMutation.error ?? liveAtualQuery.error ?? historicoQuery.error)}
+                  {selectedLive.error ?? extractErrorMessage(reservarMutation.error ?? statusMutation.error ?? liberarMutation.error ?? iniciarMutation.error ?? encerrarMutation.error ?? historicoQuery.error)}
                 </p>
               ) : null}
             </CardBody>

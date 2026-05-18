@@ -2,7 +2,7 @@ import { X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { getHistoricoGmv } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asString, formatDate, formatMoney } from '../utils/format'
+import { asString, formatDate } from '../utils/format'
 import { Button } from '../components/ui/Button'
 import { ErrorState, EmptyState, LoadingState } from '../components/ui/States'
 import type { JsonRecord } from '../types/models'
@@ -31,7 +31,9 @@ export function HistoricoGmvModal({ liveId, onClose }: HistoricoGmvModalProps) {
             icon={X}
             onClick={onClose}
             className="h-10 w-10"
-          />
+          >
+            <span className="sr-only">Fechar</span>
+          </Button>
         </div>
 
         <div className="p-6">
