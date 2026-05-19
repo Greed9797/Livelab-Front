@@ -11,6 +11,8 @@ import {
   Presentation,
   Settings,
   Store,
+  Target,
+  TrendingUp,
   Users,
   Workflow,
 } from 'lucide-react'
@@ -172,6 +174,8 @@ export const menuItems: MenuItem[] = [
   { label: 'Configurações', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles },
   { label: 'Conteúdo', path: '/conteudo', icon: Presentation, roles: cabineRoles },
   { label: 'Apresentadoras', path: '/apresentadoras', icon: Users, roles: opsRoles },
+  { label: 'Metas', path: '/metas', icon: Target, roles: opsRoles },
+  { label: 'Ranking', path: '/ranking/apresentadoras', icon: TrendingUp, roles: opsRoles },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora', 'cliente_parceiro'] },
   { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'admin_master', 'franqueado'] },

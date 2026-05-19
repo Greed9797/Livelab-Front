@@ -1,5 +1,5 @@
 import type { Cabine, JsonRecord, Lead, LiveAtual, Period, Solicitacao } from '../types/models'
-import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 import { periodToParam } from '../utils/format'
 
 export function getHomeDashboard() {
@@ -378,4 +378,43 @@ export function getKnowledgeCategories() {
 
 export function getKnowledgeArticles(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/knowledge/articles', params)
+}
+
+// Faixas de comissão da apresentadora
+export function getFaixasApresentadora(id: string) {
+  return apiGet<JsonRecord[]>(`/apresentadoras/${id}/faixas`)
+}
+
+export function createFaixaApresentadora(id: string, payload: JsonRecord) {
+  return apiPost<JsonRecord>(`/apresentadoras/${id}/faixas`, payload)
+}
+
+export function deleteFaixaApresentadora(id: string, faixaId: string) {
+  return apiDelete(`/apresentadoras/${id}/faixas/${faixaId}`)
+}
+
+// Ranking de apresentadoras
+export function getRankingApresentadoras(params?: { mes?: string }) {
+  return apiGet<JsonRecord[]>('/ranking/apresentadoras', params)
+}
+
+// Metas
+export function getMetasApresentadoras(mes?: string) {
+  return apiGet<JsonRecord[]>('/metas/apresentadoras', mes ? { mes } : undefined)
+}
+
+export function upsertMetaApresentadora(id: string, mes: string, payload: { gmv_meta: number }) {
+  return apiPut<JsonRecord>(`/metas/apresentadoras/${id}`, payload, { mes })
+}
+
+export function deleteMetaApresentadora(id: string, mes: string) {
+  return apiDelete(`/metas/apresentadoras/${id}?mes=${mes}`)
+}
+
+export function getMetaSupervisor(mes?: string) {
+  return apiGet<JsonRecord>('/metas/supervisor', mes ? { mes } : undefined)
+}
+
+export function upsertMetaSupervisor(mes: string, payload: { gmv_meta_total: number; calculado_automaticamente?: boolean }) {
+  return apiPut<JsonRecord>('/metas/supervisor', payload, { mes })
 }

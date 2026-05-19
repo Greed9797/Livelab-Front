@@ -130,3 +130,57 @@ All charts use `fl_chart 0.68.0`. Template: `heatmap_horarios_chart.dart` (BarCh
 - **Money values:** always `(json['field'] as num? ?? 0).toDouble()` in `fromJson` — backend may return strings or ints.
 - **Error display:** use `ApiService.extractErrorMessage(e)` in catch blocks; show result in `SnackBar`.
 - **Loading states:** shimmer skeleton (`shimmer` package) for list/card loads; `CircularProgressIndicator` for full-screen loads.
+
+---
+
+## React App (react-app/)
+
+O projeto está migrando Flutter → React/Vite. O React app é o frontend principal ativo.
+
+### Stack React
+- **Framework:** React 18 + TypeScript + Vite
+- **Roteamento:** react-router-dom v6
+- **Estado global:** Zustand (auth em `stores/auth-store.ts`)
+- **Server state:** TanStack React Query
+- **Estilos:** Tailwind CSS + tokens CSS custom (`design-input`, `bg-canvas`, `text-ink`, etc.)
+- **Ícones:** lucide-react
+
+### Estrutura
+```
+react-app/src/
+├── components/
+│   ├── layout/Shell.tsx     # Layout com sidebar
+│   └── ui/                  # Card, Button, Badge, DataTable, PageHeader...
+├── pages/                   # Uma page por rota
+├── routes/AppRouter.tsx     # Router principal + ProtectedRoute
+├── services/
+│   ├── api.ts               # Funções base (apiGet, apiPost, apiPatch, apiDelete, apiPut)
+│   └── domain.ts            # Funções de domínio por entidade
+├── stores/auth-store.ts     # Auth (Zustand)
+├── types/models.ts          # Tipos TypeScript
+└── utils/
+    ├── access.ts            # Roles, menu, guards
+    └── format.ts            # formatMoney, formatPercent, asNumber, asString
+```
+
+### Adicionar uma nova página
+1. Criar `src/pages/NomePage.tsx` com `export function NomePage()`
+2. Importar e adicionar rota em `src/routes/AppRouter.tsx`
+3. Adicionar item ao `menuItems` em `src/utils/access.ts`
+4. Adicionar funções de serviço em `src/services/domain.ts`
+
+### Rotas existentes
+| Path | Componente | Roles |
+|---|---|---|
+| `/` | DashboardPage | internalRoles |
+| `/master` | MasterDashboardPage | masterRoles |
+| `/master/consolidado` | MasterConsolidatedPage | masterRoles |
+| `/comercial` | ComercialPage | masterRoles + commercialRoles |
+| `/conteudo` | ConteudoPage | cabineRoles + apresentador |
+| `/apresentadoras` | ApresentadorasPage | opsRoles |
+| `/metas` | MetasPage | opsRoles |
+| `/ranking/apresentadoras` | RankingApresentadorasPage | opsRoles |
+| `/financeiro` | FinanceiroPage | financeRoles |
+| `/configuracoes` | ConfiguracoesPage | franqueado+ |
+| `/cliente` | ClienteDashboardPage | cliente_parceiro |
+| `/ranking` | PublicRankingPage | público |

@@ -16,6 +16,8 @@ import { ClienteAgendaPage } from '../pages/ClienteAgendaPage'
 import { ConteudoPage } from '../pages/ConteudoPage'
 import { SolicitacoesPage } from '../pages/SolicitacoesPage'
 import { ApresentadorasPage } from '../pages/ApresentadorasPage'
+import { MetasPage } from '../pages/MetasPage'
+import { RankingApresentadorasPage } from '../pages/RankingApresentadorasPage'
 import { FinanceiroPage } from '../pages/FinanceiroPage'
 import { ConfiguracoesPage } from '../pages/ConfiguracoesPage'
 import { KnowledgePage } from '../pages/KnowledgePage'
@@ -72,6 +74,8 @@ export function AppRouter() {
               {/* /solicitacoes mantida apenas para acesso histórico — não é mais fluxo principal */}
               <Route path="/solicitacoes" element={<SolicitacoesPage />} />
               <Route path="/apresentadoras" element={<ApresentadorasPage />} />
+              <Route path="/metas" element={<MetasPage />} />
+              <Route path="/ranking/apresentadoras" element={<RankingApresentadorasPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={[...financeRoles, ...commercialRoles]} />}>
