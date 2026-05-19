@@ -6,7 +6,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
-import { getHomeDashboard } from '../services/domain'
+import { getComissoesApresentadoras, getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatMoney } from '../utils/format'
 import { normalizeHome } from './page-helpers'
@@ -16,6 +16,7 @@ const icons = [CircleDollarSign, Activity, Activity, Users]
 
 export function DashboardPage() {
   const query = useQuery({ queryKey: ['home-dashboard'], queryFn: getHomeDashboard, refetchInterval: 30_000 })
+  const rankingApresentadoras = useQuery({ queryKey: ['comissoes-apresentadoras'], queryFn: () => getComissoesApresentadoras(), refetchInterval: 30_000 })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
@@ -106,6 +107,24 @@ export function DashboardPage() {
                 { key: 'nome', header: 'Cliente', render: (item) => asString(item.nome ?? item.cliente_nome ?? item.tenant_nome) },
                 { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv ?? item.valor) },
                 { key: 'lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives ?? item.total_lives).toLocaleString('pt-BR') },
+              ]}
+            />
+          </CardBody>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-1">
+        <Card>
+          <CardHeader>
+            <p className="text-sm font-bold text-ink">Ranking de apresentadoras</p>
+          </CardHeader>
+          <CardBody>
+            <DataTable<JsonRecord>
+              data={rankingApresentadoras.data ?? []}
+              columns={[
+                { key: 'nome', header: 'Apresentadora', render: (item) => asString(item.nome) },
+                { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv) },
+                { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => formatMoney(item.comissao_apresentadora) },
               ]}
             />
           </CardBody>

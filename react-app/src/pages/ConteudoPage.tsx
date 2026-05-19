@@ -51,7 +51,8 @@ export function ConteudoPage() {
 
   const agenda = useQuery({ queryKey: ['agenda'], queryFn: () => getAgenda() })
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
-  const lives = useQuery({ queryKey: ['lives'], queryFn: getLives })
+  const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada' }) })
+  const livesAll = useQuery({ queryKey: ['lives'], queryFn: () => getLives() })
   const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos() })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
   const apresentadoras = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
@@ -76,13 +77,21 @@ export function ConteudoPage() {
     return rows.find((live) => asString(live.id, '') === selectedLiveId) ?? null
   }, [lives.data, selectedLiveId])
 
-  const isLoading = agenda.isLoading || cabines.isLoading || lives.isLoading || videos.isLoading || marcas.isLoading || apresentadoras.isLoading || comissoes.isLoading
-  const error = agenda.error ?? cabines.error ?? lives.error ?? videos.error ?? marcas.error ?? apresentadoras.error ?? comissoes.error
+  const cabinesComStatus = (cabines.data ?? []).map((cabine) => ({
+    ...cabine,
+    ocupada: (livesAll.data ?? []).some(
+      (live) => live.cabine_id === cabine.id && live.status === 'em_andamento'
+    ),
+  }))
+
+  const isLoading = agenda.isLoading || cabines.isLoading || lives.isLoading || livesAll.isLoading || videos.isLoading || marcas.isLoading || apresentadoras.isLoading || comissoes.isLoading
+  const error = agenda.error ?? cabines.error ?? lives.error ?? livesAll.error ?? videos.error ?? marcas.error ?? apresentadoras.error ?? comissoes.error
   if (isLoading) return <LoadingState />
   if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
     void agenda.refetch()
     void cabines.refetch()
     void lives.refetch()
+    void livesAll.refetch()
     void videos.refetch()
     void marcas.refetch()
     void apresentadoras.refetch()
@@ -91,7 +100,7 @@ export function ConteudoPage() {
 
   const metrics = [
     metric('Cabines', cabines.data?.length ?? 0, 'recursos físicos', 'neutral'),
-    metric('Lives mês', lives.data?.length ?? 0, 'realizadas e em andamento', 'success'),
+    metric('Lives mês', lives.data?.length ?? 0, 'realizadas', 'success'),
     metric('Vídeos', videos.data?.reduce((sum, item) => sum + asNumber(item.quantidade), 0) ?? 0, 'gravados', 'brand'),
     moneyMetric('GMV vídeos', comissoes.data?.gmv_videos, 'vendas atribuídas', 'info'),
     moneyMetric('Comissão', comissoes.data?.comissao_apresentadoras, 'live + vídeo', 'warning'),
@@ -147,6 +156,7 @@ export function ConteudoPage() {
           void agenda.refetch()
           void cabines.refetch()
           void lives.refetch()
+          void livesAll.refetch()
           void videos.refetch()
         }}>Atualizar</Button>}
       />
@@ -191,16 +201,32 @@ export function ConteudoPage() {
               />
             </CardBody>
           </Card>
-          <Card>
-            <CardHeader>
-              <p className="text-base font-bold text-ink">Novo evento rápido</p>
-            </CardHeader>
-            <CardBody className="space-y-3">
-              <Button icon={MonitorPlay} className="w-full" isLoading={createAgendaMutation.isPending} onClick={() => createQuickAgenda('live')}>Live</Button>
-              <Button icon={Video} variant="secondary" className="w-full" isLoading={createAgendaMutation.isPending} onClick={() => createQuickAgenda('gravacao_video')}>Gravação de vídeo</Button>
-              {createAgendaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createAgendaMutation.error)}</p> : null}
-            </CardBody>
-          </Card>
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <p className="text-base font-bold text-ink">Status das cabines</p>
+              </CardHeader>
+              <CardBody>
+                <DataTable<JsonRecord>
+                  data={cabinesComStatus}
+                  columns={[
+                    { key: 'numero', header: 'Cabine', render: (item) => `Cabine ${String(item.numero ?? '').padStart(2, '0')}` },
+                    { key: 'ocupada', header: 'Status', render: (item) => <Badge tone={item.ocupada ? 'danger' : 'success'}>{item.ocupada ? 'Em live' : 'Livre'}</Badge> },
+                  ]}
+                />
+              </CardBody>
+            </Card>
+            <Card>
+              <CardHeader>
+                <p className="text-base font-bold text-ink">Novo evento rápido</p>
+              </CardHeader>
+              <CardBody className="space-y-3">
+                <Button icon={MonitorPlay} className="w-full" isLoading={createAgendaMutation.isPending} onClick={() => createQuickAgenda('live')}>Live</Button>
+                <Button icon={Video} variant="secondary" className="w-full" isLoading={createAgendaMutation.isPending} onClick={() => createQuickAgenda('gravacao_video')}>Gravação de vídeo</Button>
+                {createAgendaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createAgendaMutation.error)}</p> : null}
+              </CardBody>
+            </Card>
+          </div>
         </section>
       ) : null}
 
