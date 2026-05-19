@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, deleteCabine, deleteLive, deleteUsuario, ganharLead, getLead, getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive, updateLive } from './domain'
+import { createCliente, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, ganharLead, getLead, getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive, updateApresentadora, updateLive } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -98,6 +98,17 @@ describe('domain live operations', () => {
     await deleteUsuario('user-1')
 
     expect(apiDelete).toHaveBeenCalledWith('/usuarios/user-1')
+  })
+
+  it('updates and deletes presenter profiles through apresentadoras endpoints', async () => {
+    vi.mocked(apiPatch).mockResolvedValue({ id: 'ap-1' })
+    vi.mocked(apiDelete).mockResolvedValue({})
+
+    await updateApresentadora('ap-1', { ativo: false })
+    await deleteApresentadora('ap-1')
+
+    expect(apiPatch).toHaveBeenCalledWith('/apresentadoras/ap-1', { ativo: false })
+    expect(apiDelete).toHaveBeenCalledWith('/apresentadoras/ap-1')
   })
 
   it('normalizes cabine live-atual payload into the selected live shape', async () => {

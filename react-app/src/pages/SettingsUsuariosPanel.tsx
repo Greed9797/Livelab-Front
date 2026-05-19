@@ -11,6 +11,7 @@ import { asNumber, asString, formatMoney } from '../utils/format'
 import { extractErrorMessage } from '../services/api'
 import {
   convidarUsuario,
+  deleteApresentadora,
   deleteUsuario,
   forceLogoutUsuario,
   getApresentadoras,
@@ -18,6 +19,7 @@ import {
   getUsuarios,
   reenviarConviteUsuario,
   resetSenhaUsuario,
+  updateApresentadora,
   updateUsuario,
 } from '../services/domain'
 import type { JsonRecord } from '../types/models'
@@ -55,13 +57,21 @@ function ativoValue(value: unknown) {
   return value === true || value === 'true'
 }
 
+function isPresenterProfile(item: JsonRecord | null | undefined) {
+  return asString(item?.origem_perfil) === 'apresentadora'
+}
+
+function presenterProfileId(item: JsonRecord) {
+  return asString(item.apresentadora_id ?? item.id, '').replace(/^apresentadora:/, '')
+}
+
 export function SettingsUsuariosPanel() {
   const client = useQueryClient()
   const [form, setForm] = useState(emptyForm)
   const [editingUser, setEditingUser] = useState<JsonRecord | null>(null)
   const [editForm, setEditForm] = useState(emptyEditForm)
   const [papelFilter, setPapelFilter] = useState('all')
-  const [ativoFilter, setAtivoFilter] = useState('all')
+  const [ativoFilter, setAtivoFilter] = useState('true')
   const usuarios = useQuery({
     queryKey: ['usuarios', papelFilter, ativoFilter],
     queryFn: () => getUsuarios({
@@ -89,12 +99,38 @@ export function SettingsUsuariosPanel() {
       void client.invalidateQueries({ queryKey: ['usuarios'] })
     },
   })
-  const deleteMutation = useMutation({
-    mutationFn: deleteUsuario,
+  const updatePresenterMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateApresentadora(id, payload),
     onSuccess: () => {
       setEditingUser(null)
       setEditForm(emptyEditForm)
       void client.invalidateQueries({ queryKey: ['usuarios'] })
+      void client.invalidateQueries({ queryKey: ['apresentadoras'] })
+    },
+  })
+  const deleteMutation = useMutation({
+    mutationFn: deleteUsuario,
+    onSuccess: (_data, id) => {
+      setAtivoFilter('true')
+      setEditingUser(null)
+      setEditForm(emptyEditForm)
+      client.setQueriesData<JsonRecord[]>({ queryKey: ['usuarios'] }, (old) =>
+        Array.isArray(old) ? old.filter((item) => asString(item.id, '') !== id) : old
+      )
+      void client.invalidateQueries({ queryKey: ['usuarios'] })
+    },
+  })
+  const deletePresenterMutation = useMutation({
+    mutationFn: deleteApresentadora,
+    onSuccess: (_data, id) => {
+      setAtivoFilter('true')
+      setEditingUser(null)
+      setEditForm(emptyEditForm)
+      client.setQueriesData<JsonRecord[]>({ queryKey: ['apresentadoras'] }, (old) =>
+        Array.isArray(old) ? old.filter((item) => asString(item.id, '') !== id) : old
+      )
+      void client.invalidateQueries({ queryKey: ['usuarios'] })
+      void client.invalidateQueries({ queryKey: ['apresentadoras'] })
     },
   })
   const resetMutation = useMutation({ mutationFn: resetSenhaUsuario })
@@ -121,11 +157,17 @@ export function SettingsUsuariosPanel() {
         apresentadora_id: asString(item.id, ''),
         papel: 'apresentador',
         email: asString(item.email, 'sem acesso criado'),
+        ativo: ativoValue(item.ativo),
         pode_apresentar_live: true,
         origem_perfil: 'apresentadora',
       }))
+      .filter((item) => {
+        if (papelFilter !== 'all' && papelFilter !== 'apresentador') return false
+        if (ativoFilter !== 'all' && ativoValue(item.ativo) !== (ativoFilter === 'true')) return false
+        return true
+      })
     return [...userRows, ...presenterOnlyRows]
-  }, [usuarios.data, apresentadoras.data])
+  }, [usuarios.data, apresentadoras.data, papelFilter, ativoFilter])
 
   if (usuarios.isLoading || clientes.isLoading || apresentadoras.isLoading) return <LoadingState />
   if (usuarios.isError) return <ErrorState message={extractErrorMessage(usuarios.error)} onRetry={() => void usuarios.refetch()} />
@@ -162,6 +204,16 @@ export function SettingsUsuariosPanel() {
   function onEditSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!editingUser) return
+    if (isPresenterProfile(editingUser)) {
+      updatePresenterMutation.mutate({
+        id: presenterProfileId(editingUser),
+        payload: {
+          nome: editForm.nome,
+          ativo: editForm.ativo,
+        },
+      })
+      return
+    }
     updateMutation.mutate({
       id: asString(editingUser.id, ''),
       payload: {
@@ -175,6 +227,10 @@ export function SettingsUsuariosPanel() {
   function onDeleteUser(item: JsonRecord) {
     const label = asString(item.nome ?? item.email, 'usuário')
     if (!window.confirm(`Excluir/desativar o usuário "${label}"?`)) return
+    if (isPresenterProfile(item)) {
+      deletePresenterMutation.mutate(presenterProfileId(item))
+      return
+    }
     deleteMutation.mutate(asString(item.id, ''))
   }
 
@@ -278,23 +334,36 @@ export function SettingsUsuariosPanel() {
                   const id = asString(item.id, '')
                   const presenterOnly = asString(item.origem_perfil) === 'apresentadora'
                   const ativo = ativoValue(item.ativo)
+                  const presenterId = presenterProfileId(item)
+                  const writePending = updateMutation.isPending || updatePresenterMutation.isPending
+                  const deletePending = deleteMutation.isPending || deletePresenterMutation.isPending
                   return (
                     <div className="flex flex-wrap justify-end gap-2">
-                      <Button variant="ghost" icon={ativo ? Shield : CheckCircle2} disabled={presenterOnly || updateMutation.isPending} onClick={() => updateMutation.mutate({ id, payload: { ativo: !ativo } })}>{ativo ? 'Inativar' : 'Reativar'}</Button>
-                      <Button variant="secondary" icon={Edit2} disabled={presenterOnly} onClick={() => openEditUser(item)}>Editar</Button>
+                      <Button
+                        variant="ghost"
+                        icon={ativo ? Shield : CheckCircle2}
+                        disabled={writePending}
+                        onClick={() => presenterOnly
+                          ? updatePresenterMutation.mutate({ id: presenterId, payload: { ativo: !ativo } })
+                          : updateMutation.mutate({ id, payload: { ativo: !ativo } })
+                        }
+                      >
+                        {ativo ? 'Inativar' : 'Reativar'}
+                      </Button>
+                      <Button variant="secondary" icon={Edit2} disabled={writePending} onClick={() => openEditUser(item)}>Editar</Button>
                       <Button variant="ghost" icon={KeyRound} disabled={presenterOnly || resetMutation.isPending} onClick={() => resetMutation.mutate(id)}>Resetar</Button>
                       <Button variant="ghost" icon={MailPlus} disabled={presenterOnly || resendMutation.isPending} onClick={() => resendMutation.mutate(id)}>Convite</Button>
                       <Button variant="ghost" icon={LogOut} disabled={presenterOnly || logoutMutation.isPending} onClick={() => logoutMutation.mutate(id)}>Logout</Button>
-                      <Button variant="danger" icon={Trash2} disabled={presenterOnly || deleteMutation.isPending} onClick={() => onDeleteUser(item)}>Excluir</Button>
+                      <Button variant="danger" icon={Trash2} disabled={deletePending} onClick={() => onDeleteUser(item)}>Excluir</Button>
                     </div>
                   )
                 },
               },
             ]}
           />
-          {updateMutation.isError || resetMutation.isError || logoutMutation.isError || resendMutation.isError || deleteMutation.isError ? (
+          {updateMutation.isError || updatePresenterMutation.isError || resetMutation.isError || logoutMutation.isError || resendMutation.isError || deleteMutation.isError || deletePresenterMutation.isError ? (
             <p className="mt-4 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
-              {extractErrorMessage(updateMutation.error ?? resetMutation.error ?? logoutMutation.error ?? resendMutation.error ?? deleteMutation.error)}
+              {extractErrorMessage(updateMutation.error ?? updatePresenterMutation.error ?? resetMutation.error ?? logoutMutation.error ?? resendMutation.error ?? deleteMutation.error ?? deletePresenterMutation.error)}
             </p>
           ) : null}
           {resetMutation.data ? (
@@ -319,7 +388,7 @@ export function SettingsUsuariosPanel() {
           </label>
           <label className="block">
             <span className="text-sm font-semibold text-ink">Papel</span>
-            <select className="design-input mt-2 h-11 w-full px-4" value={editForm.papel} onChange={(event) => setEditField('papel', event.target.value)}>
+            <select className="design-input mt-2 h-11 w-full px-4" value={editForm.papel} disabled={isPresenterProfile(editingUser)} onChange={(event) => setEditField('papel', event.target.value)}>
               {papeis.map((papel) => <option key={papel} value={papel}>{papelLabels[papel] ?? papel}</option>)}
             </select>
           </label>
@@ -330,10 +399,10 @@ export function SettingsUsuariosPanel() {
               <option value="false">Inativo</option>
             </select>
           </label>
-          {updateMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(updateMutation.error)}</p> : null}
+          {updateMutation.isError || updatePresenterMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(updateMutation.error ?? updatePresenterMutation.error)}</p> : null}
           <div className="flex flex-wrap gap-2 md:col-span-2">
-            <Button type="submit" icon={CheckCircle2} isLoading={updateMutation.isPending}>Salvar usuário</Button>
-            {editingUser ? <Button type="button" variant="danger" icon={Trash2} isLoading={deleteMutation.isPending} onClick={() => onDeleteUser(editingUser)}>Excluir</Button> : null}
+            <Button type="submit" icon={CheckCircle2} isLoading={updateMutation.isPending || updatePresenterMutation.isPending}>Salvar usuário</Button>
+            {editingUser ? <Button type="button" variant="danger" icon={Trash2} isLoading={deleteMutation.isPending || deletePresenterMutation.isPending} onClick={() => onDeleteUser(editingUser)}>Excluir</Button> : null}
             <Button type="button" variant="secondary" onClick={() => setEditingUser(null)}>Cancelar</Button>
           </div>
         </form>
