@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, deleteCabine, deleteLive, deleteUsuario, ganharLead, getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive, updateLive } from './domain'
+import { createCliente, deleteCabine, deleteLive, deleteUsuario, ganharLead, getLead, getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive, updateLive } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -55,6 +55,14 @@ describe('domain live operations', () => {
     await ganharLead('lead-1')
 
     expect(apiPost).toHaveBeenCalledWith('/leads/lead-1/ganhar', {})
+  })
+
+  it('loads a CRM lead detail by id', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ id: 'lead-1' })
+
+    await getLead('lead-1')
+
+    expect(apiGet).toHaveBeenCalledWith('/leads/lead-1')
   })
 
   it('loads a selected live by id from the canonical lives endpoint', async () => {

@@ -1,4 +1,4 @@
-import { Bell, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
+import { Bell, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
@@ -143,6 +143,8 @@ export function Shell() {
   const [desktopExpanded, setDesktopExpanded] = useState(false)
   const theme = useThemeStore((state) => state.resolvedTheme)
   const user = useAuthStore((state) => state.user)
+  const location = useLocation()
+  const isHomeRoute = location.pathname === '/' || location.pathname === '/master'
 
   return (
     <div className="livelab-shell min-h-screen" data-theme={theme}>
@@ -182,6 +184,7 @@ export function Shell() {
         </header>
 
         <main className="min-h-screen px-4 py-6 md:px-7 lg:px-8 lg:py-5">
+          {isHomeRoute ? (
           <div className="mb-6 hidden items-center justify-between lg:flex">
             <div className="flex items-center gap-3">
               <span className="grid h-13 w-13 place-items-center rounded-full bg-gradient-to-br from-brand to-[#ff8a3c] text-lg font-bold text-white shadow-[0_4px_12px_-2px_rgba(255,90,31,0.5)]">
@@ -195,16 +198,13 @@ export function Shell() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="hidden h-12 items-center gap-2 rounded-2xl border border-line bg-surface px-4 text-sm text-ink-muted xl:flex">
-                <Search className="h-4 w-4" />
-                <span>Buscar no SaaS</span>
-              </div>
               <button className="relative grid h-12 w-12 place-items-center rounded-2xl border border-line bg-surface text-ink-muted transition hover:bg-surface-muted" aria-label="Notificações">
                 <Bell className="h-5 w-5" />
                 <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full border-2 border-surface bg-brand" />
               </button>
             </div>
           </div>
+          ) : null}
           <Outlet />
         </main>
       </div>

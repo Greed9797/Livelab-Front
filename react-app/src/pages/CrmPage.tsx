@@ -1,32 +1,21 @@
-import { ClipboardCheck, Edit2, GripVertical, PhoneCall, Plus, Search, Trash2, Trophy, Workflow, XCircle } from 'lucide-react'
+import { Plus, Search, Workflow } from 'lucide-react'
 import { FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MetricCard } from '../components/ui/MetricCard'
-import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { Badge } from '../components/ui/Badge'
+import { Card, CardBody } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
-import { addLeadContato, addLeadTarefa, createLead, deleteLead, ganharLead, getCrmSummary, getLeads, updateLead } from '../services/domain'
+import { LeadDrawer } from '../components/crm/LeadDrawer'
+import { LeadKanban } from '../components/crm/LeadKanban'
+import { addLeadContato, addLeadTarefa, createLead, deleteLead, ganharLead, getCrmSummary, getLead, getLeads, updateLead } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asArray, asNumber, asString, formatDate, formatMoney, getRecord } from '../utils/format'
+import { asArray, asNumber, asString, getRecord } from '../utils/format'
+import { CRM_STAGES, leadTitle, moveLeadToStage, normalizeCrmStage, type CrmStageKey } from '../utils/crm'
 import { metric, moneyMetric } from './page-helpers'
 import type { JsonRecord, Lead } from '../types/models'
 
-export const CRM_STAGES = [
-  { key: 'lead_novo', label: 'Novo lead' },
-  { key: 'contato_iniciado', label: 'Contato iniciado' },
-  { key: 'reuniao_agendada', label: 'Reunião agendada' },
-  { key: 'proposta_enviada', label: 'Proposta enviada' },
-  { key: 'em_negociacao', label: 'Em negociação' },
-  { key: 'aguardando_assinatura', label: 'Aguardando assinatura' },
-  { key: 'ganho', label: 'Ganho' },
-  { key: 'perdido', label: 'Perdido' },
-] as const
-
-type CrmStageKey = (typeof CRM_STAGES)[number]['key']
-
-const CRM_STAGE_KEYS = new Set(CRM_STAGES.map((stage) => stage.key))
+export { groupLeadsByStage, moveLeadToStage, normalizeCrmStage } from '../utils/crm'
 
 const emptyLeadForm = {
   nome: '',
@@ -40,36 +29,7 @@ const emptyLeadForm = {
   contato_email: '',
   contato_whatsapp: '',
   observacoes_internas: '',
-}
-
-export function normalizeCrmStage(lead: JsonRecord) {
-  const stage = asString(lead.crm_etapa, '')
-  return CRM_STAGE_KEYS.has(stage as CrmStageKey) ? stage : 'lead_novo'
-}
-
-export function groupLeadsByStage<T extends JsonRecord>(leads: T[]) {
-  return CRM_STAGES.map((stage) => ({
-    stage,
-    leads: leads.filter((lead) => normalizeCrmStage(lead) === stage.key),
-  }))
-}
-
-export function moveLeadToStage<T extends JsonRecord>(leads: T[], leadId: string, stage: CrmStageKey) {
-  return leads.map((lead) => (
-    asString(lead.id, '') === leadId ? { ...lead, crm_etapa: stage } : lead
-  ))
-}
-
-function leadTitle(lead: JsonRecord) {
-  return asString(lead.nome ?? lead.nome_cliente ?? lead.cliente_nome, 'Lead')
-}
-
-function leadValue(lead: JsonRecord) {
-  return lead.valor_oportunidade ?? lead.valor_estimado ?? lead.fat_estimado
-}
-
-function stageLabel(stage: unknown) {
-  return CRM_STAGES.find((item) => item.key === normalizeCrmStage({ crm_etapa: stage }))?.label ?? 'Novo lead'
+  motivo_perda: '',
 }
 
 export function CrmPage() {
@@ -78,21 +38,28 @@ export function CrmPage() {
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'detail' | null>(null)
   const [editingId, setEditingId] = useState('')
   const [selectedLead, setSelectedLead] = useState<JsonRecord | null>(null)
+  const [selectedLeadId, setSelectedLeadId] = useState('')
   const [leadForm, setLeadForm] = useState(emptyLeadForm)
-  const [dragLeadId, setDragLeadId] = useState('')
   const client = useQueryClient()
   const summaryQuery = useQuery({ queryKey: ['crm-summary'], queryFn: getCrmSummary })
   const leadsQuery = useQuery({ queryKey: ['leads'], queryFn: getLeads })
+  const leadDetailQuery = useQuery({
+    queryKey: ['lead', selectedLeadId],
+    queryFn: () => getLead(selectedLeadId),
+    enabled: modalMode === 'detail' && Boolean(selectedLeadId),
+  })
 
   const invalidateCrm = () => {
     void client.invalidateQueries({ queryKey: ['leads'] })
     void client.invalidateQueries({ queryKey: ['crm-summary'] })
+    if (selectedLeadId) void client.invalidateQueries({ queryKey: ['lead', selectedLeadId] })
   }
 
   const closeModal = () => {
     setModalMode(null)
     setEditingId('')
     setSelectedLead(null)
+    setSelectedLeadId('')
     setLeadForm(emptyLeadForm)
   }
 
@@ -163,7 +130,6 @@ export function CrmPage() {
     })
   }, [activityFilter, leads, search])
 
-  const leadsByStage = groupLeadsByStage(visibleLeads as unknown as JsonRecord[])
   const ganhos = asNumber(summary.ganhos ?? totals.ganhos)
   const metrics = [
     metric('Leads abertos', visibleLeads.filter((lead) => !['ganho', 'perdido'].includes(asString((lead as JsonRecord).crm_etapa))).length, 'pipeline ativo', 'neutral'),
@@ -194,6 +160,7 @@ export function CrmPage() {
       contato_email: asString(lead.contato_email, ''),
       contato_whatsapp: asString(lead.contato_whatsapp, ''),
       observacoes_internas: asString(lead.observacoes_internas, ''),
+      motivo_perda: asString(lead.motivo_perda, ''),
     })
   }
 
@@ -206,6 +173,7 @@ export function CrmPage() {
 
   function openDetail(lead: JsonRecord) {
     setSelectedLead(lead)
+    setSelectedLeadId(asString(lead.id, ''))
     setModalMode('detail')
   }
 
@@ -230,6 +198,7 @@ export function CrmPage() {
       contato_email: leadForm.contato_email || undefined,
       contato_whatsapp: leadForm.contato_whatsapp || undefined,
       observacoes_internas: leadForm.observacoes_internas || undefined,
+      motivo_perda: leadForm.motivo_perda || undefined,
     })
   }
 
@@ -263,8 +232,7 @@ export function CrmPage() {
   }
 
   const mutationError = updateMutation.error ?? deleteMutation.error ?? contatoMutation.error ?? tarefaMutation.error ?? ganharMutation.error ?? perderMutation.error
-  const selectedHistory = selectedLead ? asArray<JsonRecord>(selectedLead.historico_contatos) : []
-  const selectedTasks = selectedLead ? asArray<JsonRecord>(selectedLead.tarefas) : []
+  const drawerLead = (leadDetailQuery.data as unknown as JsonRecord | undefined) ?? selectedLead
 
   return (
     <div className="space-y-5">
@@ -300,60 +268,11 @@ export function CrmPage() {
         </CardBody>
       </Card>
 
-      <div className="overflow-x-auto pb-2">
-        <section className="grid min-w-[1500px] grid-cols-8 gap-4">
-          {leadsByStage.map(({ stage, leads: stageLeads }) => (
-            <Card
-              key={stage.key}
-              className="min-h-96"
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault()
-                const leadId = event.dataTransfer.getData('text/plain') || dragLeadId
-                if (leadId) moveLead(leadId, stage.key)
-                setDragLeadId('')
-              }}
-            >
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-bold text-ink">{stage.label}</p>
-                  <Badge tone={stage.key === 'ganho' ? 'success' : stage.key === 'perdido' ? 'danger' : 'brand'}>{stageLeads.length}</Badge>
-                </div>
-              </CardHeader>
-              <CardBody className="space-y-3">
-                {stageLeads.map((lead) => (
-                  <button
-                    key={asString(lead.id)}
-                    type="button"
-                    draggable
-                    onDragStart={(event) => {
-                      const id = asString(lead.id, '')
-                      setDragLeadId(id)
-                      event.dataTransfer.effectAllowed = 'move'
-                      event.dataTransfer.setData('text/plain', id)
-                    }}
-                    onDragEnd={() => setDragLeadId('')}
-                    onClick={() => openDetail(lead)}
-                    className="w-full cursor-grab rounded-2xl border border-line bg-surface-muted p-3 text-left transition hover:border-brand/50 active:cursor-grabbing"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="truncate text-sm font-bold text-ink">{leadTitle(lead)}</p>
-                      <GripVertical className="h-4 w-4 shrink-0 text-ink-muted" />
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-ink-muted">
-                      <span>{asString(lead.responsavel_nome, 'sem responsável')}</span>
-                      <span>{formatMoney(leadValue(lead))}</span>
-                    </div>
-                    <p className="mt-2 text-[11px] text-ink-muted">Atualizado {formatDate(asString(lead.atualizado_em ?? lead.criado_em, ''))}</p>
-                    <p className="mt-2 text-[11px] font-semibold text-brand">Clique para abrir · arraste para mover</p>
-                  </button>
-                ))}
-                {stageLeads.length === 0 ? <p className="rounded-xl border border-dashed border-line p-4 text-center text-xs text-ink-muted">Solte um lead aqui</p> : null}
-              </CardBody>
-            </Card>
-          ))}
-        </section>
-      </div>
+      <LeadKanban
+        leads={visibleLeads as unknown as JsonRecord[]}
+        onOpenLead={openDetail}
+        onMoveLead={moveLead}
+      />
 
       {mutationError ? (
         <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
@@ -415,6 +334,12 @@ export function CrmPage() {
             <span className="text-sm font-semibold text-ink">Observações internas</span>
             <textarea className="design-input mt-2 min-h-24 w-full px-4 py-3" value={leadForm.observacoes_internas} onChange={(event) => setLeadField('observacoes_internas', event.target.value)} />
           </label>
+          {leadForm.crm_etapa === 'perdido' ? (
+            <label className="block md:col-span-2 xl:col-span-4">
+              <span className="text-sm font-semibold text-ink">Motivo da perda</span>
+              <textarea className="design-input mt-2 min-h-20 w-full px-4 py-3" value={leadForm.motivo_perda} onChange={(event) => setLeadField('motivo_perda', event.target.value)} required />
+            </label>
+          ) : null}
           {saveMutation.isError ? <p className="md:col-span-2 xl:col-span-4 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(saveMutation.error)}</p> : null}
           <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-4">
             <Button type="submit" icon={Plus} isLoading={saveMutation.isPending}>{editingId ? 'Salvar lead' : 'Criar lead'}</Button>
@@ -423,69 +348,18 @@ export function CrmPage() {
         </form>
       </Modal>
 
-      <Modal
-        open={modalMode === 'detail' && !!selectedLead}
-        title={selectedLead ? leadTitle(selectedLead) : 'Lead'}
-        subtitle={selectedLead ? `${stageLabel(selectedLead.crm_etapa)} · ${formatMoney(leadValue(selectedLead))}` : undefined}
+      <LeadDrawer
+        open={modalMode === 'detail' && Boolean(drawerLead)}
+        lead={drawerLead ?? null}
+        loading={leadDetailQuery.isFetching}
         onClose={closeModal}
-        size="lg"
-      >
-        {selectedLead ? (
-          <div className="space-y-5">
-            <div className="grid gap-3 md:grid-cols-2">
-              {[
-                ['Responsável', asString(selectedLead.responsavel_nome, 'sem responsável')],
-                ['Origem', asString(selectedLead.origem, '—')],
-                ['Nicho', asString(selectedLead.nicho, '—')],
-                ['Cidade/UF', `${asString(selectedLead.cidade, '—')}/${asString(selectedLead.estado, '—')}`],
-                ['WhatsApp', asString(selectedLead.contato_whatsapp, '—')],
-                ['E-mail', asString(selectedLead.contato_email, '—')],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-line bg-surface-muted p-3">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</p>
-                  <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" icon={Edit2} onClick={() => openEditForm(selectedLead)}>Editar</Button>
-              <Button variant="secondary" icon={PhoneCall} disabled={contatoMutation.isPending} onClick={() => registerContact(selectedLead)}>Registrar contato</Button>
-              <Button variant="secondary" icon={ClipboardCheck} disabled={tarefaMutation.isPending} onClick={() => createTask(selectedLead)}>Criar tarefa</Button>
-              {normalizeCrmStage(selectedLead) !== 'ganho' ? <Button variant="secondary" icon={Trophy} disabled={ganharMutation.isPending} onClick={() => ganharMutation.mutate(asString(selectedLead.id, ''))}>Marcar ganho</Button> : null}
-              {normalizeCrmStage(selectedLead) !== 'perdido' ? <Button variant="ghost" icon={XCircle} disabled={perderMutation.isPending} onClick={() => markLost(selectedLead)}>Marcar perdido</Button> : null}
-              <Button variant="danger" icon={Trash2} disabled={deleteMutation.isPending} onClick={() => deleteSelectedLead(selectedLead)}>Excluir</Button>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl border border-line bg-surface-muted p-4">
-                <p className="text-sm font-bold text-ink">Histórico de contatos</p>
-                <div className="mt-3 space-y-2">
-                  {selectedHistory.map((item, index) => (
-                    <div key={index} className="rounded-xl bg-surface p-3 text-sm text-ink">
-                      <p className="font-semibold">{asString(item.tipo, 'Contato')}</p>
-                      <p className="mt-1 text-ink-muted">{asString(item.resumo)}</p>
-                    </div>
-                  ))}
-                  {!selectedHistory.length ? <p className="text-sm text-ink-muted">Nenhum contato registrado.</p> : null}
-                </div>
-              </div>
-              <div className="rounded-2xl border border-line bg-surface-muted p-4">
-                <p className="text-sm font-bold text-ink">Tarefas</p>
-                <div className="mt-3 space-y-2">
-                  {selectedTasks.map((item, index) => (
-                    <div key={index} className="rounded-xl bg-surface p-3 text-sm text-ink">
-                      <p className="font-semibold">{asString(item.titulo, 'Tarefa')}</p>
-                      <p className="mt-1 text-ink-muted">{item.concluida ? 'Concluída' : 'Aberta'}</p>
-                    </div>
-                  ))}
-                  {!selectedTasks.length ? <p className="text-sm text-ink-muted">Nenhuma tarefa criada.</p> : null}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </Modal>
+        onEdit={openEditForm}
+        onAddContact={registerContact}
+        onAddTask={createTask}
+        onWin={(lead) => ganharMutation.mutate(asString(lead.id, ''))}
+        onLose={markLost}
+        onDelete={deleteSelectedLead}
+      />
     </div>
   )
 }

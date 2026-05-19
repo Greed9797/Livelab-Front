@@ -30,6 +30,10 @@ export function getLeads() {
   return apiGet<Lead[]>('/leads')
 }
 
+export function getLead(id: string) {
+  return apiGet<Lead>(`/leads/${id}`)
+}
+
 export function createLead(payload: JsonRecord) {
   return apiPost<Lead>('/leads', payload)
 }

@@ -89,9 +89,27 @@ export interface Lead {
   cliente_nome?: string
   origem?: string
   nicho?: string
+  cidade?: string
+  estado?: string
   etapa?: string
   status?: string
+  crm_etapa?: string
   valor_estimado?: number | string
+  valor_oportunidade?: number | string
+  responsavel_nome?: string
+  contato_email?: string
+  contato_whatsapp?: string
+  observacoes_internas?: string
+  motivo_perda?: string
+  historico_contatos?: JsonRecord[]
+  tarefas?: JsonRecord[]
+  contatos_estruturados?: JsonRecord[]
+  tarefas_estruturadas?: JsonRecord[]
+  etapa_historico?: JsonRecord[]
+  convertido_cliente_id?: string
+  ganho_em?: string
+  atualizado_em?: string
+  dados_extras?: JsonRecord
   criado_em?: string
 }
 
