@@ -1,6 +1,5 @@
-import { Activity, CalendarClock, Edit2, EyeOff, MonitorPlay, PlayCircle, Plus, Power, Presentation, RefreshCcw, Search, StopCircle, Trash2, Wrench, type LucideIcon } from 'lucide-react'
+import { CalendarClock, Edit2, EyeOff, MonitorPlay, PlayCircle, Plus, Power, Presentation, RefreshCcw, Search, StopCircle, Trash2, Wrench } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
-import clsx from 'clsx'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -10,7 +9,7 @@ import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
-import { atualizarStatusCabine, createCabine, deleteCabine, encerrarLive, getCabineHistorico, getCabines, getClientes, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
+import { atualizarStatusCabine, createCabine, deleteCabine, encerrarLive, getCabineHistorico, getCabines, getClientes, getLiveTiktokStatus, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatDate, formatMoney } from '../utils/format'
 import { useCurrentUser } from '../stores/auth-store'
@@ -66,6 +65,13 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     autoRefreshMs: selectedId || explicitLiveId ? 20_000 : 0,
   })
   const liveAtualData = selectedLive.live as unknown as JsonRecord | null
+  const liveAtualId = asString(liveAtualData?.id ?? liveAtualData?.live_id, '')
+  const tiktokStatusQuery = useQuery({
+    queryKey: ['live-tiktok-status', liveAtualId],
+    queryFn: () => getLiveTiktokStatus(liveAtualId),
+    enabled: Boolean(liveAtualId),
+    refetchInterval: liveAtualId ? 20_000 : false,
+  })
   const saveCabineMutation = useMutation({
     mutationFn: (payload: JsonRecord) => editingId ? updateCabine(editingId, payload) : createCabine(payload),
     onSuccess: () => {
@@ -142,14 +148,6 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
       (filter === 'busy' && active && !['ao_vivo', availableCabineStatus, 'manutencao'].includes(cabine.status ?? ''))
     return statusMatch && normalized.includes(search.trim().toLowerCase())
   })
-  const totalGmv = activeCabines.reduce((sum, cabine) => sum + asNumber(cabine.gmv_atual), 0)
-  const totalViewers = activeCabines.reduce((sum, cabine) => sum + asNumber(cabine.viewer_count), 0)
-  const occupancyRows: Array<{ label: string; value: number; color: string; icon: LucideIcon }> = [
-    { label: 'Ao vivo', value: counts.live, color: 'bg-brand', icon: MonitorPlay },
-    { label: 'Preparando', value: counts.busy, color: 'bg-[var(--info)]', icon: Activity },
-    { label: 'Livres', value: counts.free, color: 'bg-[var(--success)]', icon: CalendarClock },
-    { label: 'Manutenção', value: counts.maintenance, color: 'bg-[var(--warning)]', icon: Wrench },
-  ]
   const selectedCabine = visible.find((cabine) => cabine.id === selectedId)
 
   useEffect(() => {
@@ -432,39 +430,6 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <p className="text-base font-bold text-ink">Ocupação agora</p>
-                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-brand">Tempo real</span>
-              </div>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              {occupancyRows.map(({ label, value, color, icon: Icon }) => (
-                <div key={label} className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className={clsx('h-2.5 w-2.5 rounded-full', color)} />
-                    <span className="text-sm font-medium text-ink">{label}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm font-bold text-ink">
-                    <Icon className="h-4 w-4 text-ink-muted" />
-                    <span className="num">{value}</span>
-                  </div>
-                </div>
-              ))}
-              <div className="grid grid-cols-2 gap-3 border-t border-line pt-4">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Espectadores</p>
-                  <p className="num mt-1 text-lg font-bold text-ink">{totalViewers.toLocaleString('pt-BR')}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-muted">GMV agora</p>
-                  <p className="num mt-1 text-lg font-bold text-brand">{formatMoney(totalGmv)}</p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader>
               <p className="text-base font-bold text-ink">Detalhe da cabine</p>
               <p className="mt-1 text-xs text-ink-muted">{selectedCabine ? `Cabine ${asString(selectedCabine.numero)}` : 'Selecione uma cabine'}</p>
             </CardHeader>
@@ -597,6 +562,21 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
               ) : null}
               {liveAtualData ? (
                 <div className="rounded-2xl border border-line bg-surface-muted p-4">
+                  {(() => {
+                    const connector = tiktokStatusQuery.data ?? {}
+                    const connectorStatus = asString(connector.status, '')
+                    const hasConnector = Boolean(connectorStatus)
+                    const lastSync = asString(connector.last_sync_at, '')
+                    const statusToneValue: 'success' | 'warning' | 'danger' | 'neutral' =
+                      connectorStatus === 'connected'
+                        ? 'success'
+                        : connectorStatus === 'connecting'
+                          ? 'warning'
+                          : connectorStatus === 'error'
+                            ? 'danger'
+                            : 'neutral'
+                    return (
+                      <>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold text-ink">Live atual</p>
@@ -604,11 +584,28 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                     </div>
                     <Badge tone={asString(liveAtualData.status, 'em_andamento') === 'em_andamento' ? 'success' : 'neutral'}>{asString(liveAtualData.status, 'em_andamento') === 'em_andamento' ? 'ativa' : asString(liveAtualData.status)}</Badge>
                   </div>
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
                     <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">Viewers</p><p className="num font-bold text-ink">{asNumber(liveAtualData.viewer_count ?? liveAtualData.manual_views)}</p></div>
                     <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">GMV</p><p className="num font-bold text-brand">{formatMoney(liveAtualData.gmv_atual ?? liveAtualData.manual_gmv ?? liveAtualData.fat_gerado)}</p></div>
                     <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">Pedidos</p><p className="num font-bold text-ink">{asNumber(liveAtualData.total_orders ?? liveAtualData.final_orders_count ?? liveAtualData.qtd_pedidos)}</p></div>
+                    <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">Likes</p><p className="num font-bold text-ink">{asNumber(liveAtualData.likes_count ?? liveAtualData.manual_likes).toLocaleString('pt-BR')}</p></div>
+                    <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">Comentários</p><p className="num font-bold text-ink">{asNumber(liveAtualData.comments_count ?? liveAtualData.manual_comments).toLocaleString('pt-BR')}</p></div>
                   </div>
+                  <div className="mt-3 rounded-xl border border-line bg-surface p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-ink">Conector TikTok</p>
+                      {tiktokStatusQuery.isLoading ? <Badge tone="neutral">verificando</Badge> : hasConnector ? <Badge tone={statusToneValue}>{connectorStatus}</Badge> : <Badge tone="neutral">sem integração</Badge>}
+                    </div>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      {hasConnector
+                        ? `${asString(connector.tiktok_username, 'TikTok não informado')} · último snapshot ${lastSync ? formatDate(lastSync) : 'não recebido'}`
+                        : 'Sem integração ativa ou snapshot recente para esta live.'}
+                    </p>
+                    {connector.error ? <p className="mt-2 text-xs font-semibold text-[var(--danger)]">{asString(connector.error)}</p> : null}
+                  </div>
+                      </>
+                    )
+                  })()}
                   {asString(liveAtualData.status, 'em_andamento') === 'em_andamento' && canWriteLive ? (
                     <Button className="mt-4" variant="danger" icon={StopCircle} isLoading={encerrarMutation.isPending} onClick={() => onEncerrarLive(liveAtualData)}>
                       Encerrar live

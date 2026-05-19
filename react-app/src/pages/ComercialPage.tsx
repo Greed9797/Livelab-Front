@@ -1,4 +1,4 @@
-import { Building2, CircleDollarSign, Download, Eye, Handshake, LayoutDashboard, Plus, Store, Users, Workflow } from 'lucide-react'
+import { Building2, CircleDollarSign, Download, Eye, Handshake, LayoutDashboard, Plus, Store, Trash2, Users, Workflow } from 'lucide-react'
 import { FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -9,7 +9,7 @@ import { Badge, statusTone } from '../components/ui/Badge'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { createCliente, createMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, updateCliente, updateMarca } from '../services/domain'
+import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, updateCliente, updateMarca } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
 import { downloadCsv } from '../utils/exportCsv'
@@ -89,6 +89,17 @@ export function ComercialPage() {
       void queryClient.invalidateQueries({ queryKey: ['ativo-operacional'] })
     },
   })
+  const ativoDeleteMutation = useMutation({
+    mutationFn: ({ id, kind }: { id: string; kind: 'cliente' | 'marca' }) => (
+      kind === 'cliente' ? deleteCliente(id) : deleteMarca(id)
+    ),
+    onSuccess: () => {
+      setSelectedAtivo(null)
+      void queryClient.invalidateQueries({ queryKey: ['clientes'] })
+      void queryClient.invalidateQueries({ queryKey: ['marcas'] })
+      void queryClient.invalidateQueries({ queryKey: ['marcas', 'ativas'] })
+    },
+  })
 
   const isLoading = summaryQuery.isLoading || leadsQuery.isLoading || clientesQuery.isLoading || marcasQuery.isLoading
   const error = summaryQuery.error ?? leadsQuery.error ?? clientesQuery.error ?? marcasQuery.error
@@ -132,7 +143,25 @@ export function ComercialPage() {
         marca_principal: asString(marca.nome),
       }))
 
-    return [...clientesRows, ...marcasSemCliente]
+    const unique = new Map<string, JsonRecord>()
+    for (const itemRaw of [...clientesRows, ...marcasSemCliente]) {
+      const item = itemRaw as JsonRecord
+      const key = `${asString(item.tipo_operacional)}:${asString(item.nome).trim().toLowerCase()}`
+      const existing = unique.get(key)
+      if (!existing) {
+        unique.set(key, item)
+        continue
+      }
+      unique.set(key, {
+        ...existing,
+        gmv_mes: asNumber(existing.gmv_mes ?? existing.fat_anual) + asNumber(item.gmv_mes ?? item.fat_anual),
+        lives_mes: asNumber(existing.lives_mes ?? existing.total_lives) + asNumber(item.lives_mes ?? item.total_lives),
+        videos_mes: asNumber(existing.videos_mes ?? existing.quantidade_videos) + asNumber(item.videos_mes ?? item.quantidade_videos),
+        duplicado_count: asNumber(existing.duplicado_count, 1) + 1,
+      })
+    }
+
+    return [...unique.values()]
   }, [clientes, marcas])
 
   if (isLoading) return <LoadingState />
@@ -231,6 +260,27 @@ export function ComercialPage() {
     ativoUpdateMutation.mutate({ id, kind, payload })
   }
 
+  function toggleAtivoStatus(item = selectedAtivo) {
+    if (!item) return
+    const id = asString(item.id, '')
+    const kind = selectedAtivoKind
+    const current = asString(ativoForm.status || item.status)
+    const nextStatus = kind === 'cliente'
+      ? current === 'ativo' ? 'cancelado' : 'ativo'
+      : current === 'ativa' ? 'inativa' : 'ativa'
+    ativoUpdateMutation.mutate({ id, kind, payload: { status: nextStatus } })
+    setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
+  }
+
+  function deleteAtivo() {
+    if (!selectedAtivo) return
+    const id = asString(selectedAtivo.id, '')
+    const kind = selectedAtivoKind
+    const ok = window.confirm(`Excluir ${kind === 'cliente' ? 'cliente' : 'afiliado'}? Se houver histórico, a API pode bloquear a exclusão definitiva.`)
+    if (!ok) return
+    ativoDeleteMutation.mutate({ id, kind })
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Comercial" accent="Operação" title="comercial" subtitle="Dashboard, CRM e carteira ativa em uma única área." />
@@ -314,37 +364,6 @@ export function ComercialPage() {
                 </div>
               </div>
             </CardHeader>
-            {(showClienteForm || showAfiliadoForm) ? (
-              <CardBody className="grid gap-4 xl:grid-cols-2">
-                {showClienteForm ? (
-                  <form className="grid gap-3 rounded-2xl border border-line bg-surface-muted p-4 md:grid-cols-2" onSubmit={onClienteSubmit}>
-                    <p className="text-sm font-bold text-ink md:col-span-2">Novo cliente</p>
-                    <input className="design-input h-11 px-4" placeholder="Nome da empresa/marca" value={clienteForm.nome} onChange={(event) => setClienteField('nome', event.target.value)} required />
-                    <input className="design-input h-11 px-4" placeholder="Responsável" value={clienteForm.responsavel} onChange={(event) => setClienteField('responsavel', event.target.value)} />
-                    <input className="design-input h-11 px-4" placeholder="WhatsApp" value={clienteForm.whatsapp} onChange={(event) => setClienteField('whatsapp', event.target.value)} required />
-                    <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={clienteForm.email} onChange={(event) => setClienteField('email', event.target.value)} />
-                    <input className="design-input h-11 px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} />
-                    <input className="design-input h-11 px-4" placeholder="Nicho" value={clienteForm.nicho} onChange={(event) => setClienteField('nicho', event.target.value)} />
-                    <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value)} />
-                    {clienteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(clienteMutation.error)}</p> : null}
-                    <Button type="submit" isLoading={clienteMutation.isPending}>Salvar cliente</Button>
-                  </form>
-                ) : null}
-                {showAfiliadoForm ? (
-                  <form className="grid gap-3 rounded-2xl border border-line bg-surface-muted p-4 md:grid-cols-2" onSubmit={onAfiliadoSubmit}>
-                    <p className="text-sm font-bold text-ink md:col-span-2">Novo afiliado</p>
-                    <input className="design-input h-11 px-4" placeholder="Nome da marca afiliada" value={afiliadoForm.nome} onChange={(event) => setAfiliadoField('nome', event.target.value)} required />
-                    <input className="design-input h-11 px-4" placeholder="Responsável" value={afiliadoForm.responsavel} onChange={(event) => setAfiliadoField('responsavel', event.target.value)} />
-                    <input className="design-input h-11 px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} />
-                    <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} />
-                    <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value)} />
-                    <textarea className="design-input min-h-24 px-4 py-3 md:col-span-2" placeholder="Observações" value={afiliadoForm.observacoes} onChange={(event) => setAfiliadoField('observacoes', event.target.value)} />
-                    {afiliadoMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(afiliadoMutation.error)}</p> : null}
-                    <Button type="submit" isLoading={afiliadoMutation.isPending}>Salvar afiliado</Button>
-                  </form>
-                ) : null}
-              </CardBody>
-            ) : null}
           </Card>
 
           <Card>
@@ -353,7 +372,16 @@ export function ComercialPage() {
                 data={ativos}
                 columns={[
                   { key: 'tipo_operacional', header: 'Tipo', render: (item) => <Badge tone="brand">{asString(item.tipo_operacional ?? item.tipo)}</Badge> },
-                  { key: 'nome', header: 'Nome', render: (item) => <span className="font-semibold">{asString(item.nome)}</span> },
+                  {
+                    key: 'nome',
+                    header: 'Nome',
+                    render: (item) => (
+                      <span className="inline-flex items-center gap-2 font-semibold">
+                        {asString(item.nome)}
+                        {asNumber(item.duplicado_count) > 1 ? <Badge tone="warning">{asNumber(item.duplicado_count)} cadastros</Badge> : null}
+                      </span>
+                    ),
+                  },
                   { key: 'marca_principal', header: 'Marca principal', render: (item) => asString(item.marca_principal) },
                   { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, 'ativa'))}>{asString(item.status, 'ativa')}</Badge> },
                   { key: 'gmv_mes', header: 'GMV mês', align: 'right', render: (item) => formatMoney(item.gmv_mes ?? item.fat_anual) },
@@ -375,9 +403,9 @@ export function ComercialPage() {
                     header: 'Ações',
                     align: 'right',
                     render: (item) => (
-                      <Button variant="secondary" icon={Eye} onClick={() => openAtivo(item)}>
-                        Abrir
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="secondary" icon={Eye} onClick={() => openAtivo(item)}>Detalhes</Button>
+                      </div>
                     ),
                   },
                 ]}
@@ -386,6 +414,43 @@ export function ComercialPage() {
           </Card>
         </div>
       ) : null}
+
+      <Modal
+        open={showClienteForm}
+        title="Novo cliente"
+        subtitle="Cadastro manual de cliente/e-commerce."
+        onClose={() => setShowClienteForm(false)}
+      >
+        <form className="grid gap-3 md:grid-cols-2" onSubmit={onClienteSubmit}>
+          <input className="design-input h-11 px-4" placeholder="Nome da empresa/marca" value={clienteForm.nome} onChange={(event) => setClienteField('nome', event.target.value)} required />
+          <input className="design-input h-11 px-4" placeholder="Responsável" value={clienteForm.responsavel} onChange={(event) => setClienteField('responsavel', event.target.value)} />
+          <input className="design-input h-11 px-4" placeholder="WhatsApp" value={clienteForm.whatsapp} onChange={(event) => setClienteField('whatsapp', event.target.value)} required />
+          <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={clienteForm.email} onChange={(event) => setClienteField('email', event.target.value)} />
+          <input className="design-input h-11 px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} />
+          <input className="design-input h-11 px-4" placeholder="Nicho" value={clienteForm.nicho} onChange={(event) => setClienteField('nicho', event.target.value)} />
+          <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value)} />
+          {clienteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(clienteMutation.error)}</p> : null}
+          <Button type="submit" isLoading={clienteMutation.isPending}>Salvar cliente</Button>
+        </form>
+      </Modal>
+
+      <Modal
+        open={showAfiliadoForm}
+        title="Novo afiliado"
+        subtitle="Cadastro de marca afiliada sem exigir cliente/e-commerce vinculado."
+        onClose={() => setShowAfiliadoForm(false)}
+      >
+        <form className="grid gap-3 md:grid-cols-2" onSubmit={onAfiliadoSubmit}>
+          <input className="design-input h-11 px-4" placeholder="Nome da marca afiliada" value={afiliadoForm.nome} onChange={(event) => setAfiliadoField('nome', event.target.value)} required />
+          <input className="design-input h-11 px-4" placeholder="Responsável" value={afiliadoForm.responsavel} onChange={(event) => setAfiliadoField('responsavel', event.target.value)} />
+          <input className="design-input h-11 px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} />
+          <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} />
+          <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value)} />
+          <textarea className="design-input min-h-24 px-4 py-3 md:col-span-2" placeholder="Observações" value={afiliadoForm.observacoes} onChange={(event) => setAfiliadoField('observacoes', event.target.value)} />
+          {afiliadoMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(afiliadoMutation.error)}</p> : null}
+          <Button type="submit" isLoading={afiliadoMutation.isPending}>Salvar afiliado</Button>
+        </form>
+      </Modal>
 
       <Modal
         open={Boolean(selectedAtivo)}
@@ -441,10 +506,17 @@ export function ComercialPage() {
                     <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
                   </label>
                 )}
-                <div className="flex items-end">
+                <div className="flex flex-wrap items-end gap-2">
                   <Button type="submit" isLoading={ativoUpdateMutation.isPending}>Salvar alterações</Button>
+                  <Button type="button" variant="secondary" onClick={() => toggleAtivoStatus()} disabled={ativoUpdateMutation.isPending}>
+                    {['ativo', 'ativa'].includes(ativoForm.status) ? 'Inativar' : 'Reativar'}
+                  </Button>
+                  <Button type="button" variant="ghost" icon={Trash2} onClick={deleteAtivo} disabled={ativoDeleteMutation.isPending}>
+                    Excluir
+                  </Button>
                 </div>
                 {ativoUpdateMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
+                {ativoDeleteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoDeleteMutation.error)}</p> : null}
               </form>
 
               <section className="grid gap-4 xl:grid-cols-2">

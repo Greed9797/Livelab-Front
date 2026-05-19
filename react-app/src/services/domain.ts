@@ -70,8 +70,20 @@ export function updateCliente(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/clientes/${id}`, payload)
 }
 
+export function deleteCliente(id: string) {
+  return apiDelete(`/clientes/${id}`)
+}
+
 export function getClienteOperacional(id: string, params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>(`/clientes/${id}/operacional`, params)
+}
+
+export function getRankingPublicoConfig() {
+  return apiGet<JsonRecord>('/configuracoes/ranking-publico')
+}
+
+export function updateRankingPublicoConfig(payload: JsonRecord) {
+  return apiPatch<JsonRecord>('/configuracoes/ranking-publico', payload)
 }
 
 export function getUsuarios(params: Record<string, unknown> = {}) {
@@ -142,8 +154,30 @@ export function deleteAgendaEvento(id: string) {
   return apiDelete(`/agenda/${id}`)
 }
 
-export function getAgendaConflitos(cabineId: string, dataInicio: string, dataFim: string) {
-  return apiGet<JsonRecord>(`/agenda/conflitos?cabine_id=${cabineId}&data_inicio=${encodeURIComponent(dataInicio)}&data_fim=${encodeURIComponent(dataFim)}`)
+export function getAgendaConflitos(
+  input: string | {
+    cabineId?: string
+    apresentadoraId?: string
+    dataInicio: string
+    dataFim: string
+    excludeId?: string
+  },
+  dataInicio?: string,
+  dataFim?: string,
+) {
+  const params = new URLSearchParams()
+  if (typeof input === 'string') {
+    params.set('cabine_id', input)
+    params.set('data_inicio', dataInicio ?? '')
+    params.set('data_fim', dataFim ?? '')
+  } else {
+    if (input.cabineId) params.set('cabine_id', input.cabineId)
+    if (input.apresentadoraId) params.set('apresentadora_id', input.apresentadoraId)
+    if (input.excludeId) params.set('exclude_id', input.excludeId)
+    params.set('data_inicio', input.dataInicio)
+    params.set('data_fim', input.dataFim)
+  }
+  return apiGet<JsonRecord>(`/agenda/conflitos?${params.toString()}`)
 }
 
 export function criarEventoAgenda(payload: {
@@ -315,6 +349,10 @@ export async function getLiveAtualDaCabine(cabineId: string): Promise<LiveAtual 
 
 export function getLivePorId(liveId: string): Promise<LiveAtual> {
   return apiGet<LiveAtual>(`/lives/${liveId}`)
+}
+
+export function getLiveTiktokStatus(liveId: string) {
+  return apiGet<JsonRecord>(`/lives/${liveId}/tiktok-status`)
 }
 
 export function publishLive(liveId: string, statusPublicacao: 'revisado' | 'publicado'): Promise<LiveAtual> {

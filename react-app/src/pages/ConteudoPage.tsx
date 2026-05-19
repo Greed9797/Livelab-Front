@@ -185,10 +185,15 @@ export function ConteudoPage() {
 
   const createAgendaMutation = useMutation({
     mutationFn: async (payload: JsonRecord) => {
-      if (payload.cabine_id) {
-        const conflitos = await getAgendaConflitos(asString(payload.cabine_id), asString(payload.data_inicio), asString(payload.data_fim))
+      if (payload.cabine_id || payload.apresentadora_id) {
+        const conflitos = await getAgendaConflitos({
+          cabineId: asString(payload.cabine_id, ''),
+          apresentadoraId: asString(payload.apresentadora_id, ''),
+          dataInicio: asString(payload.data_inicio),
+          dataFim: asString(payload.data_fim),
+        })
         if (asNumber(conflitos.total) > 0) {
-          throw new Error('Esta cabine já possui evento nesse horário. Escolha outro horário ou edite o evento existente.')
+          throw new Error('Esta cabine ou apresentadora já possui evento nesse horário. Escolha outro horário ou edite o evento existente.')
         }
       }
       return createAgendaEvento(payload)

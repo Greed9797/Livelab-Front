@@ -13,14 +13,14 @@ export function percentMetric(label: string, value: unknown, hint?: string, tone
   return metric(label, formatPercent(value), hint, tone)
 }
 
-export function historyPoints(raw: unknown, labelKeys = ['label', 'mes', 'periodo', 'data'], valueKeys = ['gmv', 'valor', 'total', 'receita']): ChartPoint[] {
+export function historyPoints(raw: unknown, labelKeys = ['label', 'mes', 'periodo', 'data', 'dia'], valueKeys = ['gmv', 'valor', 'total', 'receita', 'entradas']): ChartPoint[] {
   return asArray<JsonRecord>(raw).map((item, index) => {
     const labelValue = labelKeys.map((key) => item[key]).find((value) => value !== undefined)
     const value = valueKeys.map((key) => item[key]).find((candidate) => candidate !== undefined)
     return {
       label: asString(labelValue, `${index + 1}`),
       value: asNumber(value),
-      secondary: asNumber(item.lives ?? item.qtd_lives ?? item.total_lives),
+      secondary: asNumber(item.saidas ?? item.lives ?? item.qtd_lives ?? item.total_lives),
     }
   })
 }

@@ -8,12 +8,13 @@ import { LinePanel } from '../components/charts/Charts'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { Button } from '../components/ui/Button'
+import { Modal } from '../components/ui/Modal'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getComissoesApresentadoras, getComissoesMarcas, getComissoesResumo, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora } from '../services/domain'
+import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getComissoesResumo, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
-import { asArray, asNumber, asString, currentPeriod, formatDate, formatMoney, periodToParam } from '../utils/format'
+import { asArray, asNumber, asString, currentPeriod, formatDate, formatMoney, getRecord, periodToParam } from '../utils/format'
 import { parseBRMoneyToDecimal } from '../utils/money'
 import { historyPoints, metric, moneyMetric } from './page-helpers'
 import { BoletosPanel } from './BoletosPage'
@@ -35,6 +36,7 @@ export function FinanceiroPage() {
     tipo: 'outros',
     competencia: periodToParam(currentPeriod()),
   })
+  const [selectedCliente, setSelectedCliente] = useState<JsonRecord | null>(null)
   const client = useQueryClient()
   const resumo = useQuery({ queryKey: ['financeiro-resumo'], queryFn: () => getFinanceiroResumo(), enabled: !isCliente })
   const fluxo = useQuery({ queryKey: ['financeiro-fluxo'], queryFn: () => getFinanceiroFluxo(), enabled: !isCliente })
@@ -45,6 +47,17 @@ export function FinanceiroPage() {
   const comissoesResumo = useQuery({ queryKey: ['comissoes-resumo'], queryFn: () => getComissoesResumo(), enabled: !isCliente && tab === 'comissoes' })
   const comissoesApresentadoras = useQuery({ queryKey: ['comissoes-apresentadoras'], queryFn: () => getComissoesApresentadoras(), enabled: !isCliente && tab === 'comissoes' })
   const comissoesMarcas = useQuery({ queryKey: ['comissoes-marcas'], queryFn: () => getComissoesMarcas(), enabled: !isCliente && tab === 'comissoes' })
+  const selectedClienteKind = asString(selectedCliente?.tipo_operacional ?? selectedCliente?.tipo_entidade) === 'afiliada' || asString(selectedCliente?.tipo_entidade) === 'marca' ? 'marca' : 'cliente'
+  const selectedClienteId = selectedClienteKind === 'marca'
+    ? asString(selectedCliente?.marca_id ?? selectedCliente?.id, '')
+    : asString(selectedCliente?.cliente_id ?? selectedCliente?.id, '')
+  const selectedClienteDetail = useQuery({
+    queryKey: ['financeiro-cliente-operacional', selectedClienteKind, selectedClienteId],
+    enabled: Boolean(selectedClienteId),
+    queryFn: () => selectedClienteKind === 'marca'
+      ? getMarcaOperacional(selectedClienteId)
+      : getClienteOperacional(selectedClienteId),
+  })
   const createCusto = useMutation({
     mutationFn: createFinanceiroCusto,
     onSuccess: () => {
@@ -74,11 +87,13 @@ export function FinanceiroPage() {
   const boletosRows = boletos.data ?? []
   const boletosVencidos = boletosRows.filter((item) => asString(item.status).toLowerCase() === 'vencido').length
   const metrics = [
-    moneyMetric('Receita', raw.receita ?? raw.fat_bruto ?? raw.fat_total, 'período atual', 'brand'),
-    moneyMetric('Recebido', raw.recebido ?? raw.pago, 'caixa confirmado', 'success'),
-    moneyMetric('Em aberto', raw.em_aberto ?? raw.a_receber, 'pendente de pagamento', 'warning'),
-    metric('Boletos vencidos', raw.boletos_vencidos ?? boletosVencidos, 'requer cobrança', 'danger'),
+    moneyMetric('GMV bruto', raw.gmv_total ?? raw.receita ?? raw.fat_bruto ?? raw.fat_total, 'vendas atribuídas do período', 'brand'),
+    moneyMetric('Receita líquida', raw.receita_liquida ?? raw.fat_liquido, 'GMV x comissão configurada', 'success'),
+    moneyMetric('Custos reais', raw.total_custos ?? raw.custos ?? 0, 'custos cadastrados', 'warning'),
+    metric('Comissão ausente', raw.comissao_faltante_count ?? raw.comissoes_sem_config ?? 0, 'marcas sem comissão', 'danger'),
   ]
+  const fluxoItems = historyPoints(fluxo.data?.items ?? fluxo.data?.fluxo ?? fluxo.data?.history)
+  const hasFluxo = fluxoItems.some((item) => asNumber(item.value) !== 0 || asNumber(item.secondary) !== 0)
 
   function setCustoField(key: keyof typeof custo, value: string) {
     setCusto((current) => ({ ...current, [key]: value }))
@@ -144,7 +159,18 @@ export function FinanceiroPage() {
           </section>
 
           <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-            <LinePanel title="Fluxo de caixa" data={historyPoints(fluxo.data?.items ?? fluxo.data?.fluxo ?? fluxo.data?.history)} />
+            {hasFluxo ? (
+              <LinePanel title="Fluxo de caixa" data={fluxoItems} secondary />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <p className="text-base font-bold text-ink">Fluxo de caixa</p>
+                </CardHeader>
+                <CardBody>
+                  <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Nenhuma entrada ou custo real lançado no período.</p>
+                </CardBody>
+              </Card>
+            )}
             <Card>
               <CardHeader>
                 <p className="text-base font-bold text-ink">Custos do mês</p>
@@ -207,6 +233,12 @@ export function FinanceiroPage() {
                 { key: 'nicho', header: 'Nicho', render: (item) => asString(item.nicho ?? item.segmento) },
                 { key: 'valor', header: 'Faturamento', align: 'right', render: (item) => formatMoney(item.valor ?? item.faturamento) },
                 { key: 'lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives ?? item.total_lives).toLocaleString('pt-BR') },
+                {
+                  key: 'acoes',
+                  header: 'Ações',
+                  align: 'right',
+                  render: (item) => <Button variant="secondary" onClick={() => setSelectedCliente(item)}>Abrir</Button>,
+                },
               ]}
             />
           </CardBody>
@@ -214,33 +246,33 @@ export function FinanceiroPage() {
       ) : null}
 
       {tab === 'recebiveis' ? (
-        <section className="grid gap-4 xl:grid-cols-3">
-          {metrics.slice(0, 3).map((item, index) => (
-            <MetricCard key={item.label} metric={item} icon={icons[index]} />
-          ))}
-          <Card className="xl:col-span-3">
-            <CardHeader>
-              <p className="text-base font-bold text-ink">Bruto x líquido x pendências</p>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              {metrics.slice(0, 3).map((item) => (
-                <div key={item.label} className="grid gap-2 md:grid-cols-[140px_1fr_140px] md:items-center">
-                  <span className="text-sm font-semibold text-ink">{item.label}</span>
-                  <span className="h-3 overflow-hidden rounded-full bg-surface-muted">
-                    <span className="block h-full w-full rounded-full bg-brand" />
-                  </span>
-                  <span className="num text-sm font-bold text-ink md:text-right">{item.value}</span>
-                </div>
-              ))}
-            </CardBody>
-          </Card>
-        </section>
+        <Card>
+          <CardHeader>
+            <p className="text-base font-bold text-ink">Recebíveis</p>
+          </CardHeader>
+          <CardBody>
+            <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Nenhuma integração de recebíveis configurada para esta unidade.</p>
+          </CardBody>
+        </Card>
       ) : null}
 
       {tab === 'boletos' ? (
         <section className="grid gap-4">
-          <MetricCard metric={metrics[3]} icon={Receipt} />
-          <BoletosPanel embedded />
+          {boletosRows.length ? (
+            <>
+              <MetricCard metric={metric('Boletos vencidos', boletosVencidos, 'requer cobrança', 'danger')} icon={Receipt} />
+              <BoletosPanel embedded />
+            </>
+          ) : (
+            <Card>
+              <CardHeader>
+                <p className="text-base font-bold text-ink">Boletos</p>
+              </CardHeader>
+              <CardBody>
+                <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Nenhuma cobrança configurada ou boleto encontrado.</p>
+              </CardBody>
+            </Card>
+          )}
         </section>
       ) : null}
 
@@ -346,6 +378,38 @@ export function FinanceiroPage() {
           )}
         </>
       ) : null}
+
+      <Modal
+        open={Boolean(selectedCliente)}
+        title="Financeiro por cliente"
+        subtitle="GMV, receita, lives, vídeos e comissão do cadastro selecionado."
+        size="xl"
+        onClose={() => setSelectedCliente(null)}
+      >
+        {selectedClienteDetail.isLoading ? <LoadingState label="Carregando histórico" /> : null}
+        {selectedClienteDetail.isError ? <ErrorState message={extractErrorMessage(selectedClienteDetail.error)} onRetry={() => void selectedClienteDetail.refetch()} /> : null}
+        {selectedClienteDetail.data ? (
+          <div className="space-y-4">
+            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                moneyMetric('GMV mês', getRecord(selectedClienteDetail.data.metrics).gmv_mes, 'período atual', 'brand'),
+                moneyMetric('GMV acumulado', getRecord(selectedClienteDetail.data.metrics).gmv_acumulado, 'histórico', 'success'),
+                metric('Lives', getRecord(selectedClienteDetail.data.metrics).total_lives ?? 0, 'histórico', 'neutral'),
+                metric('Vídeos', getRecord(selectedClienteDetail.data.metrics).total_videos ?? 0, 'histórico', 'info'),
+              ].map((item, index) => <MetricCard key={item.label} metric={item} icon={[CircleDollarSign, TrendingUp, Users, Receipt][index]} />)}
+            </section>
+            <DataTable<JsonRecord>
+              data={asArray<JsonRecord>(selectedClienteDetail.data.vendas_atribuidas)}
+              columns={[
+                { key: 'data_referencia', header: 'Data', render: (item) => asString(item.data_referencia).slice(0, 10) },
+                { key: 'origem', header: 'Origem', render: (item) => asString(item.origem) },
+                { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv) },
+                { key: 'comissao_franquia', header: 'Receita LiveLab', align: 'right', render: (item) => formatMoney(item.comissao_franquia) },
+              ]}
+            />
+          </div>
+        ) : null}
+      </Modal>
     </div>
   )
 }

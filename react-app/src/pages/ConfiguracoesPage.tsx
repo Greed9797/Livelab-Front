@@ -1,4 +1,4 @@
-import { AtSign, KeyRound, Lock, Moon, Plug, Save, Sun, Target, Users } from 'lucide-react'
+import { AtSign, KeyRound, Lock, Moon, Plug, Save, Sun, Target, Trophy, Users } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -7,7 +7,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { getClienteMeta, getClientePerfil, getConfiguracoes, trocarSenha, updateClienteMeta, updateClienteTiktok, updateConfiguracoes } from '../services/domain'
+import { getClienteMeta, getClientePerfil, getConfiguracoes, getRankingPublicoConfig, trocarSenha, updateClienteMeta, updateClienteTiktok, updateConfiguracoes, updateRankingPublicoConfig } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asString, currentPeriod, formatMoney, periodLabel } from '../utils/format'
 import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
@@ -15,17 +15,26 @@ import { useThemeStore } from '../stores/theme-store'
 import { SettingsUsuariosPanel } from './SettingsUsuariosPanel'
 import type { JsonRecord } from '../types/models'
 
-type SettingsTab = 'unidade' | 'usuarios' | 'aparencia' | 'integracoes' | 'seguranca'
-const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'aparencia', 'integracoes', 'seguranca']
+type SettingsTab = 'unidade' | 'usuarios' | 'ranking' | 'aparencia' | 'integracoes' | 'seguranca'
+const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'ranking', 'aparencia', 'integracoes', 'seguranca']
 
 export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boolean }) {
   const client = useQueryClient()
   const [params, setParams] = useSearchParams()
   const query = useQuery({ queryKey: ['configuracoes', clienteMode], queryFn: getConfiguracoes, enabled: !clienteMode })
+  const rankingQuery = useQuery({ queryKey: ['configuracoes-ranking-publico'], queryFn: getRankingPublicoConfig, enabled: !clienteMode })
   const period = currentPeriod()
   const perfilQuery = useQuery({ queryKey: ['cliente-perfil'], queryFn: getClientePerfil, enabled: clienteMode })
   const metaQuery = useQuery({ queryKey: ['cliente-meta', period.ano, period.mes], queryFn: () => getClienteMeta(period), enabled: clienteMode })
   const [form, setForm] = useState<JsonRecord>({})
+  const [rankingForm, setRankingForm] = useState({
+    ativo: true,
+    nome_publico: '',
+    logo_url: '',
+    cidade: '',
+    uf: '',
+    meta_gmv: '',
+  })
   const [tiktok, setTiktok] = useState('')
   const [metaGmv, setMetaGmv] = useState('')
   const [senha, setSenha] = useState({ senha_atual: '', nova_senha: '' })
@@ -36,6 +45,10 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   const mutation = useMutation({
     mutationFn: updateConfiguracoes,
     onSuccess: () => client.invalidateQueries({ queryKey: ['configuracoes'] }),
+  })
+  const rankingMutation = useMutation({
+    mutationFn: updateRankingPublicoConfig,
+    onSuccess: () => client.invalidateQueries({ queryKey: ['configuracoes-ranking-publico'] }),
   })
   const tiktokMutation = useMutation({
     mutationFn: updateClienteTiktok,
@@ -57,6 +70,18 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   useEffect(() => {
     if (query.data) setForm(query.data)
   }, [query.data])
+
+  useEffect(() => {
+    if (!rankingQuery.data) return
+    setRankingForm({
+      ativo: rankingQuery.data.ativo !== false,
+      nome_publico: asString(rankingQuery.data.nome_publico, ''),
+      logo_url: asString(rankingQuery.data.logo_url, ''),
+      cidade: asString(rankingQuery.data.cidade, ''),
+      uf: asString(rankingQuery.data.uf, ''),
+      meta_gmv: rankingQuery.data.meta_gmv == null ? '' : formatBRLWithoutSymbol(rankingQuery.data.meta_gmv),
+    })
+  }, [rankingQuery.data])
 
   useEffect(() => {
     if (perfilQuery.data) setTiktok(asString(perfilQuery.data.tiktok_username, ''))
@@ -195,6 +220,18 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     mutation.mutate(form)
   }
 
+  function onRankingSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    rankingMutation.mutate({
+      ativo: rankingForm.ativo,
+      nome_publico: rankingForm.nome_publico || null,
+      logo_url: rankingForm.logo_url || null,
+      cidade: rankingForm.cidade || null,
+      uf: rankingForm.uf || null,
+      meta_gmv: rankingForm.meta_gmv ? parseBRMoneyToDecimal(rankingForm.meta_gmv) : null,
+    })
+  }
+
   function switchSettingsTab(next: SettingsTab) {
     setSettingsTab(next)
     const nextParams = new URLSearchParams(params)
@@ -211,6 +248,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
         {[
           ['unidade', Save, 'Unidade'],
           ['usuarios', Users, 'Usuários e equipe'],
+          ['ranking', Trophy, 'Ranking público'],
           ['aparencia', Sun, 'Aparência'],
           ['integracoes', Plug, 'Integrações'],
           ['seguranca', Lock, 'Segurança'],
@@ -253,6 +291,61 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
       ) : null}
 
       {settingsTab === 'usuarios' ? <SettingsUsuariosPanel /> : null}
+
+      {settingsTab === 'ranking' ? (
+        <Card>
+          <CardHeader>
+            <p className="text-sm font-bold text-ink">Ranking público</p>
+            <p className="mt-1 text-xs text-ink-muted">Configura como a unidade aparece no ranking público sem sobrescrever os dados internos da franquia.</p>
+          </CardHeader>
+          <CardBody>
+            {rankingQuery.isLoading ? <LoadingState label="Carregando ranking público" /> : null}
+            {rankingQuery.isError ? <ErrorState message={extractErrorMessage(rankingQuery.error)} onRetry={() => void rankingQuery.refetch()} /> : null}
+            {!rankingQuery.isLoading && !rankingQuery.isError ? (
+              <form className="grid gap-4 md:grid-cols-2" onSubmit={onRankingSubmit}>
+                <label className="flex items-center gap-3 rounded-2xl border border-line bg-surface-muted p-4 md:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={rankingForm.ativo}
+                    onChange={(event) => setRankingForm((current) => ({ ...current, ativo: event.target.checked }))}
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-ink">Mostrar unidade no ranking público</span>
+                    <span className="block text-xs text-ink-muted">Quando desligado, a unidade sai da listagem pública sem afetar relatórios internos.</span>
+                  </span>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Nome público</span>
+                  <input className="design-input mt-2 h-11 w-full px-4" value={rankingForm.nome_publico} onChange={(event) => setRankingForm((current) => ({ ...current, nome_publico: event.target.value }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Logo pública</span>
+                  <input className="design-input mt-2 h-11 w-full px-4" value={rankingForm.logo_url} onChange={(event) => setRankingForm((current) => ({ ...current, logo_url: event.target.value }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Cidade</span>
+                  <input className="design-input mt-2 h-11 w-full px-4" value={rankingForm.cidade} onChange={(event) => setRankingForm((current) => ({ ...current, cidade: event.target.value }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">UF</span>
+                  <input className="design-input mt-2 h-11 w-full px-4" maxLength={2} value={rankingForm.uf} onChange={(event) => setRankingForm((current) => ({ ...current, uf: event.target.value.toUpperCase() }))} />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-semibold text-ink">Meta pública opcional</span>
+                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={rankingForm.meta_gmv} onChange={(raw) => setRankingForm((current) => ({ ...current, meta_gmv: raw }))} />
+                </label>
+                {rankingMutation.isError ? <p className="md:col-span-2 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(rankingMutation.error)}</p> : null}
+                {rankingMutation.isSuccess ? <p className="md:col-span-2 rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Ranking público atualizado.</p> : null}
+                <div className="md:col-span-2">
+                  <Button type="submit" icon={Trophy} isLoading={rankingMutation.isPending}>
+                    Salvar ranking público
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+          </CardBody>
+        </Card>
+      ) : null}
 
       {settingsTab === 'unidade' ? (
         <Card>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, ganharLead, getLead, getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive, updateApresentadora, updateLive } from './domain'
+import { createCliente, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLiveTiktokStatus, iniciarLive, publishLive, updateApresentadora, updateLive } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -71,6 +71,27 @@ describe('domain live operations', () => {
     await getLivePorId('live-1')
 
     expect(apiGet).toHaveBeenCalledWith('/lives/live-1')
+  })
+
+  it('loads TikTok connector status for the selected live', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ status: 'connected' })
+
+    await getLiveTiktokStatus('live-1')
+
+    expect(apiGet).toHaveBeenCalledWith('/lives/live-1/tiktok-status')
+  })
+
+  it('checks agenda conflicts by cabine and apresentadora', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ total: 0 })
+
+    await getAgendaConflitos({
+      cabineId: 'cabine-1',
+      apresentadoraId: 'apresentadora-1',
+      dataInicio: '2026-05-19T18:00:00.000Z',
+      dataFim: '2026-05-19T21:00:00.000Z',
+    })
+
+    expect(apiGet).toHaveBeenCalledWith('/agenda/conflitos?cabine_id=cabine-1&apresentadora_id=apresentadora-1&data_inicio=2026-05-19T18%3A00%3A00.000Z&data_fim=2026-05-19T21%3A00%3A00.000Z')
   })
 
   it('publishes a live through the dedicated publicar endpoint', async () => {

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeHome } from './page-helpers'
+import { historyPoints, normalizeHome } from './page-helpers'
+
+describe('historyPoints', () => {
+  it('maps fluxo-caixa rows with entradas and saidas', () => {
+    expect(historyPoints([{ dia: '2026-05-19', entradas: 1142, saidas: 100 }])).toEqual([
+      { label: '2026-05-19', value: 1142, secondary: 100 },
+    ])
+  })
+})
 
 describe('normalizeHome', () => {
   it('prioritizes operational home fields over commercial pipeline metrics', () => {

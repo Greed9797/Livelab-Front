@@ -2,20 +2,25 @@ import { Activity, CircleDollarSign, Radio, Video } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { MetricCard } from '../components/ui/MetricCard'
+import { Card, CardBody, CardHeader } from '../components/ui/Card'
+import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { GmvHeroCard } from '../components/dashboard/GmvHeroCard'
 import { LiveNowTable } from '../components/dashboard/LiveNowTable'
 import { TodayScheduleTable } from '../components/dashboard/TodayScheduleTable'
 import { OperationalAlerts } from '../components/dashboard/OperationalAlerts'
 import { RankingTable } from '../components/dashboard/RankingTable'
-import { getHomeDashboard } from '../services/domain'
+import { getHomeDashboard, getPublicRanking } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { normalizeHome } from './page-helpers'
+import { asNumber, asString, formatMoney } from '../utils/format'
+import type { JsonRecord } from '../types/models'
 
 const icons = [CircleDollarSign, Radio, Video, Activity]
 
 export function DashboardPage() {
   const query = useQuery({ queryKey: ['home-dashboard'], queryFn: getHomeDashboard, refetchInterval: 30_000 })
+  const rankingPublicoQuery = useQuery({ queryKey: ['public-ranking', 'home'], queryFn: () => getPublicRanking({ limit: 5 }) })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
@@ -54,6 +59,31 @@ export function DashboardPage() {
       </section>
 
       <OperationalAlerts alerts={data.operationalAlerts} />
+
+      <Card>
+        <CardHeader>
+          <p className="text-base font-bold text-ink">Ranking público</p>
+          <p className="mt-1 text-xs text-ink-muted">Visão compacta da rede, abaixo da operação da unidade.</p>
+        </CardHeader>
+        <CardBody>
+          {rankingPublicoQuery.isLoading ? (
+            <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Carregando ranking.</p>
+          ) : rankingPublicoQuery.isError || !rankingPublicoQuery.data?.length ? (
+            <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Ranking público ainda sem dados publicados.</p>
+          ) : (
+            <DataTable<JsonRecord>
+              data={rankingPublicoQuery.data}
+              columns={[
+                { key: 'posicao', header: '#', render: (item) => asNumber(item.posicao).toLocaleString('pt-BR') },
+                { key: 'nome', header: 'Unidade', render: (item) => asString(item.nome) },
+                { key: 'cidade', header: 'Cidade', render: (item) => [asString(item.cidade, ''), asString(item.uf, '')].filter(Boolean).join('/') || '—' },
+                { key: 'gmv_mes', header: 'GMV mês', align: 'right', render: (item) => formatMoney(item.gmv_mes) },
+                { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives).toLocaleString('pt-BR') },
+              ]}
+            />
+          )}
+        </CardBody>
+      </Card>
     </div>
   )
 }
