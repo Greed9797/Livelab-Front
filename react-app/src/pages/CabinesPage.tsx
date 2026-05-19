@@ -8,6 +8,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { Modal } from '../components/ui/Modal'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
 import { atualizarStatusCabine, createCabine, deleteCabine, encerrarLive, getCabineHistorico, getCabines, getClientes, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -38,7 +39,7 @@ function isCabineActive(cabine: Cabine): boolean {
   return (cabine as Cabine & JsonRecord).ativo !== false
 }
 
-export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
+export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: string; embedded?: boolean }) {
   const user = useCurrentUser()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
@@ -149,8 +150,7 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
     { label: 'Livres', value: counts.free, color: 'bg-[var(--success)]', icon: CalendarClock },
     { label: 'Manutenção', value: counts.maintenance, color: 'bg-[var(--warning)]', icon: Wrench },
   ]
-  const explicitSelection = Boolean(selectedId || explicitCabineId || explicitLiveId)
-  const selectedCabine = visible.find((cabine) => cabine.id === selectedId) ?? (!explicitSelection ? visible[0] : undefined)
+  const selectedCabine = visible.find((cabine) => cabine.id === selectedId)
 
   useEffect(() => {
     if (!cabines.length) return
@@ -254,20 +254,32 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Operação"
-        accent={title}
-        title="e lives"
-        subtitle="Status das cabines, lives ativas, GMV atual e ações operacionais básicas."
-        actions={
+      {embedded ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-base font-bold text-ink">{title}</p>
           <div className="flex flex-wrap gap-2">
             {canWriteCabine ? <Button icon={Plus} onClick={openCreateForm}>Nova cabine</Button> : null}
             <Button variant="secondary" icon={RefreshCcw} onClick={() => void query.refetch()}>
               Atualizar
             </Button>
           </div>
-        }
-      />
+        </div>
+      ) : (
+        <PageHeader
+          eyebrow="Operação"
+          accent={title}
+          title="e lives"
+          subtitle="Status das cabines, lives ativas, GMV atual e ações operacionais básicas."
+          actions={
+            <div className="flex flex-wrap gap-2">
+              {canWriteCabine ? <Button icon={Plus} onClick={openCreateForm}>Nova cabine</Button> : null}
+              <Button variant="secondary" icon={RefreshCcw} onClick={() => void query.refetch()}>
+                Atualizar
+              </Button>
+            </div>
+          }
+        />
+      )}
 
       {showForm && canWriteCabine ? (
         <Card>
@@ -291,7 +303,7 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
         </Card>
       ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_320px]">
+      <section>
         <div className="space-y-4">
           <Card>
             <CardBody className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
@@ -404,7 +416,20 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
           </section>
         </div>
 
-        <aside className="space-y-4">
+        <Modal
+          open={Boolean(selectedCabine)}
+          title={selectedCabine ? `Cabine ${asString(selectedCabine.numero)}` : 'Detalhe da cabine'}
+          subtitle="Detalhes, agendamento, live atual e ações administrativas."
+          size="lg"
+          onClose={() => {
+            setSelectedId('')
+            const nextParams = new URLSearchParams(params)
+            nextParams.delete('cabine')
+            nextParams.delete('live')
+            setParams(nextParams, { replace: true })
+          }}
+        >
+        <div className="space-y-4">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -634,7 +659,8 @@ export function CabinesPage({ title = 'Cabines' }: { title?: string }) {
               ) : null}
             </CardBody>
           </Card>
-        </aside>
+        </div>
+        </Modal>
       </section>
 
       <HistoricoGmvModal liveId={gmvModalLiveId} onClose={() => setGmvModalLiveId(null)} />

@@ -29,11 +29,12 @@ describe('normalizeHome', () => {
       variacaoMesAnterior: 20.1,
     })
     expect(data.metrics.map((metric) => metric.label)).toEqual([
-      'GMV do mês',
+      'Agenda de hoje',
       'GMV ao vivo agora',
-      'Lives hoje',
       'Cabines em live',
+      'Alertas operacionais',
     ])
+    expect(data.metrics.some((metric) => metric.label === 'GMV do mês')).toBe(false)
     expect(data.liveNow).toHaveLength(1)
     expect(data.agendaHoje).toHaveLength(1)
     expect(data.rankingGmvDia[0].nome).toBe('Marca A')

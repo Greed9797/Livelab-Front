@@ -6,9 +6,11 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { MoneyInput } from '../components/ui/MoneyInput'
 import { getClienteMeta, getClientePerfil, getConfiguracoes, trocarSenha, updateClienteMeta, updateClienteTiktok, updateConfiguracoes } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asNumber, asString, currentPeriod, formatMoney, periodLabel } from '../utils/format'
+import { asString, currentPeriod, formatMoney, periodLabel } from '../utils/format'
+import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
 import { useThemeStore } from '../stores/theme-store'
 import { SettingsUsuariosPanel } from './SettingsUsuariosPanel'
 import type { JsonRecord } from '../types/models'
@@ -61,7 +63,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   }, [perfilQuery.data])
 
   useEffect(() => {
-    if (metaQuery.data) setMetaGmv(String(asNumber(metaQuery.data.meta_gmv)))
+    if (metaQuery.data) setMetaGmv(formatBRLWithoutSymbol(metaQuery.data.meta_gmv))
   }, [metaQuery.data])
 
   if (clienteMode) {
@@ -78,7 +80,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
 
     function onMetaSubmit(event: FormEvent<HTMLFormElement>) {
       event.preventDefault()
-      metaMutation.mutate({ ano: period.ano, mes: period.mes, meta_gmv: asNumber(metaGmv) })
+      metaMutation.mutate({ ano: period.ano, mes: period.mes, meta_gmv: parseBRMoneyToDecimal(metaGmv) })
     }
 
     function onSenhaSubmit(event: FormEvent<HTMLFormElement>) {
@@ -129,7 +131,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
                   </div>
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">Nova meta GMV</span>
-                    <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={metaGmv} onChange={(event) => setMetaGmv(event.target.value)} />
+                    <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={metaGmv} onChange={(raw) => setMetaGmv(raw)} />
                   </label>
                   {metaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(metaMutation.error)}</p> : null}
                   {metaMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Meta atualizada.</p> : null}

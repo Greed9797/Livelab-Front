@@ -1,18 +1,18 @@
-import { Plus, Search, Workflow } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { MetricCard } from '../components/ui/MetricCard'
 import { Card, CardBody } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
+import { MoneyInput } from '../components/ui/MoneyInput'
 import { LeadDrawer } from '../components/crm/LeadDrawer'
 import { LeadKanban } from '../components/crm/LeadKanban'
-import { addLeadContato, addLeadTarefa, createLead, deleteLead, ganharLead, getCrmSummary, getLead, getLeads, updateLead } from '../services/domain'
+import { addLeadContato, addLeadTarefa, createLead, deleteLead, ganharLead, getLead, getLeads, updateLead } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asArray, asNumber, asString, getRecord } from '../utils/format'
+import { asArray, asString } from '../utils/format'
+import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
 import { CRM_STAGES, leadTitle, moveLeadToStage, normalizeCrmStage, type CrmStageKey } from '../utils/crm'
-import { metric, moneyMetric } from './page-helpers'
 import type { JsonRecord, Lead } from '../types/models'
 
 export { groupLeadsByStage, moveLeadToStage, normalizeCrmStage } from '../utils/crm'
@@ -41,7 +41,6 @@ export function CrmPage() {
   const [selectedLeadId, setSelectedLeadId] = useState('')
   const [leadForm, setLeadForm] = useState(emptyLeadForm)
   const client = useQueryClient()
-  const summaryQuery = useQuery({ queryKey: ['crm-summary'], queryFn: getCrmSummary })
   const leadsQuery = useQuery({ queryKey: ['leads'], queryFn: getLeads })
   const leadDetailQuery = useQuery({
     queryKey: ['lead', selectedLeadId],
@@ -106,9 +105,6 @@ export function CrmPage() {
     },
   })
 
-  const raw = summaryQuery.data ?? {}
-  const summary = getRecord(raw.summary)
-  const totals = getRecord(raw.totals)
   const leads = useMemo(() => (leadsQuery.data ?? []).map((lead) => ({
     ...lead,
     crm_etapa: normalizeCrmStage(lead as unknown as JsonRecord),
@@ -130,17 +126,7 @@ export function CrmPage() {
     })
   }, [activityFilter, leads, search])
 
-  const ganhos = asNumber(summary.ganhos ?? totals.ganhos)
-  const metrics = [
-    metric('Leads abertos', visibleLeads.filter((lead) => !['ganho', 'perdido'].includes(asString((lead as JsonRecord).crm_etapa))).length, 'pipeline ativo', 'neutral'),
-    metric('Reuniões agendadas', visibleLeads.filter((lead) => asString((lead as JsonRecord).crm_etapa) === 'reuniao_agendada').length, 'próximos contatos', 'info'),
-    metric('Propostas enviadas', visibleLeads.filter((lead) => asString((lead as JsonRecord).crm_etapa) === 'proposta_enviada').length, 'em análise', 'warning'),
-    metric('Ganhos no mês', ganhos, 'clientes convertidos', 'success'),
-    moneyMetric('Valor em negociação', summary.valor_estimado ?? totals.valor_estimado ?? totals.valor_pipeline, 'pipeline aberto', 'brand'),
-  ]
-
-  if (summaryQuery.isLoading || leadsQuery.isLoading) return <LoadingState />
-  if (summaryQuery.isError) return <ErrorState message={extractErrorMessage(summaryQuery.error)} onRetry={() => void summaryQuery.refetch()} />
+  if (leadsQuery.isLoading) return <LoadingState />
   if (leadsQuery.isError) return <ErrorState message={extractErrorMessage(leadsQuery.error)} onRetry={() => void leadsQuery.refetch()} />
 
   function setLeadField(key: keyof typeof emptyLeadForm, value: string) {
@@ -154,7 +140,7 @@ export function CrmPage() {
       origem: asString(lead.origem, 'Cliente'),
       cidade: asString(lead.cidade, ''),
       estado: asString(lead.estado, ''),
-      valor_oportunidade: asString(lead.valor_oportunidade ?? lead.valor_estimado, ''),
+      valor_oportunidade: formatBRLWithoutSymbol(lead.valor_oportunidade ?? lead.valor_estimado ?? 0),
       responsavel_nome: asString(lead.responsavel_nome, ''),
       crm_etapa: normalizeCrmStage(lead),
       contato_email: asString(lead.contato_email, ''),
@@ -192,7 +178,7 @@ export function CrmPage() {
       origem: leadForm.origem || undefined,
       cidade: leadForm.cidade || undefined,
       estado: leadForm.estado || undefined,
-      valor_oportunidade: asNumber(leadForm.valor_oportunidade),
+      valor_oportunidade: parseBRMoneyToDecimal(leadForm.valor_oportunidade),
       responsavel_nome: leadForm.responsavel_nome || undefined,
       crm_etapa: leadForm.crm_etapa,
       contato_email: leadForm.contato_email || undefined,
@@ -243,10 +229,6 @@ export function CrmPage() {
         </div>
         <Button icon={Plus} onClick={openCreateForm}>Novo lead</Button>
       </div>
-
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {metrics.map((item) => <MetricCard key={item.label} metric={item} icon={Workflow} />)}
-      </section>
 
       <Card>
         <CardBody className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
@@ -310,7 +292,7 @@ export function CrmPage() {
           </label>
           <label className="block">
             <span className="text-sm font-semibold text-ink">Valor oportunidade</span>
-            <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={leadForm.valor_oportunidade} onChange={(event) => setLeadField('valor_oportunidade', event.target.value)} />
+            <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={leadForm.valor_oportunidade} onChange={(raw) => setLeadField('valor_oportunidade', raw)} />
           </label>
           <label className="block">
             <span className="text-sm font-semibold text-ink">Etapa</span>

@@ -1,9 +1,11 @@
 import type { ApiListResponse, JsonRecord, Period } from '../types/models'
+import { formatBRL, parseBRMoneyToDecimal } from './money'
 
 export const brl = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
-  maximumFractionDigits: 0,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 })
 
 export const brlPrecise = new Intl.NumberFormat('pt-BR', {
@@ -20,8 +22,8 @@ export const compactNumber = new Intl.NumberFormat('pt-BR', {
 export function asNumber(value: unknown, fallback = 0): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string') {
-    const normalized = value.replace(/\./g, '').replace(',', '.')
-    const parsed = Number(normalized)
+    if (!value.trim()) return fallback
+    const parsed = parseBRMoneyToDecimal(value)
     if (Number.isFinite(parsed)) return parsed
   }
   return fallback
@@ -48,7 +50,7 @@ export function unwrapList<T>(value: unknown): T[] {
 
 export function formatMoney(value: unknown, precise = false): string {
   const n = asNumber(value)
-  return precise ? brlPrecise.format(n) : brl.format(n)
+  return precise ? brlPrecise.format(n).replace(/\u00a0/g, ' ') : formatBRL(n)
 }
 
 export function formatPercent(value: unknown): string {

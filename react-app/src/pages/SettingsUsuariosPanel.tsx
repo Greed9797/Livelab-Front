@@ -7,18 +7,24 @@ import { Badge, statusTone } from '../components/ui/Badge'
 import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
+import { MoneyInput } from '../components/ui/MoneyInput'
 import { asNumber, asString, formatMoney } from '../utils/format'
+import { parseBRMoneyToDecimal } from '../utils/money'
 import { extractErrorMessage } from '../services/api'
 import {
+  createApresentadoraFaixaComissao,
   convidarUsuario,
+  deleteApresentadoraFaixaComissao,
   deleteApresentadora,
   deleteUsuario,
   forceLogoutUsuario,
+  getApresentadoraFaixasComissao,
   getApresentadoras,
   getClientes,
   getUsuarios,
   reenviarConviteUsuario,
   resetSenhaUsuario,
+  updateApresentadoraFaixaComissao,
   updateApresentadora,
   updateUsuario,
 } from '../services/domain'
@@ -53,6 +59,12 @@ const emptyEditForm = {
   ativo: true,
 }
 
+const emptyFaixaForm = {
+  gmv_inicio: '0',
+  gmv_fim: '',
+  comissao_pct: '0',
+}
+
 function ativoValue(value: unknown) {
   return value === true || value === 'true'
 }
@@ -70,6 +82,7 @@ export function SettingsUsuariosPanel() {
   const [form, setForm] = useState(emptyForm)
   const [editingUser, setEditingUser] = useState<JsonRecord | null>(null)
   const [editForm, setEditForm] = useState(emptyEditForm)
+  const [faixaForm, setFaixaForm] = useState(emptyFaixaForm)
   const [papelFilter, setPapelFilter] = useState('all')
   const [ativoFilter, setAtivoFilter] = useState('true')
   const usuarios = useQuery({
@@ -81,6 +94,12 @@ export function SettingsUsuariosPanel() {
   })
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
   const apresentadoras = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
+  const editingPresenterId = editingUser ? presenterProfileId(editingUser) : ''
+  const faixasQuery = useQuery({
+    queryKey: ['apresentadora-faixas-comissao', editingPresenterId],
+    queryFn: () => getApresentadoraFaixasComissao(editingPresenterId),
+    enabled: Boolean(editingPresenterId) && (isPresenterProfile(editingUser) || asString(editingUser?.apresentadora_id, '') !== ''),
+  })
 
   const inviteMutation = useMutation({
     mutationFn: convidarUsuario,
@@ -138,6 +157,21 @@ export function SettingsUsuariosPanel() {
   const resendMutation = useMutation({
     mutationFn: reenviarConviteUsuario,
     onSuccess: () => void client.invalidateQueries({ queryKey: ['usuarios'] }),
+  })
+  const createFaixaMutation = useMutation({
+    mutationFn: ({ apresentadoraId, payload }: { apresentadoraId: string; payload: JsonRecord }) => createApresentadoraFaixaComissao(apresentadoraId, payload),
+    onSuccess: () => {
+      setFaixaForm(emptyFaixaForm)
+      void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] })
+    },
+  })
+  const updateFaixaMutation = useMutation({
+    mutationFn: ({ apresentadoraId, faixaId, payload }: { apresentadoraId: string; faixaId: string; payload: JsonRecord }) => updateApresentadoraFaixaComissao(apresentadoraId, faixaId, payload),
+    onSuccess: () => void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] }),
+  })
+  const deleteFaixaMutation = useMutation({
+    mutationFn: ({ apresentadoraId, faixaId }: { apresentadoraId: string; faixaId: string }) => deleteApresentadoraFaixaComissao(apresentadoraId, faixaId),
+    onSuccess: () => void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] }),
   })
 
   const rows = useMemo(() => {
@@ -232,6 +266,19 @@ export function SettingsUsuariosPanel() {
       return
     }
     deleteMutation.mutate(asString(item.id, ''))
+  }
+
+  function submitFaixa() {
+    if (!editingPresenterId) return
+    createFaixaMutation.mutate({
+      apresentadoraId: editingPresenterId,
+      payload: {
+        gmv_inicio: parseBRMoneyToDecimal(faixaForm.gmv_inicio),
+        gmv_fim: faixaForm.gmv_fim ? parseBRMoneyToDecimal(faixaForm.gmv_fim) : null,
+        comissao_pct: Number(faixaForm.comissao_pct || 0),
+        ativo: true,
+      },
+    })
   }
 
   return (
@@ -399,6 +446,63 @@ export function SettingsUsuariosPanel() {
               <option value="false">Inativo</option>
             </select>
           </label>
+          {editingPresenterId ? (
+            <div className="space-y-4 rounded-2xl border border-line bg-surface-muted p-4 md:col-span-2">
+              <div>
+                <p className="text-sm font-bold text-ink">Escada de comissão</p>
+                <p className="mt-1 text-xs text-ink-muted">Faixas por GMV mensal atribuído à apresentadora.</p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[1fr_1fr_120px_auto]">
+                <label className="block">
+                  <span className="text-xs font-semibold text-ink-muted">GMV inicial</span>
+                  <MoneyInput className="design-input mt-2 h-10 w-full px-3" value={faixaForm.gmv_inicio} onChange={(raw) => setFaixaForm((current) => ({ ...current, gmv_inicio: raw }))} />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold text-ink-muted">GMV final</span>
+                  <MoneyInput className="design-input mt-2 h-10 w-full px-3" value={faixaForm.gmv_fim} onChange={(raw) => setFaixaForm((current) => ({ ...current, gmv_fim: raw }))} placeholder="Sem limite" />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold text-ink-muted">Comissão (%)</span>
+                  <input className="design-input mt-2 h-10 w-full px-3" type="number" min="0" max="100" step="0.01" value={faixaForm.comissao_pct} onChange={(event) => setFaixaForm((current) => ({ ...current, comissao_pct: event.target.value }))} />
+                </label>
+                <div className="flex items-end">
+                  <Button type="button" isLoading={createFaixaMutation.isPending} onClick={submitFaixa}>Adicionar</Button>
+                </div>
+              </div>
+              {faixasQuery.isLoading ? <LoadingState label="Carregando faixas" /> : null}
+              {faixasQuery.data?.length ? (
+                <DataTable<JsonRecord>
+                  data={faixasQuery.data}
+                  columns={[
+                    { key: 'gmv_inicio', header: 'Início', render: (item) => formatMoney(item.gmv_inicio) },
+                    { key: 'gmv_fim', header: 'Fim', render: (item) => item.gmv_fim == null ? 'Sem limite' : formatMoney(item.gmv_fim) },
+                    { key: 'comissao_pct', header: 'Comissão', align: 'right', render: (item) => `${asNumber(item.comissao_pct).toLocaleString('pt-BR')}%` },
+                    { key: 'ativo', header: 'Status', render: (item) => <Badge tone={item.ativo === false ? 'neutral' : 'success'}>{item.ativo === false ? 'inativa' : 'ativa'}</Badge> },
+                    {
+                      key: 'acoes',
+                      header: 'Ações',
+                      align: 'right',
+                      render: (item) => (
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" disabled={updateFaixaMutation.isPending} onClick={() => updateFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId: asString(item.id, ''), payload: { ativo: item.ativo === false } })}>
+                            {item.ativo === false ? 'Reativar' : 'Inativar'}
+                          </Button>
+                          <Button variant="danger" disabled={deleteFaixaMutation.isPending} onClick={() => deleteFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId: asString(item.id, '') })}>
+                            Excluir
+                          </Button>
+                        </div>
+                      ),
+                    },
+                  ]}
+                />
+              ) : faixasQuery.isSuccess ? <p className="text-sm text-ink-muted">Nenhuma faixa configurada.</p> : null}
+              {createFaixaMutation.isError || updateFaixaMutation.isError || deleteFaixaMutation.isError || faixasQuery.isError ? (
+                <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
+                  {extractErrorMessage(createFaixaMutation.error ?? updateFaixaMutation.error ?? deleteFaixaMutation.error ?? faixasQuery.error)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {updateMutation.isError || updatePresenterMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(updateMutation.error ?? updatePresenterMutation.error)}</p> : null}
           <div className="flex flex-wrap gap-2 md:col-span-2">
             <Button type="submit" icon={CheckCircle2} isLoading={updateMutation.isPending || updatePresenterMutation.isPending}>Salvar usuário</Button>

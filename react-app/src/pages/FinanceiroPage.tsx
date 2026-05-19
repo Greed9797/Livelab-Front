@@ -9,10 +9,12 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { MoneyInput } from '../components/ui/MoneyInput'
 import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getComissoesApresentadoras, getComissoesMarcas, getComissoesResumo, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { asArray, asNumber, asString, currentPeriod, formatDate, formatMoney, periodToParam } from '../utils/format'
+import { parseBRMoneyToDecimal } from '../utils/money'
 import { historyPoints, metric, moneyMetric } from './page-helpers'
 import { BoletosPanel } from './BoletosPage'
 import type { JsonRecord } from '../types/models'
@@ -86,7 +88,7 @@ export function FinanceiroPage() {
     event.preventDefault()
     createCusto.mutate({
       descricao: custo.descricao,
-      valor: asNumber(custo.valor),
+      valor: parseBRMoneyToDecimal(custo.valor),
       tipo: custo.tipo,
       competencia: custo.competencia,
     })
@@ -152,7 +154,7 @@ export function FinanceiroPage() {
                 <form className="grid gap-3" onSubmit={onCustoSubmit}>
                   <input className="design-input h-11 w-full px-4" placeholder="Descrição" value={custo.descricao} onChange={(event) => setCustoField('descricao', event.target.value)} required />
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <input className="design-input h-11 w-full px-4" type="number" min="0" step="0.01" placeholder="Valor" value={custo.valor} onChange={(event) => setCustoField('valor', event.target.value)} required />
+                    <MoneyInput className="design-input h-11 w-full px-4" placeholder="Valor" value={custo.valor} onChange={(raw) => setCustoField('valor', raw)} required />
                     <select className="design-input h-11 w-full px-4" value={custo.tipo} onChange={(event) => setCustoField('tipo', event.target.value)}>
                       {['aluguel', 'salario', 'energia', 'internet', 'outros'].map((tipo) => <option key={tipo} value={tipo}>{tipo}</option>)}
                     </select>

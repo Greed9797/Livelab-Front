@@ -5,9 +5,11 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { MoneyInput } from '../components/ui/MoneyInput'
 import { criarLiveManual, getCabines, getClientes } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asString, asNumber } from '../utils/format'
+import { asString } from '../utils/format'
+import { parseBRMoneyToDecimal } from '../utils/money'
 import { useCurrentUser } from '../stores/auth-store'
 import type { JsonRecord } from '../types/models'
 
@@ -16,8 +18,9 @@ const writeRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'prod
 const emptyForm = {
   cabine_id: '',
   cliente_id: '',
-  hora_inicio: '',
-  hora_fim: '',
+  data: new Date().toISOString().slice(0, 10),
+  hora_inicio: '09:00',
+  hora_fim: '10:00',
   fat_gerado: '',
   tipo: 'cliente' as 'cliente' | 'afiliado' | 'teste',
 }
@@ -68,9 +71,7 @@ export function LiveManualPage() {
     if (!form.hora_inicio.trim()) return 'Hora de início é obrigatória'
     if (!form.hora_fim.trim()) return 'Hora de término é obrigatória'
 
-    const inicioDate = new Date(form.hora_inicio)
-    const fimDate = new Date(form.hora_fim)
-    if (fimDate <= inicioDate) return 'Hora de término deve ser após a hora de início'
+    if (form.hora_fim <= form.hora_inicio) return 'Hora de término deve ser após a hora de início'
 
     if (form.tipo === 'cliente' && !form.cliente_id.trim()) {
       return 'Cliente é obrigatório para lives do tipo cliente'
@@ -89,8 +90,10 @@ export function LiveManualPage() {
 
     const payload: JsonRecord = {
       cabine_id: form.cabine_id,
+      data: form.data,
       hora_inicio: form.hora_inicio,
       hora_fim: form.hora_fim,
+      qtd_pedidos: 0,
       tipo: form.tipo,
     }
 
@@ -99,7 +102,10 @@ export function LiveManualPage() {
     }
 
     if (form.fat_gerado.trim()) {
-      payload.fat_gerado = asNumber(form.fat_gerado)
+      payload.fat_gerado = parseBRMoneyToDecimal(form.fat_gerado)
+      payload.manual_gmv = parseBRMoneyToDecimal(form.fat_gerado)
+    } else {
+      payload.fat_gerado = 0
     }
 
     createMutation.mutate(payload)
@@ -175,10 +181,22 @@ export function LiveManualPage() {
             ) : null}
 
             <label className="block">
+              <span className="text-sm font-semibold text-ink">Data *</span>
+              <input
+                className="design-input mt-2 h-11 w-full px-4"
+                type="date"
+                value={form.data}
+                onChange={(event) => setField('data', event.target.value)}
+                required
+                disabled={createMutation.isPending}
+              />
+            </label>
+
+            <label className="block">
               <span className="text-sm font-semibold text-ink">Hora de Início *</span>
               <input
                 className="design-input mt-2 h-11 w-full px-4"
-                type="datetime-local"
+                type="time"
                 value={form.hora_inicio}
                 onChange={(event) => setField('hora_inicio', event.target.value)}
                 required
@@ -190,7 +208,7 @@ export function LiveManualPage() {
               <span className="text-sm font-semibold text-ink">Hora de Término *</span>
               <input
                 className="design-input mt-2 h-11 w-full px-4"
-                type="datetime-local"
+                type="time"
                 value={form.hora_fim}
                 onChange={(event) => setField('hora_fim', event.target.value)}
                 required
@@ -200,14 +218,11 @@ export function LiveManualPage() {
 
             <label className="block">
               <span className="text-sm font-semibold text-ink">GMV Gerado (opcional)</span>
-              <input
+              <MoneyInput
                 className="design-input mt-2 h-11 w-full px-4"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
+                placeholder="0,00"
                 value={form.fat_gerado}
-                onChange={(event) => setField('fat_gerado', event.target.value)}
+                onChange={(raw) => setField('fat_gerado', raw)}
                 disabled={createMutation.isPending}
               />
             </label>

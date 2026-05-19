@@ -13,7 +13,7 @@ import { historyPoints, metric, moneyMetric } from './page-helpers'
 
 const icons = [CircleDollarSign, TrendingUp, Clock, BarChart3]
 
-export function AnalyticsPage() {
+export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const [period, setPeriod] = useState(currentPeriod())
   const query = useQuery({ queryKey: ['analytics-dashboard', period], queryFn: () => getAnalyticsDashboard({ mes: period.mes, ano: period.ano }) })
 
@@ -30,13 +30,20 @@ export function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Analytics"
-        accent="Dashboard"
-        title="de métricas"
-        subtitle="GMV, horas, lives e desempenho por período."
-        actions={<PeriodControl period={period} onChange={setPeriod} />}
-      />
+      {embedded ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-base font-bold text-ink">Analytics</p>
+          <PeriodControl period={period} onChange={setPeriod} />
+        </div>
+      ) : (
+        <PageHeader
+          eyebrow="Analytics"
+          accent="Dashboard"
+          title="de métricas"
+          subtitle="GMV, horas, lives e desempenho por período."
+          actions={<PeriodControl period={period} onChange={setPeriod} />}
+        />
+      )}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((item, index) => (
           <MetricCard key={item.label} metric={item} icon={icons[index]} />

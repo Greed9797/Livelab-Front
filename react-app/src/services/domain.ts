@@ -66,6 +66,14 @@ export function createCliente(payload: JsonRecord) {
   return apiPost<JsonRecord>('/clientes', payload)
 }
 
+export function updateCliente(id: string, payload: JsonRecord) {
+  return apiPatch<JsonRecord>(`/clientes/${id}`, payload)
+}
+
+export function getClienteOperacional(id: string, params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>(`/clientes/${id}/operacional`, params)
+}
+
 export function getUsuarios(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/usuarios', params)
 }
@@ -108,6 +116,10 @@ export function createMarca(payload: JsonRecord) {
 
 export function updateMarca(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/marcas/${id}`, payload)
+}
+
+export function getMarcaOperacional(id: string, params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>(`/marcas/${id}/operacional`, params)
 }
 
 export function deleteMarca(id: string) {
@@ -184,6 +196,22 @@ export function getComissoesApresentadoras(params: Record<string, unknown> = {})
 
 export function getComissoesMarcas(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/comissoes/marcas', params)
+}
+
+export function getApresentadoraFaixasComissao(id: string) {
+  return apiGet<JsonRecord[]>(`/apresentadoras/${id}/faixas-comissao`)
+}
+
+export function createApresentadoraFaixaComissao(id: string, payload: JsonRecord) {
+  return apiPost<JsonRecord>(`/apresentadoras/${id}/faixas-comissao`, payload)
+}
+
+export function updateApresentadoraFaixaComissao(id: string, faixaId: string, payload: JsonRecord) {
+  return apiPatch<JsonRecord>(`/apresentadoras/${id}/faixas-comissao/${faixaId}`, payload)
+}
+
+export function deleteApresentadoraFaixaComissao(id: string, faixaId: string) {
+  return apiDelete(`/apresentadoras/${id}/faixas-comissao/${faixaId}`)
 }
 
 export function getContratos(params: Record<string, unknown> = {}) {

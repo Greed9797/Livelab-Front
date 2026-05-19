@@ -35,6 +35,7 @@ export function normalizeHome(raw: JsonRecord) {
   const gmvMes = raw.gmv_lives_mes ?? raw.gmv_mes ?? resumo.gmv_lives_mes ?? raw.fat_bruto
   const ticketMedio = raw.ticket_medio_live_mes ?? (livesMes > 0 ? asNumber(gmvMes) / livesMes : 0)
   const liveNow = asArray<JsonRecord>(raw.live_now ?? raw.lives_acontecendo_agora ?? liveCabines)
+  const agendaHoje = asArray<JsonRecord>(raw.agenda_hoje ?? raw.agendaHoje)
   const operationalAlerts = asArray<JsonRecord>(raw.alertas_operacionais).length > 0
     ? asArray<JsonRecord>(raw.alertas_operacionais)
     : [
@@ -49,12 +50,13 @@ export function normalizeHome(raw: JsonRecord) {
       livesMes,
       ticketMedio,
       variacaoMesAnterior: raw.variacao_gmv_mes_anterior_pct ?? raw.gmv_crescimento_pct ?? 0,
+      comparacaoLabel: raw.comparacao_label ?? raw.gmv_comparacao_label,
     },
     metrics: [
-      moneyMetric('GMV do mês', gmvMes, 'lives e vendas do período', 'brand'),
-      moneyMetric('GMV ao vivo agora', raw.gmv_ao_vivo_agora ?? liveNow.reduce((acc, cabine) => acc + asNumber(cabine.gmv_atual), 0), 'cabines em live', 'success'),
-      metric('Lives hoje', raw.lives_hoje ?? raw.lives_do_dia ?? 0, 'realizadas e em andamento', 'info'),
-      metric('Cabines em live', raw.lives_ativas_agora ?? ocupacao.ao_vivo ?? liveNow.length, `${asNumber(ocupacao.operacionais ?? cabines.length)} operacionais`, 'neutral'),
+      metric('Agenda de hoje', agendaHoje.length, agendaHoje.length === 1 ? '1 evento no dia' : `${agendaHoje.length} eventos no dia`, 'info'),
+      moneyMetric('GMV ao vivo agora', raw.gmv_ao_vivo_agora ?? liveNow.reduce((acc, cabine) => acc + asNumber(cabine.gmv_atual), 0), liveNow.length ? 'soma das lives em andamento' : 'nenhuma cabine em live agora', 'success'),
+      metric('Cabines em live', `${asNumber(raw.lives_ativas_agora ?? ocupacao.ao_vivo ?? liveNow.length)} / ${asNumber(ocupacao.operacionais ?? cabines.length)}`, `${asNumber(ocupacao.operacionais ?? cabines.length)} operacionais`, 'neutral'),
+      metric('Alertas operacionais', operationalAlerts.reduce((acc, item) => acc + asNumber(item.valor ?? item.total ?? item.count ?? 0), 0), 'itens para revisar', 'warning'),
     ],
     liveNow,
     liveCabines: liveNow,
@@ -71,7 +73,7 @@ export function normalizeHome(raw: JsonRecord) {
     rankingGmvDia: asArray<JsonRecord>(raw.ranking_dia ?? raw.ranking ?? raw.ranking_clientes ?? raw.top_clientes),
     rankingApresentadoras: asArray<JsonRecord>(raw.ranking_apresentadoras_hoje ?? raw.ranking_apresentadoras ?? raw.ranking_apresentadores),
     upcoming: asArray<JsonRecord>(raw.proximas_lives_dia ?? raw.proximas_lives),
-    agendaHoje: asArray<JsonRecord>(raw.agenda_hoje ?? raw.agendaHoje),
+    agendaHoje,
     operationalAlerts,
   }
 }

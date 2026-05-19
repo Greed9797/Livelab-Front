@@ -1,4 +1,4 @@
-import { Building2, CircleDollarSign, Download, Handshake, LayoutDashboard, Plus, Store, Users, Workflow } from 'lucide-react'
+import { Building2, CircleDollarSign, Download, Eye, Handshake, LayoutDashboard, Plus, Store, Users, Workflow } from 'lucide-react'
 import { FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -8,7 +8,8 @@ import { MetricCard } from '../components/ui/MetricCard'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { Button } from '../components/ui/Button'
-import { createCliente, createMarca, getClientes, getCrmSummary, getLeads, getMarcas } from '../services/domain'
+import { Modal } from '../components/ui/Modal'
+import { createCliente, createMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, updateCliente, updateMarca } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
 import { downloadCsv } from '../utils/exportCsv'
@@ -43,12 +44,23 @@ export function ComercialPage() {
   const [showAfiliadoForm, setShowAfiliadoForm] = useState(false)
   const [clienteForm, setClienteForm] = useState(emptyClienteForm)
   const [afiliadoForm, setAfiliadoForm] = useState(emptyAfiliadoForm)
+  const [selectedAtivo, setSelectedAtivo] = useState<JsonRecord | null>(null)
+  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0' })
   const queryClient = useQueryClient()
 
   const summaryQuery = useQuery({ queryKey: ['crm-summary'], queryFn: getCrmSummary })
   const leadsQuery = useQuery({ queryKey: ['leads'], queryFn: getLeads })
   const clientesQuery = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
   const marcasQuery = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
+  const selectedAtivoId = asString(selectedAtivo?.id, '')
+  const selectedAtivoKind = asString(selectedAtivo?.tipo_operacional) === 'cliente_ecommerce' ? 'cliente' : 'marca'
+  const ativoDetailQuery = useQuery({
+    queryKey: ['ativo-operacional', selectedAtivoKind, selectedAtivoId],
+    enabled: Boolean(selectedAtivoId),
+    queryFn: () => selectedAtivoKind === 'cliente'
+      ? getClienteOperacional(selectedAtivoId)
+      : getMarcaOperacional(selectedAtivoId),
+  })
 
   const clienteMutation = useMutation({
     mutationFn: createCliente,
@@ -65,6 +77,16 @@ export function ComercialPage() {
       setShowAfiliadoForm(false)
       void queryClient.invalidateQueries({ queryKey: ['marcas'] })
       void queryClient.invalidateQueries({ queryKey: ['marcas', 'ativas'] })
+    },
+  })
+  const ativoUpdateMutation = useMutation({
+    mutationFn: ({ id, kind, payload }: { id: string; kind: 'cliente' | 'marca'; payload: JsonRecord }) => (
+      kind === 'cliente' ? updateCliente(id, payload) : updateMarca(id, payload)
+    ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['clientes'] })
+      void queryClient.invalidateQueries({ queryKey: ['marcas'] })
+      void queryClient.invalidateQueries({ queryKey: ['ativo-operacional'] })
     },
   })
 
@@ -84,7 +106,6 @@ export function ComercialPage() {
     percentMetric('Conversão', taxaConversao, 'ganhos sobre leads', 'info'),
     metric('Clientes ativos', clientes.length, 'carteira da unidade', 'success'),
     metric('Afiliados ativos', marcas.filter((item) => asString(item.tipo) === 'afiliada').length, 'marcas afiliadas', 'brand'),
-    metric('Marcas ativas', marcas.length, 'operação comercial', 'neutral'),
   ]
 
   const ativos = useMemo(() => {
@@ -97,6 +118,7 @@ export function ComercialPage() {
 
     const clientesRows = clientes.map((cliente) => ({
       ...cliente,
+      tipo_entidade: 'cliente',
       tipo_operacional: 'cliente_ecommerce',
       marca_principal: asString(marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.nome, asString(cliente.nome)),
       apresentadoras: marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.apresentadoras,
@@ -105,6 +127,7 @@ export function ComercialPage() {
       .filter((marca) => !marca.cliente_id)
       .map((marca) => ({
         ...marca,
+        tipo_entidade: 'marca',
         tipo_operacional: asString(marca.tipo, 'marca'),
         marca_principal: asString(marca.nome),
       }))
@@ -148,6 +171,17 @@ export function ComercialPage() {
     ])
   }
 
+  function openAtivo(item: JsonRecord) {
+    setSelectedAtivo(item)
+    setAtivoForm({
+      nome: asString(item.nome, ''),
+      status: asString(item.status, 'ativo'),
+      email: asString(item.email, ''),
+      celular: asString(item.celular ?? item.whatsapp, ''),
+      comissao_franquia_pct: asString(item.comissao_franquia_pct ?? 0, '0'),
+    })
+  }
+
   function onClienteSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     clienteMutation.mutate({
@@ -177,6 +211,26 @@ export function ComercialPage() {
     })
   }
 
+  function onAtivoSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!selectedAtivo) return
+    const id = asString(selectedAtivo.id, '')
+    const kind = selectedAtivoKind
+    const payload = kind === 'cliente'
+      ? {
+          nome: ativoForm.nome,
+          status: ativoForm.status,
+          email: ativoForm.email || undefined,
+          celular: ativoForm.celular || undefined,
+        }
+      : {
+          nome: ativoForm.nome,
+          status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
+          comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
+        }
+    ativoUpdateMutation.mutate({ id, kind, payload })
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Comercial" accent="Operação" title="comercial" subtitle="Dashboard, CRM e carteira ativa em uma única área." />
@@ -203,7 +257,7 @@ export function ComercialPage() {
         <>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {metrics.map((item, index) => (
-              <MetricCard key={item.label} metric={item} icon={[Users, CircleDollarSign, Handshake, Workflow, Building2, Store, LayoutDashboard][index]} />
+              <MetricCard key={item.label} metric={item} icon={[Users, CircleDollarSign, Handshake, Workflow, Building2, Store][index]} />
             ))}
           </section>
           <section className="grid gap-4 xl:grid-cols-[1fr_0.85fr]">
@@ -316,12 +370,117 @@ export function ComercialPage() {
                     },
                   },
                   { key: 'responsavel', header: 'Responsável', render: (item) => asString(item.responsavel_nome ?? item.gerente_nome) },
+                  {
+                    key: 'acoes',
+                    header: 'Ações',
+                    align: 'right',
+                    render: (item) => (
+                      <Button variant="secondary" icon={Eye} onClick={() => openAtivo(item)}>
+                        Abrir
+                      </Button>
+                    ),
+                  },
                 ]}
               />
             </CardBody>
           </Card>
         </div>
       ) : null}
+
+      <Modal
+        open={Boolean(selectedAtivo)}
+        title={selectedAtivoKind === 'cliente' ? 'Cliente' : 'Afiliado'}
+        subtitle="Dados operacionais, histórico e configuração comercial."
+        size="xl"
+        onClose={() => setSelectedAtivo(null)}
+      >
+        <div className="space-y-5">
+          {ativoDetailQuery.isLoading ? <LoadingState label="Carregando histórico" /> : null}
+          {ativoDetailQuery.isError ? <ErrorState message={extractErrorMessage(ativoDetailQuery.error)} onRetry={() => void ativoDetailQuery.refetch()} /> : null}
+          {ativoDetailQuery.data ? (
+            <>
+              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  moneyMetric('GMV mês', getRecord(ativoDetailQuery.data.metrics).gmv_mes, 'período atual', 'brand'),
+                  moneyMetric('GMV acumulado', getRecord(ativoDetailQuery.data.metrics).gmv_acumulado, 'histórico total', 'success'),
+                  metric('Lives', getRecord(ativoDetailQuery.data.metrics).total_lives ?? 0, 'histórico', 'neutral'),
+                  metric('Vídeos', getRecord(ativoDetailQuery.data.metrics).total_videos ?? 0, 'histórico', 'info'),
+                ].map((item) => <MetricCard key={item.label} metric={item} icon={Store} />)}
+              </section>
+
+              <form className="grid gap-3 rounded-2xl border border-line bg-surface-muted p-4 md:grid-cols-2" onSubmit={onAtivoSubmit}>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Nome</span>
+                  <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.nome} onChange={(event) => setAtivoForm((current) => ({ ...current, nome: event.target.value }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Status</span>
+                  <select className="design-input mt-2 h-11 w-full px-4" value={ativoForm.status} onChange={(event) => setAtivoForm((current) => ({ ...current, status: event.target.value }))}>
+                    <option value="ativo">Ativo</option>
+                    <option value="ativa">Ativa</option>
+                    <option value="pausada">Pausada</option>
+                    <option value="inativa">Inativa</option>
+                    <option value="inadimplente">Inadimplente</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </label>
+                {selectedAtivoKind === 'cliente' ? (
+                  <>
+                    <label className="block">
+                      <span className="text-sm font-semibold text-ink">E-mail</span>
+                      <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.email} onChange={(event) => setAtivoForm((current) => ({ ...current, email: event.target.value }))} />
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-semibold text-ink">WhatsApp</span>
+                      <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.celular} onChange={(event) => setAtivoForm((current) => ({ ...current, celular: event.target.value }))} />
+                    </label>
+                  </>
+                ) : (
+                  <label className="block">
+                    <span className="text-sm font-semibold text-ink">Comissão LiveLab (%)</span>
+                    <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
+                  </label>
+                )}
+                <div className="flex items-end">
+                  <Button type="submit" isLoading={ativoUpdateMutation.isPending}>Salvar alterações</Button>
+                </div>
+                {ativoUpdateMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
+              </form>
+
+              <section className="grid gap-4 xl:grid-cols-2">
+                <Card>
+                  <CardHeader><p className="text-base font-bold text-ink">Histórico de lives</p></CardHeader>
+                  <CardBody>
+                    <DataTable<JsonRecord>
+                      data={asArray<JsonRecord>(ativoDetailQuery.data.lives)}
+                      columns={[
+                        { key: 'iniciado_em', header: 'Data', render: (item) => asString(item.iniciado_em).slice(0, 10) },
+                        { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome ?? getRecord(ativoDetailQuery.data?.marca).nome ?? getRecord(ativoDetailQuery.data?.cliente).nome) },
+                        { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, '—') },
+                        { key: 'fat_gerado', header: 'GMV', align: 'right', render: (item) => formatMoney(item.fat_gerado) },
+                      ]}
+                    />
+                  </CardBody>
+                </Card>
+                <Card>
+                  <CardHeader><p className="text-base font-bold text-ink">Histórico de vídeos</p></CardHeader>
+                  <CardBody>
+                    <DataTable<JsonRecord>
+                      data={asArray<JsonRecord>(ativoDetailQuery.data.videos)}
+                      columns={[
+                        { key: 'data', header: 'Data', render: (item) => asString(item.data).slice(0, 10) },
+                        { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome ?? getRecord(ativoDetailQuery.data?.marca).nome) },
+                        { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, '—') },
+                        { key: 'gmv_atribuido', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_atribuido) },
+                      ]}
+                    />
+                  </CardBody>
+                </Card>
+              </section>
+            </>
+          ) : null}
+        </div>
+      </Modal>
     </div>
   )
 }

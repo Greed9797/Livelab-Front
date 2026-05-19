@@ -35,6 +35,7 @@ export function DashboardPage() {
         livesMes={data.hero.livesMes}
         ticketMedio={data.hero.ticketMedio}
         variacaoMesAnterior={data.hero.variacaoMesAnterior}
+        comparacaoLabel={data.hero.comparacaoLabel}
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

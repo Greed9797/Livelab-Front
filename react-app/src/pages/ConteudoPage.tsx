@@ -9,6 +9,7 @@ import { Badge, statusTone } from '../components/ui/Badge'
 import { DataTable } from '../components/ui/DataTable'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
+import { MoneyInput } from '../components/ui/MoneyInput'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
 import { getAgendaEventLayout, publicationStatusLabel } from './conteudo-helpers'
@@ -30,6 +31,8 @@ import {
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatDate, formatMoney } from '../utils/format'
+import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
+import { buildManualLivePayload } from '../utils/live-manual'
 import type { JsonRecord } from '../types/models'
 
 type ConteudoTab = 'agenda' | 'cabines' | 'lives' | 'videos' | 'analytics'
@@ -48,6 +51,9 @@ const emptyAgendaEvent = {
   status: 'planejado',
   responsavel_marketing: '',
   observacoes: '',
+  recorrencia_tipo: 'nenhuma',
+  recorrencia_ate: '',
+  recorrencia_total_ocorrencias: '',
 }
 
 const emptyVideo = {
@@ -99,15 +105,25 @@ function formatTime(value: unknown) {
 function toDateInput(value: unknown) {
   const date = typeof value === 'string' ? new Date(value) : null
   if (!date || Number.isNaN(date.getTime())) return today()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${month}-${day}`
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${byType.year}-${byType.month}-${byType.day}`
 }
 
 function toTimeInput(value: unknown) {
   const date = typeof value === 'string' ? new Date(value) : null
   if (!date || Number.isNaN(date.getTime())) return '09:00'
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(date)
 }
 
 function eventIntersectsLocalDate(event: JsonRecord, date: string) {
@@ -149,6 +165,8 @@ export function ConteudoPage() {
   const [tab, setTab] = useState<ConteudoTab>(requestedTab)
   const [agendaDate, setAgendaDate] = useState(today())
   const [agendaView, setAgendaView] = useState<'dia' | 'semana'>('dia')
+  const [agendaModalOpen, setAgendaModalOpen] = useState(false)
+  const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [agendaForm, setAgendaForm] = useState(emptyAgendaEvent)
   const [videoForm, setVideoForm] = useState(emptyVideo)
   const [manualLiveForm, setManualLiveForm] = useState(emptyManualLive)
@@ -177,6 +195,7 @@ export function ConteudoPage() {
     },
     onSuccess: () => {
       setAgendaForm((current) => ({ ...emptyAgendaEvent, data: agendaDate, cabine_id: current.cabine_id }))
+      setAgendaModalOpen(false)
       void client.invalidateQueries({ queryKey: ['agenda'] })
       void client.invalidateQueries({ queryKey: ['marcas'] })
     },
@@ -185,6 +204,7 @@ export function ConteudoPage() {
     mutationFn: createVideo,
     onSuccess: () => {
       setVideoForm(emptyVideo)
+      setVideoModalOpen(false)
       void client.invalidateQueries({ queryKey: ['videos'] })
       void client.invalidateQueries({ queryKey: ['comissoes-resumo'] })
     },
@@ -241,6 +261,7 @@ export function ConteudoPage() {
       cabine_id: requestedCabineId || current.cabine_id,
       data: requestedDate || current.data,
     }))
+    if (requestedCabineId) setAgendaModalOpen(true)
   }, [requestedCabineId, requestedDate])
 
   const selectedLiveId = params.get('live') ?? ''
@@ -392,7 +413,7 @@ export function ConteudoPage() {
       data: toDateInput(live.iniciado_em),
       hora_inicio: toTimeInput(live.iniciado_em),
       hora_fim: toTimeInput(live.encerrado_em),
-      fat_gerado: asString(live.fat_gerado ?? live.manual_gmv ?? 0, '0'),
+      fat_gerado: formatBRLWithoutSymbol(live.fat_gerado ?? live.manual_gmv ?? 0),
       qtd_pedidos: asString(live.final_orders_count ?? live.manual_orders ?? 0, '0'),
       manual_views: asString(live.manual_views ?? ''),
       manual_likes: asString(live.manual_likes ?? ''),
@@ -427,6 +448,22 @@ export function ConteudoPage() {
     event.preventDefault()
     const dataInicio = makeDateTime(agendaForm.data, agendaForm.hora_inicio)
     const dataFim = makeDateTime(agendaForm.data, agendaForm.hora_fim)
+    const weekday = new Date(`${agendaForm.data}T00:00:00`).getDay()
+    const recurrenceMap: Record<string, JsonRecord | null> = {
+      nenhuma: null,
+      diaria: { frequencia: 'diaria' },
+      dias_uteis: { frequencia: 'semanal', dias_semana: [1, 2, 3, 4, 5] },
+      semanal: { frequencia: 'semanal', dias_semana: [weekday] },
+      quinzenal: { frequencia: 'quinzenal', dias_semana: [weekday] },
+      mensal: { frequencia: 'mensal' },
+    }
+    const recorrencia = recurrenceMap[agendaForm.recorrencia_tipo]
+      ? {
+          ...recurrenceMap[agendaForm.recorrencia_tipo],
+          ...(agendaForm.recorrencia_ate ? { ate: agendaForm.recorrencia_ate } : {}),
+          ...(agendaForm.recorrencia_total_ocorrencias ? { total_ocorrencias: asNumber(agendaForm.recorrencia_total_ocorrencias) } : {}),
+        }
+      : null
     createAgendaMutation.mutate({
       tipo: agendaForm.tipo,
       cabine_id: agendaForm.cabine_id || null,
@@ -438,6 +475,7 @@ export function ConteudoPage() {
       status: agendaForm.status,
       responsavel_marketing: agendaForm.responsavel_marketing || null,
       observacoes: agendaForm.observacoes || null,
+      ...(recorrencia ? { recorrencia } : {}),
     })
   }
 
@@ -446,7 +484,7 @@ export function ConteudoPage() {
     createVideoMutation.mutate({
       ...videoForm,
       quantidade: asNumber(videoForm.quantidade),
-      gmv_atribuido: asNumber(videoForm.gmv_atribuido),
+      gmv_atribuido: parseBRMoneyToDecimal(videoForm.gmv_atribuido),
       pedidos_atribuidos: asNumber(videoForm.pedidos_atribuidos),
       apresentadora_id: videoForm.apresentadora_id || null,
       campanha: videoForm.campanha || null,
@@ -456,24 +494,7 @@ export function ConteudoPage() {
 
   function onManualLiveSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const payload = {
-      cabine_id: manualLiveForm.cabine_id,
-      cliente_id: manualLiveForm.cliente_id || undefined,
-      marca_id: manualLiveForm.marca_id || undefined,
-      apresentador_id: manualLiveForm.apresentador_id || undefined,
-      data: manualLiveForm.data,
-      hora_inicio: manualLiveForm.hora_inicio,
-      hora_fim: manualLiveForm.hora_fim,
-      fat_gerado: asNumber(manualLiveForm.fat_gerado),
-      qtd_pedidos: asNumber(manualLiveForm.qtd_pedidos),
-      manual_orders: asNumber(manualLiveForm.qtd_pedidos),
-      manual_views: manualLiveForm.manual_views ? asNumber(manualLiveForm.manual_views) : undefined,
-      manual_likes: manualLiveForm.manual_likes ? asNumber(manualLiveForm.manual_likes) : undefined,
-      manual_gmv: asNumber(manualLiveForm.fat_gerado),
-      resumo: manualLiveForm.resumo || undefined,
-      status_publicacao: manualLiveForm.status_publicacao,
-      tipo: manualLiveForm.tipo,
-    }
+    const payload = buildManualLivePayload(manualLiveForm)
     if (liveModalMode === 'edit' && selectedLiveRecord) {
       updateLiveMutation.mutate({ id: asString(selectedLiveRecord.id, ''), payload })
       return
@@ -538,7 +559,7 @@ export function ConteudoPage() {
       </div>
 
       {tab === 'agenda' ? (
-        <section className="grid gap-4 xl:grid-cols-[1fr_380px]">
+        <section>
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -552,6 +573,7 @@ export function ConteudoPage() {
                     <option value="dia">Dia</option>
                     <option value="semana">Semana</option>
                   </select>
+                  <Button icon={Plus} onClick={() => setAgendaModalOpen(true)}>Agendar</Button>
                 </div>
               </div>
             </CardHeader>
@@ -641,11 +663,13 @@ export function ConteudoPage() {
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <p className="text-base font-bold text-ink">Agendar</p>
-            </CardHeader>
-            <CardBody>
+          <Modal
+            open={agendaModalOpen}
+            title="Agendar"
+            subtitle="Reserva de cabine com recorrência opcional."
+            size="lg"
+            onClose={() => setAgendaModalOpen(false)}
+          >
               <form className="space-y-3" onSubmit={onAgendaSubmit}>
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Tipo</span>
@@ -697,6 +721,27 @@ export function ConteudoPage() {
                   <span className="text-sm font-semibold text-ink">Responsável de marketing</span>
                   <input className="design-input mt-2 h-11 w-full px-4" value={agendaForm.responsavel_marketing} onChange={(event) => setAgendaField('responsavel_marketing', event.target.value)} />
                 </label>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <label className="block">
+                    <span className="text-sm font-semibold text-ink">Recorrência</span>
+                    <select className="design-input mt-2 h-11 w-full px-4" value={agendaForm.recorrencia_tipo} onChange={(event) => setAgendaField('recorrencia_tipo', event.target.value)}>
+                      <option value="nenhuma">Sem recorrência</option>
+                      <option value="diaria">Diária</option>
+                      <option value="dias_uteis">Dias úteis</option>
+                      <option value="semanal">Semanal</option>
+                      <option value="quinzenal">Quinzenal</option>
+                      <option value="mensal">Mensal</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-semibold text-ink">Repetir até</span>
+                    <input className="design-input mt-2 h-11 w-full px-4" type="date" value={agendaForm.recorrencia_ate} onChange={(event) => setAgendaField('recorrencia_ate', event.target.value)} disabled={agendaForm.recorrencia_tipo === 'nenhuma'} />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-semibold text-ink">Ocorrências</span>
+                    <input className="design-input mt-2 h-11 w-full px-4" type="number" min="1" value={agendaForm.recorrencia_total_ocorrencias} onChange={(event) => setAgendaField('recorrencia_total_ocorrencias', event.target.value)} disabled={agendaForm.recorrencia_tipo === 'nenhuma'} />
+                  </label>
+                </div>
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Observações</span>
                   <textarea className="design-input mt-2 min-h-24 w-full px-4 py-3" value={agendaForm.observacoes} onChange={(event) => setAgendaField('observacoes', event.target.value)} />
@@ -704,12 +749,11 @@ export function ConteudoPage() {
                 {createAgendaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createAgendaMutation.error)}</p> : null}
                 <Button type="submit" icon={Plus} isLoading={createAgendaMutation.isPending}>Agendar</Button>
               </form>
-            </CardBody>
-          </Card>
+          </Modal>
         </section>
       ) : null}
 
-      {tab === 'cabines' ? <CabinesPage title="Cabines de conteúdo" /> : null}
+      {tab === 'cabines' ? <CabinesPage title="Cabines de conteúdo" embedded /> : null}
 
       {tab === 'lives' ? (
         <section>
@@ -806,7 +850,7 @@ export function ConteudoPage() {
               </div>
               <label className="block">
                 <span className="text-sm font-semibold text-ink">GMV</span>
-                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={manualLiveForm.fat_gerado} onChange={(event) => setManualLiveField('fat_gerado', event.target.value)} required />
+                <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={manualLiveForm.fat_gerado} onChange={(raw) => setManualLiveField('fat_gerado', raw)} required />
               </label>
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Pedidos</span>
@@ -879,10 +923,13 @@ export function ConteudoPage() {
       ) : null}
 
       {tab === 'videos' ? (
-        <section className="grid gap-4 xl:grid-cols-[1fr_380px]">
+        <section>
           <Card>
             <CardHeader>
-              <p className="text-base font-bold text-ink">Vídeos gravados</p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-base font-bold text-ink">Vídeos gravados</p>
+                <Button icon={Plus} onClick={() => setVideoModalOpen(true)}>Registrar vídeo</Button>
+              </div>
             </CardHeader>
             <CardBody>
               <DataTable<JsonRecord>
@@ -898,11 +945,13 @@ export function ConteudoPage() {
               />
             </CardBody>
           </Card>
-          <Card>
-            <CardHeader>
-              <p className="text-base font-bold text-ink">Registrar vídeo</p>
-            </CardHeader>
-            <CardBody>
+          <Modal
+            open={videoModalOpen}
+            title="Registrar vídeo"
+            subtitle="Registro operacional de vídeos, GMV e pedidos atribuídos."
+            size="lg"
+            onClose={() => setVideoModalOpen(false)}
+          >
               <form className="space-y-3" onSubmit={onVideoSubmit}>
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Marca</span>
@@ -939,7 +988,7 @@ export function ConteudoPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">GMV atribuído</span>
-                    <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={videoForm.gmv_atribuido} onChange={(event) => setVideoField('gmv_atribuido', event.target.value)} />
+                    <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={videoForm.gmv_atribuido} onChange={(raw) => setVideoField('gmv_atribuido', raw)} />
                   </label>
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">Pedidos atribuídos</span>
@@ -953,12 +1002,11 @@ export function ConteudoPage() {
                 {createVideoMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createVideoMutation.error)}</p> : null}
                 <Button type="submit" icon={Plus} isLoading={createVideoMutation.isPending}>Registrar vídeo</Button>
               </form>
-            </CardBody>
-          </Card>
+          </Modal>
         </section>
       ) : null}
 
-      {tab === 'analytics' ? <AnalyticsPage /> : null}
+      {tab === 'analytics' ? <AnalyticsPage embedded /> : null}
     </div>
   )
 }

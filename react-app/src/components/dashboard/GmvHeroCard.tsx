@@ -1,17 +1,22 @@
 import { TrendingDown, TrendingUp } from 'lucide-react'
 import { Card, CardBody } from '../ui/Card'
 import { asNumber, formatMoney, formatPercent } from '../../utils/format'
+import { liveCountLabel } from '../../utils/plural'
 
 interface GmvHeroCardProps {
   gmvMes: unknown
   livesMes: unknown
   ticketMedio: unknown
   variacaoMesAnterior: unknown
+  comparacaoLabel?: unknown
 }
 
-export function GmvHeroCard({ gmvMes, livesMes, ticketMedio, variacaoMesAnterior }: GmvHeroCardProps) {
+export function GmvHeroCard({ gmvMes, livesMes, ticketMedio, variacaoMesAnterior, comparacaoLabel }: GmvHeroCardProps) {
   const variation = asNumber(variacaoMesAnterior)
   const VariationIcon = variation >= 0 ? TrendingUp : TrendingDown
+  const comparisonText = typeof comparacaoLabel === 'string' && comparacaoLabel.trim()
+    ? comparacaoLabel
+    : 'comparado com o mês anterior'
 
   return (
     <Card className="border-brand/25">
@@ -21,10 +26,10 @@ export function GmvHeroCard({ gmvMes, livesMes, ticketMedio, variacaoMesAnterior
           <p className="num mt-3 text-4xl font-extrabold leading-none text-ink md:text-5xl">{formatMoney(gmvMes, true)}</p>
           <div className="mt-5 flex flex-wrap gap-3 text-sm">
             <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 font-semibold text-ink">
-              {asNumber(livesMes).toLocaleString('pt-BR')} lives realizadas
+              {liveCountLabel(asNumber(livesMes))}
             </span>
             <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 font-semibold text-ink">
-              Ticket medio {formatMoney(ticketMedio, true)}
+              GMV médio por live {formatMoney(ticketMedio, true)}
             </span>
           </div>
         </div>
@@ -33,7 +38,7 @@ export function GmvHeroCard({ gmvMes, livesMes, ticketMedio, variacaoMesAnterior
             <VariationIcon className="h-4 w-4 text-brand" />
             {formatPercent(variation)}
           </div>
-          <p className="mt-2 text-xs text-ink-muted">comparado com o mês anterior</p>
+          <p className="mt-2 text-xs text-ink-muted">{comparisonText}</p>
         </div>
       </CardBody>
     </Card>

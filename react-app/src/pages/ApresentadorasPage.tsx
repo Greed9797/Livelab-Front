@@ -6,9 +6,11 @@ import { Card, CardBody } from '../components/ui/Card'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { MoneyInput } from '../components/ui/MoneyInput'
 import { createApresentadora, deleteApresentadora, getApresentadoras, updateApresentadora } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatMoney } from '../utils/format'
+import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
 import type { JsonRecord } from '../types/models'
 
 const emptyForm = {
@@ -74,9 +76,9 @@ export function ApresentadorasPage() {
       telefone: asString(item.telefone, ''),
       cargo: asString(item.cargo, 'apresentadora'),
       cidade: asString(item.cidade, ''),
-      fixo: asString(item.fixo, ''),
+      fixo: formatBRLWithoutSymbol(item.fixo ?? 0),
       comissao_pct: asString(item.comissao_pct, ''),
-      meta_diaria_gmv: asString(item.meta_diaria_gmv, ''),
+      meta_diaria_gmv: formatBRLWithoutSymbol(item.meta_diaria_gmv ?? 0),
       observacoes: asString(item.observacoes, ''),
     })
     setShowForm(true)
@@ -90,9 +92,9 @@ export function ApresentadorasPage() {
       telefone: form.telefone || undefined,
       cargo: form.cargo || undefined,
       cidade: form.cidade || undefined,
-      fixo: asNumber(form.fixo),
+      fixo: parseBRMoneyToDecimal(form.fixo),
       comissao_pct: asNumber(form.comissao_pct),
-      meta_diaria_gmv: asNumber(form.meta_diaria_gmv),
+      meta_diaria_gmv: parseBRMoneyToDecimal(form.meta_diaria_gmv),
       observacoes: form.observacoes || undefined,
     })
   }
@@ -133,7 +135,7 @@ export function ApresentadorasPage() {
               </label>
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Fixo</span>
-                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={form.fixo} onChange={(event) => setField('fixo', event.target.value)} />
+                <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.fixo} onChange={(raw) => setField('fixo', raw)} />
               </label>
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Comissão %</span>
@@ -141,7 +143,7 @@ export function ApresentadorasPage() {
               </label>
               <label className="block md:col-span-2">
                 <span className="text-sm font-semibold text-ink">Meta diária GMV</span>
-                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={form.meta_diaria_gmv} onChange={(event) => setField('meta_diaria_gmv', event.target.value)} />
+                <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.meta_diaria_gmv} onChange={(raw) => setField('meta_diaria_gmv', raw)} />
               </label>
               <label className="block md:col-span-2">
                 <span className="text-sm font-semibold text-ink">Observações</span>
