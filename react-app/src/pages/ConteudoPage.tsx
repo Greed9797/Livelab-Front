@@ -177,7 +177,7 @@ export function ConteudoPage() {
   const range = dayRange(agendaDate, agendaView === 'semana' ? 7 : 1)
   const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }) })
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
-  const lives = useQuery({ queryKey: ['lives'], queryFn: getLives })
+  const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada' }) })
   const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos() })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
@@ -779,7 +779,7 @@ export function ConteudoPage() {
                   { key: 'apresentador_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome ?? item.apresentador_nome) },
                   { key: 'fat_gerado', header: 'GMV', align: 'right', render: (item) => formatMoney(item.fat_gerado ?? item.manual_gmv) },
                   { key: 'final_orders_count', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.final_orders_count ?? item.manual_orders).toLocaleString('pt-BR') },
-                  { key: 'status_publicacao', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status_publicacao, 'rascunho'))}>{publicationStatusLabel(item.status_publicacao)}</Badge> },
+                  { key: 'status_publicacao', header: 'Publicação', render: (item) => <Badge tone={statusTone(asString(item.status_publicacao, 'rascunho'))}>{publicationStatusLabel(item.status_publicacao)}</Badge> },
                   {
                     key: 'acoes',
                     header: 'Ações',
@@ -906,7 +906,7 @@ export function ConteudoPage() {
                     ['Apresentadora', asString(selectedLiveRecord.apresentadora_nome ?? selectedLiveRecord.apresentador_nome, '—')],
                     ['GMV', formatMoney(selectedLiveRecord.fat_gerado ?? selectedLiveRecord.manual_gmv)],
                     ['Pedidos', asNumber(selectedLiveRecord.final_orders_count ?? selectedLiveRecord.manual_orders).toLocaleString('pt-BR')],
-                    ['Status', publicationStatusLabel(selectedLiveRecord.status_publicacao)],
+                    ['Publicação', publicationStatusLabel(selectedLiveRecord.status_publicacao)],
                     ['Origem', asString(selectedLiveRecord.origem_dados, 'manual')],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-2xl border border-line bg-surface-muted p-3">

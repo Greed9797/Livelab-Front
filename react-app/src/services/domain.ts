@@ -329,8 +329,8 @@ export function getCabineLiveAtual(id: string) {
   return apiGet<JsonRecord>(`/cabines/${id}/live-atual`)
 }
 
-export function getLives() {
-  return apiGet<JsonRecord[]>('/lives')
+export function getLives(params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord[]>('/lives', params)
 }
 
 export async function getLiveAtualDaCabine(cabineId: string): Promise<LiveAtual | null> {

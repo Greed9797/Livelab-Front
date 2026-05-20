@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLiveTiktokStatus, iniciarLive, publishLive, updateApresentadora, updateLive } from './domain'
+import { createCliente, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, iniciarLive, publishLive, updateApresentadora, updateLive } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -71,6 +71,14 @@ describe('domain live operations', () => {
     await getLivePorId('live-1')
 
     expect(apiGet).toHaveBeenCalledWith('/lives/live-1')
+  })
+
+  it('loads completed lives with explicit status filter', async () => {
+    vi.mocked(apiGet).mockResolvedValue([])
+
+    await getLives({ status: 'encerrada' })
+
+    expect(apiGet).toHaveBeenCalledWith('/lives', { status: 'encerrada' })
   })
 
   it('loads TikTok connector status for the selected live', async () => {
