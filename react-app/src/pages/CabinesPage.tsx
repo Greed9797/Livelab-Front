@@ -9,7 +9,7 @@ import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
-import { atualizarStatusCabine, createCabine, deleteCabine, encerrarLive, getCabineHistorico, getCabines, getClientes, getLiveTiktokStatus, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
+import { atualizarStatusCabine, createCabine, deleteCabine, encerrarLive, getApresentadoras, getCabineHistorico, getCabines, getClientes, getLiveTiktokStatus, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatDate, formatMoney } from '../utils/format'
 import { useCurrentUser } from '../stores/auth-store'
@@ -21,7 +21,7 @@ const writeLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', '
 const readClientesForLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'operacional', 'produtor_live'])
 const availableCabineStatus = 'disponivel'
 const emptyCabineForm = { nome: '', descricao: '' }
-const emptyStartForm = { cliente_id: '', tiktok_username: '' }
+const emptyStartForm = { cliente_id: '', tiktok_username: '', apresentadora_id: '', previsto_fim: '' }
 
 function suggestedClienteId(cabine?: Cabine | null): string {
   if (!cabine) return ''
@@ -58,6 +58,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   const explicitLiveId = params.get('live') ?? ''
   const query = useQuery({ queryKey: ['cabines'], queryFn: getCabines, refetchInterval: 20_000 })
   const clientesQuery = useQuery({ queryKey: ['clientes', 'live-start'], queryFn: getClientes, enabled: canWriteLive && readClientesForLiveRoles.has(user?.papel ?? '') })
+  const apresentadorasQuery = useQuery({ queryKey: ['apresentadoras', 'live-start'], queryFn: getApresentadoras, enabled: canWriteLive })
   const historicoQuery = useQuery({ queryKey: ['cabine-historico', selectedId], queryFn: () => getCabineHistorico(selectedId), enabled: Boolean(selectedId) })
   const selectedLive = useSelectedLive({
     liveId: explicitLiveId || undefined,
@@ -219,11 +220,27 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   function onStartLive(cabine: Cabine) {
     const clienteId = startForm.cliente_id || suggestedClienteId(cabine)
     const tiktokUsername = startForm.tiktok_username.trim() || suggestedTiktokUsername(cabine)
+    const apresentadoraId = startForm.apresentadora_id || ''
+    const previstoFim = startForm.previsto_fim
+      ? new Date(startForm.previsto_fim).toISOString()
+      : null
+
+    if (!apresentadoraId) {
+      window.alert('Selecione a apresentadora antes de iniciar a live.')
+      return
+    }
+    if (!previstoFim) {
+      window.alert('Informe o horário previsto de término da live.')
+      return
+    }
+
     iniciarMutation.mutate({
       cabine_id: cabine.id,
       ...(clienteId ? { cliente_id: clienteId } : {}),
       tiktok_username: tiktokUsername || null,
       tipo: liveType,
+      apresentadora_id: apresentadoraId,
+      previsto_fim: previstoFim,
     })
   }
 
@@ -480,6 +497,31 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                     />
                   </label>
                   <label className="block">
+                    <span className="text-xs font-semibold text-ink-muted">Apresentadora *</span>
+                    <select
+                      className="design-input mt-2 h-10 w-full px-3 text-sm"
+                      value={startForm.apresentadora_id}
+                      onChange={(event) => setStartField('apresentadora_id', event.target.value)}
+                      disabled={apresentadorasQuery.isLoading}
+                    >
+                      <option value="">Selecione a apresentadora</option>
+                      {(apresentadorasQuery.data ?? []).map((ap) => (
+                        <option key={asString(ap.id)} value={asString(ap.id)}>
+                          {asString(ap.nome ?? ap.email, 'Apresentadora')}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold text-ink-muted">Horário previsto de término *</span>
+                    <input
+                      type="datetime-local"
+                      className="design-input mt-2 h-10 w-full px-3 text-sm"
+                      value={startForm.previsto_fim}
+                      onChange={(event) => setStartField('previsto_fim', event.target.value)}
+                    />
+                  </label>
+                  <label className="block">
                     <span className="text-xs font-semibold text-ink-muted">Tipo de live</span>
                     <select
                       className="design-input mt-2 h-10 w-full px-3 text-sm"
@@ -495,7 +537,12 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                     className="w-full"
                     icon={PlayCircle}
                     isLoading={iniciarMutation.isPending}
-                    disabled={!selectedCabine.id || !(startForm.cliente_id || suggestedClienteId(selectedCabine))}
+                    disabled={
+                      !selectedCabine.id ||
+                      !(startForm.cliente_id || suggestedClienteId(selectedCabine)) ||
+                      !startForm.apresentadora_id ||
+                      !startForm.previsto_fim
+                    }
                     onClick={() => onStartLive(selectedCabine)}
                   >
                     Iniciar live
