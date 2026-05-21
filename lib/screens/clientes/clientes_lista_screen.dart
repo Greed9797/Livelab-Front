@@ -145,7 +145,6 @@ class _ClientesListaScreenState extends ConsumerState<ClientesListaScreen> {
                 return _ClientesTable(
                   clientes: clientes,
                   onDelete: _confirmDelete,
-                  onCriarLogin: _abrirCriarLogin,
                 );
               },
             ),
@@ -275,12 +274,10 @@ class _ClientesTable extends StatelessWidget {
   const _ClientesTable({
     required this.clientes,
     required this.onDelete,
-    required this.onCriarLogin,
   });
 
   final List<Cliente> clientes;
   final void Function(Cliente) onDelete;
-  final VoidCallback onCriarLogin;
 
   @override
   Widget build(BuildContext context) {
@@ -311,9 +308,10 @@ class _ClientesTable extends StatelessWidget {
               dividerThickness: 1,
               columns: const [
                 DataColumn(label: Text('Nome')),
-                DataColumn(label: Text('Cidade / UF')),
+                DataColumn(label: Text('GMV Mês')),
+                DataColumn(label: Text('Lives')),
+                DataColumn(label: Text('Apresentadoras')),
                 DataColumn(label: Text('Status')),
-                DataColumn(label: Text('Login')),
                 DataColumn(label: Text('Ações')),
               ],
               rows: clientes.map((c) => _buildRow(c)).toList(),
@@ -325,9 +323,9 @@ class _ClientesTable extends StatelessWidget {
   }
 
   DataRow _buildRow(Cliente cliente) {
-    final localidade = [cliente.cidade, cliente.estado]
-        .where((s) => s != null && s.isNotEmpty)
-        .join(' / ');
+    final gmvFmt = cliente.gmvMes >= 1000
+        ? 'R\$ ${(cliente.gmvMes / 1000).toStringAsFixed(1)}k'
+        : 'R\$ ${cliente.gmvMes.toStringAsFixed(0)}';
 
     return DataRow(
       cells: [
@@ -353,15 +351,23 @@ class _ClientesTable extends StatelessWidget {
           ),
         ),
         DataCell(Text(
-          localidade.isEmpty ? '—' : localidade,
+          cliente.gmvMes > 0 ? gmvFmt : '—',
+          style: AppTypography.bodySmall.copyWith(
+            color: cliente.gmvMes > 0
+                ? AppColors.success
+                : AppColors.textMuted,
+            fontWeight: FontWeight.w600,
+          ),
+        )),
+        DataCell(Text(
+          cliente.totalLivesMes > 0
+              ? '${cliente.totalLivesMes}'
+              : '—',
           style: AppTypography.bodySmall
               .copyWith(color: AppColors.textSecondary),
         )),
+        DataCell(_ApresentadorasPills(nomes: cliente.apresentadorasNomes)),
         DataCell(_StatusBadge(status: cliente.status)),
-        DataCell(_LoginCell(
-          cliente: cliente,
-          onCriarLogin: onCriarLogin,
-        )),
         DataCell(_AcoesCell(
           cliente: cliente,
           onDelete: onDelete,
@@ -418,65 +424,55 @@ class _StatusBadge extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Login Cell
+// Apresentadoras Pills
 // ---------------------------------------------------------------------------
 
-class _LoginCell extends StatelessWidget {
-  const _LoginCell({required this.cliente, required this.onCriarLogin});
-
-  final Cliente cliente;
-  final VoidCallback onCriarLogin;
+class _ApresentadorasPills extends StatelessWidget {
+  const _ApresentadorasPills({required this.nomes});
+  final List<String> nomes;
 
   @override
   Widget build(BuildContext context) {
-    // siga field usado como proxy de "usuário vinculado" até user_id ser
-    // exposto no modelo.
-    final temLogin = cliente.siga != null && cliente.siga!.isNotEmpty;
-
-    if (temLogin) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PhosphorIcon(
-            PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
-            size: 14,
-            color: AppColors.success,
-          ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              cliente.siga!,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.caption
-                  .copyWith(color: AppColors.textSecondary),
-            ),
-          ),
-        ],
-      );
+    if (nomes.isEmpty) {
+      return Text('—',
+          style: AppTypography.caption.copyWith(color: AppColors.textMuted));
     }
-
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        onTap: onCriarLogin,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.x2,
-            vertical: 3,
-          ),
+    return Wrap(
+      spacing: 4,
+      runSpacing: 2,
+      children: nomes.take(3).map((nome) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.borderLight),
-            borderRadius: BorderRadius.circular(AppRadius.sm),
+            color: AppColors.primarySoftBg,
+            borderRadius: BorderRadius.circular(AppRadius.full),
           ),
           child: Text(
-            'Criar login',
-            style:
-                AppTypography.caption.copyWith(color: AppColors.primary),
+            nome.split(' ').first,
+            style: AppTypography.caption.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-      ),
+        );
+      }).toList()
+        ..addAll(nomes.length > 3
+            ? [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgMuted,
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                  ),
+                  child: Text(
+                    '+${nomes.length - 3}',
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.textMuted),
+                  ),
+                ),
+              ]
+            : []),
     );
   }
 }

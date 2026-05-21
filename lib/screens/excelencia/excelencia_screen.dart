@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../providers/excelencia_provider.dart';
 import '../../models/excelencia.dart' show ExcelenciaData;
 import '../../routes/app_routes.dart';
@@ -259,6 +260,8 @@ class _ExcelenciaContent extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: AppSpacing.x6),
+        const _RankingApresentadorasSection(),
       ],
     );
   }
@@ -555,4 +558,211 @@ class _ActionItem extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Ranking de Apresentadoras ────────────────────────────────────────────────
+
+class _RankingApresentadorasSection extends ConsumerWidget {
+  const _RankingApresentadorasSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rankingAsync = ref.watch(rankingApresentadorasProvider(null));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const AppSectionHeader(
+          title: 'Ranking de Apresentadoras',
+          subtitle: 'GMV acumulado no mês · todas as ativas',
+        ),
+        const SizedBox(height: AppSpacing.x3),
+        AppCard(
+          child: rankingAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.all(AppSpacing.x6),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.all(AppSpacing.x5),
+              child: Text(
+                'Erro ao carregar ranking',
+                style: AppTypography.caption
+                    .copyWith(color: context.colors.textSecondary),
+              ),
+            ),
+            data: (items) {
+              if (items.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(AppSpacing.x5),
+                  child: Text(
+                    'Nenhuma apresentadora ativa encontrada.',
+                    style: AppTypography.caption
+                        .copyWith(color: context.colors.textMuted),
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  for (var i = 0; i < items.length; i++)
+                    _RankingRow(item: items[i], isLast: i == items.length - 1),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RankingRow extends StatelessWidget {
+  final RankingApresentadoraItem item;
+  final bool isLast;
+
+  const _RankingRow({required this.item, this.isLast = false});
+
+  static const _medalColors = {
+    1: Color(0xFFFFB800),
+    2: Color(0xFF9E9E9E),
+    3: Color(0xFFCD7F32),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat.compactCurrency(locale: 'pt_BR', symbol: 'R\$');
+    final fmtFull = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$', decimalDigits: 0);
+    final posicao = item.posicao;
+    final medalColor = _medalColors[posicao];
+    final pct = item.pctMeta;
+    final metaAtingida = pct != null && pct >= 100;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.x4, vertical: AppSpacing.x3),
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : Border(
+                bottom: BorderSide(color: context.colors.borderSubtle, width: 1),
+              ),
+      ),
+      child: Row(
+        children: [
+          // Position badge
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: medalColor != null
+                  ? medalColor.withOpacity(0.15)
+                  : context.colors.bgMuted,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Text(
+              medalColor != null ? _medalEmoji(posicao) : '$posicao',
+              style: AppTypography.caption.copyWith(
+                color: medalColor ?? context.colors.textMuted,
+                fontWeight: FontWeight.w700,
+                fontSize: medalColor != null ? 16 : 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          // Name + meta bar
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.nome,
+                        style: AppTypography.bodyMedium
+                            .copyWith(fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (metaAtingida) ...[
+                      const SizedBox(width: AppSpacing.x2),
+                      AppBadge(label: 'Meta ✓', type: AppBadgeType.success),
+                    ],
+                  ],
+                ),
+                if (pct != null) ...[
+                  const SizedBox(height: 4),
+                  LayoutBuilder(
+                    builder: (_, c) => Stack(
+                      children: [
+                        Container(
+                          height: 4,
+                          width: c.maxWidth,
+                          decoration: BoxDecoration(
+                            color: context.colors.bgMuted,
+                            borderRadius: BorderRadius.circular(AppRadius.full),
+                          ),
+                        ),
+                        Container(
+                          height: 4,
+                          width: c.maxWidth * (pct / 100).clamp(0.0, 1.0),
+                          decoration: BoxDecoration(
+                            color: metaAtingida
+                                ? AppColors.success
+                                : AppColors.primary,
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.full),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${pct.toStringAsFixed(0)}% da meta · ${item.totalLives} live${item.totalLives != 1 ? 's' : ''}',
+                    style: AppTypography.caption
+                        .copyWith(color: context.colors.textMuted, fontSize: 10),
+                  ),
+                ] else
+                  Text(
+                    '${item.totalLives} live${item.totalLives != 1 ? 's' : ''} · sem meta definida',
+                    style: AppTypography.caption
+                        .copyWith(color: context.colors.textMuted, fontSize: 10),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.x3),
+          // GMV value
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                fmt.format(item.gmvTotal),
+                style: AppTypography.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: context.colors.textPrimary,
+                ),
+              ),
+              if (item.gmvMeta > 0)
+                Text(
+                  'meta ${fmtFull.format(item.gmvMeta)}',
+                  style: AppTypography.caption
+                      .copyWith(color: context.colors.textMuted, fontSize: 10),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _medalEmoji(int pos) => switch (pos) {
+        1 => '🥇',
+        2 => '🥈',
+        3 => '🥉',
+        _ => '$pos',
+      };
 }

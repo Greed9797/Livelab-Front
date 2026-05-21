@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/cabine.dart';
 import '../design_system/design_system.dart';
 
-/// Card de cabine modernizado.
+/// Card de cabine modernizado com destaque pulsante ao vivo.
 class CabineCard extends StatefulWidget {
   final Cabine cabine;
   final VoidCallback? onTap;
@@ -29,9 +29,38 @@ class CabineCard extends StatefulWidget {
   State<CabineCard> createState() => _CabineCardState();
 }
 
-class _CabineCardState extends State<CabineCard> {
+class _CabineCardState extends State<CabineCard>
+    with SingleTickerProviderStateMixin {
   int _tapCount = 0;
   Timer? _tapTimer;
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _pulseAnim = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+    if (widget.cabine.status == 'ao_vivo') {
+      _pulseCtrl.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(CabineCard old) {
+    super.didUpdateWidget(old);
+    if (widget.cabine.status == 'ao_vivo' && !_pulseCtrl.isAnimating) {
+      _pulseCtrl.repeat(reverse: true);
+    } else if (widget.cabine.status != 'ao_vivo' && _pulseCtrl.isAnimating) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0;
+    }
+  }
 
   // Listener recebe raw pointer events ANTES da gesture arena,
   // garantindo que o double-tap funciona independente de filhos.
@@ -53,6 +82,7 @@ class _CabineCardState extends State<CabineCard> {
   @override
   void dispose() {
     _tapTimer?.cancel();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -88,7 +118,12 @@ class _CabineCardState extends State<CabineCard> {
     final onEditTiktokUsername = widget.onEditTiktokUsername;
     final accent = _statusColor();
     final isLive = cabine.status == 'ao_vivo';
-    final borderColor = isSelected ? AppColors.primary : context.colors.borderSubtle;
+    final isOffline = cabine.status == 'disponivel' || cabine.status == 'ativa';
+    final borderColor = isSelected
+        ? AppColors.primary
+        : isLive
+            ? AppColors.success
+            : context.colors.borderSubtle;
     final hasUsername = cabine.tiktokUsername != null &&
         cabine.tiktokUsername!.isNotEmpty;
 
@@ -97,7 +132,30 @@ class _CabineCardState extends State<CabineCard> {
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerUp: _handlePointerUp,
-      child: AppCard(
+      child: AnimatedBuilder(
+        animation: _pulseAnim,
+        builder: (context, child) {
+          return Opacity(
+            opacity: isOffline ? 0.65 : 1.0,
+            child: Container(
+              decoration: isLive
+                  ? BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.success
+                              .withOpacity(0.12 + _pulseAnim.value * 0.22),
+                          blurRadius: 8 + _pulseAnim.value * 12,
+                          spreadRadius: _pulseAnim.value * 2,
+                        ),
+                      ],
+                    )
+                  : null,
+              child: child,
+            ),
+          );
+        },
+        child: AppCard(
       padding: EdgeInsets.zero,
       borderColor: borderColor,
       child: Row(
@@ -269,7 +327,9 @@ class _CabineCardState extends State<CabineCard> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        '– espectadores',
+                        cabine.viewerCount > 0
+                            ? '${cabine.viewerCount} espectadores'
+                            : 'Ao vivo',
                         style: TextStyle(
                           fontSize: 10,
                           color: context.colors.textSecondary,
@@ -309,6 +369,8 @@ class _CabineCardState extends State<CabineCard> {
               ),
             ),
           ],
+        ),
+      ),
         ),
       ),
     );
