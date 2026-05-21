@@ -4,11 +4,28 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { Badge } from '../components/ui/Badge'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { aprovarComissao, getComissoesPendentes, reprovarComissao } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asString, formatDate, formatMoney } from '../utils/format'
 import type { JsonRecord } from '../types/models'
+
+function diagnosticTone(code: string): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (code === 'pronta_para_aprovar') return 'success'
+  if (['sem_apresentadora', 'sem_marca', 'sem_faixa_comissao', 'sem_vinculo_marca'].includes(code)) return 'danger'
+  if (code === 'comissao_zero') return 'warning'
+  return 'neutral'
+}
+
+function diagnosticAction(code: string): string {
+  if (code === 'sem_apresentadora') return 'Vincule uma apresentadora à live.'
+  if (code === 'sem_marca') return 'Vincule uma marca à venda.'
+  if (code === 'sem_faixa_comissao') return 'Cadastre a faixa da apresentadora.'
+  if (code === 'sem_vinculo_marca') return 'Cadastre o vínculo apresentadora-marca.'
+  if (code === 'comissao_zero') return 'Revise a regra antes de aprovar.'
+  return ''
+}
 
 export function ComissoesPendentesPage() {
   const [reprovarId, setReprovarId] = useState<string | null>(null)
@@ -87,6 +104,7 @@ export function ComissoesPendentesPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">Live</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-ink-muted">GMV</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-ink-muted">Comissão</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">Status operacional</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">Data</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-ink-muted">Ações</th>
                   </tr>
@@ -97,6 +115,8 @@ export function ComissoesPendentesPage() {
                     const isReprovarOpen = reprovarId === id
                     const isAprovarPending = aprovar.isPending && aprovar.variables === id
                     const isReprovarPending = reprovar.isPending && reprovar.variables?.id === id
+                    const diagnostico = asString(item.diagnostico_operacional, 'pronta_para_aprovar')
+                    const acaoCorrecao = diagnosticAction(diagnostico)
 
                     return (
                       <tr key={id} className="group hover:bg-surface-muted">
@@ -110,7 +130,13 @@ export function ComissoesPendentesPage() {
                           {formatMoney(item.gmv)}
                         </td>
                         <td className="num px-4 py-3 text-right font-semibold text-ink">
-                          {formatMoney(item.valor_comissao ?? item.comissao)}
+                          {formatMoney(item.valor_comissao ?? item.comissao_apresentadora ?? item.comissao)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            <Badge tone={diagnosticTone(diagnostico)}>{asString(item.diagnostico_label, diagnostico)}</Badge>
+                            {acaoCorrecao ? <p className="text-[11px] text-ink-muted">{acaoCorrecao}</p> : null}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-ink-muted">
                           {formatDate(asString(item.data ?? item.data_live ?? item.created_at, ''))}

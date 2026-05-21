@@ -32,7 +32,7 @@ export function normalizeHome(raw: JsonRecord) {
   const ocupacao = getRecord(raw.ocupacao_cabines_hoje)
   const alertas = getRecord(raw.alertas)
   const livesMes = asNumber(raw.lives_mes ?? resumo.lives_mes)
-  const gmvMes = raw.gmv_lives_mes ?? raw.gmv_mes ?? resumo.gmv_lives_mes ?? raw.fat_bruto
+  const gmvMes = raw.gmv_mes ?? raw.gmv_lives_mes ?? resumo.gmv_mes ?? resumo.gmv_lives_mes ?? raw.fat_bruto
   const ticketMedio = raw.ticket_medio_live_mes ?? (livesMes > 0 ? asNumber(gmvMes) / livesMes : 0)
   const liveNow = asArray<JsonRecord>(raw.live_now ?? raw.lives_acontecendo_agora ?? liveCabines)
   const agendaHoje = asArray<JsonRecord>(raw.agenda_hoje ?? raw.agendaHoje)

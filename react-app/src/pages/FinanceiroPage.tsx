@@ -297,6 +297,13 @@ export function FinanceiroPage() {
                 ))}
               </section>
 
+              <Card>
+                <CardHeader>
+                  <p className="text-base font-bold text-ink">Regras de comissão</p>
+                  <p className="mt-1 text-xs text-ink-muted">Live em sábado ou domingo usa 2%. Dias úteis seguem faixas mensais. Vídeos usam o vínculo apresentadora-marca quando aplicável.</p>
+                </CardHeader>
+              </Card>
+
               <section className="grid gap-4 xl:grid-cols-2">
                 <Card>
                   <CardHeader>

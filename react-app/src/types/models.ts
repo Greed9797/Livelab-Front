@@ -119,6 +119,13 @@ export interface Cabine {
   status?: string
   cliente_id?: string
   cliente_nome?: string
+  cliente_em_live_id?: string
+  cliente_em_live?: JsonRecord | string | null
+  cliente_reservado_id?: string
+  cliente_reservado?: JsonRecord | string | null
+  proxima_cliente_id?: string
+  proxima_agenda?: JsonRecord | null
+  marca_logo_url?: string
   apresentador_nome?: string
   live_atual_id?: string
   tiktok_username?: string

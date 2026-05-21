@@ -35,6 +35,7 @@ const emptyAfiliadoForm = {
   whatsapp: '',
   email: '',
   tiktok_username: '',
+  logo_url: '',
   observacoes: '',
 }
 
@@ -45,7 +46,7 @@ export function ComercialPage() {
   const [clienteForm, setClienteForm] = useState(emptyClienteForm)
   const [afiliadoForm, setAfiliadoForm] = useState(emptyAfiliadoForm)
   const [selectedAtivo, setSelectedAtivo] = useState<JsonRecord | null>(null)
-  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0' })
+  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', logo_url: '' })
   const queryClient = useQueryClient()
 
   const summaryQuery = useQuery({ queryKey: ['crm-summary'], queryFn: getCrmSummary })
@@ -208,6 +209,7 @@ export function ComercialPage() {
       email: asString(item.email, ''),
       celular: asString(item.celular ?? item.whatsapp, ''),
       comissao_franquia_pct: asString(item.comissao_franquia_pct ?? 0, '0'),
+      logo_url: asString(item.logo_url, ''),
     })
   }
 
@@ -231,6 +233,7 @@ export function ComercialPage() {
       tipo: 'afiliada',
       status: 'ativa',
       tiktok_username: afiliadoForm.tiktok_username || undefined,
+      logo_url: afiliadoForm.logo_url || undefined,
       observacoes: [
         afiliadoForm.responsavel ? `Responsável: ${afiliadoForm.responsavel}` : '',
         afiliadoForm.whatsapp ? `WhatsApp: ${afiliadoForm.whatsapp}` : '',
@@ -256,6 +259,7 @@ export function ComercialPage() {
           nome: ativoForm.nome,
           status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
           comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
+          logo_url: ativoForm.logo_url || null,
         }
     ativoUpdateMutation.mutate({ id, kind, payload })
   }
@@ -446,6 +450,7 @@ export function ComercialPage() {
           <input className="design-input h-11 px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} />
           <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value)} />
+          <input className="design-input h-11 px-4 md:col-span-2" placeholder="Logo URL" type="url" value={afiliadoForm.logo_url} onChange={(event) => setAfiliadoField('logo_url', event.target.value)} />
           <textarea className="design-input min-h-24 px-4 py-3 md:col-span-2" placeholder="Observações" value={afiliadoForm.observacoes} onChange={(event) => setAfiliadoField('observacoes', event.target.value)} />
           {afiliadoMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(afiliadoMutation.error)}</p> : null}
           <Button type="submit" isLoading={afiliadoMutation.isPending}>Salvar afiliado</Button>
@@ -501,10 +506,16 @@ export function ComercialPage() {
                     </label>
                   </>
                 ) : (
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Comissão LiveLab (%)</span>
-                    <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
-                  </label>
+                  <>
+                    <label className="block">
+                      <span className="text-sm font-semibold text-ink">Comissão LiveLab (%)</span>
+                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-semibold text-ink">Logo URL</span>
+                      <input className="design-input mt-2 h-11 w-full px-4" type="url" value={ativoForm.logo_url} onChange={(event) => setAtivoForm((current) => ({ ...current, logo_url: event.target.value }))} />
+                    </label>
+                  </>
                 )}
                 <div className="flex flex-wrap items-end gap-2">
                   <Button type="submit" isLoading={ativoUpdateMutation.isPending}>Salvar alterações</Button>

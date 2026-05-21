@@ -13,6 +13,8 @@ describe('normalizeHome', () => {
   it('prioritizes operational home fields over commercial pipeline metrics', () => {
     const data = normalizeHome({
       gmv_lives_mes: 1200.5,
+      gmv_mes: 1600.5,
+      gmv_videos_mes: 400,
       lives_mes: 2,
       gmv_ao_vivo_agora: 350.25,
       lives_hoje: 3,
@@ -31,7 +33,7 @@ describe('normalizeHome', () => {
     })
 
     expect(data.hero).toMatchObject({
-      gmvMes: 1200.5,
+      gmvMes: 1600.5,
       livesMes: 2,
       ticketMedio: 600.25,
       variacaoMesAnterior: 20.1,

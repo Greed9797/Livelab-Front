@@ -8,6 +8,7 @@ import { Badge, statusTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
+import { MoneyInput } from '../components/ui/MoneyInput'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
 import { atualizarStatusCabine, createCabine, deleteCabine, encerrarLive, getApresentadoras, getCabineHistorico, getCabines, getClientes, getLiveTiktokStatus, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -22,12 +23,33 @@ const readClientesForLiveRoles = new Set(['franqueador_master', 'franqueado', 'g
 const availableCabineStatus = 'disponivel'
 const emptyCabineForm = { nome: '', descricao: '' }
 const emptyStartForm = { cliente_id: '', tiktok_username: '', apresentadora_id: '', previsto_fim: '' }
+const emptyEndForm = {
+  fat_gerado: '',
+  qtd_pedidos: '',
+  manual_views: '',
+  manual_likes: '',
+  apresentadora_id: '',
+  encerrado_em: '',
+  origem_dados: 'manual',
+  status_publicacao: 'rascunho',
+  resumo: '',
+}
 
 function suggestedClienteId(cabine?: Cabine | null): string {
   if (!cabine) return ''
   const record = cabine as Cabine & JsonRecord
   const agenda = asArray<JsonRecord>(record.agenda)
-  return asString(record.cliente_id ?? agenda[0]?.cliente_id, '')
+  return asString(
+    record.cliente_id ??
+      record.cliente_em_live_id ??
+      getNestedValue(record.cliente_em_live, 'id') ??
+      record.proxima_cliente_id ??
+      getNestedValue(record.proxima_agenda, 'cliente_id') ??
+      record.cliente_reservado_id ??
+      getNestedValue(record.cliente_reservado, 'id') ??
+      agenda[0]?.cliente_id,
+    '',
+  )
 }
 
 function suggestedTiktokUsername(cabine?: Cabine | null): string {
@@ -36,6 +58,10 @@ function suggestedTiktokUsername(cabine?: Cabine | null): string {
 
 function isCabineActive(cabine: Cabine): boolean {
   return (cabine as Cabine & JsonRecord).ativo !== false
+}
+
+function getNestedValue(value: unknown, key: string): unknown {
+  return value && typeof value === 'object' ? (value as JsonRecord)[key] : undefined
 }
 
 export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: string; embedded?: boolean }) {
@@ -51,6 +77,8 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   const [editingId, setEditingId] = useState('')
   const [cabineForm, setCabineForm] = useState(emptyCabineForm)
   const [startForm, setStartForm] = useState(emptyStartForm)
+  const [endLiveData, setEndLiveData] = useState<JsonRecord | null>(null)
+  const [endForm, setEndForm] = useState(emptyEndForm)
   const [liveType, setLiveType] = useState<'cliente' | 'afiliado' | 'teste'>('cliente')
   const [gmvModalLiveId, setGmvModalLiveId] = useState<string | null>(null)
   const client = useQueryClient()
@@ -104,6 +132,8 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   const encerrarMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => encerrarLive(id, payload),
     onSuccess: () => {
+      setEndLiveData(null)
+      setEndForm(emptyEndForm)
       void client.invalidateQueries({ queryKey: ['cabines'] })
       selectedLive.refresh()
     },
@@ -245,19 +275,55 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     })
   }
 
+  function setEndField(key: keyof typeof emptyEndForm, value: string) {
+    setEndForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function toDatetimeLocal(value?: unknown): string {
+    const date = value ? new Date(asString(value, '')) : new Date()
+    const valid = Number.isNaN(date.getTime()) ? new Date() : date
+    return new Date(valid.getTime() - valid.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+  }
+
   function onEncerrarLive(live: JsonRecord) {
     const liveId = asString(live.live_id ?? live.id, '')
     if (!liveId) return
+    setEndLiveData(live)
+    setEndForm({
+      fat_gerado: String(asNumber(live.gmv_atual ?? live.manual_gmv ?? live.fat_gerado) || ''),
+      qtd_pedidos: String(asNumber(live.total_orders ?? live.final_orders_count ?? live.qtd_pedidos) || ''),
+      manual_views: String(asNumber(live.total_viewers ?? live.viewer_count ?? live.manual_views) || ''),
+      manual_likes: String(asNumber(live.likes_count ?? live.manual_likes) || ''),
+      apresentadora_id: asString(live.apresentadora_id, ''),
+      encerrado_em: toDatetimeLocal(new Date()),
+      origem_dados: asString(live.origem_dados, 'manual') === 'api' ? 'api' : 'manual',
+      status_publicacao: asString(live.status_publicacao, 'rascunho'),
+      resumo: 'Live encerrada pelo painel React.',
+    })
+  }
+
+  function confirmEncerrarLive(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const liveId = asString(endLiveData?.live_id ?? endLiveData?.id, '')
+    if (!liveId) return
+    if (!endForm.apresentadora_id) {
+      window.alert('Selecione a apresentadora antes de encerrar a live.')
+      return
+    }
     encerrarMutation.mutate({
       id: liveId,
       payload: {
-        fat_gerado: asNumber(live.gmv_atual ?? live.manual_gmv ?? live.fat_gerado),
-        qtd_pedidos: asNumber(live.total_orders ?? live.final_orders_count ?? live.qtd_pedidos),
-        resumo: 'Live encerrada pelo painel React.',
-        manual_gmv: asNumber(live.gmv_atual ?? live.manual_gmv ?? live.fat_gerado),
-        manual_orders: asNumber(live.total_orders ?? live.final_orders_count ?? live.qtd_pedidos),
-        manual_views: asNumber(live.total_viewers ?? live.viewer_count),
-        manual_likes: asNumber(live.likes_count),
+        fat_gerado: asNumber(endForm.fat_gerado),
+        qtd_pedidos: asNumber(endForm.qtd_pedidos),
+        resumo: endForm.resumo.trim() || 'Live encerrada pelo painel React.',
+        manual_gmv: asNumber(endForm.fat_gerado),
+        manual_orders: asNumber(endForm.qtd_pedidos),
+        manual_views: asNumber(endForm.manual_views),
+        manual_likes: asNumber(endForm.manual_likes),
+        apresentadora_id: endForm.apresentadora_id,
+        encerrado_em: endForm.encerrado_em ? new Date(endForm.encerrado_em).toISOString() : new Date().toISOString(),
+        origem_dados: endForm.origem_dados,
+        status_publicacao: endForm.status_publicacao,
       },
     })
   }
@@ -357,7 +423,13 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
             {visible.map((cabine) => {
           const live = cabine.status === 'ao_vivo'
           const active = isCabineActive(cabine)
+          const record = cabine as Cabine & JsonRecord
           const displayStatus = active ? asString(cabine.status) : 'inativa'
+          const brandLogo = asString(record.marca_logo_url ?? getNestedValue(record.proxima_agenda, 'marca_logo_url'), '')
+          const displayCliente = asString(
+            record.cliente_nome ?? record.cliente_em_live_nome ?? getNestedValue(record.cliente_em_live, 'nome') ?? getNestedValue(record.proxima_agenda, 'marca_nome') ?? getNestedValue(record.cliente_reservado, 'nome'),
+            'sem cliente vinculado',
+          )
           return (
             <Card
               key={cabine.id}
@@ -367,11 +439,15 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-soft text-brand shadow-sm">
-                      <Presentation className="h-5 w-5" />
+                      {brandLogo ? (
+                        <img src={brandLogo} alt="" className="h-11 w-11 rounded-xl object-cover" />
+                      ) : (
+                        <Presentation className="h-5 w-5" />
+                      )}
                     </span>
                     <div>
                       <p className="num text-lg font-bold tracking-[-0.02em] text-ink">Cabine {String(cabine.numero ?? '').padStart(2, '0')}</p>
-                      <p className="mt-0.5 text-xs text-ink-muted">{asString(cabine.cliente_nome, 'sem cliente vinculado')}</p>
+                      <p className="mt-0.5 text-xs text-ink-muted">{displayCliente}</p>
                     </div>
                   </div>
                   <Badge tone={statusTone(displayStatus)}>{displayStatus}</Badge>
@@ -408,18 +484,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                   {active && canWriteLive && !live ? (
                     <Button
                       icon={PlayCircle}
-                      isLoading={iniciarMutation.isPending}
-                      onClick={() => {
-                        selectCabine(cabine)
-                        const clienteId = suggestedClienteId(cabine)
-                        if (clienteId) {
-                          iniciarMutation.mutate({
-                            cabine_id: cabine.id,
-                            cliente_id: clienteId,
-                            tiktok_username: suggestedTiktokUsername(cabine) || null,
-                          })
-                        }
-                      }}
+                      onClick={() => selectCabine(cabine)}
                     >
                       Iniciar live
                     </Button>
@@ -457,7 +522,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                 <div className="space-y-3 rounded-2xl border border-brand/20 bg-brand-soft/60 p-3">
                   <div>
                     <p className="text-sm font-bold text-ink">Iniciar live agora</p>
-                    <p className="mt-1 text-xs text-ink-muted">Usa o fluxo operacional antigo e coloca a cabine em ao vivo.</p>
+                    <p className="mt-1 text-xs text-ink-muted">Informe apresentadora e previsão antes de colocar a cabine em live.</p>
                   </div>
                   {canWriteCabine ? (
                     <Button
@@ -630,7 +695,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                       <p className="text-sm font-bold text-ink">Live atual</p>
                       <p className="mt-1 text-xs text-ink-muted">{asString(liveAtualData.cliente_nome, 'Cliente em live')}</p>
                     </div>
-                    <Badge tone={asString(liveAtualData.status, 'em_andamento') === 'em_andamento' ? 'success' : 'neutral'}>{asString(liveAtualData.status, 'em_andamento') === 'em_andamento' ? 'ativa' : asString(liveAtualData.status)}</Badge>
+                    <Badge tone={statusTone(asString(liveAtualData.status, 'em_andamento'))}>{asString(liveAtualData.status, 'em_andamento') === 'em_andamento' ? 'ativa' : asString(liveAtualData.status)}</Badge>
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
                     <div className="rounded-xl bg-surface p-2"><p className="text-[10px] text-ink-muted">Viewers</p><p className="num font-bold text-ink">{asNumber(liveAtualData.viewer_count ?? liveAtualData.manual_views)}</p></div>
@@ -707,6 +772,134 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
         </div>
         </Modal>
       </section>
+
+      <Modal
+        open={Boolean(endLiveData)}
+        title="Encerrar live"
+        subtitle="Confirme os dados finais antes de salvar histórico, GMV e comissão."
+        size="lg"
+        onClose={() => {
+          if (encerrarMutation.isPending) return
+          setEndLiveData(null)
+          setEndForm(emptyEndForm)
+        }}
+      >
+        <form className="grid gap-4 md:grid-cols-2" onSubmit={confirmEncerrarLive}>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">GMV final</span>
+            <MoneyInput
+              className="design-input mt-2 h-11 w-full px-4"
+              value={endForm.fat_gerado}
+              onChange={(raw) => setEndField('fat_gerado', raw)}
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Pedidos finais</span>
+            <input
+              className="design-input mt-2 h-11 w-full px-4"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9.,]*"
+              value={endForm.qtd_pedidos}
+              onChange={(event) => setEndField('qtd_pedidos', event.target.value)}
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Viewers finais</span>
+            <input
+              className="design-input mt-2 h-11 w-full px-4"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9.,]*"
+              value={endForm.manual_views}
+              onChange={(event) => setEndField('manual_views', event.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Likes finais</span>
+            <input
+              className="design-input mt-2 h-11 w-full px-4"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9.,]*"
+              value={endForm.manual_likes}
+              onChange={(event) => setEndField('manual_likes', event.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Apresentadora</span>
+            <select
+              className="design-input mt-2 h-11 w-full px-4"
+              value={endForm.apresentadora_id}
+              onChange={(event) => setEndField('apresentadora_id', event.target.value)}
+              required
+            >
+              <option value="">Selecione</option>
+              {(apresentadorasQuery.data ?? []).map((ap) => (
+                <option key={asString(ap.id)} value={asString(ap.id)}>
+                  {asString(ap.nome ?? ap.email, 'Apresentadora')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Término real</span>
+            <input
+              className="design-input mt-2 h-11 w-full px-4"
+              type="datetime-local"
+              value={endForm.encerrado_em}
+              onChange={(event) => setEndField('encerrado_em', event.target.value)}
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Origem dos dados</span>
+            <select
+              className="design-input mt-2 h-11 w-full px-4"
+              value={endForm.origem_dados}
+              onChange={(event) => setEndField('origem_dados', event.target.value)}
+            >
+              <option value="manual">Manual</option>
+              <option value="api">API TikTok</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Status de publicação</span>
+            <select
+              className="design-input mt-2 h-11 w-full px-4"
+              value={endForm.status_publicacao}
+              onChange={(event) => setEndField('status_publicacao', event.target.value)}
+            >
+              <option value="rascunho">Rascunho</option>
+              <option value="revisado">Revisado</option>
+              <option value="publicado">Publicado</option>
+            </select>
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-semibold text-ink">Observações</span>
+            <textarea
+              className="design-input mt-2 min-h-[96px] w-full px-4 py-3"
+              value={endForm.resumo}
+              onChange={(event) => setEndField('resumo', event.target.value)}
+            />
+          </label>
+          {encerrarMutation.isError ? (
+            <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">
+              {extractErrorMessage(encerrarMutation.error)}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2 md:col-span-2">
+            <Button type="submit" variant="danger" icon={StopCircle} isLoading={encerrarMutation.isPending}>
+              Salvar encerramento
+            </Button>
+            <Button type="button" variant="secondary" disabled={encerrarMutation.isPending} onClick={() => setEndLiveData(null)}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <HistoricoGmvModal liveId={gmvModalLiveId} onClose={() => setGmvModalLiveId(null)} />
     </div>
