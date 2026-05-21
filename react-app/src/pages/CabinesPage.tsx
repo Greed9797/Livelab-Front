@@ -310,6 +310,14 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
       window.alert('Selecione a apresentadora antes de encerrar a live.')
       return
     }
+    if (endForm.encerrado_em && endLiveData?.iniciado_em) {
+      const fim = new Date(endForm.encerrado_em).getTime()
+      const ini = new Date(asString(endLiveData.iniciado_em)).getTime()
+      if (Number.isFinite(fim) && Number.isFinite(ini) && fim < ini) {
+        window.alert('Término real não pode ser anterior ao início da live.')
+        return
+      }
+    }
     encerrarMutation.mutate({
       id: liveId,
       payload: {

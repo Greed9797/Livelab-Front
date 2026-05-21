@@ -55,6 +55,8 @@ export function normalizeHome(raw: JsonRecord) {
     metrics: [
       metric('Agenda de hoje', agendaHoje.length, agendaHoje.length === 1 ? '1 evento no dia' : `${agendaHoje.length} eventos no dia`, 'info'),
       moneyMetric('GMV ao vivo agora', raw.gmv_ao_vivo_agora ?? liveNow.reduce((acc, cabine) => acc + asNumber(cabine.gmv_atual), 0), liveNow.length ? 'soma das lives em andamento' : 'nenhuma cabine em live agora', 'success'),
+      moneyMetric('GMV lives mês', raw.gmv_lives_mes ?? resumo.gmv_lives_mes, 'fonte: vendas_atribuidas (live)', 'brand'),
+      moneyMetric('GMV vídeos mês', raw.gmv_videos_mes ?? resumo.gmv_videos_mes, 'fonte: vendas_atribuidas (video)', 'info'),
       metric('Cabines em live', `${asNumber(raw.lives_ativas_agora ?? ocupacao.ao_vivo ?? liveNow.length)} / ${asNumber(ocupacao.operacionais ?? cabines.length)}`, `${asNumber(ocupacao.operacionais ?? cabines.length)} operacionais`, 'neutral'),
       metric('Alertas operacionais', operationalAlerts.reduce((acc, item) => acc + asNumber(item.valor ?? item.total ?? item.count ?? 0), 0), 'itens para revisar', 'warning'),
     ],

@@ -41,6 +41,8 @@ describe('normalizeHome', () => {
     expect(data.metrics.map((metric) => metric.label)).toEqual([
       'Agenda de hoje',
       'GMV ao vivo agora',
+      'GMV lives mês',
+      'GMV vídeos mês',
       'Cabines em live',
       'Alertas operacionais',
     ])

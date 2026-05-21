@@ -16,6 +16,7 @@ import { ClienteAgendaPage } from '../pages/ClienteAgendaPage'
 import { ConteudoPage } from '../pages/ConteudoPage'
 import { SolicitacoesPage } from '../pages/SolicitacoesPage'
 import { FinanceiroPage } from '../pages/FinanceiroPage'
+import { ComissoesConfigPage } from '../pages/ComissoesConfigPage'
 import { ConfiguracoesPage } from '../pages/ConfiguracoesPage'
 import { KnowledgePage } from '../pages/KnowledgePage'
 import { OnboardingPage } from '../pages/OnboardingPage'
@@ -87,6 +88,7 @@ export function AppRouter() {
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'franqueado']} />}>
               <Route path="/comissoes/pendentes" element={<Navigate to="/financeiro?tab=comissoes" replace />} />
+              <Route path="/comissoes/config" element={<ComissoesConfigPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'franqueado']} />}>
