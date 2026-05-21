@@ -10,6 +10,7 @@ import { ErrorState, LoadingState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
 import { MoneyInput } from '../components/ui/MoneyInput'
 import { AgendarLiveModal } from '../components/forms/AgendarLiveModal'
+import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
 import { atualizarStatusCabine, deleteCabine, encerrarLive, getApresentadoras, getCabineHistorico, getCabines, getClientes, getLiveTiktokStatus, getMarcas, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -76,6 +77,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   const [selectedId, setSelectedId] = useState('')
   const [startCabine, setStartCabine] = useState<Cabine | null>(null)
   const [endLiveData, setEndLiveData] = useState<JsonRecord | null>(null)
+  const [editLiveData, setEditLiveData] = useState<JsonRecord | null>(null)
   const [endForm, setEndForm] = useState(emptyEndForm)
   const [gmvModalLiveId, setGmvModalLiveId] = useState<string | null>(null)
   const client = useQueryClient()
@@ -560,11 +562,18 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                       </>
                     )
                   })()}
-                  {asString(liveAtualData.status, 'em_andamento') === 'em_andamento' && canWriteLive ? (
-                    <Button className="mt-4" variant="danger" icon={StopCircle} isLoading={encerrarMutation.isPending} onClick={() => onEncerrarLive(liveAtualData)}>
-                      Encerrar live
-                    </Button>
-                  ) : null}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {canWriteLive ? (
+                      <Button variant="secondary" onClick={() => setEditLiveData(liveAtualData)}>
+                        Editar live
+                      </Button>
+                    ) : null}
+                    {asString(liveAtualData.status, 'em_andamento') === 'em_andamento' && canWriteLive ? (
+                      <Button variant="danger" icon={StopCircle} isLoading={encerrarMutation.isPending} onClick={() => onEncerrarLive(liveAtualData)}>
+                        Encerrar live
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
@@ -794,6 +803,13 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
       />
 
       <HistoricoGmvModal liveId={gmvModalLiveId} onClose={() => setGmvModalLiveId(null)} />
+
+      <EditarLiveModal
+        open={Boolean(editLiveData)}
+        live={editLiveData}
+        onClose={() => setEditLiveData(null)}
+        onSaved={() => selectedLive.refresh()}
+      />
     </div>
   )
 }

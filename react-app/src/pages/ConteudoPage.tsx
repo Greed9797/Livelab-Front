@@ -12,6 +12,7 @@ import { Modal } from '../components/ui/Modal'
 import { MoneyInput } from '../components/ui/MoneyInput'
 import { AgendarLiveModal, type AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
 import { RegistrarMetricasLiveModal, type RegistrarMetricasLiveMode } from '../components/forms/RegistrarMetricasLiveModal'
+import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
 import { getAgendaEventLayout, publicationStatusLabel } from './conteudo-helpers'
@@ -111,6 +112,7 @@ export function ConteudoPage() {
   const [agendaModalMode, setAgendaModalMode] = useState<AgendarLiveModalMode | null>(null)
   const [selectedAgendaEvent, setSelectedAgendaEvent] = useState<JsonRecord | null>(null)
   const [metricsModalMode, setMetricsModalMode] = useState<RegistrarMetricasLiveMode | null>(null)
+  const [editLiveData, setEditLiveData] = useState<JsonRecord | null>(null)
   const [metricsAgendaEvent, setMetricsAgendaEvent] = useState<JsonRecord | null>(null)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoForm, setVideoForm] = useState(emptyVideo)
@@ -312,9 +314,7 @@ export function ConteudoPage() {
   }
 
   function openEditLive(live: JsonRecord) {
-    setSelectedLiveRecord(live)
-    setMetricsAgendaEvent(null)
-    setMetricsModalMode('edit')
+    setEditLiveData(live)
   }
 
   function closeLiveModal() {
@@ -627,6 +627,12 @@ export function ConteudoPage() {
           </Modal>
         </section>
       ) : null}
+
+      <EditarLiveModal
+        open={Boolean(editLiveData)}
+        live={editLiveData}
+        onClose={() => setEditLiveData(null)}
+      />
 
       <RegistrarMetricasLiveModal
         open={metricsModalMode !== null}
