@@ -52,4 +52,20 @@ describe('buildManualLivePayload', () => {
       manual_diamonds: 2000,
     })
   })
+
+  it('accepts comma thousand separators and decimal-zero suffixes in operational counters', () => {
+    expect(buildManualLivePayload({
+      ...baseForm,
+      qtd_pedidos: '1.234,00',
+      manual_views: '3,466',
+      manual_likes: '10,500',
+      manual_comments: '1,250.00',
+    })).toMatchObject({
+      qtd_pedidos: 1234,
+      manual_orders: 1234,
+      manual_views: 3466,
+      manual_likes: 10500,
+      manual_comments: 1250,
+    })
+  })
 })
