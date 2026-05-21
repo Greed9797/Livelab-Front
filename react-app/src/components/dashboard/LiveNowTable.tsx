@@ -4,7 +4,7 @@ import { Badge } from '../ui/Badge'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { DataTable } from '../ui/DataTable'
 import type { JsonRecord } from '../../types/models'
-import { asNumber, asString, formatMoney } from '../../utils/format'
+import { asNumber, asString } from '../../utils/format'
 
 function liveDuration(startedAt: unknown) {
   const started = typeof startedAt === 'string' ? new Date(startedAt) : null
@@ -49,7 +49,7 @@ export function LiveNowTable({ liveNow, upcoming }: { liveNow: JsonRecord[]; upc
               { key: 'iniciado_em', header: 'Tempo ao vivo', render: (item) => liveDuration(item.iniciado_em) },
               { key: 'viewer_count', header: 'Espectadores', align: 'right', render: (item) => asNumber(item.viewer_count).toLocaleString('pt-BR') },
               { key: 'total_orders', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.total_orders ?? item.pedidos).toLocaleString('pt-BR') },
-              { key: 'gmv_atual', header: 'GMV ao vivo', align: 'right', render: (item) => formatMoney(item.gmv_atual, true) },
+              { key: 'duracao_min', header: 'Duração', align: 'right', render: (item) => `${asNumber(item.duracao_min).toLocaleString('pt-BR')} min` },
               {
                 key: 'action',
                 header: 'Ação',

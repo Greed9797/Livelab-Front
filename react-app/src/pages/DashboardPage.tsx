@@ -1,4 +1,4 @@
-import { Activity, CircleDollarSign, Radio, Video } from 'lucide-react'
+import { Activity, CalendarClock, Radio, Video } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { MetricCard } from '../components/ui/MetricCard'
@@ -8,7 +8,6 @@ import { ErrorState, LoadingState } from '../components/ui/States'
 import { GmvHeroCard } from '../components/dashboard/GmvHeroCard'
 import { LiveNowTable } from '../components/dashboard/LiveNowTable'
 import { TodayScheduleTable } from '../components/dashboard/TodayScheduleTable'
-import { OperationalAlerts } from '../components/dashboard/OperationalAlerts'
 import { RankingTable } from '../components/dashboard/RankingTable'
 import { getHomeDashboard, getPublicRanking } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -16,7 +15,7 @@ import { normalizeHome } from './page-helpers'
 import { asNumber, asString, formatMoney } from '../utils/format'
 import type { JsonRecord } from '../types/models'
 
-const icons = [CircleDollarSign, Radio, Video, Activity]
+const icons = [CalendarClock, Radio, Video, Activity]
 
 export function DashboardPage() {
   const query = useQuery({ queryKey: ['home-dashboard'], queryFn: getHomeDashboard, refetchInterval: 30_000 })
@@ -37,7 +36,10 @@ export function DashboardPage() {
 
       <GmvHeroCard
         gmvMes={data.hero.gmvMes}
+        gmvLivesMes={data.hero.gmvLivesMes}
+        gmvVideosMes={data.hero.gmvVideosMes}
         livesMes={data.hero.livesMes}
+        videosMes={data.hero.videosMes}
         ticketMedio={data.hero.ticketMedio}
         variacaoMesAnterior={data.hero.variacaoMesAnterior}
         comparacaoLabel={data.hero.comparacaoLabel}
@@ -54,11 +56,9 @@ export function DashboardPage() {
       <TodayScheduleTable agenda={data.agendaHoje} />
 
       <section className="grid gap-4 xl:grid-cols-2">
-        <RankingTable title="Ranking de GMV do dia" data={data.rankingGmvDia} subject="marca" />
+        <RankingTable title="Ranking de marcas no mês" data={data.rankingMarcasMes} subject="marca" />
         <RankingTable title="Ranking de apresentadoras" data={data.rankingApresentadoras} subject="apresentadora" />
       </section>
-
-      <OperationalAlerts alerts={data.operationalAlerts} />
 
       <Card>
         <CardHeader>

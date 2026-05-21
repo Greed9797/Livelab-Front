@@ -13,9 +13,10 @@ describe('normalizeHome', () => {
   it('prioritizes operational home fields over commercial pipeline metrics', () => {
     const data = normalizeHome({
       gmv_lives_mes: 1200.5,
-      gmv_mes: 1600.5,
+      gmv_total_mes: 1600.5,
       gmv_videos_mes: 400,
       lives_mes: 2,
+      videos_mes: 4,
       gmv_ao_vivo_agora: 350.25,
       lives_hoje: 3,
       lives_ativas_agora: 1,
@@ -24,8 +25,8 @@ describe('normalizeHome', () => {
       ocupacao_cabines_hoje: { ao_vivo: 1, operacionais: 7 },
       cabines: [{ numero: 1, status: 'ao_vivo', gmv_atual: 350.25 }],
       agenda_hoje: [{ id: 'agenda-1' }],
-      ranking_dia: [{ nome: 'Marca A', gmv: 800, lives: 1 }],
-      ranking_apresentadoras_hoje: [{ nome: 'Ana', gmv: 700, lives: 1 }],
+      ranking_marcas_mes: [{ nome: 'Marca A', gmv: 800, lives: 1 }],
+      ranking_apresentadoras_mes: [{ nome: 'Ana', gmv: 700, lives: 1, fixo: 2700, comissao_variavel: 14, total_recebido: 2714 }],
       alertas_operacionais: [{ tipo: 'cabines_manutencao', label: 'Cabines em manutenção', valor: 1 }],
       valor_pipeline: 999999,
       taxa_conversao: 80,
@@ -40,17 +41,15 @@ describe('normalizeHome', () => {
     })
     expect(data.metrics.map((metric) => metric.label)).toEqual([
       'Agenda de hoje',
-      'GMV ao vivo agora',
-      'GMV lives mês',
-      'GMV vídeos mês',
+      'Lives realizadas',
+      'Vídeos gravados',
       'Cabines em live',
-      'Alertas operacionais',
     ])
     expect(data.metrics.some((metric) => metric.label === 'GMV do mês')).toBe(false)
     expect(data.liveNow).toHaveLength(1)
     expect(data.agendaHoje).toHaveLength(1)
-    expect(data.rankingGmvDia[0].nome).toBe('Marca A')
+    expect(data.rankingMarcasMes[0].nome).toBe('Marca A')
     expect(data.rankingApresentadoras[0].nome).toBe('Ana')
-    expect(data.operationalAlerts[0].valor).toBe(1)
+    expect(data).not.toHaveProperty('alerts')
   })
 })
