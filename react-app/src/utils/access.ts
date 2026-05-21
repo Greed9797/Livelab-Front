@@ -11,6 +11,7 @@ import {
   Presentation,
   Settings,
   Store,
+  Trophy,
   Workflow,
 } from 'lucide-react'
 import type { OfficialRole, Role, User } from '../types/models'
@@ -171,6 +172,7 @@ export const menuItems: MenuItem[] = [
   { label: 'Configurações', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles },
   { label: 'Conteúdo', path: '/conteudo', icon: Presentation, roles: cabineRoles },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
+  { label: 'Ranking', path: '/ranking-apresentadoras', icon: Trophy, roles: ['franqueador_master', 'franqueado'] },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora', 'cliente_parceiro'] },
   { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'franqueado'] },
 ]

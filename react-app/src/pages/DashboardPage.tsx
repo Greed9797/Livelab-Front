@@ -9,7 +9,7 @@ import { GmvHeroCard } from '../components/dashboard/GmvHeroCard'
 import { LiveNowTable } from '../components/dashboard/LiveNowTable'
 import { TodayScheduleTable } from '../components/dashboard/TodayScheduleTable'
 import { RankingTable } from '../components/dashboard/RankingTable'
-import { getHomeDashboard, getPublicRanking } from '../services/domain'
+import { getHomeDashboard, getPublicRanking, getRankingApresentadoras } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { normalizeHome } from './page-helpers'
 import { asNumber, asString, formatMoney } from '../utils/format'
@@ -17,9 +17,17 @@ import type { JsonRecord } from '../types/models'
 
 const icons = [CalendarClock, Radio, Video, Activity]
 
+function currentMonth() {
+  return new Date().toISOString().slice(0, 7)
+}
+
 export function DashboardPage() {
   const query = useQuery({ queryKey: ['home-dashboard'], queryFn: getHomeDashboard, refetchInterval: 30_000 })
   const rankingPublicoQuery = useQuery({ queryKey: ['public-ranking', 'home'], queryFn: () => getPublicRanking({ limit: 5 }) })
+  const rankingApresentadorasQuery = useQuery({
+    queryKey: ['ranking-apresentadoras', currentMonth(), 'home'],
+    queryFn: () => getRankingApresentadoras({ mes: currentMonth(), limit: 5 }),
+  })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
@@ -51,13 +59,18 @@ export function DashboardPage() {
         ))}
       </section>
 
-      <LiveNowTable liveNow={data.liveNow} upcoming={data.upcoming} />
-
-      <TodayScheduleTable agenda={data.agendaHoje} />
+      <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <LiveNowTable liveNow={data.liveNow} upcoming={data.upcoming} />
+        <TodayScheduleTable agenda={data.agendaHoje} />
+      </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
         <RankingTable title="Ranking de marcas no mês" data={data.rankingMarcasMes} subject="marca" />
-        <RankingTable title="Ranking de apresentadoras" data={data.rankingApresentadoras} subject="apresentadora" />
+        <RankingTable
+          title="Ranking de apresentadoras"
+          data={rankingApresentadorasQuery.data ?? data.rankingApresentadoras}
+          subject="apresentadora"
+        />
       </section>
 
       <Card>

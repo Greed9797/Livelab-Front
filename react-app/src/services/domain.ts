@@ -150,8 +150,12 @@ export function updateAgendaEvento(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/agenda/${id}`, payload)
 }
 
-export function deleteAgendaEvento(id: string) {
-  return apiDelete(`/agenda/${id}`)
+export function deleteAgendaEvento(id: string, params: Record<string, unknown> = {}) {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value))
+  })
+  return apiDelete(`/agenda/${id}${search.toString() ? `?${search.toString()}` : ''}`)
 }
 
 export function getAgendaConflitos(
@@ -228,6 +232,10 @@ export function getComissoesApresentadoras(params: Record<string, unknown> = {})
   return apiGet<JsonRecord[]>('/comissoes/apresentadoras', params)
 }
 
+export function getRankingApresentadoras(params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord[]>('/ranking/apresentadoras', params)
+}
+
 export function getComissoesMarcas(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/comissoes/marcas', params)
 }
@@ -294,10 +302,6 @@ export function getCabines() {
 
 export function getCabinesFilaAtivacao() {
   return apiGet<JsonRecord[]>('/cabines/fila-ativacao')
-}
-
-export function createCabine(payload: JsonRecord) {
-  return apiPost<JsonRecord>('/cabines', payload)
 }
 
 export function updateCabine(id: string, payload: JsonRecord) {

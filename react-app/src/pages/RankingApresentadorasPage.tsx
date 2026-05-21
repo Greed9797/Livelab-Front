@@ -1,0 +1,67 @@
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Trophy } from 'lucide-react'
+import { PageHeader } from '../components/ui/PageHeader'
+import { Card, CardBody, CardHeader } from '../components/ui/Card'
+import { DataTable } from '../components/ui/DataTable'
+import { ErrorState, LoadingState } from '../components/ui/States'
+import { getRankingApresentadoras } from '../services/domain'
+import { extractErrorMessage } from '../services/api'
+import { asNumber, asString, formatMoney } from '../utils/format'
+import type { JsonRecord } from '../types/models'
+
+function currentMonth() {
+  return new Date().toISOString().slice(0, 7)
+}
+
+export function RankingApresentadorasPage() {
+  const [mes, setMes] = useState(currentMonth())
+  const query = useQuery({
+    queryKey: ['ranking-apresentadoras', mes],
+    queryFn: () => getRankingApresentadoras({ mes }),
+  })
+
+  if (query.isLoading) return <LoadingState />
+  if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+
+  const rows = query.data ?? []
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Comissões"
+        accent="Ranking"
+        title="de apresentadoras"
+        subtitle="Total consolidado registrado no sistema: fixo + comissão variável."
+        actions={
+          <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+            Mês
+            <input className="design-input h-10 px-3" type="month" value={mes} onChange={(event) => setMes(event.target.value)} />
+          </label>
+        }
+      />
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-brand" />
+            <p className="text-base font-bold text-ink">Apresentadoras no mês</p>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <DataTable<JsonRecord>
+            data={rows}
+            columns={[
+              { key: 'nome', header: 'Apresentadora', render: (item) => asString(item.nome ?? item.apresentadora_nome, '—') },
+              { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv) },
+              { key: 'lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives).toLocaleString('pt-BR') },
+              { key: 'fixo', header: 'Fixo', align: 'right', render: (item) => formatMoney(item.fixo) },
+              { key: 'comissao_variavel', header: 'Variável', align: 'right', render: (item) => formatMoney(item.comissao_variavel) },
+              { key: 'total_recebido', header: 'Total recebido', align: 'right', render: (item) => formatMoney(item.total_recebido) },
+            ]}
+          />
+        </CardBody>
+      </Card>
+    </div>
+  )
+}

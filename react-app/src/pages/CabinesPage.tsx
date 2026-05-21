@@ -1,4 +1,4 @@
-import { CalendarClock, Edit2, EyeOff, MonitorPlay, PlayCircle, Plus, Power, Presentation, RefreshCcw, Search, StopCircle, Trash2, Wrench } from 'lucide-react'
+import { CalendarClock, EyeOff, MonitorPlay, Power, Presentation, RefreshCcw, StopCircle, Trash2, Wrench } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -9,8 +9,9 @@ import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
 import { MoneyInput } from '../components/ui/MoneyInput'
+import { AgendarLiveModal } from '../components/forms/AgendarLiveModal'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
-import { atualizarStatusCabine, createCabine, deleteCabine, encerrarLive, getApresentadoras, getCabineHistorico, getCabines, getClientes, getLiveTiktokStatus, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
+import { atualizarStatusCabine, deleteCabine, encerrarLive, getApresentadoras, getCabineHistorico, getCabines, getClientes, getLiveTiktokStatus, getMarcas, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatDate, formatMoney } from '../utils/format'
 import { useCurrentUser } from '../stores/auth-store'
@@ -21,13 +22,14 @@ const writeCabineRoles = new Set(['franqueador_master', 'franqueado', 'gerente',
 const writeLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'operacional', 'apresentador', 'apresentadora', 'produtor_live'])
 const readClientesForLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'operacional', 'produtor_live'])
 const availableCabineStatus = 'disponivel'
-const emptyCabineForm = { nome: '', descricao: '' }
-const emptyStartForm = { cliente_id: '', tiktok_username: '', apresentadora_id: '', previsto_fim: '' }
 const emptyEndForm = {
   fat_gerado: '',
   qtd_pedidos: '',
   manual_views: '',
   manual_likes: '',
+  manual_comments: '',
+  manual_shares: '',
+  manual_diamonds: '',
   apresentadora_id: '',
   encerrado_em: '',
   origem_dados: 'manual',
@@ -71,21 +73,17 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   const canWriteCabine = writeCabineRoles.has(user?.papel ?? '')
   const canWriteLive = writeLiveRoles.has(user?.papel ?? '')
   const [filter, setFilter] = useState('all')
-  const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState('')
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState('')
-  const [cabineForm, setCabineForm] = useState(emptyCabineForm)
-  const [startForm, setStartForm] = useState(emptyStartForm)
+  const [startCabine, setStartCabine] = useState<Cabine | null>(null)
   const [endLiveData, setEndLiveData] = useState<JsonRecord | null>(null)
   const [endForm, setEndForm] = useState(emptyEndForm)
-  const [liveType, setLiveType] = useState<'cliente' | 'afiliado' | 'teste'>('cliente')
   const [gmvModalLiveId, setGmvModalLiveId] = useState<string | null>(null)
   const client = useQueryClient()
   const explicitCabineId = params.get('cabine') ?? ''
   const explicitLiveId = params.get('live') ?? ''
   const query = useQuery({ queryKey: ['cabines'], queryFn: getCabines, refetchInterval: 20_000 })
   const clientesQuery = useQuery({ queryKey: ['clientes', 'live-start'], queryFn: getClientes, enabled: canWriteLive && readClientesForLiveRoles.has(user?.papel ?? '') })
+  const marcasQuery = useQuery({ queryKey: ['marcas', 'live-start'], queryFn: () => getMarcas({ status: 'ativa' }), enabled: canWriteLive })
   const apresentadorasQuery = useQuery({ queryKey: ['apresentadoras', 'live-start'], queryFn: getApresentadoras, enabled: canWriteLive })
   const historicoQuery = useQuery({ queryKey: ['cabine-historico', selectedId], queryFn: () => getCabineHistorico(selectedId), enabled: Boolean(selectedId) })
   const selectedLive = useSelectedLive({
@@ -101,32 +99,39 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     enabled: Boolean(liveAtualId),
     refetchInterval: liveAtualId ? 20_000 : false,
   })
-  const saveCabineMutation = useMutation({
-    mutationFn: (payload: JsonRecord) => editingId ? updateCabine(editingId, payload) : createCabine(payload),
-    onSuccess: () => {
-      setShowForm(false)
-      setEditingId('')
-      setCabineForm(emptyCabineForm)
-      void client.invalidateQueries({ queryKey: ['cabines'] })
-    },
-  })
+  function invalidateOperational() {
+    ;[
+      ['cabines'],
+      ['agenda'],
+      ['lives'],
+      ['home-dashboard'],
+      ['ranking-apresentadoras'],
+      ['comissoes-resumo'],
+      ['comissoes-apresentadoras'],
+      ['comissoes-marcas'],
+      ['comissoes-pendentes'],
+    ].forEach((queryKey) => {
+      void client.invalidateQueries({ queryKey })
+    })
+  }
+
   const liberarMutation = useMutation({
     mutationFn: liberarCabine,
-    onSuccess: () => client.invalidateQueries({ queryKey: ['cabines'] }),
+    onSuccess: () => invalidateOperational(),
   })
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => atualizarStatusCabine(id, status),
-    onSuccess: () => client.invalidateQueries({ queryKey: ['cabines'] }),
+    onSuccess: () => invalidateOperational(),
   })
   const activeMutation = useMutation({
     mutationFn: ({ id, ativo }: { id: string; ativo: boolean }) => updateCabine(id, { ativo }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ['cabines'] }),
+    onSuccess: () => invalidateOperational(),
   })
   const deleteMutation = useMutation({
     mutationFn: ({ id, confirmacao }: { id: string; confirmacao?: string }) => deleteCabine(id, confirmacao),
     onSuccess: () => {
       setSelectedId('')
-      void client.invalidateQueries({ queryKey: ['cabines'] })
+      invalidateOperational()
     },
   })
   const encerrarMutation = useMutation({
@@ -134,7 +139,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     onSuccess: () => {
       setEndLiveData(null)
       setEndForm(emptyEndForm)
-      void client.invalidateQueries({ queryKey: ['cabines'] })
+      invalidateOperational()
       selectedLive.refresh()
     },
   })
@@ -147,8 +152,8 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
       if (cabineId) nextParams.set('cabine', cabineId)
       if (liveId) nextParams.set('live', liveId)
       setParams(nextParams, { replace: true })
-      void client.invalidateQueries({ queryKey: ['cabines'] })
-      void client.invalidateQueries({ queryKey: ['lives'] })
+      setStartCabine(null)
+      invalidateOperational()
       selectedLive.refresh()
     },
   })
@@ -168,7 +173,6 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     inactive: inactiveCount,
   }
   const visible = cabines.filter((cabine) => {
-    const normalized = `${cabine.numero ?? ''} ${cabine.cliente_nome ?? ''} ${cabine.apresentador_nome ?? ''}`.toLowerCase()
     const active = isCabineActive(cabine)
     const statusMatch =
       (filter === 'all' && active) ||
@@ -177,7 +181,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
       (filter === 'free' && active && cabine.status === availableCabineStatus) ||
       (filter === 'maintenance' && active && cabine.status === 'manutencao') ||
       (filter === 'busy' && active && !['ao_vivo', availableCabineStatus, 'manutencao'].includes(cabine.status ?? ''))
-    return statusMatch && normalized.includes(search.trim().toLowerCase())
+    return statusMatch
   })
   const selectedCabine = visible.find((cabine) => cabine.id === selectedId)
 
@@ -195,11 +199,6 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
 
   function selectCabine(cabine: Cabine) {
     setSelectedId(cabine.id)
-    setStartForm({
-      ...emptyStartForm,
-      cliente_id: suggestedClienteId(cabine),
-      tiktok_username: suggestedTiktokUsername(cabine),
-    })
     const nextParams = new URLSearchParams(params)
     nextParams.set('cabine', cabine.id)
     const liveId = asString((cabine as Cabine & JsonRecord).live_atual_id, '')
@@ -216,64 +215,8 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     navigate(`/conteudo?${nextParams.toString()}`)
   }
 
-  function setStartField(key: keyof typeof emptyStartForm, value: string) {
-    setStartForm((current) => ({ ...current, [key]: value }))
-  }
-
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
-
-  function setCabineField(key: keyof typeof emptyCabineForm, value: string) {
-    setCabineForm((current) => ({ ...current, [key]: value }))
-  }
-
-  function openCreateForm() {
-    setEditingId('')
-    setCabineForm(emptyCabineForm)
-    setShowForm(true)
-  }
-
-  function openEditForm(cabine: Cabine) {
-    const record = cabine as Cabine & JsonRecord
-    setEditingId(cabine.id)
-    setCabineForm({
-      nome: asString(record.nome ?? `Cabine ${cabine.numero ?? ''}`, ''),
-      descricao: asString(record.descricao, ''),
-    })
-    setShowForm(true)
-  }
-
-  function onCabineSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    saveCabineMutation.mutate(cabineForm)
-  }
-
-  function onStartLive(cabine: Cabine) {
-    const clienteId = startForm.cliente_id || suggestedClienteId(cabine)
-    const tiktokUsername = startForm.tiktok_username.trim() || suggestedTiktokUsername(cabine)
-    const apresentadoraId = startForm.apresentadora_id || ''
-    const previstoFim = startForm.previsto_fim
-      ? new Date(startForm.previsto_fim).toISOString()
-      : null
-
-    if (!apresentadoraId) {
-      window.alert('Selecione a apresentadora antes de iniciar a live.')
-      return
-    }
-    if (!previstoFim) {
-      window.alert('Informe o horário previsto de término da live.')
-      return
-    }
-
-    iniciarMutation.mutate({
-      cabine_id: cabine.id,
-      ...(clienteId ? { cliente_id: clienteId } : {}),
-      tiktok_username: tiktokUsername || null,
-      tipo: liveType,
-      apresentadora_id: apresentadoraId,
-      previsto_fim: previstoFim,
-    })
-  }
 
   function setEndField(key: keyof typeof emptyEndForm, value: string) {
     setEndForm((current) => ({ ...current, [key]: value }))
@@ -294,6 +237,9 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
       qtd_pedidos: String(asNumber(live.total_orders ?? live.final_orders_count ?? live.qtd_pedidos) || ''),
       manual_views: String(asNumber(live.total_viewers ?? live.viewer_count ?? live.manual_views) || ''),
       manual_likes: String(asNumber(live.likes_count ?? live.manual_likes) || ''),
+      manual_comments: String(asNumber(live.comments_count ?? live.manual_comments) || ''),
+      manual_shares: String(asNumber(live.shares_count ?? live.manual_shares) || ''),
+      manual_diamonds: String(asNumber(live.gifts_diamonds ?? live.manual_diamonds) || ''),
       apresentadora_id: asString(live.apresentadora_id, ''),
       encerrado_em: toDatetimeLocal(new Date()),
       origem_dados: asString(live.origem_dados, 'manual') === 'api' ? 'api' : 'manual',
@@ -328,6 +274,9 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
         manual_orders: asNumber(endForm.qtd_pedidos),
         manual_views: asNumber(endForm.manual_views),
         manual_likes: asNumber(endForm.manual_likes),
+        manual_comments: asNumber(endForm.manual_comments),
+        manual_shares: asNumber(endForm.manual_shares),
+        manual_diamonds: asNumber(endForm.manual_diamonds),
         apresentadora_id: endForm.apresentadora_id,
         encerrado_em: endForm.encerrado_em ? new Date(endForm.encerrado_em).toISOString() : new Date().toISOString(),
         origem_dados: endForm.origem_dados,
@@ -348,7 +297,6 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-base font-bold text-ink">{title}</p>
           <div className="flex flex-wrap gap-2">
-            {canWriteCabine ? <Button icon={Plus} onClick={openCreateForm}>Nova cabine</Button> : null}
             <Button variant="secondary" icon={RefreshCcw} onClick={() => void query.refetch()}>
               Atualizar
             </Button>
@@ -362,7 +310,6 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
           subtitle="Status das cabines, lives ativas, GMV atual e ações operacionais básicas."
           actions={
             <div className="flex flex-wrap gap-2">
-              {canWriteCabine ? <Button icon={Plus} onClick={openCreateForm}>Nova cabine</Button> : null}
               <Button variant="secondary" icon={RefreshCcw} onClick={() => void query.refetch()}>
                 Atualizar
               </Button>
@@ -371,41 +318,10 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
         />
       )}
 
-      {showForm && canWriteCabine ? (
-        <Card>
-          <CardBody>
-            <form className="grid gap-4 md:grid-cols-2" onSubmit={onCabineSubmit}>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">Nome</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={cabineForm.nome} onChange={(event) => setCabineField('nome', event.target.value)} required />
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">Descrição</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={cabineForm.descricao} onChange={(event) => setCabineField('descricao', event.target.value)} />
-              </label>
-              {saveCabineMutation.isError ? <p className="md:col-span-2 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(saveCabineMutation.error)}</p> : null}
-              <div className="flex flex-wrap gap-2 md:col-span-2">
-                <Button type="submit" icon={Plus} isLoading={saveCabineMutation.isPending}>{editingId ? 'Salvar cabine' : 'Criar cabine'}</Button>
-                <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Cancelar</Button>
-              </div>
-            </form>
-          </CardBody>
-        </Card>
-      ) : null}
-
       <section>
         <div className="space-y-4">
           <Card>
-            <CardBody className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="design-input flex h-11 min-w-0 flex-1 items-center gap-2 px-3">
-                <Search className="h-4 w-4 shrink-0 text-ink-muted" />
-                <input
-                  className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted"
-                  placeholder="Buscar por cabine, cliente ou apresentadora"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </div>
+            <CardBody className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-end">
               <div className="flex flex-wrap gap-2">
                 {[
                   ['all', 'Todas', counts.all],
@@ -489,13 +405,16 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                       Agendar
                     </Button>
                   ) : null}
-                  {active && canWriteLive && !live ? (
-                    <Button
-                      icon={PlayCircle}
-                      onClick={() => selectCabine(cabine)}
-                    >
-                      Iniciar live
-                    </Button>
+	                  {active && canWriteLive && !live ? (
+	                    <Button
+	                      icon={MonitorPlay}
+	                      onClick={() => {
+	                        selectCabine(cabine)
+	                        setStartCabine(cabine)
+	                      }}
+	                    >
+	                      Iniciar live
+	                    </Button>
                   ) : null}
                 </div>
               </CardBody>
@@ -526,116 +445,30 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
             </CardHeader>
             <CardBody className="space-y-4">
               {!selectedCabine ? <p className="text-sm text-ink-muted">Abra os detalhes de uma cabine para ver live atual e histórico.</p> : null}
-              {selectedCabine && canWriteLive && selectedCabine.status !== 'ao_vivo' ? (
-                <div className="space-y-3 rounded-2xl border border-brand/20 bg-brand-soft/60 p-3">
-                  <div>
-                    <p className="text-sm font-bold text-ink">Iniciar live agora</p>
-                    <p className="mt-1 text-xs text-ink-muted">Informe apresentadora e previsão antes de colocar a cabine em live.</p>
-                  </div>
-                  {canWriteCabine ? (
-                    <Button
-                      className="w-full"
-                      variant="secondary"
-                      icon={CalendarClock}
-                      onClick={() => scheduleCabine(selectedCabine)}
-                    >
-                      Agendar esta cabine
-                    </Button>
-                  ) : null}
-                  <label className="block">
-                    <span className="text-xs font-semibold text-ink-muted">Cliente ou marca</span>
-                    <select
-                      className="design-input mt-2 h-10 w-full px-3 text-sm"
-                      value={startForm.cliente_id || suggestedClienteId(selectedCabine)}
-                      onChange={(event) => setStartField('cliente_id', event.target.value)}
-                      disabled={clientesQuery.isLoading || !readClientesForLiveRoles.has(user?.papel ?? '')}
-                    >
-                      <option value="">Selecione um cliente</option>
-                      {suggestedClienteId(selectedCabine) && !clientesQuery.data?.some((cliente) => asString(cliente.id) === suggestedClienteId(selectedCabine)) ? (
-                        <option value={suggestedClienteId(selectedCabine)}>{asString(selectedCabine.cliente_nome, 'Cliente vinculado')}</option>
-                      ) : null}
-                      {(clientesQuery.data ?? []).map((cliente) => (
-                        <option key={asString(cliente.id)} value={asString(cliente.id)}>
-                          {asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente')}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold text-ink-muted">TikTok da live</span>
-                    <input
-                      className="design-input mt-2 h-10 w-full px-3 text-sm"
-                      placeholder="@usuario_tiktok"
-                      value={startForm.tiktok_username}
-                      onChange={(event) => setStartField('tiktok_username', event.target.value)}
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold text-ink-muted">Apresentadora *</span>
-                    <select
-                      className="design-input mt-2 h-10 w-full px-3 text-sm"
-                      value={startForm.apresentadora_id}
-                      onChange={(event) => setStartField('apresentadora_id', event.target.value)}
-                      disabled={apresentadorasQuery.isLoading}
-                    >
-                      <option value="">Selecione a apresentadora</option>
-                      {(apresentadorasQuery.data ?? []).map((ap) => (
-                        <option key={asString(ap.id)} value={asString(ap.id)}>
-                          {asString(ap.nome ?? ap.email, 'Apresentadora')}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold text-ink-muted">Horário previsto de término *</span>
-                    <input
-                      type="datetime-local"
-                      className="design-input mt-2 h-10 w-full px-3 text-sm"
-                      value={startForm.previsto_fim}
-                      onChange={(event) => setStartField('previsto_fim', event.target.value)}
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold text-ink-muted">Tipo de live</span>
-                    <select
-                      className="design-input mt-2 h-10 w-full px-3 text-sm"
-                      value={liveType}
-                      onChange={(event) => setLiveType(event.target.value as 'cliente' | 'afiliado' | 'teste')}
-                    >
-                      <option value="cliente">Cliente</option>
-                      <option value="afiliado">Afiliado</option>
-                      <option value="teste">Teste</option>
-                    </select>
-                  </label>
-                  <Button
-                    className="w-full"
-                    icon={PlayCircle}
-                    isLoading={iniciarMutation.isPending}
-                    disabled={
-                      !selectedCabine.id ||
-                      !(startForm.cliente_id || suggestedClienteId(selectedCabine)) ||
-                      !startForm.apresentadora_id ||
-                      !startForm.previsto_fim
-                    }
-                    onClick={() => onStartLive(selectedCabine)}
-                  >
-                    Iniciar live
-                  </Button>
-                  {clientesQuery.isError ? <p className="text-xs font-medium text-[var(--danger)]">{extractErrorMessage(clientesQuery.error)}</p> : null}
-                  {!(startForm.cliente_id || suggestedClienteId(selectedCabine)) ? (
-                    <p className="text-xs text-ink-muted">Selecione um cliente para iniciar live sem contrato reservado.</p>
-                  ) : null}
-                </div>
-              ) : null}
+	              {selectedCabine && canWriteLive && selectedCabine.status !== 'ao_vivo' ? (
+	                <div className="space-y-3 rounded-2xl border border-brand/20 bg-brand-soft/60 p-3">
+	                  <div>
+	                    <p className="text-sm font-bold text-ink">Iniciar live agora</p>
+	                    <p className="mt-1 text-xs text-ink-muted">Use o mesmo formulário operacional da agenda para informar marca, apresentadora e previsão.</p>
+	                  </div>
+	                  <div className="flex flex-wrap gap-2">
+	                    {canWriteCabine ? (
+	                      <Button variant="secondary" icon={CalendarClock} onClick={() => scheduleCabine(selectedCabine)}>
+	                        Agendar esta cabine
+	                      </Button>
+	                    ) : null}
+	                    <Button icon={MonitorPlay} isLoading={iniciarMutation.isPending} onClick={() => setStartCabine(selectedCabine)}>
+	                      Iniciar live
+	                    </Button>
+	                  </div>
+	                </div>
+	              ) : null}
 
               {selectedCabine && canWriteCabine ? (
                 <div className="space-y-3 rounded-2xl border border-line bg-surface-muted p-3">
                   <p className="text-sm font-bold text-ink">Ações administrativas</p>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" icon={Edit2} onClick={() => openEditForm(selectedCabine)}>
-                      Editar
-                    </Button>
-                    <Button
+	                    <Button
                       variant="ghost"
                       icon={Power}
                       disabled={!selectedCabine.id || liberarMutation.isPending}
@@ -837,6 +670,39 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
             />
           </label>
           <label className="block">
+            <span className="text-sm font-semibold text-ink">Comentários finais</span>
+            <input
+              className="design-input mt-2 h-11 w-full px-4"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9.,]*"
+              value={endForm.manual_comments}
+              onChange={(event) => setEndField('manual_comments', event.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Shares finais</span>
+            <input
+              className="design-input mt-2 h-11 w-full px-4"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9.,]*"
+              value={endForm.manual_shares}
+              onChange={(event) => setEndField('manual_shares', event.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Diamonds finais</span>
+            <input
+              className="design-input mt-2 h-11 w-full px-4"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9.,]*"
+              value={endForm.manual_diamonds}
+              onChange={(event) => setEndField('manual_diamonds', event.target.value)}
+            />
+          </label>
+          <label className="block">
             <span className="text-sm font-semibold text-ink">Apresentadora</span>
             <select
               className="design-input mt-2 h-11 w-full px-4"
@@ -908,6 +774,24 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
           </div>
         </form>
       </Modal>
+
+      <AgendarLiveModal
+        open={Boolean(startCabine)}
+        mode="now"
+        defaultCabineId={startCabine?.id}
+        cabines={activeCabines}
+        marcas={marcasQuery.data ?? []}
+        clientes={clientesQuery.data ?? []}
+        apresentadoras={apresentadorasQuery.data ?? []}
+        isSaving={iniciarMutation.isPending}
+        error={iniciarMutation.error}
+        onClose={() => setStartCabine(null)}
+        onStartNow={(payload) => iniciarMutation.mutate({
+          ...payload,
+          ...(payload.cliente_id ? {} : suggestedClienteId(startCabine) ? { cliente_id: suggestedClienteId(startCabine) } : {}),
+          tiktok_username: asString(payload.tiktok_username, '') || suggestedTiktokUsername(startCabine) || null,
+        })}
+      />
 
       <HistoricoGmvModal liveId={gmvModalLiveId} onClose={() => setGmvModalLiveId(null)} />
     </div>

@@ -29,7 +29,8 @@ export function Badge({
 export function statusTone(status?: string): keyof typeof toneClass {
   const normalized = status?.toLowerCase() ?? ''
   if (['ao_vivo', 'em_andamento'].includes(normalized)) return 'brand'
-  if (['ativo', 'ativa', 'aprovada', 'confirmada', 'pago', 'livre', 'disponivel'].includes(normalized)) return 'success'
+  if (['livre', 'disponivel'].includes(normalized)) return 'neutral'
+  if (['ativo', 'ativa', 'aprovada', 'confirmada', 'pago'].includes(normalized)) return 'success'
   if (['pendente', 'reservada', 'planejado', 'confirmado', 'em_analise', 'aguardando'].includes(normalized)) return 'warning'
   if (['cancelado', 'recusada', 'vencido', 'inadimplente', 'manutencao'].includes(normalized)) return 'danger'
   if (['encerrada', 'finalizada'].includes(normalized)) return 'info'

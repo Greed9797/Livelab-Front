@@ -7,6 +7,7 @@ export type ManualLiveForm = {
   cliente_id: string
   marca_id: string
   apresentador_id: string
+  agenda_evento_id?: string
   data: string
   hora_inicio: string
   hora_fim: string
@@ -14,6 +15,9 @@ export type ManualLiveForm = {
   qtd_pedidos: string
   manual_views: string
   manual_likes: string
+  manual_comments?: string
+  manual_shares?: string
+  manual_diamonds?: string
   resumo: string
   status_publicacao: string
   tipo: string
@@ -26,6 +30,7 @@ export function buildManualLivePayload(form: ManualLiveForm): JsonRecord {
     cliente_id: form.cliente_id || undefined,
     marca_id: form.marca_id || undefined,
     apresentador_id: form.apresentador_id || undefined,
+    agenda_evento_id: form.agenda_evento_id || undefined,
     data: form.data,
     hora_inicio: form.hora_inicio,
     hora_fim: form.hora_fim,
@@ -34,6 +39,9 @@ export function buildManualLivePayload(form: ManualLiveForm): JsonRecord {
     manual_orders: asNumber(form.qtd_pedidos),
     manual_views: form.manual_views ? asNumber(form.manual_views) : undefined,
     manual_likes: form.manual_likes ? asNumber(form.manual_likes) : undefined,
+    manual_comments: form.manual_comments ? asNumber(form.manual_comments) : undefined,
+    manual_shares: form.manual_shares ? asNumber(form.manual_shares) : undefined,
+    manual_diamonds: form.manual_diamonds ? asNumber(form.manual_diamonds) : undefined,
     manual_gmv: gmv,
     resumo: form.resumo || undefined,
     status_publicacao: form.status_publicacao,
