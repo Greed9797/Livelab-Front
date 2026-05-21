@@ -15,6 +15,7 @@ import { HistoricoGmvModal } from './HistoricoGmvModal'
 import { atualizarStatusCabine, deleteCabine, encerrarLive, getApresentadoras, getCabineHistorico, getCabines, getClientes, getLiveTiktokStatus, getMarcas, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatDate, formatMoney } from '../utils/format'
+import { getBrandImage } from '../utils/favicon'
 import { useCurrentUser } from '../stores/auth-store'
 import type { Cabine, JsonRecord } from '../types/models'
 import { useSelectedLive } from '../hooks/useSelectedLive'
@@ -351,7 +352,10 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
           const active = isCabineActive(cabine)
           const record = cabine as Cabine & JsonRecord
           const displayStatus = active ? asString(cabine.status) : 'inativa'
-          const brandLogo = asString(record.marca_logo_url ?? getNestedValue(record.proxima_agenda, 'marca_logo_url'), '')
+          const brandLogo = getBrandImage({
+            logo_url: record.marca_logo_url ?? getNestedValue(record.proxima_agenda, 'marca_logo_url'),
+            site: record.marca_site ?? getNestedValue(record.proxima_agenda, 'marca_site'),
+          })
           const displayCliente = asString(
             record.cliente_nome ?? record.cliente_em_live_nome ?? getNestedValue(record.cliente_em_live, 'nome') ?? getNestedValue(record.proxima_agenda, 'marca_nome') ?? getNestedValue(record.cliente_reservado, 'nome'),
             'sem cliente vinculado',

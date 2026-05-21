@@ -37,6 +37,7 @@ import {
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatDate, formatMoney } from '../utils/format'
+import { getBrandImage } from '../utils/favicon'
 import { parseBRMoneyToDecimal } from '../utils/money'
 import type { JsonRecord } from '../types/models'
 
@@ -477,7 +478,13 @@ export function ConteudoPage() {
                                   }}
                                 >
                                   <p className="font-bold text-brand">{typeLabel(event.tipo)} · {formatTime(event.data_inicio)}-{formatTime(event.data_fim)}</p>
-                                  <p className="mt-1 truncate text-ink">{asString(event.marca_nome ?? event.cliente_nome ?? event.observacoes, 'Bloqueio')}</p>
+                                  <div className="mt-1 flex items-center gap-2">
+                                    {(() => {
+                                      const img = getBrandImage({ logo_url: event.marca_logo_url, site: event.marca_site })
+                                      return img ? <img src={img} alt="" className="h-5 w-5 rounded object-cover" /> : null
+                                    })()}
+                                    <p className="truncate text-ink">{asString(event.marca_nome ?? event.cliente_nome ?? event.observacoes, 'Bloqueio')}</p>
+                                  </div>
                                   <p className="mt-1 truncate text-ink-muted">{asString(event.apresentadora_nome ?? event.responsavel_marketing, 'Sem apresentadora')}</p>
                                   {canRegister && layout.height >= 92 ? (
                                     <button

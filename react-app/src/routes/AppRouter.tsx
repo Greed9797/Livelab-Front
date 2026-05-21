@@ -18,6 +18,7 @@ import { SolicitacoesPage } from '../pages/SolicitacoesPage'
 import { FinanceiroPage } from '../pages/FinanceiroPage'
 import { ComissoesConfigPage } from '../pages/ComissoesConfigPage'
 import { RankingApresentadorasPage } from '../pages/RankingApresentadorasPage'
+import { RankingMarcasPage } from '../pages/RankingMarcasPage'
 import { ConfiguracoesPage } from '../pages/ConfiguracoesPage'
 import { KnowledgePage } from '../pages/KnowledgePage'
 import { OnboardingPage } from '../pages/OnboardingPage'
@@ -91,6 +92,7 @@ export function AppRouter() {
               <Route path="/comissoes/pendentes" element={<Navigate to="/financeiro?tab=comissoes" replace />} />
               <Route path="/comissoes/config" element={<ComissoesConfigPage />} />
               <Route path="/ranking-apresentadoras" element={<RankingApresentadorasPage />} />
+              <Route path="/ranking-marcas" element={<RankingMarcasPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'franqueado']} />}>

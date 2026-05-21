@@ -514,6 +514,7 @@ export function ComercialPage() {
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">Logo URL</span>
                       <input className="design-input mt-2 h-11 w-full px-4" type="url" value={ativoForm.logo_url} onChange={(event) => setAtivoForm((current) => ({ ...current, logo_url: event.target.value }))} />
+                      <span className="mt-1 text-[11px] text-ink-muted">Deixe vazio para usar o favicon do site automaticamente.</span>
                     </label>
                   </>
                 )}

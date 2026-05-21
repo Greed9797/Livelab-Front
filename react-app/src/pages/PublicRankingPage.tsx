@@ -1,9 +1,9 @@
-import { Trophy, Users, Video } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { RankingPodium } from '../components/dashboard/RankingPodium'
 import { getPublicRanking } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatMoney, formatPercent } from '../utils/format'
@@ -32,39 +32,27 @@ export function PublicRankingPage() {
           </Link>
         </header>
 
+        <RankingPodium
+          data={ranking}
+          subject="unidade"
+          valueKey="gmv_mes"
+          valueLabel="GMV do mês"
+          metaKey="total_lives"
+          metaLabel="Lives"
+        />
         {leader ? (
-          <section className="grid gap-4 md:grid-cols-3">
-            <Card className="border-brand/25">
-              <CardBody className="p-5">
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-soft text-brand"><Trophy className="h-5 w-5" /></span>
-                <p className="mt-5 text-xs font-bold uppercase tracking-[0.12em] text-ink-muted">Lider do mês</p>
-                <p className="mt-2 text-2xl font-extrabold text-ink">{asString(leader.nome)}</p>
-              </CardBody>
-            </Card>
-            <Card>
-              <CardBody className="p-5">
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--success-soft)] text-[var(--success)]"><Video className="h-5 w-5" /></span>
-                <p className="mt-5 text-xs font-bold uppercase tracking-[0.12em] text-ink-muted">Lives</p>
-                <p className="num mt-2 text-2xl font-extrabold text-ink">{asNumber(leader.total_lives).toLocaleString('pt-BR')}</p>
-              </CardBody>
-            </Card>
-            <Card>
-              <CardBody className="p-5">
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--info-soft)] text-[var(--info)]"><Users className="h-5 w-5" /></span>
-                <p className="mt-5 text-xs font-bold uppercase tracking-[0.12em] text-ink-muted">Clientes ativos</p>
-                <p className="num mt-2 text-2xl font-extrabold text-ink">{asNumber(leader.total_clientes_ativos).toLocaleString('pt-BR')}</p>
-              </CardBody>
-            </Card>
-          </section>
+          <p className="text-center text-xs text-ink-muted">
+            Líder atual: <strong className="text-ink">{asString(leader.nome)}</strong> · {asNumber(leader.total_clientes_ativos).toLocaleString('pt-BR')} clientes ativos
+          </p>
         ) : null}
 
         <Card>
           <CardHeader>
-            <p className="text-base font-bold text-ink">Top unidades</p>
+            <p className="text-base font-bold text-ink">Demais unidades</p>
           </CardHeader>
           <CardBody>
             <DataTable<JsonRecord>
-              data={ranking}
+              data={ranking.slice(3)}
               columns={[
                 { key: 'posicao', header: '#', align: 'center', render: (item) => asNumber(item.posicao).toLocaleString('pt-BR') },
                 { key: 'nome', header: 'Unidade', render: (item) => asString(item.nome) },

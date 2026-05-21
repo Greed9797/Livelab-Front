@@ -57,6 +57,13 @@ const emptyEditForm = {
   nome: '',
   papel: 'gerente',
   ativo: true,
+  fixo: '',
+  comissao_pct: '',
+  meta_diaria_gmv: '',
+}
+
+function isPresenterPapel(papel: string): boolean {
+  return papel === 'apresentador' || papel === 'apresentadora'
 }
 
 const emptyFaixaForm = {
@@ -216,6 +223,9 @@ export function SettingsUsuariosPanel() {
       nome: asString(item.nome, ''),
       papel: asString(item.papel, 'gerente'),
       ativo: ativoValue(item.ativo),
+      fixo: asString(item.fixo_mensal ?? item.fixo, ''),
+      comissao_pct: asString(item.comissao_live_pct ?? item.comissao_pct, ''),
+      meta_diaria_gmv: asString(item.meta_diaria_gmv, ''),
     })
   }
 
@@ -238,16 +248,25 @@ export function SettingsUsuariosPanel() {
   function onEditSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!editingUser) return
+    const presenterIdResolved = presenterProfileId(editingUser)
+    const presenterPapel = isPresenterPapel(asString(editingUser.papel)) || isPresenterPapel(editForm.papel) || isPresenterProfile(editingUser)
+    const presenterPayload: JsonRecord = {}
+    if (presenterPapel) {
+      presenterPayload.nome = editForm.nome
+      presenterPayload.ativo = editForm.ativo
+      if (editForm.fixo !== '') presenterPayload.fixo = asNumber(editForm.fixo)
+      if (editForm.comissao_pct !== '') presenterPayload.comissao_pct = asNumber(editForm.comissao_pct)
+      if (editForm.meta_diaria_gmv !== '') presenterPayload.meta_diaria_gmv = asNumber(editForm.meta_diaria_gmv)
+    }
+
     if (isPresenterProfile(editingUser)) {
       updatePresenterMutation.mutate({
-        id: presenterProfileId(editingUser),
-        payload: {
-          nome: editForm.nome,
-          ativo: editForm.ativo,
-        },
+        id: presenterIdResolved,
+        payload: presenterPayload,
       })
       return
     }
+
     updateMutation.mutate({
       id: asString(editingUser.id, ''),
       payload: {
@@ -256,6 +275,13 @@ export function SettingsUsuariosPanel() {
         ativo: editForm.ativo,
       },
     })
+
+    if (presenterPapel && presenterIdResolved && Object.keys(presenterPayload).length > 0) {
+      updatePresenterMutation.mutate({
+        id: presenterIdResolved,
+        payload: presenterPayload,
+      })
+    }
   }
 
   function onDeleteUser(item: JsonRecord) {
@@ -446,6 +472,22 @@ export function SettingsUsuariosPanel() {
               <option value="false">Inativo</option>
             </select>
           </label>
+          {(isPresenterPapel(editForm.papel) || isPresenterProfile(editingUser)) ? (
+            <>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
+                <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={editForm.fixo} onChange={(raw) => setEditField('fixo', raw)} />
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Comissão (%)</span>
+                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={editForm.comissao_pct} onChange={(event) => setEditField('comissao_pct', event.target.value)} />
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Meta diária de GMV (R$)</span>
+                <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={editForm.meta_diaria_gmv} onChange={(raw) => setEditField('meta_diaria_gmv', raw)} />
+              </label>
+            </>
+          ) : null}
           {editingPresenterId ? (
             <div className="space-y-4 rounded-2xl border border-line bg-surface-muted p-4 md:col-span-2">
               <div>

@@ -321,6 +321,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Logo pública</span>
                   <input className="design-input mt-2 h-11 w-full px-4" value={rankingForm.logo_url} onChange={(event) => setRankingForm((current) => ({ ...current, logo_url: event.target.value }))} />
+                  <span className="mt-1 text-[11px] text-ink-muted">Deixe vazio para usar o favicon do site automaticamente.</span>
                 </label>
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Cidade</span>

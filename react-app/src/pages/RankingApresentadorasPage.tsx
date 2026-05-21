@@ -5,6 +5,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { RankingPodium } from '../components/dashboard/RankingPodium'
 import { getRankingApresentadoras } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatMoney } from '../utils/format'
@@ -41,16 +42,25 @@ export function RankingApresentadorasPage() {
         }
       />
 
+      <RankingPodium
+        data={rows}
+        subject="apresentadora"
+        valueKey="total_recebido"
+        valueLabel="Total recebido"
+        metaKey="lives"
+        metaLabel="Lives"
+      />
+
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-brand" />
-            <p className="text-base font-bold text-ink">Apresentadoras no mês</p>
+            <p className="text-base font-bold text-ink">Demais apresentadoras</p>
           </div>
         </CardHeader>
         <CardBody>
           <DataTable<JsonRecord>
-            data={rows}
+            data={rows.slice(3)}
             columns={[
               { key: 'nome', header: 'Apresentadora', render: (item) => asString(item.nome ?? item.apresentadora_nome, '—') },
               { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv) },
