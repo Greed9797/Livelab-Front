@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, iniciarLive, publishLive, updateApresentadora, updateLive } from './domain'
+import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateVideo } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -100,6 +100,23 @@ describe('domain live operations', () => {
     })
 
     expect(apiGet).toHaveBeenCalledWith('/agenda/conflitos?cabine_id=cabine-1&apresentadora_id=apresentadora-1&data_inicio=2026-05-19T18%3A00%3A00.000Z&data_fim=2026-05-19T21%3A00%3A00.000Z')
+  })
+
+  it('keeps video CRUD wired to the canonical videos endpoints', async () => {
+    vi.mocked(apiGet).mockResolvedValue([])
+    vi.mocked(apiPost).mockResolvedValue({ id: 'video-1' })
+    vi.mocked(apiPatch).mockResolvedValue({ id: 'video-1' })
+    vi.mocked(apiDelete).mockResolvedValue({})
+
+    await getVideos({ data_inicio: '2026-05-01' })
+    await createVideo({ marca_id: 'marca-1', quantidade: 2 })
+    await updateVideo('video-1', { quantidade: 3 })
+    await deleteVideo('video-1')
+
+    expect(apiGet).toHaveBeenCalledWith('/videos', { data_inicio: '2026-05-01' })
+    expect(apiPost).toHaveBeenCalledWith('/videos', { marca_id: 'marca-1', quantidade: 2 })
+    expect(apiPatch).toHaveBeenCalledWith('/videos/video-1', { quantidade: 3 })
+    expect(apiDelete).toHaveBeenCalledWith('/videos/video-1')
   })
 
   it('publishes a live through the dedicated publicar endpoint', async () => {

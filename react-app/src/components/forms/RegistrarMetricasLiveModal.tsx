@@ -135,6 +135,7 @@ export function RegistrarMetricasLiveModal({
   error,
   onClose,
   onCreateManual,
+  onCreateResultFromAgenda,
   onUpdateLive,
   onCloseLive,
 }: {
@@ -150,6 +151,7 @@ export function RegistrarMetricasLiveModal({
   error?: unknown
   onClose: () => void
   onCreateManual: (payload: JsonRecord) => void
+  onCreateResultFromAgenda?: (payload: JsonRecord) => void
   onUpdateLive?: (id: string, payload: JsonRecord) => void
   onCloseLive?: (id: string, payload: JsonRecord) => void
 }) {
@@ -234,6 +236,10 @@ export function RegistrarMetricasLiveModal({
     }
     if (mode === 'result' && agendaEvent?.live_id && onCloseLive) {
       onCloseLive(asString(agendaEvent.live_id, ''), buildEncerrarPayload())
+      return
+    }
+    if (mode === 'result') {
+      onCreateResultFromAgenda?.(buildManualLivePayload(form))
       return
     }
     onCreateManual(buildManualLivePayload(form))

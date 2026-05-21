@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { extractErrorMessage } from '../../services/api'
+import { getAgendaConflitos } from '../../services/domain'
 import { asNumber, asString } from '../../utils/format'
 import type { Cabine, JsonRecord } from '../../types/models'
 
@@ -25,7 +26,18 @@ type AgendaForm = {
   recorrencia_tipo: string
   recorrencia_ate: string
   recorrencia_total_ocorrencias: string
+  recorrencia_dias_semana: string
   modo_recorrencia: string
+}
+
+type LookupOption = {
+  value: string
+  label: string
+}
+
+type AvailabilityState = {
+  status: 'idle' | 'checking' | 'available' | 'conflict' | 'error'
+  message: string
 }
 
 const emptyForm: AgendaForm = {
@@ -45,6 +57,7 @@ const emptyForm: AgendaForm = {
   recorrencia_tipo: 'nenhuma',
   recorrencia_ate: '',
   recorrencia_total_ocorrencias: '',
+  recorrencia_dias_semana: '',
   modo_recorrencia: 'apenas_este',
 }
 
@@ -93,14 +106,35 @@ function liveTypeFromMarca(marca?: JsonRecord): 'cliente' | 'afiliado' | 'teste'
   return 'teste'
 }
 
+function findLookupOption(options: LookupOption[], rawValue: string) {
+  const value = rawValue.trim().toLocaleLowerCase('pt-BR')
+  return options.find((option) => (
+    option.label.toLocaleLowerCase('pt-BR') === value ||
+    option.value.toLocaleLowerCase('pt-BR') === value
+  ))
+}
+
+function optionLabel(options: LookupOption[], value: string) {
+  return options.find((option) => option.value === value)?.label ?? ''
+}
+
+function selectedWeekdays(value: string) {
+  return value
+    .split(',')
+    .map((item) => Number(item))
+    .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+}
+
 function recurrencePayload(form: AgendaForm): JsonRecord | null {
   const weekday = new Date(`${form.data}T00:00:00`).getDay()
+  const customWeekdays = selectedWeekdays(form.recorrencia_dias_semana)
+  const recurrenceWeekdays = customWeekdays.length > 0 ? customWeekdays : [weekday]
   const recurrenceMap: Record<string, JsonRecord | null> = {
     nenhuma: null,
     diaria: { frequencia: 'diaria' },
     dias_uteis: { frequencia: 'semanal', dias_semana: [1, 2, 3, 4, 5] },
-    semanal: { frequencia: 'semanal', dias_semana: [weekday] },
-    quinzenal: { frequencia: 'quinzenal', dias_semana: [weekday] },
+    semanal: { frequencia: 'semanal', dias_semana: recurrenceWeekdays },
+    quinzenal: { frequencia: 'quinzenal', dias_semana: recurrenceWeekdays },
     mensal: { frequencia: 'mensal' },
   }
   const base = recurrenceMap[form.recorrencia_tipo]
@@ -148,13 +182,41 @@ export function AgendarLiveModal({
   onDelete?: (id: string, modoRecorrencia: string) => void
 }) {
   const [form, setForm] = useState<AgendaForm>(emptyForm)
+  const [accountLookup, setAccountLookup] = useState('')
+  const [cabineLookup, setCabineLookup] = useState('')
+  const [apresentadoraLookup, setApresentadoraLookup] = useState('')
+  const [availability, setAvailability] = useState<AvailabilityState>({ status: 'idle', message: '' })
+
+  const clientesComMarca = useMemo(() => new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean)), [marcas])
+  const accountOptions = useMemo<LookupOption[]>(() => [
+    ...marcas.map((marca) => ({
+      value: `marca:${asString(marca.id, '')}`,
+      label: asString(marca.nome ?? marca.cliente_nome, 'Marca'),
+    })),
+    ...clientes
+      .filter((cliente) => !clientesComMarca.has(asString(cliente.id, '')))
+      .map((cliente) => ({
+        value: `cliente:${asString(cliente.id, '')}`,
+        label: asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente'),
+      })),
+  ].filter((option) => option.value !== 'marca:' && option.value !== 'cliente:'), [clientes, clientesComMarca, marcas])
+  const cabineOptions = useMemo<LookupOption[]>(() => cabines.map((cabine) => ({
+    value: asString(cabine.id, ''),
+    label: `Cabine ${asString(cabine.numero, '')}`,
+  })).filter((option) => option.value), [cabines])
+  const apresentadoraOptions = useMemo<LookupOption[]>(() => apresentadoras.map((item) => ({
+    value: asString(item.id, ''),
+    label: asString(item.nome ?? item.email, 'Apresentadora'),
+  })).filter((option) => option.value), [apresentadoras])
+
+  const editingEventId = mode === 'edit' ? asString(event?.id, '') : ''
 
   useEffect(() => {
     if (!open) return
     if (mode === 'edit' && event) {
       const marcaId = asString(event.marca_id, '')
       const marca = marcas.find((item) => asString(item.id, '') === marcaId)
-      setForm({
+      const nextForm = {
         ...emptyForm,
         tipo: asString(event.tipo, 'live'),
         live_tipo: liveTypeFromMarca(marca),
@@ -169,40 +231,104 @@ export function AgendarLiveModal({
         responsavel_marketing: asString(event.responsavel_marketing, ''),
         tiktok_username: asString(event.tiktok_username ?? marca?.tiktok_username, ''),
         observacoes: asString(event.observacoes, ''),
+        recorrencia_dias_semana: Array.isArray(event.recorrencia_dias_semana)
+          ? event.recorrencia_dias_semana.join(',')
+          : asString(event.recorrencia_dias_semana, ''),
         modo_recorrencia: 'apenas_este',
-      })
+      }
+      setForm(nextForm)
+      setAccountLookup(optionLabel(accountOptions, nextForm.marca_id ? `marca:${nextForm.marca_id}` : nextForm.cliente_id ? `cliente:${nextForm.cliente_id}` : ''))
+      setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
+      setApresentadoraLookup(optionLabel(apresentadoraOptions, nextForm.apresentadora_id))
       return
     }
 
     const now = new Date()
-    setForm({
+    const nextForm = {
       ...emptyForm,
       cabine_id: defaultCabineId ?? '',
       data: defaultDate || today(),
       hora_inicio: mode === 'now' ? toTimeInput(now) : '09:00',
       hora_fim: mode === 'now' ? dateWithHourOffset(4) : '10:00',
       status: mode === 'now' ? 'confirmado' : 'planejado',
-    })
-  }, [defaultCabineId, defaultDate, event, marcas, mode, open])
+    }
+    setForm(nextForm)
+    setAccountLookup('')
+    setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
+    setApresentadoraLookup('')
+  }, [accountOptions, apresentadoraOptions, cabineOptions, defaultCabineId, defaultDate, event, marcas, mode, open])
 
-  const clientesComMarca = useMemo(() => new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean)), [marcas])
-  const accountOptions = useMemo(() => [
-    ...marcas.map((marca) => ({
-      value: `marca:${asString(marca.id, '')}`,
-      label: asString(marca.nome ?? marca.cliente_nome, 'Marca'),
-    })),
-    ...clientes
-      .filter((cliente) => !clientesComMarca.has(asString(cliente.id, '')))
-      .map((cliente) => ({
-        value: `cliente:${asString(cliente.id, '')}`,
-        label: asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente'),
-      })),
-  ].filter((option) => option.value !== 'marca:' && option.value !== 'cliente:'), [clientes, clientesComMarca, marcas])
+  useEffect(() => {
+    if (!open || (!form.cabine_id && !form.apresentadora_id) || !form.data || !form.hora_inicio || !form.hora_fim) {
+      setAvailability({ status: 'idle', message: '' })
+      return
+    }
 
-  const accountValue = form.marca_id ? `marca:${form.marca_id}` : form.cliente_id ? `cliente:${form.cliente_id}` : ''
+    const dataInicio = makeDateTime(form.data, form.hora_inicio)
+    const dataFim = makeDateTime(form.data, form.hora_fim)
+    if (new Date(dataFim).getTime() <= new Date(dataInicio).getTime()) {
+      setAvailability({ status: 'conflict', message: 'O horário final precisa ser depois do início.' })
+      return
+    }
+
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setAvailability({ status: 'checking', message: 'Verificando disponibilidade da cabine e apresentadora...' })
+      getAgendaConflitos({
+        cabineId: form.cabine_id || undefined,
+        apresentadoraId: form.apresentadora_id || undefined,
+        dataInicio,
+        dataFim,
+        excludeId: editingEventId || undefined,
+      })
+        .then((result) => {
+          if (cancelled) return
+          const conflitos = Array.isArray(result.conflitos) ? result.conflitos : []
+          const total = asNumber(result.total ?? result.total_conflitos ?? conflitos.length)
+          if (total > 0) {
+            const first = conflitos[0] as JsonRecord | undefined
+            const entity = asString(first?.entidade ?? first?.tipo, 'cabine/apresentadora')
+            const start = asString(first?.data_inicio ?? first?.inicio, '')
+            const end = asString(first?.data_fim ?? first?.fim, '')
+            const period = start && end ? ` (${toTimeInput(start)}-${toTimeInput(end)})` : ''
+            setAvailability({ status: 'conflict', message: `Existe conflito de ${entity}${period}. Escolha outro horário.` })
+            return
+          }
+          setAvailability({ status: 'available', message: 'Horário disponível para os vínculos selecionados.' })
+        })
+        .catch(() => {
+          if (!cancelled) setAvailability({ status: 'error', message: 'Não foi possível verificar disponibilidade agora. O backend ainda validará ao salvar.' })
+        })
+    }, 350)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [editingEventId, form.apresentadora_id, form.cabine_id, form.data, form.hora_fim, form.hora_inicio, open])
 
   function setField(key: keyof AgendaForm, value: string) {
     setForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function setRecurrenceType(value: string) {
+    setForm((current) => ({
+      ...current,
+      recorrencia_tipo: value,
+      recorrencia_dias_semana: ['semanal', 'quinzenal'].includes(value) && !current.recorrencia_dias_semana
+        ? String(new Date(`${current.data}T00:00:00`).getDay())
+        : current.recorrencia_dias_semana,
+    }))
+  }
+
+  function toggleWeekday(day: number) {
+    setForm((current) => {
+      const currentDays = selectedWeekdays(current.recorrencia_dias_semana)
+      const nextDays = currentDays.includes(day)
+        ? currentDays.filter((item) => item !== day)
+        : [...currentDays, day]
+      return { ...current, recorrencia_dias_semana: nextDays.sort((a, b) => a - b).join(',') }
+    })
   }
 
   function setAccount(value: string) {
@@ -225,10 +351,47 @@ export function AgendarLiveModal({
     setForm((current) => ({ ...current, marca_id: '', cliente_id: '' }))
   }
 
+  function onAccountLookupChange(value: string) {
+    setAccountLookup(value)
+    const option = findLookupOption(accountOptions, value)
+    if (option) setAccount(option.value)
+    else if (!value.trim()) setAccount('')
+  }
+
+  function onCabineLookupChange(value: string) {
+    setCabineLookup(value)
+    const option = findLookupOption(cabineOptions, value)
+    if (option) setField('cabine_id', option.value)
+    else if (!value.trim()) setField('cabine_id', '')
+  }
+
+  function onApresentadoraLookupChange(value: string) {
+    setApresentadoraLookup(value)
+    const option = findLookupOption(apresentadoraOptions, value)
+    if (option) setField('apresentadora_id', option.value)
+    else if (!value.trim()) setField('apresentadora_id', '')
+  }
+
   function onSubmit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault()
     const dataInicio = makeDateTime(form.data, form.hora_inicio)
     const dataFim = makeDateTime(form.data, form.hora_fim)
+    if (new Date(dataFim).getTime() <= new Date(dataInicio).getTime()) {
+      setAvailability({ status: 'conflict', message: 'O horário final precisa ser depois do início.' })
+      return
+    }
+    if (mode === 'now' && !form.cabine_id) {
+      setAvailability({ status: 'conflict', message: 'Selecione uma cabine da lista antes de iniciar.' })
+      return
+    }
+    if (mode === 'now' && !form.apresentadora_id) {
+      setAvailability({ status: 'conflict', message: 'Selecione uma apresentadora da lista antes de iniciar.' })
+      return
+    }
+    if (form.tipo !== 'bloqueio_manutencao' && (mode !== 'now' || form.live_tipo !== 'teste') && !form.marca_id && !form.cliente_id) {
+      setAvailability({ status: 'conflict', message: 'Selecione uma marca ou cliente da lista antes de salvar.' })
+      return
+    }
     if (mode === 'now') {
       onStartNow?.({
         cabine_id: form.cabine_id,
@@ -303,26 +466,47 @@ export function AgendarLiveModal({
         </div>
         <label className="block">
           <span className="text-sm font-semibold text-ink">Cabine</span>
-          <select className="design-input mt-2 h-11 w-full px-4" value={form.cabine_id} onChange={(item) => setField('cabine_id', item.target.value)} required={mode === 'now'}>
-            <option value="">Sem cabine definida</option>
-            {cabines.map((cabine) => <option key={cabine.id} value={cabine.id}>Cabine {asString(cabine.numero)}</option>)}
-          </select>
+          <input
+            className="design-input mt-2 h-11 w-full px-4"
+            list="agenda-cabine-options"
+            value={cabineLookup}
+            onChange={(item) => onCabineLookupChange(item.target.value)}
+            placeholder="Buscar cabine"
+            required={mode === 'now'}
+          />
+          <datalist id="agenda-cabine-options">
+            {cabineOptions.map((option) => <option key={option.value} value={option.label} />)}
+          </datalist>
         </label>
         {form.tipo !== 'bloqueio_manutencao' ? (
           <label className="block">
             <span className="text-sm font-semibold text-ink">Marca/cliente</span>
-            <select className="design-input mt-2 h-11 w-full px-4" value={accountValue} onChange={(item) => setAccount(item.target.value)} required={mode !== 'now' || form.live_tipo !== 'teste'}>
-              <option value="">Selecione uma marca ou cliente</option>
-              {accountOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
+            <input
+              className="design-input mt-2 h-11 w-full px-4"
+              list="agenda-account-options"
+              value={accountLookup}
+              onChange={(item) => onAccountLookupChange(item.target.value)}
+              placeholder="Buscar marca ou cliente"
+              required={mode !== 'now' || form.live_tipo !== 'teste'}
+            />
+            <datalist id="agenda-account-options">
+              {accountOptions.map((option) => <option key={option.value} value={option.label} />)}
+            </datalist>
           </label>
         ) : null}
         <label className="block">
           <span className="text-sm font-semibold text-ink">Apresentadora</span>
-          <select className="design-input mt-2 h-11 w-full px-4" value={form.apresentadora_id} onChange={(item) => setField('apresentadora_id', item.target.value)} required={mode === 'now'}>
-            <option value="">Selecione</option>
-            {apresentadoras.map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome ?? item.email)}</option>)}
-          </select>
+          <input
+            className="design-input mt-2 h-11 w-full px-4"
+            list="agenda-apresentadora-options"
+            value={apresentadoraLookup}
+            onChange={(item) => onApresentadoraLookupChange(item.target.value)}
+            placeholder="Buscar apresentadora"
+            required={mode === 'now'}
+          />
+          <datalist id="agenda-apresentadora-options">
+            {apresentadoraOptions.map((option) => <option key={option.value} value={option.label} />)}
+          </datalist>
         </label>
         <div className="grid grid-cols-3 gap-3">
           <label className="block">
@@ -338,6 +522,17 @@ export function AgendarLiveModal({
             <input className="design-input mt-2 h-11 w-full px-3" type="time" value={form.hora_fim} onChange={(item) => setField('hora_fim', item.target.value)} required />
           </label>
         </div>
+        {availability.status !== 'idle' ? (
+          <p className={[
+            'rounded-2xl px-4 py-3 text-sm font-medium',
+            availability.status === 'available' ? 'bg-[var(--success-soft)] text-[var(--success)]' : '',
+            availability.status === 'checking' ? 'bg-surface-muted text-ink-muted' : '',
+            availability.status === 'conflict' || availability.status === 'error' ? 'bg-[var(--danger-soft)] text-[var(--danger)]' : '',
+          ].filter(Boolean).join(' ')}
+          >
+            {availability.message}
+          </p>
+        ) : null}
         {mode === 'now' ? (
           <label className="block">
             <span className="text-sm font-semibold text-ink">TikTok da live</span>
@@ -353,7 +548,7 @@ export function AgendarLiveModal({
           <div className="grid gap-3 md:grid-cols-3">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Recorrência</span>
-              <select className="design-input mt-2 h-11 w-full px-4" value={form.recorrencia_tipo} onChange={(item) => setField('recorrencia_tipo', item.target.value)} disabled={mode === 'edit'}>
+              <select className="design-input mt-2 h-11 w-full px-4" value={form.recorrencia_tipo} onChange={(item) => setRecurrenceType(item.target.value)} disabled={mode === 'edit'}>
                 <option value="nenhuma">Sem recorrência</option>
                 <option value="diaria">Diária</option>
                 <option value="dias_uteis">Dias úteis</option>
@@ -370,6 +565,37 @@ export function AgendarLiveModal({
               <span className="text-sm font-semibold text-ink">Ocorrências</span>
               <input className="design-input mt-2 h-11 w-full px-4" type="text" inputMode="numeric" pattern="[0-9.,]*" value={form.recorrencia_total_ocorrencias} onChange={(item) => setField('recorrencia_total_ocorrencias', item.target.value)} disabled={form.recorrencia_tipo === 'nenhuma' || mode === 'edit'} />
             </label>
+          </div>
+        ) : null}
+        {mode !== 'now' && ['semanal', 'quinzenal'].includes(form.recorrencia_tipo) ? (
+          <div className="rounded-2xl border border-line bg-surface-muted p-3">
+            <p className="text-sm font-semibold text-ink">Dias da recorrência</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                [0, 'Dom'],
+                [1, 'Seg'],
+                [2, 'Ter'],
+                [3, 'Qua'],
+                [4, 'Qui'],
+                [5, 'Sex'],
+                [6, 'Sáb'],
+              ].map(([day, label]) => {
+                const dayNumber = Number(day)
+                const checked = selectedWeekdays(form.recorrencia_dias_semana).includes(dayNumber)
+                return (
+                  <label key={dayNumber} className={`inline-flex h-10 items-center gap-2 rounded-2xl border px-3 text-sm font-semibold ${checked ? 'border-brand bg-brand text-white' : 'border-line bg-surface text-ink'}`}>
+                    <input
+                      className="sr-only"
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleWeekday(dayNumber)}
+                      disabled={mode === 'edit'}
+                    />
+                    {label}
+                  </label>
+                )
+              })}
+            </div>
           </div>
         ) : null}
         {mode === 'edit' ? (

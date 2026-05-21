@@ -641,6 +641,7 @@ export function ConteudoPage() {
         error={metricError}
         onClose={closeMetricsModal}
         onCreateManual={(payload) => createManualLiveMutation.mutate(payload)}
+        onCreateResultFromAgenda={(payload) => createManualLiveMutation.mutate(payload)}
         onUpdateLive={(id, payload) => updateLiveMutation.mutate({ id, payload })}
         onCloseLive={(id, payload) => encerrarLiveMutation.mutate({ id, payload })}
       />
