@@ -201,7 +201,7 @@ export function ComissoesConfigPage() {
           <p className="text-xs text-ink-muted">
             <strong>Regras:</strong> sábado/domingo (timezone São Paulo) sempre paga <strong>2% fixo</strong> de comissão da apresentadora, ignorando vínculo e faixa.
             Em dias úteis, o sistema usa primeiro a <strong>faixa</strong> da apresentadora pelo GMV mensal acumulado;
-            se não houver faixa, cai no <strong>% do vínculo apresentadora-marca</strong>. Sem faixa nem vínculo → comissão = 0.
+            se não houver faixa, cai no <strong>% do vínculo apresentadora-marca</strong>. Sem faixa nem vínculo em live → mínimo de 0,5% do GMV; em vídeo → comissão = 0.
           </p>
         </CardBody>
       </Card>

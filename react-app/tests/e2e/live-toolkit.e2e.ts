@@ -14,6 +14,9 @@
 import { expect, test } from '@playwright/test'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // ─── 1. useSelectedLive — verificação de exportação ──────────────────────────
 
@@ -93,11 +96,11 @@ test.describe('Página de ranking público (/ranking)', () => {
     ).toBeVisible({ timeout: 15_000 })
   })
 
-  test('página /ranking exibe link de login para usuários não autenticados', async ({ page }) => {
+  test('página /ranking exibe link de acesso ao painel para usuários não autenticados', async ({ page }) => {
     await page.goto('/ranking', { waitUntil: 'domcontentloaded' })
 
-    // PublicRankingPage tem <Link to="/login"> no header (botão "Entrar" para autenticação)
-    const loginLink = page.getByRole('link', { name: /entrar/i })
+    // PublicRankingPage tem <Link to="/login"> no header para autenticação.
+    const loginLink = page.getByRole('link', { name: /acessar painel|entrar/i })
     await expect(loginLink).toBeVisible({ timeout: 10_000 })
   })
 

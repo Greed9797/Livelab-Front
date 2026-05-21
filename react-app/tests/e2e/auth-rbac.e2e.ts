@@ -48,6 +48,10 @@ function valueFromEnv(name: string): string {
   return value
 }
 
+function hasCredentials(account: Account): boolean {
+  return Boolean(process.env[account.emailEnv] && process.env[account.passwordEnv])
+}
+
 function routePattern(path: string): RegExp {
   if (path === '/') return /\/(?:$|[?#])/
   return new RegExp(`${path.replaceAll('/', '\\/')}(?:$|[?#])`)
@@ -112,6 +116,7 @@ test.describe('auth, roles e navegação principal', () => {
   for (const account of accounts) {
     test(`${account.key}: login, rotas permitidas, bloqueios e logout`, async ({ page, isMobile }) => {
       test.skip(isMobile, 'Fluxo completo de navegação é validado no projeto desktop.')
+      test.skip(!hasCredentials(account), `Configure ${account.emailEnv} e ${account.passwordEnv} para validar este perfil.`)
 
       await loginAs(page, account)
       await expect(page).toHaveURL(account.landing)
