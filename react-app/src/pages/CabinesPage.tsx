@@ -166,6 +166,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   function selectCabine(cabine: Cabine) {
     setSelectedId(cabine.id)
     setStartForm({
+      ...emptyStartForm,
       cliente_id: suggestedClienteId(cabine),
       tiktok_username: suggestedTiktokUsername(cabine),
     })

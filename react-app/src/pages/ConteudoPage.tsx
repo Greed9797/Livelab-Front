@@ -19,7 +19,6 @@ import {
   criarLiveManual,
   deleteLive,
   getAgenda,
-  getAgendaConflitos,
   getApresentadoras,
   getCabines,
   getClientes,
@@ -184,20 +183,7 @@ export function ConteudoPage() {
   const apresentadoras = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
 
   const createAgendaMutation = useMutation({
-    mutationFn: async (payload: JsonRecord) => {
-      if (payload.cabine_id || payload.apresentadora_id) {
-        const conflitos = await getAgendaConflitos({
-          cabineId: asString(payload.cabine_id, ''),
-          apresentadoraId: asString(payload.apresentadora_id, ''),
-          dataInicio: asString(payload.data_inicio),
-          dataFim: asString(payload.data_fim),
-        })
-        if (asNumber(conflitos.total) > 0) {
-          throw new Error('Esta cabine ou apresentadora já possui evento nesse horário. Escolha outro horário ou edite o evento existente.')
-        }
-      }
-      return createAgendaEvento(payload)
-    },
+    mutationFn: createAgendaEvento,
     onSuccess: () => {
       setAgendaForm((current) => ({ ...emptyAgendaEvent, data: agendaDate, cabine_id: current.cabine_id }))
       setAgendaModalOpen(false)
@@ -744,7 +730,7 @@ export function ConteudoPage() {
                   </label>
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">Ocorrências</span>
-                    <input className="design-input mt-2 h-11 w-full px-4" type="number" min="1" value={agendaForm.recorrencia_total_ocorrencias} onChange={(event) => setAgendaField('recorrencia_total_ocorrencias', event.target.value)} disabled={agendaForm.recorrencia_tipo === 'nenhuma'} />
+                    <input className="design-input mt-2 h-11 w-full px-4" type="text" inputMode="numeric" pattern="[0-9.,]*" value={agendaForm.recorrencia_total_ocorrencias} onChange={(event) => setAgendaField('recorrencia_total_ocorrencias', event.target.value)} disabled={agendaForm.recorrencia_tipo === 'nenhuma'} />
                   </label>
                 </div>
                 <label className="block">
@@ -859,15 +845,15 @@ export function ConteudoPage() {
               </label>
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Pedidos</span>
-                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={manualLiveForm.qtd_pedidos} onChange={(event) => setManualLiveField('qtd_pedidos', event.target.value)} required />
+                <input className="design-input mt-2 h-11 w-full px-4" type="text" inputMode="numeric" pattern="[0-9.,]*" value={manualLiveForm.qtd_pedidos} onChange={(event) => setManualLiveField('qtd_pedidos', event.target.value)} required />
               </label>
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Viewers</span>
-                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={manualLiveForm.manual_views} onChange={(event) => setManualLiveField('manual_views', event.target.value)} />
+                <input className="design-input mt-2 h-11 w-full px-4" type="text" inputMode="numeric" pattern="[0-9.,]*" value={manualLiveForm.manual_views} onChange={(event) => setManualLiveField('manual_views', event.target.value)} />
               </label>
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Likes</span>
-                <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={manualLiveForm.manual_likes} onChange={(event) => setManualLiveField('manual_likes', event.target.value)} />
+                <input className="design-input mt-2 h-11 w-full px-4" type="text" inputMode="numeric" pattern="[0-9.,]*" value={manualLiveForm.manual_likes} onChange={(event) => setManualLiveField('manual_likes', event.target.value)} />
               </label>
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Status de publicação</span>
@@ -979,7 +965,7 @@ export function ConteudoPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">Quantidade</span>
-                    <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={videoForm.quantidade} onChange={(event) => setVideoField('quantidade', event.target.value)} />
+                    <input className="design-input mt-2 h-11 w-full px-4" type="text" inputMode="numeric" pattern="[0-9.,]*" value={videoForm.quantidade} onChange={(event) => setVideoField('quantidade', event.target.value)} />
                   </label>
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">Plataforma</span>
@@ -997,7 +983,7 @@ export function ConteudoPage() {
                   </label>
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">Pedidos atribuídos</span>
-                    <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" value={videoForm.pedidos_atribuidos} onChange={(event) => setVideoField('pedidos_atribuidos', event.target.value)} />
+                    <input className="design-input mt-2 h-11 w-full px-4" type="text" inputMode="numeric" pattern="[0-9.,]*" value={videoForm.pedidos_atribuidos} onChange={(event) => setVideoField('pedidos_atribuidos', event.target.value)} />
                   </label>
                 </div>
                 <label className="block">

@@ -28,4 +28,18 @@ describe('buildManualLivePayload', () => {
       hora_fim: '21:00',
     })
   })
+
+  it('accepts BR thousand separators in operational counters', () => {
+    expect(buildManualLivePayload({
+      ...baseForm,
+      qtd_pedidos: '1.234',
+      manual_views: '3.466',
+      manual_likes: '10.500',
+    })).toMatchObject({
+      qtd_pedidos: 1234,
+      manual_orders: 1234,
+      manual_views: 3466,
+      manual_likes: 10500,
+    })
+  })
 })
