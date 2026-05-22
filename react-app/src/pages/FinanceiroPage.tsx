@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { ErrorState, LoadingState } from '../components/ui/States'
+import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
 import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getComissoesResumo, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -167,7 +167,7 @@ export function FinanceiroPage() {
                   <p className="text-base font-bold text-ink">Fluxo de caixa</p>
                 </CardHeader>
                 <CardBody>
-                  <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Nenhuma entrada ou custo real lançado no período.</p>
+                  <EmptyState title="Sem dados de fluxo" description="Nenhuma entrada ou custo real lançado no período." />
                 </CardBody>
               </Card>
             )}
@@ -191,7 +191,7 @@ export function FinanceiroPage() {
                 </form>
                 <div className="space-y-2 border-t border-line pt-3">
                   {custosRows.length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-line p-4 text-center text-xs text-ink-muted">Sem custos lançados no mês.</p>
+                    <EmptyState title="Sem custos no mês" description="Nenhum custo lançado para o período selecionado." />
                   ) : null}
                   {custosRows.map((item) => {
                     const Icon = item.tipo === 'aluguel' ? Building2 : item.tipo === 'salario' ? Users : item.tipo === 'energia' ? Zap : Receipt
@@ -251,7 +251,7 @@ export function FinanceiroPage() {
             <p className="text-base font-bold text-ink">Recebíveis</p>
           </CardHeader>
           <CardBody>
-            <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Nenhuma integração de recebíveis configurada para esta unidade.</p>
+            <EmptyState title="Sem integração de recebíveis" description="Nenhuma integração de recebíveis configurada para esta unidade." />
           </CardBody>
         </Card>
       ) : null}
@@ -269,7 +269,7 @@ export function FinanceiroPage() {
                 <p className="text-base font-bold text-ink">Boletos</p>
               </CardHeader>
               <CardBody>
-                <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Nenhuma cobrança configurada ou boleto encontrado.</p>
+                <EmptyState title="Sem boletos" description="Nenhuma cobrança configurada ou boleto encontrado." />
               </CardBody>
             </Card>
           )}
