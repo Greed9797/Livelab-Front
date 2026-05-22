@@ -10,6 +10,10 @@ export function getPublicRanking(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/public/ranking', params)
 }
 
+export function getPublicRankingApresentadoras(params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>('/public/ranking/apresentadoras', params)
+}
+
 export function getMasterDashboard(period: Period) {
   return apiGet<JsonRecord>('/master/dashboard', { periodo: periodToParam(period) })
 }

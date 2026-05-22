@@ -22,7 +22,7 @@ function currentMonth() {
 }
 
 export function DashboardPage() {
-  const query = useQuery({ queryKey: ['home-dashboard'], queryFn: getHomeDashboard, refetchInterval: 30_000 })
+  const query = useQuery({ queryKey: ['home-dashboard'], queryFn: getHomeDashboard, refetchInterval: () => (document.hidden ? false : 30_000), refetchIntervalInBackground: false, staleTime: 15_000 })
   const rankingPublicoQuery = useQuery({ queryKey: ['public-ranking', 'home'], queryFn: () => getPublicRanking({ limit: 5 }) })
   const rankingApresentadorasQuery = useQuery({
     queryKey: ['ranking-apresentadoras', currentMonth(), 'home'],

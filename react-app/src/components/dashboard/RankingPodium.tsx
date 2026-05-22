@@ -69,7 +69,7 @@ function PodiumCard({ item, place, subject, valueKey, valueLabel, metaKey, metaL
     <div className={`relative flex flex-col items-center pt-[18px] text-center ${podShift}`}>
       {place === 1 ? <div className="absolute -top-6 text-[28px] drop-shadow-[0_2px_8px_rgba(232,93,44,0.6)] animate-bounce">👑</div> : null}
       <div className={`${avSize} ${avColor} ${avRing} relative grid place-items-center rounded-2xl border-[3px] border-surface text-white font-bold tracking-wide overflow-hidden`}>
-        {img ? <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover" /> : null}
+        {img ? <img src={img} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" /> : null}
         {!img ? initials(name) : null}
       </div>
       <div className="mt-[-12px] mb-1 text-[22px] drop-shadow-sm">{medal}</div>

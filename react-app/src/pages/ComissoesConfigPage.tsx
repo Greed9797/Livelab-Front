@@ -54,6 +54,7 @@ export function ComissoesConfigPage() {
       queryKey: ['apresentadora-faixas', asString(ap.id)],
       queryFn: () => getApresentadoraFaixasComissao(asString(ap.id)),
       enabled: tab === 'faixa' && Boolean(asString(ap.id)),
+      staleTime: 60_000,
     })),
   })
 

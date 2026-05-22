@@ -84,7 +84,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   const client = useQueryClient()
   const explicitCabineId = params.get('cabine') ?? ''
   const explicitLiveId = params.get('live') ?? ''
-  const query = useQuery({ queryKey: ['cabines'], queryFn: getCabines, refetchInterval: 20_000 })
+  const query = useQuery({ queryKey: ['cabines'], queryFn: getCabines, refetchInterval: () => (document.hidden ? false : 30_000), refetchIntervalInBackground: false, staleTime: 15_000 })
   const clientesQuery = useQuery({ queryKey: ['clientes', 'live-start'], queryFn: getClientes, enabled: canWriteLive && readClientesForLiveRoles.has(user?.papel ?? '') })
   const marcasQuery = useQuery({ queryKey: ['marcas', 'live-start'], queryFn: () => getMarcas({ status: 'ativa' }), enabled: canWriteLive })
   const apresentadorasQuery = useQuery({ queryKey: ['apresentadoras', 'live-start'], queryFn: getApresentadoras, enabled: canWriteLive })
@@ -100,7 +100,8 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     queryKey: ['live-tiktok-status', liveAtualId],
     queryFn: () => getLiveTiktokStatus(liveAtualId),
     enabled: Boolean(liveAtualId),
-    refetchInterval: liveAtualId ? 20_000 : false,
+    refetchInterval: () => (liveAtualId && !document.hidden ? 20_000 : false),
+    refetchIntervalInBackground: false,
   })
   function invalidateOperational() {
     ;[
@@ -370,7 +371,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                   <div className="flex items-center gap-3">
                     <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-soft text-brand shadow-sm">
                       {brandLogo ? (
-                        <img src={brandLogo} alt="" className="h-11 w-11 rounded-xl object-cover" />
+                        <img src={brandLogo} alt="" loading="lazy" decoding="async" className="h-11 w-11 rounded-xl object-cover" />
                       ) : (
                         <Presentation className="h-5 w-5" />
                       )}

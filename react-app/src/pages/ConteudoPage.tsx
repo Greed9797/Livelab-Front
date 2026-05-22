@@ -15,7 +15,7 @@ import { RegistrarMetricasLiveModal, type RegistrarMetricasLiveMode } from '../c
 import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
-import { getAgendaEventLayout, publicationStatusLabel } from './conteudo-helpers'
+import { assignAgendaLanes, getAgendaEventLayout, publicationStatusLabel } from './conteudo-helpers'
 import {
   createAgendaEvento,
   createVideo,
@@ -456,7 +456,11 @@ export function ConteudoPage() {
                         ))}
                       </div>
                       {activeCabines.map((cabine) => {
-                        const events = agendaRows.filter((event) => asString(event.cabine_id) === cabine.id && eventIntersectsLocalDate(event, agendaDate))
+                        const rawEvents = agendaRows.filter((event) => asString(event.cabine_id) === cabine.id && eventIntersectsLocalDate(event, agendaDate))
+                        // Dedup defensivo por id (backend pode mandar duplicata)
+                        const events = Array.from(new Map(rawEvents.map((e) => [asString(e.id), e])).values())
+                        // Lane assignment: eventos concorrentes ficam lado a lado
+                        const lanes = assignAgendaLanes(events)
                         return (
                           <div key={cabine.id} className="relative border-r border-line">
                             {hours.map((hour, index) => (
@@ -465,13 +469,16 @@ export function ConteudoPage() {
                             {events.map((event) => {
                               const layout = getAgendaEventLayout(event, { startHour: hours[0], endHour: hours[hours.length - 1] + 1, rowHeight: 72 })
                               const canRegister = isPastRegisterable(event)
+                              const lane = lanes.get(asString(event.id)) ?? { index: 0, total: 1 }
+                              const widthPct = 100 / lane.total
+                              const leftPct = widthPct * lane.index
                               return (
                                 <div
                                   role="button"
                                   tabIndex={0}
                                   key={asString(event.id)}
-                                  className="absolute left-2 right-2 overflow-hidden rounded-xl border border-brand/35 bg-brand-soft p-2 text-left text-xs shadow-sm transition hover:border-brand"
-                                  style={{ top: `${layout.top + 4}px`, height: `${Math.max(44, layout.height - 8)}px` }}
+                                  className="absolute overflow-hidden rounded-xl border border-brand/35 bg-brand-soft p-2 text-left text-xs shadow-sm transition hover:border-brand"
+                                  style={{ top: `${layout.top + 4}px`, height: `${Math.max(44, layout.height - 8)}px`, left: `calc(${leftPct}% + 4px)`, width: `calc(${widthPct}% - 8px)` }}
                                   onClick={() => openEditAgendaModal(event)}
                                   onKeyDown={(keyEvent) => {
                                     if (keyEvent.key === 'Enter' || keyEvent.key === ' ') openEditAgendaModal(event)
@@ -481,7 +488,7 @@ export function ConteudoPage() {
                                   <div className="mt-1 flex items-center gap-2">
                                     {(() => {
                                       const img = getBrandImage({ logo_url: event.marca_logo_url, site: event.marca_site })
-                                      return img ? <img src={img} alt="" className="h-5 w-5 rounded object-cover" /> : null
+                                      return img ? <img src={img} alt="" loading="lazy" decoding="async" className="h-5 w-5 rounded object-cover" /> : null
                                     })()}
                                     <p className="truncate text-ink">{asString(event.marca_nome ?? event.cliente_nome ?? event.observacoes, 'Bloqueio')}</p>
                                   </div>

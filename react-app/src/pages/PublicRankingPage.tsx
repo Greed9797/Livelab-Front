@@ -1,22 +1,30 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { RankingPodium } from '../components/dashboard/RankingPodium'
-import { getPublicRanking } from '../services/domain'
+import { getPublicRanking, getPublicRankingApresentadoras } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asNumber, asString, formatMoney, formatPercent } from '../utils/format'
+import { asArray, asNumber, asString, formatMoney, formatPercent } from '../utils/format'
 import type { JsonRecord } from '../types/models'
 
 export function PublicRankingPage() {
+  const [params] = useSearchParams()
+  const unidadeId = params.get('unidade') ?? ''
   const query = useQuery({ queryKey: ['public-ranking'], queryFn: () => getPublicRanking() })
+  const apresentadorasQuery = useQuery({
+    queryKey: ['public-ranking-apresentadoras', unidadeId],
+    queryFn: () => getPublicRankingApresentadoras({ tenant: unidadeId }),
+    enabled: Boolean(unidadeId),
+  })
 
   if (query.isLoading) return <LoadingState label="Carregando ranking" />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
   const ranking = query.data ?? []
   const leader = ranking[0]
+  const apresentadoras = asArray<JsonRecord>(apresentadorasQuery.data?.apresentadoras)
 
   return (
     <main className="min-h-screen bg-canvas px-4 py-6 text-ink md:px-8">
@@ -64,6 +72,31 @@ export function PublicRankingPage() {
             />
           </CardBody>
         </Card>
+
+        {unidadeId ? (
+          <Card>
+            <CardHeader>
+              <p className="text-base font-bold text-ink">Ranking de apresentadoras{apresentadorasQuery.data?.unidade ? ` · ${asString(apresentadorasQuery.data.unidade)}` : ''}</p>
+              <p className="mt-1 text-xs text-ink-muted">Top apresentadoras da unidade no mês.</p>
+            </CardHeader>
+            <CardBody>
+              {apresentadorasQuery.isLoading ? (
+                <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Carregando…</p>
+              ) : apresentadorasQuery.isError ? (
+                <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Ranking de apresentadoras indisponível para esta unidade.</p>
+              ) : (
+                <RankingPodium
+                  data={apresentadoras}
+                  subject="apresentadora"
+                  valueKey="total_recebido"
+                  valueLabel="Total recebido"
+                  metaKey="lives"
+                  metaLabel="Lives"
+                />
+              )}
+            </CardBody>
+          </Card>
+        ) : null}
       </div>
     </main>
   )

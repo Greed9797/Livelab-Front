@@ -18,6 +18,49 @@ function localMinutes(value: unknown) {
   return date.getHours() * 60 + date.getMinutes()
 }
 
+/**
+ * Atribui "lanes" (colunas lado a lado) para eventos concorrentes da mesma cabine.
+ * Eventos que se sobrepõem no tempo recebem index distinto e compartilham o total
+ * de lanes do grupo, evitando empilhamento visual.
+ */
+export function assignAgendaLanes(events: JsonRecord[]): Map<string, { index: number; total: number }> {
+  const result = new Map<string, { index: number; total: number }>()
+  const items = events
+    .map((e) => ({
+      id: asString(e.id),
+      start: localMinutes(e.data_inicio) ?? 0,
+      end: localMinutes(e.data_fim) ?? (localMinutes(e.data_inicio) ?? 0) + 60,
+    }))
+    .sort((a, b) => a.start - b.start || a.end - b.end)
+
+  // Agrupa eventos que se sobrepõem em cadeia (cluster).
+  let cluster: typeof items = []
+  let clusterEnd = -Infinity
+  const flush = () => {
+    if (cluster.length === 0) return
+    // Aloca lanes gananciosamente dentro do cluster.
+    const laneEnds: number[] = []
+    const laneOf = new Map<string, number>()
+    for (const it of cluster) {
+      let lane = laneEnds.findIndex((end) => end <= it.start)
+      if (lane === -1) { lane = laneEnds.length; laneEnds.push(it.end) }
+      else laneEnds[lane] = it.end
+      laneOf.set(it.id, lane)
+    }
+    const total = laneEnds.length
+    for (const it of cluster) result.set(it.id, { index: laneOf.get(it.id) ?? 0, total })
+    cluster = []
+    clusterEnd = -Infinity
+  }
+  for (const it of items) {
+    if (cluster.length > 0 && it.start >= clusterEnd) flush()
+    cluster.push(it)
+    clusterEnd = Math.max(clusterEnd, it.end)
+  }
+  flush()
+  return result
+}
+
 export function getAgendaEventLayout(
   event: JsonRecord,
   config: { startHour: number; endHour: number; rowHeight: number },

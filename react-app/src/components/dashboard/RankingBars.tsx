@@ -26,7 +26,7 @@ export function RankingBars({ data, valueKey = 'gmv_total', nameKey = 'nome', im
           <div key={asString(row.id ?? row.marca_id ?? row.apresentadora_id, String(idx))} className="grid grid-cols-[22px_28px_1fr_auto] items-center gap-3">
             <span className="num text-xs font-bold text-ink-muted">#{idx + 1}</span>
             {img ? (
-              <img src={img} alt="" className="h-7 w-7 rounded-md object-cover" />
+              <img src={img} alt="" loading="lazy" decoding="async" className="h-7 w-7 rounded-md object-cover" />
             ) : (
               <span className="grid h-7 w-7 place-items-center rounded-md bg-brand-soft text-[10px] font-bold text-brand">
                 {name.slice(0, 2).toUpperCase()}

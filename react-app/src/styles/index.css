@@ -189,14 +189,47 @@ button:disabled {
   border: 1px solid transparent;
   border-radius: 12px;
   color: var(--text-primary);
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--primary);
   outline: none;
   transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.design-input::placeholder {
+  color: var(--text-muted);
+  -webkit-text-fill-color: var(--text-muted);
+  opacity: 1;
 }
 
 .design-input:focus {
   background: var(--bg-elev-1);
   border-color: var(--primary);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+/* Autofill (iOS/Android Safari + Chrome) força cor própria e deixava texto invisível.
+   Cobre tanto .design-input quanto inputs internos (ex: campo de senha que usa
+   bg-transparent dentro de um wrapper .design-input). */
+.design-input:-webkit-autofill,
+.design-input:-webkit-autofill:hover,
+.design-input:-webkit-autofill:focus,
+.design-input:-webkit-autofill:active,
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Garante texto visível em qualquer input/textarea (mobile webkit às vezes
+   zera a cor herdada). */
+input,
+textarea {
+  -webkit-text-fill-color: currentColor;
+  caret-color: var(--primary);
 }
 
 .design-soft-grid {
