@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { MoneyInput } from '../ui/MoneyInput'
+import { PresenterSelect } from './PresenterSelect'
 import { extractErrorMessage } from '../../services/api'
 import {
   getApresentadoras,
@@ -124,7 +125,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
   const cabineOptions = useMemo(() => toLookupOptions(asArray(cabinesQuery.data) as JsonRecord[], 'numero'), [cabinesQuery.data])
   const clienteOptions = useMemo(() => toLookupOptions(asArray(clientesQuery.data) as JsonRecord[]), [clientesQuery.data])
   const marcaOptions = useMemo(() => toLookupOptions(asArray(marcasQuery.data) as JsonRecord[]), [marcasQuery.data])
-  const apresentadoraOptions = useMemo(() => toLookupOptions(asArray(apresentadorasQuery.data) as JsonRecord[]), [apresentadorasQuery.data])
+  const apresentadoraRows = useMemo(() => asArray<JsonRecord>(apresentadorasQuery.data), [apresentadorasQuery.data])
 
   useEffect(() => {
     if (!live) {
@@ -135,8 +136,8 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
       cabine_id: asString(live.cabine_id),
       cliente_id: asString(live.cliente_id),
       marca_id: asString(live.marca_id),
-      apresentador_id: asString(live.apresentador_id ?? live.apresentadora_id),
-      apresentador2_id: asString(live.apresentador2_id ?? live.apresentadora2_id),
+      apresentador_id: asString(live.apresentadora_id ?? live.apresentador_id),
+      apresentador2_id: asString(live.apresentadora2_id ?? live.apresentador2_id),
       gestor_id: asString(live.gestor_id),
       agenda_evento_id: asString(live.agenda_evento_id),
       tiktok_username: asString(live.tiktok_username),
@@ -211,8 +212,8 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
     setIfChanged('cabine_id', form.cabine_id, live.cabine_id)
     setIfChanged('cliente_id', form.cliente_id, live.cliente_id)
     setIfChanged('marca_id', form.marca_id, live.marca_id)
-    setIfChanged('apresentador_id', form.apresentador_id, live.apresentador_id ?? live.apresentadora_id)
-    setIfChanged('apresentador2_id', form.apresentador2_id, live.apresentador2_id)
+    setIfChanged('apresentador_id', form.apresentador_id, live.apresentadora_id ?? live.apresentador_id)
+    setIfChanged('apresentador2_id', form.apresentador2_id, live.apresentadora2_id ?? live.apresentador2_id)
     setIfChanged('gestor_id', form.gestor_id, live.gestor_id)
     setIfChanged('agenda_evento_id', form.agenda_evento_id, live.agenda_evento_id)
     setIfChanged('tiktok_username', form.tiktok_username, live.tiktok_username)
@@ -287,20 +288,20 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
                 {marcaOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </label>
-            <label className="block">
-              <span className="text-xs text-ink-muted">Apresentadora principal</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={form.apresentador_id} onChange={(e) => setField('apresentador_id', e.target.value)}>
-                <option value="">—</option>
-                {apresentadoraOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-xs text-ink-muted">Apresentadora 2</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={form.apresentador2_id} onChange={(e) => setField('apresentador2_id', e.target.value)}>
-                <option value="">—</option>
-                {apresentadoraOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </label>
+            <PresenterSelect
+              rows={apresentadoraRows}
+              label="Apresentadora principal"
+              value={form.apresentador_id}
+              onChange={(value) => setField('apresentador_id', value)}
+              placeholder="Sem apresentadora definida"
+            />
+            <PresenterSelect
+              rows={apresentadoraRows}
+              label="Apresentadora 2"
+              value={form.apresentador2_id}
+              onChange={(value) => setField('apresentador2_id', value)}
+              placeholder="Sem segunda apresentadora"
+            />
             <label className="block">
               <span className="text-xs text-ink-muted">Status</span>
               <select className="design-input mt-1 h-11 w-full px-3" value={form.status} onChange={(e) => setField('status', e.target.value)}>

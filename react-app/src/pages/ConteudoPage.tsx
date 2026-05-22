@@ -13,6 +13,7 @@ import { MoneyInput } from '../components/ui/MoneyInput'
 import { AgendarLiveModal, type AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
 import { RegistrarMetricasLiveModal, type RegistrarMetricasLiveMode } from '../components/forms/RegistrarMetricasLiveModal'
 import { EditarLiveModal } from '../components/forms/EditarLiveModal'
+import { PresenterSelect } from '../components/forms/PresenterSelect'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
 import { assignAgendaLanes, getAgendaEventLayout, publicationStatusLabel } from './conteudo-helpers'
@@ -719,13 +720,12 @@ export function ConteudoPage() {
                   {marcaRows.map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome)}</option>)}
                 </select>
               </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-ink">Apresentadora</span>
-                <select className="design-input mt-2 h-11 w-full px-4" value={videoForm.apresentadora_id} onChange={(event) => setVideoField('apresentadora_id', event.target.value)}>
-                  <option value="">Opcional</option>
-                  {apresentadoraRows.map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome)}</option>)}
-                </select>
-              </label>
+              <PresenterSelect
+                rows={apresentadoraRows}
+                value={videoForm.apresentadora_id}
+                onChange={(value) => setVideoField('apresentadora_id', value)}
+                placeholder="Sem apresentadora definida"
+              />
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Data da gravação</span>
                 <input className="design-input mt-2 h-11 w-full px-4" type="date" value={videoForm.data} onChange={(event) => setVideoField('data', event.target.value)} required />

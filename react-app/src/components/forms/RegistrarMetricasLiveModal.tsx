@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { MoneyInput } from '../ui/MoneyInput'
+import { PresenterSelect } from './PresenterSelect'
 import { extractErrorMessage } from '../../services/api'
 import { asString } from '../../utils/format'
 import { formatBRLWithoutSymbol } from '../../utils/money'
@@ -274,13 +275,12 @@ export function RegistrarMetricasLiveModal({
             {accountOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
-        <label className="block">
-          <span className="text-sm font-semibold text-ink">Apresentadora</span>
-          <select className="design-input mt-2 h-11 w-full px-4" value={form.apresentador_id} onChange={(event) => setField('apresentador_id', event.target.value)}>
-            <option value="">Opcional</option>
-            {apresentadoras.map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome ?? item.email)}</option>)}
-          </select>
-        </label>
+        <PresenterSelect
+          rows={apresentadoras}
+          value={form.apresentador_id}
+          onChange={(value) => setField('apresentador_id', value)}
+          placeholder="Sem apresentadora definida"
+        />
         <label className="block">
           <span className="text-sm font-semibold text-ink">Data</span>
           <input className="design-input mt-2 h-11 w-full px-3" type="date" value={form.data} onChange={(event) => setField('data', event.target.value)} required />

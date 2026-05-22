@@ -10,6 +10,7 @@ import { Modal } from '../components/ui/Modal'
 import { MoneyInput } from '../components/ui/MoneyInput'
 import { asNumber, asString, formatMoney } from '../utils/format'
 import { parseBRMoneyToDecimal } from '../utils/money'
+import { isPresenterRole, presenterProfileId, toPresenterOptions } from '../utils/presenters'
 import { extractErrorMessage } from '../services/api'
 import {
   createApresentadoraFaixaComissao,
@@ -40,7 +41,7 @@ const papeis = [
 const papelLabels: Record<string, string> = {
   gerente: 'Gerente',
   operacional: 'Operacional',
-  apresentador: 'Apresentador',
+  apresentador: 'Apresentadora',
   cliente_parceiro: 'Cliente parceiro',
 }
 
@@ -50,6 +51,9 @@ const emptyForm = {
   papel: 'gerente',
   cliente_id: '',
   apresentadora_id: '',
+  fixo: '',
+  comissao_pct: '',
+  meta_diaria_gmv: '',
   senha_temporaria: '',
 }
 
@@ -60,10 +64,6 @@ const emptyEditForm = {
   fixo: '',
   comissao_pct: '',
   meta_diaria_gmv: '',
-}
-
-function isPresenterPapel(papel: string): boolean {
-  return papel === 'apresentador' || papel === 'apresentadora'
 }
 
 const emptyFaixaForm = {
@@ -80,8 +80,8 @@ function isPresenterProfile(item: JsonRecord | null | undefined) {
   return asString(item?.origem_perfil) === 'apresentadora'
 }
 
-function presenterProfileId(item: JsonRecord) {
-  return asString(item.apresentadora_id ?? item.id, '').replace(/^apresentadora:/, '')
+function isPresenterUser(item: JsonRecord | null | undefined) {
+  return isPresenterRole(item?.papel) || item?.pode_apresentar_live === true
 }
 
 export function SettingsUsuariosPanel() {
@@ -101,11 +101,16 @@ export function SettingsUsuariosPanel() {
   })
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
   const apresentadoras = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
+  const presenterProfileOptions = useMemo(
+    () => toPresenterOptions((apresentadoras.data ?? []).filter((item) => !asString(item.user_id, ''))),
+    [apresentadoras.data],
+  )
   const editingPresenterId = editingUser ? presenterProfileId(editingUser) : ''
+  const editingHasPresenterProfile = Boolean(editingUser && (isPresenterProfile(editingUser) || isPresenterUser(editingUser)))
   const faixasQuery = useQuery({
     queryKey: ['apresentadora-faixas-comissao', editingPresenterId],
     queryFn: () => getApresentadoraFaixasComissao(editingPresenterId),
-    enabled: Boolean(editingPresenterId) && (isPresenterProfile(editingUser) || asString(editingUser?.apresentadora_id, '') !== ''),
+    enabled: Boolean(editingPresenterId) && editingHasPresenterProfile,
   })
 
   const inviteMutation = useMutation({
@@ -170,6 +175,8 @@ export function SettingsUsuariosPanel() {
     onSuccess: () => {
       setFaixaForm(emptyFaixaForm)
       void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] })
+      void client.invalidateQueries({ queryKey: ['usuarios'] })
+      void client.invalidateQueries({ queryKey: ['apresentadoras'] })
     },
   })
   const updateFaixaMutation = useMutation({
@@ -179,6 +186,44 @@ export function SettingsUsuariosPanel() {
   const deleteFaixaMutation = useMutation({
     mutationFn: ({ apresentadoraId, faixaId }: { apresentadoraId: string; faixaId: string }) => deleteApresentadoraFaixaComissao(apresentadoraId, faixaId),
     onSuccess: () => void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] }),
+  })
+  const editMutation = useMutation({
+    mutationFn: async ({ user, form }: { user: JsonRecord; form: typeof emptyEditForm }) => {
+      const presenterIdResolved = presenterProfileId(user)
+      const presenterPapel = isPresenterUser(user) || isPresenterRole(form.papel) || isPresenterProfile(user)
+      const presenterPayload: JsonRecord = {}
+
+      if (presenterPapel) {
+        presenterPayload.nome = form.nome
+        presenterPayload.ativo = form.ativo
+        if (form.fixo !== '') presenterPayload.fixo = asNumber(form.fixo)
+        if (form.comissao_pct !== '') presenterPayload.comissao_pct = asNumber(form.comissao_pct)
+        if (form.meta_diaria_gmv !== '') presenterPayload.meta_diaria_gmv = asNumber(form.meta_diaria_gmv)
+      }
+
+      if (isPresenterProfile(user)) {
+        return updateApresentadora(presenterIdResolved, presenterPayload)
+      }
+
+      const updatedUser = await updateUsuario(asString(user.id, ''), {
+        nome: form.nome,
+        papel: form.papel,
+        ativo: form.ativo,
+      })
+
+      if (presenterPapel && presenterIdResolved && Object.keys(presenterPayload).length > 0) {
+        await updateApresentadora(presenterIdResolved, presenterPayload)
+      }
+
+      return updatedUser
+    },
+    onSuccess: () => {
+      setEditingUser(null)
+      setEditForm(emptyEditForm)
+      void client.invalidateQueries({ queryKey: ['usuarios'] })
+      void client.invalidateQueries({ queryKey: ['apresentadoras'] })
+      void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] })
+    },
   })
 
   const rows = useMemo(() => {
@@ -218,6 +263,7 @@ export function SettingsUsuariosPanel() {
   }
 
   function openEditUser(item: JsonRecord) {
+    editMutation.reset()
     setEditingUser(item)
     setEditForm({
       nome: asString(item.nome, ''),
@@ -240,7 +286,10 @@ export function SettingsUsuariosPanel() {
       email: form.email,
       papel: form.papel,
       ...(form.papel === 'cliente_parceiro' ? { cliente_id: form.cliente_id } : {}),
-      ...(form.papel === 'apresentador' && form.apresentadora_id ? { apresentadora_id: form.apresentadora_id } : {}),
+      ...(isPresenterRole(form.papel) && form.apresentadora_id ? { apresentadora_id: form.apresentadora_id } : {}),
+      ...(isPresenterRole(form.papel) && form.fixo !== '' ? { fixo: parseBRMoneyToDecimal(form.fixo) } : {}),
+      ...(isPresenterRole(form.papel) && form.comissao_pct !== '' ? { comissao_pct: Number(form.comissao_pct || 0) } : {}),
+      ...(isPresenterRole(form.papel) && form.meta_diaria_gmv !== '' ? { meta_diaria_gmv: parseBRMoneyToDecimal(form.meta_diaria_gmv) } : {}),
       ...(form.senha_temporaria ? { senha_temporaria: form.senha_temporaria } : {}),
     })
   }
@@ -248,40 +297,7 @@ export function SettingsUsuariosPanel() {
   function onEditSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!editingUser) return
-    const presenterIdResolved = presenterProfileId(editingUser)
-    const presenterPapel = isPresenterPapel(asString(editingUser.papel)) || isPresenterPapel(editForm.papel) || isPresenterProfile(editingUser)
-    const presenterPayload: JsonRecord = {}
-    if (presenterPapel) {
-      presenterPayload.nome = editForm.nome
-      presenterPayload.ativo = editForm.ativo
-      if (editForm.fixo !== '') presenterPayload.fixo = asNumber(editForm.fixo)
-      if (editForm.comissao_pct !== '') presenterPayload.comissao_pct = asNumber(editForm.comissao_pct)
-      if (editForm.meta_diaria_gmv !== '') presenterPayload.meta_diaria_gmv = asNumber(editForm.meta_diaria_gmv)
-    }
-
-    if (isPresenterProfile(editingUser)) {
-      updatePresenterMutation.mutate({
-        id: presenterIdResolved,
-        payload: presenterPayload,
-      })
-      return
-    }
-
-    updateMutation.mutate({
-      id: asString(editingUser.id, ''),
-      payload: {
-        nome: editForm.nome,
-        papel: editForm.papel,
-        ativo: editForm.ativo,
-      },
-    })
-
-    if (presenterPapel && presenterIdResolved && Object.keys(presenterPayload).length > 0) {
-      updatePresenterMutation.mutate({
-        id: presenterIdResolved,
-        payload: presenterPayload,
-      })
-    }
+    editMutation.mutate({ user: editingUser, form: editForm })
   }
 
   function onDeleteUser(item: JsonRecord) {
@@ -330,20 +346,38 @@ export function SettingsUsuariosPanel() {
                 {papeis.map((papel) => <option key={papel} value={papel}>{papelLabels[papel] ?? papel}</option>)}
               </select>
             </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">Cliente vinculado</span>
-              <select className="design-input mt-2 h-11 w-full px-4" value={form.cliente_id} onChange={(event) => setField('cliente_id', event.target.value)} required={form.papel === 'cliente_parceiro'}>
-                <option value="">Selecionar</option>
-                {(clientes.data ?? []).map((cliente) => <option key={asString(cliente.id, '')} value={asString(cliente.id, '')}>{asString(cliente.nome)}</option>)}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">Perfil de apresentador</span>
-              <select className="design-input mt-2 h-11 w-full px-4" value={form.apresentadora_id} onChange={(event) => setField('apresentadora_id', event.target.value)}>
-                <option value="">Opcional</option>
-                {(apresentadoras.data ?? []).map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome)}</option>)}
-              </select>
-            </label>
+            {form.papel === 'cliente_parceiro' ? (
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Cliente vinculado</span>
+                <select className="design-input mt-2 h-11 w-full px-4" value={form.cliente_id} onChange={(event) => setField('cliente_id', event.target.value)} required>
+                  <option value="">Selecionar cliente</option>
+                  {(clientes.data ?? []).map((cliente) => <option key={asString(cliente.id, '')} value={asString(cliente.id, '')}>{asString(cliente.nome)}</option>)}
+                </select>
+              </label>
+            ) : null}
+            {isPresenterRole(form.papel) ? (
+              <>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Perfil operacional</span>
+                  <select className="design-input mt-2 h-11 w-full px-4" value={form.apresentadora_id} onChange={(event) => setField('apresentadora_id', event.target.value)}>
+                    <option value="">Criar perfil novo</option>
+                    {presenterProfileOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
+                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.fixo} onChange={(raw) => setField('fixo', raw)} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Comissão (%)</span>
+                  <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={form.comissao_pct} onChange={(event) => setField('comissao_pct', event.target.value)} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Meta diária de GMV (R$)</span>
+                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.meta_diaria_gmv} onChange={(raw) => setField('meta_diaria_gmv', raw)} />
+                </label>
+              </>
+            ) : null}
             <label className="block">
               <span className="text-sm font-semibold text-ink">Senha temporária</span>
               <input className="design-input mt-2 h-11 w-full px-4" value={form.senha_temporaria} onChange={(event) => setField('senha_temporaria', event.target.value)} placeholder="Opcional" />
@@ -472,7 +506,7 @@ export function SettingsUsuariosPanel() {
               <option value="false">Inativo</option>
             </select>
           </label>
-          {(isPresenterPapel(editForm.papel) || isPresenterProfile(editingUser)) ? (
+          {(isPresenterRole(editForm.papel) || isPresenterProfile(editingUser)) ? (
             <>
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
@@ -488,7 +522,7 @@ export function SettingsUsuariosPanel() {
               </label>
             </>
           ) : null}
-          {editingPresenterId ? (
+          {editingPresenterId && editingHasPresenterProfile ? (
             <div className="space-y-4 rounded-2xl border border-line bg-surface-muted p-4 md:col-span-2">
               <div>
                 <p className="text-sm font-bold text-ink">Escada de comissão</p>
@@ -545,9 +579,9 @@ export function SettingsUsuariosPanel() {
               ) : null}
             </div>
           ) : null}
-          {updateMutation.isError || updatePresenterMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(updateMutation.error ?? updatePresenterMutation.error)}</p> : null}
+          {editMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(editMutation.error)}</p> : null}
           <div className="flex flex-wrap gap-2 md:col-span-2">
-            <Button type="submit" icon={CheckCircle2} isLoading={updateMutation.isPending || updatePresenterMutation.isPending}>Salvar usuário</Button>
+            <Button type="submit" icon={CheckCircle2} isLoading={editMutation.isPending}>Salvar usuário</Button>
             {editingUser ? <Button type="button" variant="danger" icon={Trash2} isLoading={deleteMutation.isPending || deletePresenterMutation.isPending} onClick={() => onDeleteUser(editingUser)}>Excluir</Button> : null}
             <Button type="button" variant="secondary" onClick={() => setEditingUser(null)}>Cancelar</Button>
           </div>

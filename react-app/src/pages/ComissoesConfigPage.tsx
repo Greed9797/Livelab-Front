@@ -94,7 +94,7 @@ export function ComissoesConfigPage() {
         <Card>
           <CardHeader>
             <p className="text-base font-bold text-ink">Vínculos apresentadora × marca</p>
-            <p className="mt-1 text-xs text-ink-muted">% live e % vídeo definidos em <Link className="text-brand underline" to="/configuracoes?tab=marcas">Configurações → Marcas</Link>.</p>
+            <p className="mt-1 text-xs text-ink-muted">% live e % vídeo definidos no cadastro de clientes e marcas em <Link className="text-brand underline" to="/comercial">Comercial</Link>.</p>
           </CardHeader>
           <CardBody className="p-0">
             <div className="overflow-x-auto">
@@ -145,7 +145,7 @@ export function ComissoesConfigPage() {
         <Card>
           <CardHeader>
             <p className="text-base font-bold text-ink">Faixas de comissão por GMV</p>
-            <p className="mt-1 text-xs text-ink-muted">Sem faixa → comissão variável fica 0. Edite em <Link className="text-brand underline" to="/configuracoes?tab=usuarios">Configurações → Usuários/Apresentadoras</Link>.</p>
+            <p className="mt-1 text-xs text-ink-muted">Sem faixa → comissão variável fica 0. Edite em <Link className="text-brand underline" to="/configuracoes?tab=usuarios">Configurações → Usuários</Link>.</p>
           </CardHeader>
           <CardBody className="p-0">
             <div className="overflow-x-auto">

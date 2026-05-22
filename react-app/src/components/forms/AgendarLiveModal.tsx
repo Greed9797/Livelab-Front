@@ -2,6 +2,7 @@ import { CheckCircle2, PlayCircle, Plus, Trash2 } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { PresenterSelect } from './PresenterSelect'
 import { extractErrorMessage } from '../../services/api'
 import { getAgendaConflitos } from '../../services/domain'
 import { asNumber, asString } from '../../utils/format'
@@ -184,7 +185,6 @@ export function AgendarLiveModal({
   const [form, setForm] = useState<AgendaForm>(emptyForm)
   const [accountLookup, setAccountLookup] = useState('')
   const [cabineLookup, setCabineLookup] = useState('')
-  const [apresentadoraLookup, setApresentadoraLookup] = useState('')
   const [availability, setAvailability] = useState<AvailabilityState>({ status: 'idle', message: '' })
 
   const clientesComMarca = useMemo(() => new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean)), [marcas])
@@ -204,11 +204,6 @@ export function AgendarLiveModal({
     value: asString(cabine.id, ''),
     label: `Cabine ${asString(cabine.numero, '')}`,
   })).filter((option) => option.value), [cabines])
-  const apresentadoraOptions = useMemo<LookupOption[]>(() => apresentadoras.map((item) => ({
-    value: asString(item.id, ''),
-    label: asString(item.nome ?? item.email, 'Apresentadora'),
-  })).filter((option) => option.value), [apresentadoras])
-
   const editingEventId = mode === 'edit' ? asString(event?.id, '') : ''
 
   useEffect(() => {
@@ -239,7 +234,6 @@ export function AgendarLiveModal({
       setForm(nextForm)
       setAccountLookup(optionLabel(accountOptions, nextForm.marca_id ? `marca:${nextForm.marca_id}` : nextForm.cliente_id ? `cliente:${nextForm.cliente_id}` : ''))
       setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
-      setApresentadoraLookup(optionLabel(apresentadoraOptions, nextForm.apresentadora_id))
       return
     }
 
@@ -255,8 +249,7 @@ export function AgendarLiveModal({
     setForm(nextForm)
     setAccountLookup('')
     setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
-    setApresentadoraLookup('')
-  }, [accountOptions, apresentadoraOptions, cabineOptions, defaultCabineId, defaultDate, event, marcas, mode, open])
+  }, [accountOptions, cabineOptions, defaultCabineId, defaultDate, event, marcas, mode, open])
 
   useEffect(() => {
     if (!open || (!form.cabine_id && !form.apresentadora_id) || !form.data || !form.hora_inicio || !form.hora_fim) {
@@ -363,13 +356,6 @@ export function AgendarLiveModal({
     const option = findLookupOption(cabineOptions, value)
     if (option) setField('cabine_id', option.value)
     else if (!value.trim()) setField('cabine_id', '')
-  }
-
-  function onApresentadoraLookupChange(value: string) {
-    setApresentadoraLookup(value)
-    const option = findLookupOption(apresentadoraOptions, value)
-    if (option) setField('apresentadora_id', option.value)
-    else if (!value.trim()) setField('apresentadora_id', '')
   }
 
   function onSubmit(submitEvent: FormEvent<HTMLFormElement>) {
@@ -494,20 +480,13 @@ export function AgendarLiveModal({
             </datalist>
           </label>
         ) : null}
-        <label className="block">
-          <span className="text-sm font-semibold text-ink">Apresentadora</span>
-          <input
-            className="design-input mt-2 h-11 w-full px-4"
-            list="agenda-apresentadora-options"
-            value={apresentadoraLookup}
-            onChange={(item) => onApresentadoraLookupChange(item.target.value)}
-            placeholder="Buscar apresentadora"
-            required={mode === 'now'}
-          />
-          <datalist id="agenda-apresentadora-options">
-            {apresentadoraOptions.map((option) => <option key={option.value} value={option.label} />)}
-          </datalist>
-        </label>
+        <PresenterSelect
+          rows={apresentadoras}
+          value={form.apresentadora_id}
+          onChange={(value) => setField('apresentadora_id', value)}
+          required={mode === 'now'}
+          placeholder={mode === 'now' ? 'Selecione uma apresentadora' : 'Sem apresentadora definida'}
+        />
         <div className="grid grid-cols-3 gap-3">
           <label className="block">
             <span className="text-sm font-semibold text-ink">Data</span>

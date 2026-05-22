@@ -11,6 +11,7 @@ import { Modal } from '../components/ui/Modal'
 import { MoneyInput } from '../components/ui/MoneyInput'
 import { AgendarLiveModal } from '../components/forms/AgendarLiveModal'
 import { EditarLiveModal } from '../components/forms/EditarLiveModal'
+import { PresenterSelect } from '../components/forms/PresenterSelect'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
 import { atualizarStatusCabine, deleteCabine, encerrarLive, getApresentadoras, getCabineHistorico, getCabines, getClientes, getLiveTiktokStatus, getMarcas, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -716,22 +717,12 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
               onChange={(event) => setEndField('manual_diamonds', event.target.value)}
             />
           </label>
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">Apresentadora</span>
-            <select
-              className="design-input mt-2 h-11 w-full px-4"
-              value={endForm.apresentadora_id}
-              onChange={(event) => setEndField('apresentadora_id', event.target.value)}
-              required
-            >
-              <option value="">Selecione</option>
-              {(apresentadorasQuery.data ?? []).map((ap) => (
-                <option key={asString(ap.id)} value={asString(ap.id)}>
-                  {asString(ap.nome ?? ap.email, 'Apresentadora')}
-                </option>
-              ))}
-            </select>
-          </label>
+          <PresenterSelect
+            rows={apresentadorasQuery.data ?? []}
+            value={endForm.apresentadora_id}
+            onChange={(value) => setEndField('apresentadora_id', value)}
+            required
+          />
           <label className="block">
             <span className="text-sm font-semibold text-ink">Término real</span>
             <input

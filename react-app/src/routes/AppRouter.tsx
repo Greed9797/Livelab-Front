@@ -14,7 +14,6 @@ import { ClienteDashboardPage } from '../pages/ClienteDashboardPage'
 import { ClienteLivesPage } from '../pages/ClienteLivesPage'
 import { ClienteAgendaPage } from '../pages/ClienteAgendaPage'
 import { ConteudoPage } from '../pages/ConteudoPage'
-import { SolicitacoesPage } from '../pages/SolicitacoesPage'
 import { FinanceiroPage } from '../pages/FinanceiroPage'
 import { ComissoesConfigPage } from '../pages/ComissoesConfigPage'
 import { RankingApresentadorasPage } from '../pages/RankingApresentadorasPage'
@@ -71,8 +70,7 @@ export function AppRouter() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={opsRoles} />}>
-              {/* /solicitacoes mantida apenas para acesso histórico — não é mais fluxo principal */}
-              <Route path="/solicitacoes" element={<SolicitacoesPage />} />
+              <Route path="/solicitacoes" element={<Navigate to="/conteudo?tab=agenda" replace />} />
               <Route path="/apresentadoras" element={<Navigate to="/configuracoes?tab=usuarios" replace />} />
             </Route>
 

@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest'
 describe('AgendarLiveModal source contract', () => {
   const source = readFileSync(new URL('./AgendarLiveModal.tsx', import.meta.url), 'utf8')
 
-  it('offers autocomplete helpers for account, cabine and presenter fields', () => {
+  it('offers lookup helpers for account and cabine and uses the shared presenter selector', () => {
     expect(source).toContain('list="agenda-account-options"')
     expect(source).toContain('list="agenda-cabine-options"')
-    expect(source).toContain('list="agenda-apresentadora-options"')
+    expect(source).toContain('<PresenterSelect')
   })
 
   it('checks backend availability and exposes weekday recurrence selection', () => {

@@ -1,4 +1,4 @@
-import type { Cabine, JsonRecord, Lead, LiveAtual, Period, Solicitacao } from '../types/models'
+import type { Cabine, JsonRecord, Lead, LiveAtual, Period } from '../types/models'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 import { periodToParam } from '../utils/format'
 
@@ -383,28 +383,8 @@ export function encerrarLive(id: string, payload: JsonRecord) {
   return apiPatch(`/lives/${id}/encerrar`, payload)
 }
 
-export function getSolicitacoes(status = 'all') {
-  return apiGet<Solicitacao[]>('/solicitacoes', { status })
-}
-
-export function aprovarSolicitacao(id: string) {
-  return apiPatch(`/solicitacoes/${id}/aprovar`, {})
-}
-
-export function recusarSolicitacao(id: string, motivo?: string) {
-  return apiPatch(`/solicitacoes/${id}/recusar`, { motivo_recusa: motivo })
-}
-
-export function criarSolicitacao(payload: JsonRecord) {
-  return apiPost<JsonRecord>('/solicitacoes', payload)
-}
-
 export function getApresentadoras() {
   return apiGet<JsonRecord[]>('/apresentadoras')
-}
-
-export function createApresentadora(payload: JsonRecord) {
-  return apiPost<JsonRecord>('/apresentadoras', payload)
 }
 
 export function updateApresentadora(id: string, payload: JsonRecord) {
