@@ -133,14 +133,14 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
       return
     }
     setForm({
-      cabine_id: asString(live.cabine_id),
-      cliente_id: asString(live.cliente_id),
-      marca_id: asString(live.marca_id),
-      apresentador_id: asString(live.apresentadora_id ?? live.apresentador_id),
-      apresentador2_id: asString(live.apresentadora2_id ?? live.apresentador2_id),
-      gestor_id: asString(live.gestor_id),
-      agenda_evento_id: asString(live.agenda_evento_id),
-      tiktok_username: asString(live.tiktok_username),
+      cabine_id: asString(live.cabine_id, ''),
+      cliente_id: asString(live.cliente_id, ''),
+      marca_id: asString(live.marca_id, ''),
+      apresentador_id: asString(live.apresentadora_id ?? live.apresentador_id, ''),
+      apresentador2_id: asString(live.apresentadora2_id ?? live.apresentador2_id, ''),
+      gestor_id: asString(live.gestor_id, ''),
+      agenda_evento_id: asString(live.agenda_evento_id, ''),
+      tiktok_username: asString(live.tiktok_username, ''),
       status: asString(live.status, 'em_andamento'),
       tipo: asString(live.tipo, 'cliente'),
       status_publicacao: asString(live.status_publicacao, 'rascunho'),
@@ -158,7 +158,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
       manual_comments: asString(live.manual_comments, ''),
       manual_shares: asString(live.manual_shares, ''),
       manual_diamonds: asString(live.manual_diamonds, ''),
-      resumo: asString(live.resumo),
+      resumo: asString(live.resumo, ''),
     })
     setError(null)
   }, [live])
