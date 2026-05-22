@@ -13,6 +13,7 @@ const CHECK_INTERVAL_MS = 5 * 60_000 // 5 min
  */
 export function useVersionCheck(): void {
   const reloadingRef = useRef(false)
+  const etagRef = useRef<string | null>(null)
 
   useEffect(() => {
     const current = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : ''
@@ -20,8 +21,29 @@ export function useVersionCheck(): void {
     async function check() {
       if (reloadingRef.current || document.hidden) return
       try {
-        const res = await fetch(`/version.json?ts=${Date.now()}`, { cache: 'no-store' })
+        const headers: HeadersInit = {}
+        if (etagRef.current) {
+          headers['If-None-Match'] = etagRef.current
+        }
+
+        const res = await fetch(`/version.json?ts=${Date.now()}`, {
+          cache: 'no-store',
+          headers,
+        })
+
+        // 304 Not Modified — versão não mudou, sair
+        if (res.status === 304) {
+          return
+        }
+
         if (!res.ok) return
+
+        // Armazenar novo ETag para próximas chamadas
+        const newEtag = res.headers.get('etag')
+        if (newEtag) {
+          etagRef.current = newEtag
+        }
+
         const data = (await res.json()) as { v?: string }
         const latest = String(data?.v ?? '')
         if (latest && current && latest !== current) {
