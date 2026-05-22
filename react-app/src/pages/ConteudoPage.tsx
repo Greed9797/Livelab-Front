@@ -1,4 +1,4 @@
-import { BarChart3, CalendarClock, CheckCircle2, Edit2, Eye, MonitorPlay, Plus, Presentation, Trash2, Video } from 'lucide-react'
+import { BarChart3, CalendarClock, CheckCircle2, Clock3, Edit2, Eye, MonitorPlay, Plus, Presentation, Trash2, Video } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -47,6 +47,21 @@ import type { JsonRecord } from '../types/models'
 type ConteudoTab = 'agenda' | 'cabines' | 'lives' | 'videos' | 'analytics'
 
 const today = () => new Date().toISOString().slice(0, 10)
+const SP_TIME_ZONE = 'America/Sao_Paulo'
+
+const liveDayKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: SP_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+const liveDayHeadingFormatter = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: SP_TIME_ZONE,
+  weekday: 'long',
+  day: '2-digit',
+  month: 'long',
+})
 
 const emptyVideo = {
   marca_id: '',
@@ -70,7 +85,115 @@ function dayRange(date: string, days: number) {
 function formatTime(value: unknown) {
   const date = typeof value === 'string' ? new Date(value) : null
   if (!date || Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date)
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: SP_TIME_ZONE, hour: '2-digit', minute: '2-digit' }).format(date)
+}
+
+function parseLiveDate(value: unknown): Date | null {
+  if (typeof value !== 'string' || !value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function liveStartDate(live: JsonRecord): Date | null {
+  return parseLiveDate(live.iniciado_em ?? live.agenda_data_inicio)
+}
+
+function liveEndDate(live: JsonRecord): Date | null {
+  return parseLiveDate(live.encerrado_em ?? live.agenda_data_fim ?? live.previsto_fim)
+}
+
+function firstPositiveNumber(...values: unknown[]): number {
+  for (const value of values) {
+    const n = asNumber(value)
+    if (n > 0) return n
+  }
+  return 0
+}
+
+function liveGmv(live: JsonRecord): number {
+  return firstPositiveNumber(live.fat_gerado, live.manual_gmv, live.gmv_atual, live.gmv)
+}
+
+function liveOrders(live: JsonRecord): number {
+  return firstPositiveNumber(live.final_orders_count, live.manual_orders, live.total_orders, live.qtd_pedidos, live.pedidos)
+}
+
+function liveViews(live: JsonRecord): number {
+  return firstPositiveNumber(live.manual_views, live.total_viewers, live.viewer_count, live.final_peak_viewers)
+}
+
+function livePeakViewers(live: JsonRecord): number {
+  return firstPositiveNumber(live.final_peak_viewers, live.viewer_count)
+}
+
+function liveEngagement(live: JsonRecord): number {
+  return firstPositiveNumber(live.final_total_likes, live.manual_likes, live.likes_count)
+    + firstPositiveNumber(live.final_total_comments, live.manual_comments, live.comments_count)
+    + firstPositiveNumber(live.final_total_shares, live.manual_shares, live.shares_count)
+}
+
+function liveDurationMinutes(live: JsonRecord): number {
+  const start = liveStartDate(live)
+  const end = liveEndDate(live)
+  if (!start || !end) return 0
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 60_000))
+}
+
+function formatDuration(minutes: number): string {
+  if (!minutes) return '—'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h <= 0) return `${m}min`
+  if (m === 0) return `${h}h`
+  return `${h}h ${String(m).padStart(2, '0')}min`
+}
+
+function dayKeyFromLive(live: JsonRecord): string {
+  const start = liveStartDate(live)
+  if (!start) return 'sem-data'
+  const parts = liveDayKeyFormatter.formatToParts(start)
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? ''
+  return `${get('year')}-${get('month')}-${get('day')}`
+}
+
+function dayLabelFromKey(key: string): string {
+  if (key === 'sem-data') return 'Sem data'
+  const date = new Date(`${key}T12:00:00`)
+  const label = liveDayHeadingFormatter.format(date)
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+function groupLivesByDay(rows: JsonRecord[]) {
+  const sorted = [...rows].sort((a, b) => (liveStartDate(b)?.getTime() ?? 0) - (liveStartDate(a)?.getTime() ?? 0))
+  const groups = new Map<string, JsonRecord[]>()
+  for (const row of sorted) {
+    const key = dayKeyFromLive(row)
+    groups.set(key, [...(groups.get(key) ?? []), row])
+  }
+
+  return [...groups.entries()].map(([key, items]) => {
+    const starts = items.map(liveStartDate).filter((date): date is Date => Boolean(date)).sort((a, b) => a.getTime() - b.getTime())
+    const ends = items.map(liveEndDate).filter((date): date is Date => Boolean(date)).sort((a, b) => a.getTime() - b.getTime())
+    return {
+      key,
+      label: dayLabelFromKey(key),
+      items,
+      totalGmv: items.reduce((sum, live) => sum + liveGmv(live), 0),
+      totalOrders: items.reduce((sum, live) => sum + liveOrders(live), 0),
+      totalMinutes: items.reduce((sum, live) => sum + liveDurationMinutes(live), 0),
+      firstStart: starts[0] ?? null,
+      lastEnd: ends[ends.length - 1] ?? null,
+    }
+  })
+}
+
+function summarizeLives(rows: JsonRecord[]) {
+  return {
+    totalLives: rows.length,
+    totalGmv: rows.reduce((sum, live) => sum + liveGmv(live), 0),
+    totalOrders: rows.reduce((sum, live) => sum + liveOrders(live), 0),
+    totalMinutes: rows.reduce((sum, live) => sum + liveDurationMinutes(live), 0),
+  }
 }
 
 function buildLiveReport(live: JsonRecord): string {
@@ -91,10 +214,10 @@ function buildLiveReport(live: JsonRecord): string {
     duracao = h > 0 ? `${h}:${String(m).padStart(2, '0')}h` : `${m}min`
   }
 
-  const gmv = formatMoney(live.fat_gerado ?? live.manual_gmv)
-  const pedidos = asNumber(live.final_orders_count ?? live.manual_orders).toLocaleString('pt-BR')
-  const espectadores = compactNumber.format(asNumber(live.total_viewers ?? live.viewer_count))
-  const visualizacoes = compactNumber.format(asNumber(live.manual_views))
+  const gmv = formatMoney(liveGmv(live))
+  const pedidos = liveOrders(live).toLocaleString('pt-BR')
+  const espectadores = compactNumber.format(livePeakViewers(live))
+  const visualizacoes = compactNumber.format(liveViews(live))
 
   const lines = [
     `📊 Relatório de Live${nome ? ` — ${nome}` : ''}`,
@@ -298,6 +421,8 @@ export function ConteudoPage() {
     if (!selectedLiveId) return null
     return rows.find((live) => asString(live.id, '') === selectedLiveId) ?? null
   }, [lives.data, selectedLiveId])
+  const liveGroups = useMemo(() => groupLivesByDay(lives.data ?? []), [lives.data])
+  const liveSummary = useMemo(() => summarizeLives(lives.data ?? []), [lives.data])
 
   useEffect(() => {
     if (!selectedLive || liveModalMode || metricsModalMode) return
@@ -652,30 +777,111 @@ export function ConteudoPage() {
               </div>
             </CardHeader>
             <CardBody>
-              <DataTable<JsonRecord>
-                data={lives.data ?? []}
-                columns={[
-                  { key: 'iniciado_em', header: 'Data', render: (item) => formatDate(asString(item.iniciado_em, '')) },
-                  { key: 'cliente_nome', header: 'Marca/cliente', render: (item) => asString(item.marca_nome ?? item.cliente_nome) },
-                  { key: 'cabine_numero', header: 'Cabine', render: (item) => asString(item.cabine_numero) },
-                  { key: 'apresentador_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome ?? item.apresentador_nome) },
-                  { key: 'fat_gerado', header: 'GMV', align: 'right', render: (item) => formatMoney(item.fat_gerado ?? item.manual_gmv) },
-                  { key: 'final_orders_count', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.final_orders_count ?? item.manual_orders).toLocaleString('pt-BR') },
-                  { key: 'status_publicacao', header: 'Publicação', render: (item) => <Badge tone={statusTone(asString(item.status_publicacao, 'rascunho'))}>{publicationStatusLabel(item.status_publicacao)}</Badge> },
-                  {
-                    key: 'acoes',
-                    header: 'Ações',
-                    align: 'right',
-                    render: (item) => (
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" icon={Eye} onClick={() => openLiveDetail(item)}>Abrir</Button>
-                        <Button variant="secondary" icon={Edit2} onClick={() => openEditLive(item)}>Editar</Button>
-                        <Button variant="danger" icon={Trash2} disabled={deleteLiveMutation.isPending} onClick={() => onDeleteLive(item)}>Excluir</Button>
+              <div className="space-y-5">
+                <div className="grid gap-3 md:grid-cols-4">
+                  {[
+                    ['Lives', liveSummary.totalLives.toLocaleString('pt-BR'), 'registros encerrados'],
+                    ['Horas totais', formatDuration(liveSummary.totalMinutes), 'tempo em live'],
+                    ['GMV total', formatMoney(liveSummary.totalGmv), 'período carregado'],
+                    ['Pedidos', liveSummary.totalOrders.toLocaleString('pt-BR'), 'atribuídos às lives'],
+                  ].map(([label, value, hint]) => (
+                    <div key={label} className="rounded-xl border border-line bg-surface-muted px-4 py-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</p>
+                      <p className="mt-1 text-xl font-extrabold text-ink">{value}</p>
+                      <p className="mt-1 text-xs text-ink-muted">{hint}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {liveGroups.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-muted">Nenhuma live encerrada encontrada.</p>
+                ) : null}
+
+                <div className="space-y-4">
+                  {liveGroups.map((group) => (
+                    <section key={group.key} className="overflow-hidden rounded-2xl border border-line bg-surface">
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface-muted px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-extrabold text-ink">{group.label}</p>
+                          <p className="mt-1 text-xs text-ink-muted">
+                            {group.items.length.toLocaleString('pt-BR')} lives · {formatDuration(group.totalMinutes)} · {group.firstStart ? formatTime(group.firstStart.toISOString()) : '—'} até {group.lastEnd ? formatTime(group.lastEnd.toISOString()) : '—'}
+                          </p>
+                        </div>
+                        <div className="grid w-full grid-cols-3 gap-2 text-right sm:w-auto sm:min-w-[360px]">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">GMV</p>
+                            <p className="num text-sm font-extrabold text-brand">{formatMoney(group.totalGmv)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">Pedidos</p>
+                            <p className="num text-sm font-extrabold text-ink">{group.totalOrders.toLocaleString('pt-BR')}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">Média/h</p>
+                            <p className="num text-sm font-extrabold text-ink">{group.totalMinutes > 0 ? formatMoney(group.totalGmv / (group.totalMinutes / 60)) : '—'}</p>
+                          </div>
+                        </div>
                       </div>
-                    ),
-                  },
-                ]}
-              />
+
+                      <div className="divide-y divide-line">
+                        {group.items.map((item) => {
+                          const duration = liveDurationMinutes(item)
+                          const views = liveViews(item)
+                          const peak = livePeakViewers(item)
+                          const engagement = liveEngagement(item)
+                          return (
+                            <div key={asString(item.id)} className="grid gap-3 px-4 py-4 lg:grid-cols-[140px_1fr_360px_auto] lg:items-center">
+                              <div className="flex items-center gap-3 lg:block">
+                                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand lg:mb-2">
+                                  <Clock3 className="h-4 w-4" />
+                                </span>
+                                <div>
+                                  <p className="num text-sm font-extrabold text-ink">{formatTime(item.iniciado_em)} - {formatTime(item.encerrado_em)}</p>
+                                  <p className="mt-1 text-xs font-semibold text-ink-muted">{formatDuration(duration)}</p>
+                                </div>
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button type="button" className="min-w-0 truncate text-left text-base font-extrabold text-ink hover:text-brand" onClick={() => openLiveDetail(item)}>
+                                    {asString(item.marca_nome ?? item.cliente_nome, 'Sem marca')}
+                                  </button>
+                                  <Badge tone={statusTone(asString(item.status_publicacao, 'rascunho'))}>{publicationStatusLabel(item.status_publicacao)}</Badge>
+                                  {asString(item.origem_dados, '') === 'manual' ? <Badge tone="neutral">Manual</Badge> : null}
+                                </div>
+                                <p className="mt-1 truncate text-sm text-ink-muted">
+                                  Cabine {asString(item.cabine_numero)} · {asString(item.apresentadora_nome ?? item.apresentador_nome, 'Sem apresentadora')}
+                                </p>
+                                {item.resumo ? <p className="mt-2 line-clamp-2 text-xs text-ink-muted">{asString(item.resumo, '')}</p> : null}
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-4">
+                                {[
+                                  ['GMV', formatMoney(liveGmv(item)), 'brand'],
+                                  ['Pedidos', liveOrders(item).toLocaleString('pt-BR'), 'ink'],
+                                  ['Views', views > 0 ? compactNumber.format(views) : '—', 'ink'],
+                                  ['Pico/eng.', peak > 0 ? compactNumber.format(peak) : engagement > 0 ? compactNumber.format(engagement) : '—', 'ink'],
+                                ].map(([label, value, tone]) => (
+                                  <div key={label} className="rounded-xl border border-line bg-surface-muted px-3 py-2">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</p>
+                                    <p className={tone === 'brand' ? 'num mt-1 text-sm font-extrabold text-brand' : 'num mt-1 text-sm font-extrabold text-ink'}>{value}</p>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="flex flex-wrap justify-end gap-2">
+                                <Button variant="ghost" icon={Eye} onClick={() => openLiveDetail(item)}>Abrir</Button>
+                                <Button variant="secondary" icon={Edit2} onClick={() => openEditLive(item)}>Editar</Button>
+                                <Button variant="danger" icon={Trash2} disabled={deleteLiveMutation.isPending} onClick={() => onDeleteLive(item)}>Excluir</Button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </div>
             </CardBody>
           </Card>
 
@@ -690,10 +896,14 @@ export function ConteudoPage() {
               <div className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2">
                   {[
-                    ['Data', `${formatDate(asString(selectedLiveRecord.iniciado_em, ''))} ${formatTime(selectedLiveRecord.iniciado_em)}-${formatTime(selectedLiveRecord.encerrado_em)}`],
+                    ['Data', formatDate(asString(selectedLiveRecord.iniciado_em, ''))],
+                    ['Horário', `${formatTime(selectedLiveRecord.iniciado_em)} - ${formatTime(selectedLiveRecord.encerrado_em)}`],
+                    ['Duração', formatDuration(liveDurationMinutes(selectedLiveRecord))],
                     ['Apresentadora', asString(selectedLiveRecord.apresentadora_nome ?? selectedLiveRecord.apresentador_nome, '—')],
-                    ['GMV', formatMoney(selectedLiveRecord.fat_gerado ?? selectedLiveRecord.manual_gmv)],
-                    ['Pedidos', asNumber(selectedLiveRecord.final_orders_count ?? selectedLiveRecord.manual_orders).toLocaleString('pt-BR')],
+                    ['GMV', formatMoney(liveGmv(selectedLiveRecord))],
+                    ['Pedidos', liveOrders(selectedLiveRecord).toLocaleString('pt-BR')],
+                    ['Views', liveViews(selectedLiveRecord) > 0 ? compactNumber.format(liveViews(selectedLiveRecord)) : '—'],
+                    ['Pico/engajamento', livePeakViewers(selectedLiveRecord) > 0 ? compactNumber.format(livePeakViewers(selectedLiveRecord)) : liveEngagement(selectedLiveRecord) > 0 ? compactNumber.format(liveEngagement(selectedLiveRecord)) : '—'],
                     ['Publicação', publicationStatusLabel(selectedLiveRecord.status_publicacao)],
                     ['Origem', asString(selectedLiveRecord.origem_dados, 'manual')],
                   ].map(([label, value]) => (
