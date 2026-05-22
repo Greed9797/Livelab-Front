@@ -2,7 +2,7 @@ import { Eye, EyeOff, LogIn } from 'lucide-react'
 import { FormEvent, useMemo, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
-import { getLastEmail } from '../services/auth-storage'
+import { getLastEmail, setRemember } from '../services/auth-storage'
 import { useAuthStore } from '../stores/auth-store'
 import { routeForRole } from '../utils/access'
 
@@ -17,6 +17,7 @@ export function LoginPage() {
   const [email, setEmail] = useState(lastEmail)
   const [senha, setSenha] = useState('')
   const [showSenha, setShowSenha] = useState(false)
+  const [remember, setRememberState] = useState(true)
   const [localError, setLocalError] = useState<string | null>(null)
 
   if (user) return <Navigate to={routeForRole(user.papel, user.onboarding_completed ?? true)} replace />
@@ -33,6 +34,7 @@ export function LoginPage() {
       return
     }
     setLocalError(null)
+    setRemember(remember)
     const route = await login(normalizedEmail, senha)
     if (route) {
       const state = location.state as { from?: { pathname?: string } } | null
@@ -91,6 +93,16 @@ export function LoginPage() {
                       {showSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                </label>
+
+                <label className="flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-line accent-[var(--primary)]"
+                    checked={remember}
+                    onChange={(event) => setRememberState(event.target.checked)}
+                  />
+                  Manter conectado
                 </label>
 
                 {localError || error ? (

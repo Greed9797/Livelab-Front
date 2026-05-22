@@ -11,9 +11,22 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const proxyTarget = normalizeProxyTarget(env.VITE_DEV_API_PROXY_TARGET)
   const proxyOrigin = env.VITE_DEV_API_PROXY_ORIGIN?.trim() || 'https://livelab-3601f.web.app'
+  const appVersion = String(Date.now())
+
+  // Emite dist/version.json no build pra detecção de versão nova em runtime.
+  const versionJsonPlugin = {
+    name: 'emit-version-json',
+    generateBundle() {
+      // @ts-expect-error rollup emitFile typing
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ v: appVersion }) })
+    },
+  }
 
   return {
-    plugins: [react(), tailwindcss()],
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+    },
+    plugins: [react(), tailwindcss(), versionJsonPlugin],
     build: {
       rollupOptions: {
         output: {
