@@ -26,6 +26,7 @@ const writeCabineRoles = new Set(['franqueador_master', 'franqueado', 'gerente',
 const writeLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'operacional', 'apresentador', 'apresentadora', 'produtor_live'])
 const readClientesForLiveRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'operacional', 'produtor_live'])
 const availableCabineStatus = 'disponivel'
+const staleLiveThresholdMinutes = 12 * 60
 const emptyEndForm = {
   fat_gerado: '',
   qtd_pedidos: '',
@@ -70,6 +71,27 @@ function fmtDuration(min: number): string {
   const h = Math.floor(min / 60)
   const m = min % 60
   return h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, '0') + 'min' : ''}` : `${m}min`
+}
+
+function fmtRecDuration(min: number): string {
+  return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}:00`
+}
+
+function getLiveElapsedMinutes(cabine: Cabine): number {
+  if (cabine.status !== 'ao_vivo') return 0
+  const iniciadoEm = asString((cabine as Cabine & JsonRecord).iniciado_em, '')
+  if (!iniciadoEm) return 0
+  const iniciado = new Date(iniciadoEm)
+  if (Number.isNaN(iniciado.getTime())) return 0
+  return Math.max(0, Math.floor((Date.now() - iniciado.getTime()) / 60000))
+}
+
+function isStaleLiveDuration(minutes: number): boolean {
+  return minutes >= staleLiveThresholdMinutes
+}
+
+function isCabineLiveStale(cabine: Cabine): boolean {
+  return isStaleLiveDuration(getLiveElapsedMinutes(cabine))
 }
 
 export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: string; embedded?: boolean }) {
@@ -170,23 +192,27 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   const cabines = query.data ?? []
   const activeCabines = cabines.filter(isCabineActive)
   const inactiveCount = cabines.length - activeCabines.length
-  const liveCount = activeCabines.filter((item) => item.status === 'ao_vivo').length
+  const liveCount = activeCabines.filter((item) => item.status === 'ao_vivo' && !isCabineLiveStale(item)).length
+  const staleLiveCount = activeCabines.filter((item) => item.status === 'ao_vivo' && isCabineLiveStale(item)).length
   const maintenanceCount = activeCabines.filter((item) => item.status === 'manutencao').length
   const freeCount = activeCabines.filter((item) => item.status === availableCabineStatus).length
   const counts = {
     all: activeCabines.length,
     live: liveCount,
+    review: staleLiveCount,
     maintenance: maintenanceCount,
     free: freeCount,
-    busy: Math.max(activeCabines.length - liveCount - maintenanceCount - freeCount, 0),
+    busy: Math.max(activeCabines.length - liveCount - staleLiveCount - maintenanceCount - freeCount, 0),
     inactive: inactiveCount,
   }
   const visible = cabines.filter((cabine) => {
     const active = isCabineActive(cabine)
+    const staleLive = active && cabine.status === 'ao_vivo' && isCabineLiveStale(cabine)
     const statusMatch =
       (filter === 'all' && active) ||
       (filter === 'inactive' && !active) ||
-      (filter === 'live' && active && cabine.status === 'ao_vivo') ||
+      (filter === 'live' && active && cabine.status === 'ao_vivo' && !staleLive) ||
+      (filter === 'review' && staleLive) ||
       (filter === 'free' && active && cabine.status === availableCabineStatus) ||
       (filter === 'maintenance' && active && cabine.status === 'manutencao') ||
       (filter === 'busy' && active && !['ao_vivo', availableCabineStatus, 'manutencao'].includes(cabine.status ?? ''))
@@ -348,6 +374,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                 {[
                   ['all', 'Todas', counts.all],
                   ['live', 'Ao vivo', counts.live],
+                  ['review', 'Revisar', counts.review],
                   ['busy', 'Preparando', counts.busy],
                   ['free', 'Livres', counts.free],
                   ['maintenance', 'Manutenção', counts.maintenance],
@@ -370,6 +397,9 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
               const live = cabine.status === 'ao_vivo'
               const active = isCabineActive(cabine)
               const record = cabine as Cabine & JsonRecord
+              const duracaoMin = getLiveElapsedMinutes(cabine)
+              const staleLive = live && isStaleLiveDuration(duracaoMin)
+              const healthyLive = live && !staleLive
               const brandLogo = getBrandImage({
                 logo_url: record.marca_logo_url ?? getNestedValue(record.proxima_agenda, 'marca_logo_url'),
                 site: record.marca_site ?? getNestedValue(record.proxima_agenda, 'marca_site'),
@@ -384,19 +414,20 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
               const brandInitials = brandName
                 ? brandName.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
                 : ''
-              const iniciado = live && record.iniciado_em ? new Date(asString(record.iniciado_em)) : null
-              const duracaoMin = iniciado && !Number.isNaN(iniciado.getTime())
-                ? Math.floor((Date.now() - iniciado.getTime()) / 60000)
-                : 0
 
               return (
                 <article
                   key={cabine.id}
-                  className={`relative overflow-hidden rounded-[18px] border transition-all duration-[250ms] ${live ? 'cabine-card-live' : 'cabine-card-avail border-[var(--border)] hover:border-[var(--border-strong)]'}`}
-                  style={live ? {
-                    borderColor: 'color-mix(in srgb, var(--primary) 30%, transparent)',
-                    background: 'radial-gradient(500px 180px at 100% -30%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 60%), var(--bg-elev-1)',
-                  } : { background: 'var(--bg-elev-1)' }}
+                  className={`relative overflow-hidden rounded-[18px] border transition-all duration-[250ms] ${healthyLive ? 'cabine-card-live' : staleLive ? 'hover:border-[var(--warning)]' : 'cabine-card-avail border-[var(--border)] hover:border-[var(--border-strong)]'}`}
+                  style={
+                    healthyLive ? {
+                      borderColor: 'color-mix(in srgb, var(--primary) 30%, transparent)',
+                      background: 'radial-gradient(500px 180px at 100% -30%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 60%), var(--bg-elev-1)',
+                    } : staleLive ? {
+                      borderColor: 'color-mix(in srgb, var(--warning) 42%, transparent)',
+                      background: 'radial-gradient(500px 180px at 100% -30%, color-mix(in srgb, var(--warning) 12%, transparent), transparent 60%), var(--bg-elev-1)',
+                    } : { background: 'var(--bg-elev-1)' }
+                  }
                 >
                   {/* card body */}
                   <div className="relative z-[2] p-[22px_24px_20px]">
@@ -420,8 +451,10 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                         ) : (
                           <div
                             className="h-[42px] w-[42px] flex-none rounded-[11px] grid place-items-center border"
-                            style={live
+                            style={healthyLive
                               ? { background: 'var(--primary-soft)', color: 'var(--primary)', borderColor: 'color-mix(in srgb, var(--primary) 25%, transparent)' }
+                              : staleLive
+                                ? { background: 'var(--warning-soft)', color: 'var(--warning)', borderColor: 'color-mix(in srgb, var(--warning) 30%, transparent)' }
                               : { background: 'var(--bg-elev-3)', color: 'var(--text-muted)', borderColor: 'var(--border)' }
                             }
                           >
@@ -445,11 +478,11 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                       {/* status badge */}
                       {live ? (
                         <span
-                          className="shrink-0 inline-flex items-center gap-2 px-[10px] py-[5px] rounded-full text-[11px] font-semibold tracking-[0.06em] uppercase font-mono border bg-[var(--primary-soft)] text-[var(--primary)]"
-                          style={{ borderColor: 'color-mix(in srgb, var(--primary) 30%, transparent)' }}
+                          className={`shrink-0 inline-flex items-center gap-2 px-[10px] py-[5px] rounded-full text-[11px] font-semibold tracking-[0.06em] uppercase font-mono border ${staleLive ? 'bg-[var(--warning-soft)] text-[var(--warning)]' : 'bg-[var(--primary-soft)] text-[var(--primary)]'}`}
+                          style={{ borderColor: staleLive ? 'color-mix(in srgb, var(--warning) 35%, transparent)' : 'color-mix(in srgb, var(--primary) 30%, transparent)' }}
                         >
-                          <span className="cabine-live-ping relative w-[7px] h-[7px] rounded-full bg-[var(--primary)]" />
-                          AO VIVO
+                          <span className={`${healthyLive ? 'cabine-live-ping' : ''} relative w-[7px] h-[7px] rounded-full ${staleLive ? 'bg-[var(--warning)]' : 'bg-[var(--primary)]'}`} />
+                          {staleLive ? 'REVISAR' : 'AO VIVO'}
                         </span>
                       ) : (
                         <span className="shrink-0 inline-flex items-center gap-2 px-[10px] py-[5px] rounded-full text-[11px] font-semibold tracking-[0.06em] uppercase font-mono border border-[var(--border)] bg-[var(--bg-elev-3)] text-[var(--text-muted)]">
@@ -463,13 +496,18 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                     <div className="mt-[18px] flex items-center gap-[10px] px-[14px] py-[11px] rounded-[11px] border border-[var(--border)] text-[13px] text-[var(--text-secondary)]" style={{ background: 'rgba(0,0,0,0.02)' }}>
                       {live ? (
                         <>
-                          <span className="w-[7px] h-[7px] shrink-0 rounded-full bg-[var(--primary)]" style={{ boxShadow: '0 0 8px var(--primary)' }} />
+                          <span
+                            className={`w-[7px] h-[7px] shrink-0 rounded-full ${staleLive ? 'bg-[var(--warning)]' : 'bg-[var(--primary)]'}`}
+                            style={{ boxShadow: staleLive ? '0 0 8px var(--warning)' : '0 0 8px var(--primary)' }}
+                          />
                           <span className="truncate">
                             <span className="font-medium text-[var(--text-primary)]">{asString(record.apresentador_nome, 'Apresentadora')}</span>
-                            {' · em transmissão'}
+                            {staleLive ? ' · live sem encerramento' : ' · em transmissão'}
                           </span>
                           {duracaoMin > 0 && (
-                            <span className="ml-auto shrink-0 font-mono text-[11px] text-[var(--text-muted)]">há {fmtDuration(duracaoMin)}</span>
+                            <span className="ml-auto shrink-0 font-mono text-[11px] text-[var(--text-muted)]">
+                              {staleLive ? 'iniciada há ' : 'há '}{fmtDuration(duracaoMin)}
+                            </span>
                           )}
                         </>
                       ) : (
@@ -501,19 +539,23 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                       <div
                         className="mt-[14px] flex items-center gap-3 px-[14px] py-[10px] rounded-[11px] border text-[12px] text-[var(--text-primary)]"
                         style={{
-                          borderColor: 'color-mix(in srgb, var(--primary) 20%, transparent)',
-                          background: 'linear-gradient(90deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 80%)',
+                          borderColor: staleLive ? 'color-mix(in srgb, var(--warning) 26%, transparent)' : 'color-mix(in srgb, var(--primary) 20%, transparent)',
+                          background: staleLive ? 'linear-gradient(90deg, color-mix(in srgb, var(--warning) 12%, transparent), transparent 80%)' : 'linear-gradient(90deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 80%)',
                         }}
                       >
-                        <span className="flex items-end gap-[2px]" style={{ height: 14 }}>
-                          {(['30%', '80%', '50%', '95%', '60%'] as const).map((h, i) => (
-                            <i key={i} className="cabine-wave-bar" style={{ height: h, animationDelay: `${[0, 0.15, 0.3, 0.45, 0.6][i]}s` }} />
-                          ))}
-                        </span>
-                        <span className="text-[var(--text-secondary)]">Transmissão ativa</span>
+                        {staleLive ? (
+                          <StopCircle className="h-4 w-4 text-[var(--warning)]" />
+                        ) : (
+                          <span className="flex items-end gap-[2px]" style={{ height: 14 }}>
+                            {(['30%', '80%', '50%', '95%', '60%'] as const).map((h, i) => (
+                              <i key={i} className="cabine-wave-bar" style={{ height: h, animationDelay: `${[0, 0.15, 0.3, 0.45, 0.6][i]}s` }} />
+                            ))}
+                          </span>
+                        )}
+                        <span className="text-[var(--text-secondary)]">{staleLive ? 'Encerramento pendente' : 'Transmissão ativa'}</span>
                         {duracaoMin > 0 && (
                           <span className="ml-auto font-mono text-[11px] text-[var(--text-muted)]">
-                            REC {String(Math.floor(duracaoMin / 60)).padStart(2, '0')}:{String(duracaoMin % 60).padStart(2, '0')}:00
+                            {staleLive ? `iniciada há ${fmtDuration(duracaoMin)}` : `REC ${fmtRecDuration(duracaoMin)}`}
                           </span>
                         )}
                       </div>
@@ -541,6 +583,19 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                           Detalhes
                         </Button>
                       ) : null}
+                      {staleLive && canWriteLive ? (
+                        <Button
+                          variant="danger"
+                          icon={StopCircle}
+                          isLoading={encerrarMutation.isPending}
+                          onClick={() => {
+                            selectCabine(cabine)
+                            onEncerrarLive({ ...record, id: record.live_atual_id, live_id: record.live_atual_id })
+                          }}
+                        >
+                          Encerrar
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
 
@@ -553,12 +608,14 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                     <span className="flex items-center gap-[6px]">
                       <span
                         className="w-[6px] h-[6px] rounded-full"
-                        style={live
+                        style={healthyLive
                           ? { background: 'var(--success)', boxShadow: '0 0 6px var(--success)' }
+                          : staleLive
+                            ? { background: 'var(--warning)', boxShadow: '0 0 6px var(--warning)' }
                           : { background: 'var(--text-faint)' }
                         }
                       />
-                      {live ? 'transmitindo · estável' : 'aguardando'}
+                      {staleLive ? 'verificar encerramento' : live ? 'transmitindo · estável' : 'aguardando'}
                     </span>
                   </div>
                 </article>
