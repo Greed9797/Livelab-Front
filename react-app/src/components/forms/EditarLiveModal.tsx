@@ -352,7 +352,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">TikTok @username</span>
-              <input className="design-input mt-1 h-11 w-full px-3" value={form.tiktok_username} onChange={(e) => setField('tiktok_username', e.target.value.trim().replace(/^@/, ''))} />
+              <input className="design-input mt-1 h-11 w-full px-3" value={form.tiktok_username} onChange={(e) => setField('tiktok_username', e.target.value.trim().replace(/@/g, ''))} />
             </label>
           </div>
         </section>

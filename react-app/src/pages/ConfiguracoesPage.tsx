@@ -135,7 +135,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
 
     function onTiktokSubmit(event: FormEvent<HTMLFormElement>) {
       event.preventDefault()
-      tiktokMutation.mutate(tiktok ? tiktok.replace(/^@/, '') : null)
+      tiktokMutation.mutate(tiktok || null)
     }
 
     function onMetaSubmit(event: FormEvent<HTMLFormElement>) {
@@ -210,7 +210,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
                 <form className="space-y-4" onSubmit={onTiktokSubmit}>
                   <label className="block">
                     <span className="text-sm font-semibold text-ink">@username</span>
-                    <input className="design-input mt-2 h-11 w-full px-4" value={tiktok} onChange={(event) => setTiktok(event.target.value)} placeholder="@sua_marca" />
+                    <input className="design-input mt-2 h-11 w-full px-4" value={tiktok} onChange={(event) => setTiktok(event.target.value.replace(/@/g, ''))} placeholder="sua_marca" />
                   </label>
                   {tiktokMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(tiktokMutation.error)}</p> : null}
                   {tiktokMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">TikTok atualizado.</p> : null}

@@ -10,6 +10,7 @@ import { DataTable } from '../components/ui/DataTable'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
 import { MoneyInput } from '../components/ui/MoneyInput'
+import { TikTokLiveButton } from '../components/ui/TikTokLiveButton'
 import { AgendarLiveModal, type AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
 import { RegistrarMetricasLiveModal, type RegistrarMetricasLiveMode } from '../components/forms/RegistrarMetricasLiveModal'
 import { EditarLiveModal } from '../components/forms/EditarLiveModal'
@@ -87,6 +88,10 @@ function isPastRegisterable(event: JsonRecord) {
   return asString(event.tipo, '') === 'live'
     && end.getTime() <= Date.now()
     && !['concluido', 'cancelado'].includes(asString(event.status, ''))
+}
+
+function isLiveOnAir(item: JsonRecord) {
+  return ['ao_vivo', 'em_andamento'].includes(asString(item.status, ''))
 }
 
 function typeLabel(tipo: unknown) {
@@ -485,6 +490,11 @@ export function ConteudoPage() {
                                     if (keyEvent.key === 'Enter' || keyEvent.key === ' ') openEditAgendaModal(event)
                                   }}
                                 >
+                                  {isLiveOnAir(event) ? (
+                                    <div className="absolute right-2 top-2">
+                                      <TikTokLiveButton username={event.tiktok_username} compact />
+                                    </div>
+                                  ) : null}
                                   <p className="font-bold text-brand">{typeLabel(event.tipo)} · {formatTime(event.data_inicio)}-{formatTime(event.data_fim)}</p>
                                   <div className="mt-1 flex items-center gap-2">
                                     {(() => {
@@ -531,6 +541,7 @@ export function ConteudoPage() {
                       align: 'right',
                       render: (item) => (
                         <div className="flex justify-end gap-2">
+                          {isLiveOnAir(item) ? <TikTokLiveButton username={item.tiktok_username} compact /> : null}
                           {isPastRegisterable(item) ? <Button variant="secondary" icon={CheckCircle2} onClick={() => openRegisterResult(item)}>Registrar resultado</Button> : null}
                           <Button variant="ghost" icon={Edit2} onClick={() => openEditAgendaModal(item)}>Editar</Button>
                         </div>

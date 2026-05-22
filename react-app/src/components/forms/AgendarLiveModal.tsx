@@ -515,7 +515,7 @@ export function AgendarLiveModal({
         {mode === 'now' ? (
           <label className="block">
             <span className="text-sm font-semibold text-ink">TikTok da live</span>
-            <input className="design-input mt-2 h-11 w-full px-4" placeholder="@usuario_tiktok" value={form.tiktok_username} onChange={(item) => setField('tiktok_username', item.target.value)} />
+            <input className="design-input mt-2 h-11 w-full px-4" placeholder="usuario_tiktok" value={form.tiktok_username} onChange={(item) => setField('tiktok_username', item.target.value.replace(/@/g, ''))} />
           </label>
         ) : (
           <label className="block">

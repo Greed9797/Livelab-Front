@@ -5,6 +5,7 @@ import { KpiStrip } from '../components/dashboard/KpiStrip'
 import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
 import { CabinesGantt } from '../components/dashboard/CabinesGantt'
 import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
+import { TikTokLiveButton } from '../components/ui/TikTokLiveButton'
 import { getHomeDashboard, getPublicRanking } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatMoney } from '../utils/format'
@@ -142,7 +143,7 @@ function ProximasLives({ agenda }: { agenda: JsonRecord[] }) {
     .filter(ev => {
       const s = asString(ev.status, '')
       const inicio = new Date(asString(ev.data_inicio, ''))
-      return s !== 'ao_vivo' && !s.includes('encerr') && !s.includes('cancela') && inicio > new Date()
+      return s === 'ao_vivo' || (!s.includes('encerr') && !s.includes('cancela') && inicio > new Date())
     })
     .slice(0, 5)
 
@@ -189,6 +190,7 @@ function ProximasLives({ agenda }: { agenda: JsonRecord[] }) {
               >
                 {cabLabel}
               </span>
+              {asString(ev.status, '') === 'ao_vivo' ? <TikTokLiveButton username={ev.tiktok_username} compact /> : null}
             </div>
           )
         })}

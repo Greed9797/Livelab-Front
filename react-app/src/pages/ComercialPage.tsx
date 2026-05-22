@@ -470,7 +470,7 @@ export function ComercialPage() {
           <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={clienteForm.email} onChange={(event) => setClienteField('email', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="Nicho" value={clienteForm.nicho} onChange={(event) => setClienteField('nicho', event.target.value)} />
-          <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value)} />
+          <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value.replace(/@/g, ''))} />
           <div className="md:col-span-2">
             <ImagePicker
               label="Imagem do cliente"
@@ -498,7 +498,7 @@ export function ComercialPage() {
           <input className="design-input h-11 px-4" placeholder="Responsável" value={afiliadoForm.responsavel} onChange={(event) => setAfiliadoField('responsavel', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} />
-          <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value)} />
+          <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value.replace(/@/g, ''))} />
           <div className="md:col-span-2">
             <ImagePicker
               label="Imagem da marca"
