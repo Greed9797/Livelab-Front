@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { PresenterSelect } from './PresenterSelect'
+import { useToast } from '../ui/Toast'
 import { extractErrorMessage } from '../../services/api'
 import { getAgendaConflitos } from '../../services/domain'
 import { asNumber, asString } from '../../utils/format'
@@ -180,6 +181,7 @@ export function AgendarLiveModal({
   onStartNow?: (payload: JsonRecord) => void
   onDelete?: (id: string, modoRecorrencia: string) => void
 }) {
+  const toast = useToast()
   const [form, setForm] = useState<AgendaForm>(emptyForm)
   const [accountLookup, setAccountLookup] = useState('')
   const [cabineLookup, setCabineLookup] = useState('')
@@ -374,6 +376,15 @@ export function AgendarLiveModal({
       setAvailability({ status: 'conflict', message: 'Selecione uma marca ou cliente da lista antes de salvar.' })
       return
     }
+    const cabineNumero = cabineOptions.find((o) => o.value === form.cabine_id)?.label ?? `Cabine ${form.cabine_id}`
+    const contaNome = accountLookup.trim() || ''
+    const formattedDate = new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'America/Sao_Paulo',
+    }).format(new Date(`${form.data}T${form.hora_inicio}:00`))
+
     if (mode === 'now') {
       onStartNow?.({
         cabine_id: form.cabine_id,
@@ -384,6 +395,7 @@ export function AgendarLiveModal({
         tipo: form.live_tipo,
         previsto_fim: dataFim,
       })
+      toast.push(`Live iniciada na ${cabineNumero}${contaNome ? ` · ${contaNome}` : ''}`, 'success')
       return
     }
 
@@ -403,8 +415,13 @@ export function AgendarLiveModal({
       ...(mode === 'edit' ? { modo_recorrencia: form.modo_recorrencia } : {}),
     }
 
-    if (mode === 'edit' && event) onUpdate?.(asString(event.id, ''), payload)
-    else onCreate?.(payload)
+    if (mode === 'edit' && event) {
+      onUpdate?.(asString(event.id, ''), payload)
+      toast.push(`Agendamento atualizado — ${cabineNumero}${contaNome ? ` · ${contaNome}` : ''} em ${formattedDate}`, 'success')
+    } else {
+      onCreate?.(payload)
+      toast.push(`${cabineNumero} reservada${contaNome ? ` para ${contaNome}` : ''} em ${formattedDate}`, 'success')
+    }
   }
 
   const title = mode === 'edit' ? 'Editar agendamento' : mode === 'now' ? 'Iniciar live agora' : 'Agendar'

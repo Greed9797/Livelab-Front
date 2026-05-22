@@ -1,10 +1,12 @@
 import { FormEvent } from 'react'
 import { StopCircle } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { MoneyInput } from '../ui/MoneyInput'
 import { PresenterSelect } from '../forms/PresenterSelect'
 import { extractErrorMessage } from '../../services/api'
-import { asNumber, asString } from '../../utils/format'
+import { getUltimaLiveCabine } from '../../services/domain'
+import { asNumber, asString, formatMoney } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 
 export interface EncerrarLiveFormData {
@@ -48,6 +50,14 @@ export function EncerrarLiveForm({
   onSubmit,
   onCancel,
 }: EncerrarLiveFormProps) {
+  const cabineId = asString(live.cabine_id, '')
+  const { data: sugestoes } = useQuery({
+    queryKey: ['cabine-metricas', cabineId],
+    queryFn: () => getUltimaLiveCabine(cabineId),
+    enabled: Boolean(cabineId),
+    staleTime: 60_000,
+  })
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -86,12 +96,20 @@ export function EncerrarLiveForm({
 
   return (
     <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+      {sugestoes?.amostra ? (
+        <div className="md:col-span-2 rounded-xl border border-[var(--border)] bg-[var(--bg-elev-2)] px-4 py-3 text-[12px] text-[var(--text-secondary)]">
+          Sugestões baseadas na média das últimas <strong>{sugestoes.amostra}</strong> live{sugestoes.amostra !== 1 ? 's' : ''} desta cabine.
+        </div>
+      ) : null}
       <label className="block">
         <span className="text-sm font-semibold text-ink">GMV final</span>
         <MoneyInput
           className="design-input mt-2 h-11 w-full px-4"
           value={formData.fat_gerado}
           onChange={(raw) => onFieldChange('fat_gerado', raw)}
+          placeholder={sugestoes?.avg_fat_gerado
+            ? `ex: ${formatMoney(sugestoes.avg_fat_gerado)} (média ${sugestoes.amostra ?? '?'} lives)`
+            : 'ex: 12.345,00'}
           required
         />
       </label>
@@ -104,6 +122,9 @@ export function EncerrarLiveForm({
           pattern="[0-9.,]*"
           value={formData.qtd_pedidos}
           onChange={(e) => onFieldChange('qtd_pedidos', e.target.value)}
+          placeholder={sugestoes?.avg_qtd_pedidos
+            ? `ex: ${Math.round(sugestoes.avg_qtd_pedidos)} (média ${sugestoes.amostra ?? '?'} lives)`
+            : 'ex: 42'}
           required
         />
       </label>
@@ -116,6 +137,9 @@ export function EncerrarLiveForm({
           pattern="[0-9.,]*"
           value={formData.manual_views}
           onChange={(e) => onFieldChange('manual_views', e.target.value)}
+          placeholder={sugestoes?.avg_views
+            ? `ex: ${Math.round(sugestoes.avg_views).toLocaleString('pt-BR')}`
+            : 'ex: 1500'}
         />
       </label>
       <label className="block">
@@ -127,6 +151,9 @@ export function EncerrarLiveForm({
           pattern="[0-9.,]*"
           value={formData.manual_likes}
           onChange={(e) => onFieldChange('manual_likes', e.target.value)}
+          placeholder={sugestoes?.avg_likes
+            ? `ex: ${Math.round(sugestoes.avg_likes).toLocaleString('pt-BR')}`
+            : 'ex: 320'}
         />
       </label>
       <label className="block">

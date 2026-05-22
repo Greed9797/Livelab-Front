@@ -502,3 +502,13 @@ export function getMetaUnidade(anoMes?: string) {
 export function saveMetaUnidade(payload: JsonRecord) {
   return apiPut<JsonRecord>('/meta-unidade', payload)
 }
+
+export function getUltimaLiveCabine(cabineId: string): Promise<{
+  avg_fat_gerado?: number
+  avg_qtd_pedidos?: number
+  avg_views?: number
+  avg_likes?: number
+  amostra?: number
+}> {
+  return apiGet(`/cabines/${cabineId}/ultimas-metricas`)
+}

@@ -1,6 +1,7 @@
 import { RefreshCcw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useToast } from '../components/ui/Toast'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody } from '../components/ui/Card'
@@ -61,6 +62,7 @@ const emptyEndForm: EncerrarLiveFormData = {
 // ── Component ────────────────────────────────────────────────────────────────
 export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: string; embedded?: boolean }) {
   const user = useCurrentUser()
+  const toast = useToast()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const canWriteCabine = writeCabineRoles.has(user?.papel ?? '')
@@ -163,6 +165,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   const encerrarMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => encerrarLive(id, payload),
     onSuccess: () => {
+      toast.push('Live encerrada com sucesso. Métricas salvas.', 'success')
       setEndLiveData(null)
       setEndForm(emptyEndForm)
       invalidateOperational()
@@ -174,6 +177,9 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     onSuccess: (live) => {
       const liveId = asString(live.id, '')
       const cabineId = asString(live.cabine_id ?? selectedId, selectedId)
+      const cabine = query.data?.find((c) => c.id === cabineId)
+      const cabineNumero = cabine?.numero ? `Cabine ${String(cabine.numero).padStart(2, '0')}` : 'Cabine'
+      toast.push(`${cabineNumero} ao vivo! Transmissão iniciada com sucesso.`, 'success')
       const nextParams = new URLSearchParams(params)
       if (cabineId) nextParams.set('cabine', cabineId)
       if (liveId) nextParams.set('live', liveId)
