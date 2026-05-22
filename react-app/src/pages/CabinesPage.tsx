@@ -58,10 +58,6 @@ function suggestedClienteId(cabine?: Cabine | null): string {
   )
 }
 
-function suggestedTiktokUsername(cabine?: Cabine | null): string {
-  return asString((cabine as (Cabine & JsonRecord) | undefined)?.tiktok_username, '')
-}
-
 function isCabineActive(cabine: Cabine): boolean {
   return (cabine as Cabine & JsonRecord).ativo !== false
 }
@@ -801,7 +797,6 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
         onStartNow={(payload) => iniciarMutation.mutate({
           ...payload,
           ...(payload.cliente_id ? {} : suggestedClienteId(startCabine) ? { cliente_id: suggestedClienteId(startCabine) } : {}),
-          tiktok_username: asString(payload.tiktok_username, '') || suggestedTiktokUsername(startCabine) || null,
         })}
       />
 

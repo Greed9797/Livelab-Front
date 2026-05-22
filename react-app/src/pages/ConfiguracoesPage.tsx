@@ -209,7 +209,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
               <CardBody>
                 <form className="space-y-4" onSubmit={onTiktokSubmit}>
                   <label className="block">
-                    <span className="text-sm font-semibold text-ink">@username</span>
+                    <span className="text-sm font-semibold text-ink">Username</span>
                     <input className="design-input mt-2 h-11 w-full px-4" value={tiktok} onChange={(event) => setTiktok(event.target.value.replace(/@/g, ''))} placeholder="sua_marca" />
                   </label>
                   {tiktokMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(tiktokMutation.error)}</p> : null}

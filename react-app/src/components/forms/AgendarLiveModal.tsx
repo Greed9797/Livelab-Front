@@ -22,7 +22,6 @@ type AgendaForm = {
   hora_fim: string
   status: string
   responsavel_marketing: string
-  tiktok_username: string
   observacoes: string
   recorrencia_tipo: string
   recorrencia_ate: string
@@ -53,7 +52,6 @@ const emptyForm: AgendaForm = {
   hora_fim: '10:00',
   status: 'planejado',
   responsavel_marketing: '',
-  tiktok_username: '',
   observacoes: '',
   recorrencia_tipo: 'nenhuma',
   recorrencia_ate: '',
@@ -224,7 +222,6 @@ export function AgendarLiveModal({
         hora_fim: toTimeInput(event.data_fim),
         status: asString(event.status, 'planejado'),
         responsavel_marketing: asString(event.responsavel_marketing, ''),
-        tiktok_username: asString(event.tiktok_username ?? marca?.tiktok_username, ''),
         observacoes: asString(event.observacoes, ''),
         recorrencia_dias_semana: Array.isArray(event.recorrencia_dias_semana)
           ? event.recorrencia_dias_semana.join(',')
@@ -333,7 +330,6 @@ export function AgendarLiveModal({
         marca_id: marcaId,
         cliente_id: asString(marca?.cliente_id, ''),
         live_tipo: liveTypeFromMarca(marca),
-        tiktok_username: current.tiktok_username || asString(marca?.tiktok_username, ''),
       }))
       return
     }
@@ -387,7 +383,6 @@ export function AgendarLiveModal({
         apresentador_id: form.apresentadora_id,
         tipo: form.live_tipo,
         previsto_fim: dataFim,
-        tiktok_username: form.tiktok_username || null,
       })
       return
     }
@@ -512,17 +507,12 @@ export function AgendarLiveModal({
             {availability.message}
           </p>
         ) : null}
-        {mode === 'now' ? (
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">TikTok da live</span>
-            <input className="design-input mt-2 h-11 w-full px-4" placeholder="usuario_tiktok" value={form.tiktok_username} onChange={(item) => setField('tiktok_username', item.target.value.replace(/@/g, ''))} />
-          </label>
-        ) : (
+        {mode !== 'now' ? (
           <label className="block">
             <span className="text-sm font-semibold text-ink">Responsável de marketing</span>
             <input className="design-input mt-2 h-11 w-full px-4" value={form.responsavel_marketing} onChange={(item) => setField('responsavel_marketing', item.target.value)} />
           </label>
-        )}
+        ) : null}
         {mode !== 'now' ? (
           <div className="grid gap-3 md:grid-cols-3">
             <label className="block">

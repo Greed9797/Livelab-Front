@@ -351,7 +351,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
               <input type="datetime-local" className="design-input mt-1 h-11 w-full px-3" value={form.previsto_fim} onChange={(e) => setField('previsto_fim', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">TikTok @username</span>
+              <span className="text-xs text-ink-muted">TikTok username</span>
               <input className="design-input mt-1 h-11 w-full px-3" value={form.tiktok_username} onChange={(e) => setField('tiktok_username', e.target.value.trim().replace(/@/g, ''))} />
             </label>
           </div>
