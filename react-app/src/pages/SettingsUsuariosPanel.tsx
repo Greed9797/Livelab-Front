@@ -504,60 +504,26 @@ export function SettingsUsuariosPanel() {
           ) : null}
 
           {editingPresenterId && editingHasPresenterProfile ? (
-            <div className="space-y-4 rounded-2xl border border-line bg-surface-muted p-4">
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm font-bold text-ink">Escada de comissão</p>
-                  <p className="mt-1 text-xs text-ink-muted">Faixas por GMV mensal atribuído à apresentadora.</p>
-                </div>
-                <Badge tone="neutral">{faixasQuery.data?.length ?? 0} faixas</Badge>
-              </div>
-              <div className="grid gap-3 md:grid-cols-[1fr_1fr_120px_auto]">
-                <label className="block">
-                  <span className="text-xs font-semibold text-ink-muted">GMV inicial</span>
-                  <MoneyInput className="design-input mt-2 h-10 w-full px-3" value={faixaForm.gmv_inicio} onChange={(raw) => setFaixaForm((f) => ({ ...f, gmv_inicio: raw }))} />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold text-ink-muted">GMV final</span>
-                  <MoneyInput className="design-input mt-2 h-10 w-full px-3" value={faixaForm.gmv_fim} onChange={(raw) => setFaixaForm((f) => ({ ...f, gmv_fim: raw }))} placeholder="Sem limite" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold text-ink-muted">Comissão (%)</span>
-                  <input className="design-input mt-2 h-10 w-full px-3" type="number" min="0" max="100" step="0.01" value={faixaForm.comissao_pct} onChange={(e) => setFaixaForm((f) => ({ ...f, comissao_pct: e.target.value }))} />
-                </label>
-                <div className="flex items-end">
-                  <Button type="button" isLoading={createFaixaMutation.isPending} onClick={submitFaixa}>Adicionar</Button>
-                </div>
-              </div>
-              {faixasQuery.isLoading ? <LoadingState label="Carregando faixas" /> : null}
-              {faixasQuery.data?.length ? (
-                <DataTable<JsonRecord>
-                  data={faixasQuery.data}
-                  columns={[
-                    { key: 'gmv_inicio', header: 'Início', render: (item) => formatMoney(item.gmv_inicio) },
-                    { key: 'gmv_fim', header: 'Fim', render: (item) => item.gmv_fim == null ? 'Sem limite' : formatMoney(item.gmv_fim) },
-                    { key: 'comissao_pct', header: 'Comissão', align: 'right', render: (item) => `${asNumber(item.comissao_pct).toLocaleString('pt-BR')}%` },
-                    { key: 'ativo', header: 'Status', render: (item) => <Badge tone={item.ativo === false ? 'neutral' : 'success'}>{item.ativo === false ? 'inativa' : 'ativa'}</Badge> },
-                    {
-                      key: 'acoes', header: 'Ações', align: 'right',
-                      render: (item) => (
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" disabled={updateFaixaMutation.isPending} onClick={() => updateFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId: asString(item.id, ''), payload: { ativo: item.ativo === false } })}>
-                            {item.ativo === false ? 'Reativar' : 'Inativar'}
-                          </Button>
-                          <Button variant="danger" disabled={deleteFaixaMutation.isPending} onClick={() => deleteFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId: asString(item.id, '') })}>Excluir</Button>
-                        </div>
-                      ),
-                    },
-                  ]}
-                />
-              ) : faixasQuery.isSuccess ? <p className="text-sm text-ink-muted">Nenhuma faixa configurada.</p> : null}
-              {createFaixaMutation.isError || updateFaixaMutation.isError || deleteFaixaMutation.isError || faixasQuery.isError ? (
-                <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
-                  {extractErrorMessage(createFaixaMutation.error ?? updateFaixaMutation.error ?? deleteFaixaMutation.error ?? faixasQuery.error)}
-                </p>
-              ) : null}
-            </div>
+            <ApresentadoraFaixas
+              apresentadoraId={editingPresenterId}
+              faixaForm={faixaForm}
+              onFaixaFormChange={setFaixaForm}
+              onAddFaixa={() => submitFaixa()}
+              onToggleFaixa={(faixaId, currentAtivo) => updateFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId, payload: { ativo: !currentAtivo } })}
+              onDeleteFaixa={(faixaId) => deleteFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId })}
+              faixasQuery={faixasQuery}
+              mutations={{
+                createPending: createFaixaMutation.isPending,
+                updatePending: updateFaixaMutation.isPending,
+                deletePending: deleteFaixaMutation.isPending,
+                createError: createFaixaMutation.error,
+                updateError: updateFaixaMutation.error,
+                deleteError: deleteFaixaMutation.error,
+                isCreateError: createFaixaMutation.isError,
+                isUpdateError: updateFaixaMutation.isError,
+                isDeleteError: deleteFaixaMutation.isError,
+              }}
+            />
           ) : null}
           {editMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(editMutation.error)}</p> : null}
         </form>
