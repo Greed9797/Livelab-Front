@@ -126,12 +126,6 @@ function livePeakViewers(live: JsonRecord): number {
   return firstPositiveNumber(live.final_peak_viewers, live.viewer_count)
 }
 
-function liveEngagement(live: JsonRecord): number {
-  return firstPositiveNumber(live.final_total_likes, live.manual_likes, live.likes_count)
-    + firstPositiveNumber(live.final_total_comments, live.manual_comments, live.comments_count)
-    + firstPositiveNumber(live.final_total_shares, live.manual_shares, live.shares_count)
-}
-
 function liveDurationMinutes(live: JsonRecord): number {
   const start = liveStartDate(live)
   const end = liveEndDate(live)
@@ -771,14 +765,14 @@ export function ConteudoPage() {
         <section>
           <Card>
             <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-base font-bold text-ink">Lives realizadas</p>
-                <Button icon={Plus} onClick={openCreateLiveModal}>Cadastrar live manual</Button>
+                <Button className="w-full sm:w-auto" icon={Plus} onClick={openCreateLiveModal}>Cadastrar live manual</Button>
               </div>
             </CardHeader>
             <CardBody>
               <div className="space-y-5">
-                <div className="grid gap-3 md:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {[
                     ['Lives', liveSummary.totalLives.toLocaleString('pt-BR'), 'registros encerrados'],
                     ['Horas totais', formatDuration(liveSummary.totalMinutes), 'tempo em live'],
@@ -807,7 +801,7 @@ export function ConteudoPage() {
                             {group.items.length.toLocaleString('pt-BR')} lives · {formatDuration(group.totalMinutes)} · {group.firstStart ? formatTime(group.firstStart.toISOString()) : '—'} até {group.lastEnd ? formatTime(group.lastEnd.toISOString()) : '—'}
                           </p>
                         </div>
-                        <div className="grid w-full grid-cols-3 gap-2 text-right sm:w-auto sm:min-w-[360px]">
+                        <div className="grid w-full grid-cols-1 gap-2 text-left sm:grid-cols-3 sm:text-right lg:w-auto lg:min-w-[360px]">
                           <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">GMV</p>
                             <p className="num text-sm font-extrabold text-brand">{formatMoney(group.totalGmv)}</p>
@@ -827,12 +821,10 @@ export function ConteudoPage() {
                         {group.items.map((item) => {
                           const duration = liveDurationMinutes(item)
                           const views = liveViews(item)
-                          const peak = livePeakViewers(item)
-                          const engagement = liveEngagement(item)
                           return (
-                            <div key={asString(item.id)} className="grid gap-3 px-4 py-4 lg:grid-cols-[140px_1fr_360px_auto] lg:items-center">
-                              <div className="flex items-center gap-3 lg:block">
-                                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand lg:mb-2">
+                            <div key={asString(item.id)} className="grid gap-4 px-3 py-4 sm:px-4 md:grid-cols-[150px_minmax(0,1fr)] 2xl:grid-cols-[150px_minmax(260px,1fr)_minmax(320px,420px)_auto] 2xl:items-center">
+                              <div className="flex items-center gap-3 2xl:block">
+                                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand 2xl:mb-2">
                                   <Clock3 className="h-4 w-4" />
                                 </span>
                                 <div>
@@ -841,9 +833,9 @@ export function ConteudoPage() {
                                 </div>
                               </div>
 
-                              <div className="min-w-0">
+                              <div className="min-w-0 self-center">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <button type="button" className="min-w-0 truncate text-left text-base font-extrabold text-ink hover:text-brand" onClick={() => openLiveDetail(item)}>
+                                  <button type="button" className="min-w-0 max-w-full truncate text-left text-base font-extrabold text-ink hover:text-brand" onClick={() => openLiveDetail(item)}>
                                     {asString(item.marca_nome ?? item.cliente_nome, 'Sem marca')}
                                   </button>
                                   <Badge tone={statusTone(asString(item.status_publicacao, 'rascunho'))}>{publicationStatusLabel(item.status_publicacao)}</Badge>
@@ -855,24 +847,23 @@ export function ConteudoPage() {
                                 {item.resumo ? <p className="mt-2 line-clamp-2 text-xs text-ink-muted">{asString(item.resumo, '')}</p> : null}
                               </div>
 
-                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-4">
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:col-span-2 2xl:col-span-1">
                                 {[
                                   ['GMV', formatMoney(liveGmv(item)), 'brand'],
                                   ['Pedidos', liveOrders(item).toLocaleString('pt-BR'), 'ink'],
                                   ['Views', views > 0 ? compactNumber.format(views) : '—', 'ink'],
-                                  ['Pico/eng.', peak > 0 ? compactNumber.format(peak) : engagement > 0 ? compactNumber.format(engagement) : '—', 'ink'],
                                 ].map(([label, value, tone]) => (
-                                  <div key={label} className="rounded-xl border border-line bg-surface-muted px-3 py-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</p>
-                                    <p className={tone === 'brand' ? 'num mt-1 text-sm font-extrabold text-brand' : 'num mt-1 text-sm font-extrabold text-ink'}>{value}</p>
+                                  <div key={label} className="min-w-0 rounded-xl border border-line bg-surface-muted px-3 py-2">
+                                    <p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</p>
+                                    <p className={tone === 'brand' ? 'num mt-1 break-words text-sm font-extrabold leading-tight text-brand' : 'num mt-1 break-words text-sm font-extrabold leading-tight text-ink'}>{value}</p>
                                   </div>
                                 ))}
                               </div>
 
-                              <div className="flex flex-wrap justify-end gap-2">
-                                <Button variant="ghost" icon={Eye} onClick={() => openLiveDetail(item)}>Abrir</Button>
-                                <Button variant="secondary" icon={Edit2} onClick={() => openEditLive(item)}>Editar</Button>
-                                <Button variant="danger" icon={Trash2} disabled={deleteLiveMutation.isPending} onClick={() => onDeleteLive(item)}>Excluir</Button>
+                              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end md:col-span-2 2xl:col-span-1 2xl:flex-col 2xl:items-stretch 2xl:justify-center">
+                                <Button className="w-full sm:w-auto 2xl:w-full" variant="ghost" icon={Eye} onClick={() => openLiveDetail(item)}>Abrir</Button>
+                                <Button className="w-full sm:w-auto 2xl:w-full" variant="secondary" icon={Edit2} onClick={() => openEditLive(item)}>Editar</Button>
+                                <Button className="w-full sm:w-auto 2xl:w-full" variant="danger" icon={Trash2} disabled={deleteLiveMutation.isPending} onClick={() => onDeleteLive(item)}>Excluir</Button>
                               </div>
                             </div>
                           )
@@ -903,7 +894,6 @@ export function ConteudoPage() {
                     ['GMV', formatMoney(liveGmv(selectedLiveRecord))],
                     ['Pedidos', liveOrders(selectedLiveRecord).toLocaleString('pt-BR')],
                     ['Views', liveViews(selectedLiveRecord) > 0 ? compactNumber.format(liveViews(selectedLiveRecord)) : '—'],
-                    ['Pico/engajamento', livePeakViewers(selectedLiveRecord) > 0 ? compactNumber.format(livePeakViewers(selectedLiveRecord)) : liveEngagement(selectedLiveRecord) > 0 ? compactNumber.format(liveEngagement(selectedLiveRecord)) : '—'],
                     ['Publicação', publicationStatusLabel(selectedLiveRecord.status_publicacao)],
                     ['Origem', asString(selectedLiveRecord.origem_dados, 'manual')],
                   ].map(([label, value]) => (
