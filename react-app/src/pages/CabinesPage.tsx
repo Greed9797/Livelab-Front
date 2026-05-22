@@ -14,7 +14,7 @@ import { AgendarLiveModal } from '../components/forms/AgendarLiveModal'
 import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { PresenterSelect } from '../components/forms/PresenterSelect'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
-import { atualizarStatusCabine, deleteCabine, encerrarLive, getApresentadoras, getCabineHistorico, getCabines, getClientes, getLiveTiktokStatus, getMarcas, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
+import { atualizarStatusCabine, deleteCabine, encerrarLive, getApresentadoras, getCabineHistorico, getCabines, getClientes, getLivePorId, getLiveTiktokStatus, getMarcas, iniciarLive, liberarCabine, updateCabine } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatDate, formatMoney } from '../utils/format'
 import { getBrandImage } from '../utils/favicon'
@@ -77,6 +77,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
   const [startCabine, setStartCabine] = useState<Cabine | null>(null)
   const [endLiveData, setEndLiveData] = useState<JsonRecord | null>(null)
   const [editLiveData, setEditLiveData] = useState<JsonRecord | null>(null)
+  const [fetchingEditLive, setFetchingEditLive] = useState(false)
   const [endForm, setEndForm] = useState(emptyEndForm)
   const [gmvModalLiveId, setGmvModalLiveId] = useState<string | null>(null)
   const client = useQueryClient()
@@ -215,6 +216,19 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     nextParams.set('tab', 'agenda')
     nextParams.set('cabine', cabine.id)
     navigate(`/conteudo?${nextParams.toString()}`)
+  }
+
+  async function onEditLive() {
+    if (!liveAtualId) return
+    setFetchingEditLive(true)
+    try {
+      const fullLive = await getLivePorId(liveAtualId)
+      setEditLiveData(fullLive as unknown as JsonRecord)
+    } catch {
+      setEditLiveData(liveAtualData)
+    } finally {
+      setFetchingEditLive(false)
+    }
   }
 
   if (query.isLoading) return <LoadingState />
@@ -573,7 +587,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
                   <div className="mt-4 flex flex-wrap gap-2">
                     <TikTokLiveButton username={liveAtualData.tiktok_username ?? (tiktokStatusQuery.data as JsonRecord | undefined)?.tiktok_username} />
                     {canWriteLive ? (
-                      <Button variant="secondary" onClick={() => setEditLiveData(liveAtualData)}>
+                      <Button variant="secondary" isLoading={fetchingEditLive} onClick={() => void onEditLive()}>
                         Editar live
                       </Button>
                     ) : null}

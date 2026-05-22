@@ -38,7 +38,7 @@ import {
   updateVideo,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asNumber, asString, formatDate, formatMoney } from '../utils/format'
+import { asNumber, asString, compactNumber, formatDate, formatMoney } from '../utils/format'
 import { getBrandImage } from '../utils/favicon'
 import { parseBRMoneyToDecimal } from '../utils/money'
 import type { JsonRecord } from '../types/models'
@@ -70,6 +70,44 @@ function formatTime(value: unknown) {
   const date = typeof value === 'string' ? new Date(value) : null
   if (!date || Number.isNaN(date.getTime())) return '—'
   return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date)
+}
+
+function buildLiveReport(live: JsonRecord): string {
+  const nome = asString(live.marca_nome ?? live.cliente_nome, '')
+  const inicio = live.iniciado_em ? new Date(live.iniciado_em as string) : null
+  const fim = live.encerrado_em ? new Date(live.encerrado_em as string) : null
+  if (!inicio || Number.isNaN(inicio.getTime())) return ''
+
+  const data = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(inicio)
+  const hInicio = formatTime(live.iniciado_em)
+  const hFim = fim && !Number.isNaN(fim.getTime()) ? formatTime(live.encerrado_em) : null
+
+  let duracao = ''
+  if (inicio && fim && !Number.isNaN(fim.getTime())) {
+    const mins = Math.floor((fim.getTime() - inicio.getTime()) / 60000)
+    const h = Math.floor(mins / 60)
+    const m = mins % 60
+    duracao = h > 0 ? `${h}:${String(m).padStart(2, '0')}h` : `${m}min`
+  }
+
+  const gmv = formatMoney(live.fat_gerado ?? live.manual_gmv)
+  const pedidos = asNumber(live.final_orders_count ?? live.manual_orders).toLocaleString('pt-BR')
+  const espectadores = compactNumber.format(asNumber(live.total_viewers ?? live.viewer_count))
+  const visualizacoes = compactNumber.format(asNumber(live.manual_views))
+
+  const lines = [
+    `📊 Relatório de Live${nome ? ` — ${nome}` : ''}`,
+    '',
+    `📅 Data: ${data}`,
+    hFim ? `⏰ Horário analisado: ${hInicio} às ${hFim}` : `⏰ Horário: ${hInicio}`,
+    duracao ? `⏱️ Duração: ${duracao}` : null,
+    '',
+    `💰 GMV gerado: ${gmv}`,
+    `🛒 Pedidos/itens atribuídos: ${pedidos}`,
+    `👥 Espectadores: ${espectadores}`,
+    `👀 Visualizações: ${visualizacoes}`,
+  ]
+  return lines.filter((l) => l !== null).join('\n')
 }
 
 function eventIntersectsLocalDate(event: JsonRecord, date: string) {
@@ -126,6 +164,7 @@ export function ConteudoPage() {
   const [selectedVideo, setSelectedVideo] = useState<JsonRecord | null>(null)
   const [liveModalMode, setLiveModalMode] = useState<'detail' | null>(null)
   const [selectedLiveRecord, setSelectedLiveRecord] = useState<JsonRecord | null>(null)
+  const [reportCopied, setReportCopied] = useState(false)
   const client = useQueryClient()
 
   const range = dayRange(agendaDate, agendaView === 'semana' ? 7 : 1)
@@ -327,9 +366,17 @@ export function ConteudoPage() {
   function closeLiveModal() {
     setLiveModalMode(null)
     setSelectedLiveRecord(null)
+    setReportCopied(false)
     const nextParams = new URLSearchParams(params)
     nextParams.delete('live')
     setParams(nextParams, { replace: true })
+  }
+
+  function copyLiveReport(text: string) {
+    void navigator.clipboard.writeText(text).then(() => {
+      setReportCopied(true)
+      setTimeout(() => setReportCopied(false), 2000)
+    })
   }
 
   function closeMetricsModal() {
@@ -643,6 +690,21 @@ export function ConteudoPage() {
                   ))}
                 </div>
                 {selectedLiveRecord.resumo ? <p className="rounded-2xl border border-line bg-surface-muted p-3 text-sm text-ink">{asString(selectedLiveRecord.resumo)}</p> : null}
+                {(() => {
+                  const report = buildLiveReport(selectedLiveRecord)
+                  if (!report) return null
+                  return (
+                    <div className="rounded-2xl border border-line bg-surface-muted p-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">Relatório para copiar</p>
+                        <Button variant="ghost" className="h-7 px-2 text-xs" onClick={() => copyLiveReport(report)}>
+                          {reportCopied ? 'Copiado!' : 'Copiar'}
+                        </Button>
+                      </div>
+                      <pre className="whitespace-pre-wrap text-xs text-ink">{report}</pre>
+                    </div>
+                  )
+                })()}
                 <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" icon={Edit2} onClick={() => openEditLive(selectedLiveRecord)}>Editar</Button>
                   <Button variant="danger" icon={Trash2} isLoading={deleteLiveMutation.isPending} onClick={() => onDeleteLive(selectedLiveRecord)}>Excluir</Button>
