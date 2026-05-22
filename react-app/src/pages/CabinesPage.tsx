@@ -19,6 +19,7 @@ import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatDate, formatMoney } from '../utils/format'
 import { getBrandImage } from '../utils/favicon'
 import { useCurrentUser } from '../stores/auth-store'
+import { useToast } from '../components/ui/Toast'
 import type { Cabine, JsonRecord } from '../types/models'
 import { useSelectedLive } from '../hooks/useSelectedLive'
 
@@ -96,6 +97,7 @@ function isCabineLiveStale(cabine: Cabine): boolean {
 
 export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: string; embedded?: boolean }) {
   const user = useCurrentUser()
+  const toast = useToast()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const canWriteCabine = writeCabineRoles.has(user?.papel ?? '')
@@ -172,6 +174,10 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
       setEndForm(emptyEndForm)
       invalidateOperational()
       selectedLive.refresh()
+      toast.push('Live encerrada', 'success')
+    },
+    onError: (e) => {
+      toast.push('Erro ao encerrar live: ' + extractErrorMessage(e), 'error')
     },
   })
   const iniciarMutation = useMutation({
@@ -186,6 +192,10 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
       setStartCabine(null)
       invalidateOperational()
       selectedLive.refresh()
+      toast.push('Live iniciada com sucesso', 'success')
+    },
+    onError: (e) => {
+      toast.push('Erro ao iniciar live: ' + extractErrorMessage(e), 'error')
     },
   })
 
