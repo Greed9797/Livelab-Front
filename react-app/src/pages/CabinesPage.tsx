@@ -66,6 +66,12 @@ function getNestedValue(value: unknown, key: string): unknown {
   return value && typeof value === 'object' ? (value as JsonRecord)[key] : undefined
 }
 
+function fmtDuration(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, '0') + 'min' : ''}` : `${m}min`
+}
+
 export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: string; embedded?: boolean }) {
   const user = useCurrentUser()
   const navigate = useNavigate()
@@ -359,88 +365,205 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
             </CardBody>
           </Card>
 
-          <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+          <section className="grid gap-[22px] sm:grid-cols-2 2xl:grid-cols-3">
             {visible.map((cabine) => {
-          const live = cabine.status === 'ao_vivo'
-          const active = isCabineActive(cabine)
-          const record = cabine as Cabine & JsonRecord
-          const displayStatus = active ? asString(cabine.status) : 'inativa'
-          const brandLogo = getBrandImage({
-            logo_url: record.marca_logo_url ?? getNestedValue(record.proxima_agenda, 'marca_logo_url'),
-            site: record.marca_site ?? getNestedValue(record.proxima_agenda, 'marca_site'),
-          })
-          const displayCliente = asString(
-            record.cliente_nome ?? record.cliente_em_live_nome ?? getNestedValue(record.cliente_em_live, 'nome') ?? getNestedValue(record.proxima_agenda, 'marca_nome') ?? getNestedValue(record.cliente_reservado, 'nome'),
-            'sem cliente vinculado',
-          )
-          return (
-            <Card
-              key={cabine.id}
-              className={live ? 'border-[var(--success)]/35 bg-gradient-to-b from-[var(--success-soft)] to-surface' : undefined}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-soft text-brand shadow-sm">
-                      {brandLogo ? (
-                        <img src={brandLogo} alt="" loading="lazy" decoding="async" className="h-11 w-11 rounded-xl object-cover" />
+              const live = cabine.status === 'ao_vivo'
+              const active = isCabineActive(cabine)
+              const record = cabine as Cabine & JsonRecord
+              const brandLogo = getBrandImage({
+                logo_url: record.marca_logo_url ?? getNestedValue(record.proxima_agenda, 'marca_logo_url'),
+                site: record.marca_site ?? getNestedValue(record.proxima_agenda, 'marca_site'),
+              })
+              const brandName = asString(
+                record.marca_nome
+                  ?? (getNestedValue(record.proxima_agenda, 'marca_nome') as string | undefined)
+                  ?? record.cliente_nome
+                  ?? record.cliente_em_live_nome,
+                '',
+              )
+              const brandInitials = brandName
+                ? brandName.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+                : ''
+              const iniciado = live && record.iniciado_em ? new Date(asString(record.iniciado_em)) : null
+              const duracaoMin = iniciado && !Number.isNaN(iniciado.getTime())
+                ? Math.floor((Date.now() - iniciado.getTime()) / 60000)
+                : 0
+
+              return (
+                <article
+                  key={cabine.id}
+                  className={`relative overflow-hidden rounded-[18px] border transition-all duration-[250ms] ${live ? 'cabine-card-live' : 'cabine-card-avail border-[var(--border)] hover:border-[var(--border-strong)]'}`}
+                  style={live ? {
+                    borderColor: 'color-mix(in srgb, var(--primary) 30%, transparent)',
+                    background: 'radial-gradient(500px 180px at 100% -30%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 60%), var(--bg-elev-1)',
+                  } : { background: 'var(--bg-elev-1)' }}
+                >
+                  {/* card body */}
+                  <div className="relative z-[2] p-[22px_24px_20px]">
+
+                    {/* head: icon + name + status badge */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-[14px] min-w-0">
+                        {/* brand icon: logo image → initials → generic */}
+                        {brandLogo ? (
+                          <img
+                            src={brandLogo}
+                            alt={brandName}
+                            loading="lazy"
+                            decoding="async"
+                            className="h-[42px] w-[42px] flex-none rounded-[11px] object-cover border border-[var(--border)]"
+                          />
+                        ) : brandInitials ? (
+                          <div className="h-[42px] w-[42px] flex-none rounded-[11px] grid place-items-center text-[11px] font-bold tracking-[0.08em] bg-[var(--bg-elev-3)] text-[var(--text-secondary)] border border-[var(--border)]">
+                            {brandInitials}
+                          </div>
+                        ) : (
+                          <div
+                            className="h-[42px] w-[42px] flex-none rounded-[11px] grid place-items-center border"
+                            style={live
+                              ? { background: 'var(--primary-soft)', color: 'var(--primary)', borderColor: 'color-mix(in srgb, var(--primary) 25%, transparent)' }
+                              : { background: 'var(--bg-elev-3)', color: 'var(--text-muted)', borderColor: 'var(--border)' }
+                            }
+                          >
+                            <Presentation className="h-5 w-5" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <h3 className="m-0 text-[19px] font-semibold tracking-[-0.015em] text-[var(--text-primary)] leading-tight">
+                            Cabine {String(cabine.numero ?? '').padStart(2, '0')}
+                          </h3>
+                          {brandName ? (
+                            <p className="mt-[3px] text-[11.5px] uppercase tracking-[0.08em] font-mono text-[var(--text-muted)] truncate">
+                              {brandName}
+                            </p>
+                          ) : (
+                            <p className="mt-[3px] text-[12px] italic text-[var(--text-faint)]">sem cliente</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* status badge */}
+                      {live ? (
+                        <span
+                          className="shrink-0 inline-flex items-center gap-2 px-[10px] py-[5px] rounded-full text-[11px] font-semibold tracking-[0.06em] uppercase font-mono border bg-[var(--primary-soft)] text-[var(--primary)]"
+                          style={{ borderColor: 'color-mix(in srgb, var(--primary) 30%, transparent)' }}
+                        >
+                          <span className="cabine-live-ping relative w-[7px] h-[7px] rounded-full bg-[var(--primary)]" />
+                          AO VIVO
+                        </span>
                       ) : (
-                        <Presentation className="h-5 w-5" />
+                        <span className="shrink-0 inline-flex items-center gap-2 px-[10px] py-[5px] rounded-full text-[11px] font-semibold tracking-[0.06em] uppercase font-mono border border-[var(--border)] bg-[var(--bg-elev-3)] text-[var(--text-muted)]">
+                          <span className="w-[7px] h-[7px] rounded-full bg-[var(--text-faint)]" />
+                          {active ? 'DISPONÍVEL' : 'INATIVA'}
+                        </span>
                       )}
-                    </span>
-                    <div>
-                      <p className="num text-lg font-bold tracking-[-0.02em] text-ink">Cabine {String(cabine.numero ?? '').padStart(2, '0')}</p>
-                      <p className="mt-0.5 text-xs text-ink-muted">{displayCliente}</p>
+                    </div>
+
+                    {/* presenter row */}
+                    <div className="mt-[18px] flex items-center gap-[10px] px-[14px] py-[11px] rounded-[11px] border border-[var(--border)] text-[13px] text-[var(--text-secondary)]" style={{ background: 'rgba(0,0,0,0.02)' }}>
+                      {live ? (
+                        <>
+                          <span className="w-[7px] h-[7px] shrink-0 rounded-full bg-[var(--primary)]" style={{ boxShadow: '0 0 8px var(--primary)' }} />
+                          <span className="truncate">
+                            <span className="font-medium text-[var(--text-primary)]">{asString(record.apresentador_nome, 'Apresentadora')}</span>
+                            {' · em transmissão'}
+                          </span>
+                          {duracaoMin > 0 && (
+                            <span className="ml-auto shrink-0 font-mono text-[11px] text-[var(--text-muted)]">há {fmtDuration(duracaoMin)}</span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-[7px] h-[7px] shrink-0 rounded-full bg-[var(--text-faint)]" />
+                          <span className="text-[var(--text-faint)]">sem apresentadora definida</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* metrics 3-col */}
+                    <div className="mt-[14px] grid grid-cols-3 gap-px rounded-[12px] overflow-hidden border border-[var(--border)] bg-[var(--border)]">
+                      {[
+                        { label: 'Viewers', value: live ? asNumber(cabine.viewer_count).toLocaleString('pt-BR') : '—', accent: false },
+                        { label: 'GMV',     value: live ? formatMoney(cabine.gmv_atual) : '—',                        accent: live  },
+                        { label: 'Pedidos', value: live ? asNumber(cabine.total_orders).toLocaleString('pt-BR') : '—', accent: false },
+                      ].map(({ label, value, accent }) => (
+                        <div key={label} className="bg-[var(--bg-elev-1)] p-[13px_15px] min-h-[66px]">
+                          <div className="text-[11px] text-[var(--text-muted)] uppercase tracking-[0.10em] font-medium">{label}</div>
+                          <div className={`mt-[5px] text-[20px] font-semibold tracking-[-0.015em] num leading-none ${accent ? 'text-[var(--primary)]' : 'text-[var(--text-primary)]'}`}>
+                            {value}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* live strip — audio wave + REC timecode */}
+                    {live && (
+                      <div
+                        className="mt-[14px] flex items-center gap-3 px-[14px] py-[10px] rounded-[11px] border text-[12px] text-[var(--text-primary)]"
+                        style={{
+                          borderColor: 'color-mix(in srgb, var(--primary) 20%, transparent)',
+                          background: 'linear-gradient(90deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 80%)',
+                        }}
+                      >
+                        <span className="flex items-end gap-[2px]" style={{ height: 14 }}>
+                          {(['30%', '80%', '50%', '95%', '60%'] as const).map((h, i) => (
+                            <i key={i} className="cabine-wave-bar" style={{ height: h, animationDelay: `${[0, 0.15, 0.3, 0.45, 0.6][i]}s` }} />
+                          ))}
+                        </span>
+                        <span className="text-[var(--text-secondary)]">Transmissão ativa</span>
+                        {duracaoMin > 0 && (
+                          <span className="ml-auto font-mono text-[11px] text-[var(--text-muted)]">
+                            REC {String(Math.floor(duracaoMin / 60)).padStart(2, '0')}:{String(duracaoMin % 60).padStart(2, '0')}:00
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* action buttons */}
+                    <div className="mt-[16px] flex flex-wrap gap-2 items-center">
+                      {live ? <TikTokLiveButton username={record.tiktok_username} /> : null}
+                      {live ? (
+                        <Button variant="secondary" icon={MonitorPlay} onClick={() => selectCabine(cabine)}>
+                          Detalhes
+                        </Button>
+                      ) : active && canWriteLive ? (
+                        <Button icon={MonitorPlay} onClick={() => { selectCabine(cabine); setStartCabine(cabine) }}>
+                          Iniciar live
+                        </Button>
+                      ) : null}
+                      {active && canWriteCabine ? (
+                        <Button variant="secondary" icon={CalendarClock} onClick={() => scheduleCabine(cabine)}>
+                          Agendar
+                        </Button>
+                      ) : null}
+                      {!live ? (
+                        <Button variant="ghost" icon={MonitorPlay} onClick={() => selectCabine(cabine)}>
+                          Detalhes
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
-                  <Badge tone={statusTone(displayStatus)}>{displayStatus}</Badge>
-                </div>
-              </CardHeader>
-              <CardBody className="space-y-4">
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {asString(cabine.apresentador_nome, live ? 'apresentadora em transmissão' : 'sem apresentadora definida')}
-                </p>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-xl bg-surface-muted p-3">
-                    <p className="text-xs text-ink-muted">Viewers</p>
-                    <p className="num font-bold text-ink">{asNumber(cabine.viewer_count).toLocaleString('pt-BR')}</p>
-                  </div>
-                  <div className="rounded-xl bg-surface-muted p-3">
-                    <p className="text-xs text-ink-muted">GMV</p>
-                    <p className="num font-bold text-brand">{formatMoney(cabine.gmv_atual)}</p>
-                  </div>
-                  <div className="rounded-xl bg-surface-muted p-3">
-                    <p className="text-xs text-ink-muted">Pedidos</p>
-                    <p className="num font-bold text-ink">{asNumber(cabine.total_orders).toLocaleString('pt-BR')}</p>
-                  </div>
-                </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {live ? <TikTokLiveButton username={(cabine as Cabine & JsonRecord).tiktok_username} /> : null}
-                  <Button variant="secondary" icon={MonitorPlay} onClick={() => selectCabine(cabine)}>
-                    Detalhes
-                  </Button>
-                  {active && canWriteCabine ? (
-                    <Button variant="secondary" icon={CalendarClock} onClick={() => scheduleCabine(cabine)}>
-                      Agendar
-                    </Button>
-                  ) : null}
-	                  {active && canWriteLive && !live ? (
-	                    <Button
-	                      icon={MonitorPlay}
-	                      onClick={() => {
-	                        selectCabine(cabine)
-	                        setStartCabine(cabine)
-	                      }}
-	                    >
-	                      Iniciar live
-	                    </Button>
-                  ) : null}
-                </div>
-              </CardBody>
-            </Card>
-          )
-        })}
+                  {/* card footer */}
+                  <div
+                    className="relative z-[2] flex items-center justify-between px-6 py-[10px] border-t border-[var(--border)] text-[11px] font-mono text-[var(--text-faint)]"
+                    style={{ background: 'rgba(0,0,0,0.04)' }}
+                  >
+                    <span>C-{String(cabine.numero ?? '').padStart(2, '0')}</span>
+                    <span className="flex items-center gap-[6px]">
+                      <span
+                        className="w-[6px] h-[6px] rounded-full"
+                        style={live
+                          ? { background: 'var(--success)', boxShadow: '0 0 6px var(--success)' }
+                          : { background: 'var(--text-faint)' }
+                        }
+                      />
+                      {live ? 'transmitindo · estável' : 'aguardando'}
+                    </span>
+                  </div>
+                </article>
+              )
+            })}
           </section>
         </div>
 
