@@ -1,6 +1,6 @@
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { Sparkline } from '../charts/Sparkline'
-import { asNumber, formatMoney } from '../../utils/format'
+import { asNumber } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 
 interface KpiItemProps {
