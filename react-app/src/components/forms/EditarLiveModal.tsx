@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { MoneyInput } from '../ui/MoneyInput'
@@ -13,6 +13,7 @@ import {
   updateLive,
 } from '../../services/domain'
 import { asArray, asNumber, asString } from '../../utils/format'
+import { QK } from '../../services/query-keys'
 import type { JsonRecord } from '../../types/models'
 
 type LookupOption = { value: string; label: string }
@@ -117,10 +118,14 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
   const [form, setForm] = useState<EditForm>(emptyForm)
   const [error, setError] = useState<string | null>(null)
 
-  const cabinesQuery = useQuery({ queryKey: ['cabines'], queryFn: getCabines, enabled: open })
-  const clientesQuery = useQuery({ queryKey: ['clientes', 'live-edit'], queryFn: getClientes, enabled: open })
-  const marcasQuery = useQuery({ queryKey: ['marcas', 'live-edit'], queryFn: () => getMarcas({ status: 'ativa' }), enabled: open })
-  const apresentadorasQuery = useQuery({ queryKey: ['apresentadoras', 'live-edit'], queryFn: getApresentadoras, enabled: open })
+  const [cabinesQuery, clientesQuery, marcasQuery, apresentadorasQuery] = useQueries({
+    queries: [
+      { queryKey: QK.cabines, queryFn: getCabines, enabled: open },
+      { queryKey: QK.clientes('live-edit'), queryFn: getClientes, enabled: open },
+      { queryKey: QK.marcas('live-edit'), queryFn: () => getMarcas({ status: 'ativa' }), enabled: open },
+      { queryKey: QK.apresentadoras('live-edit'), queryFn: getApresentadoras, enabled: open },
+    ],
+  })
 
   const cabineOptions = useMemo(() => toLookupOptions(asArray(cabinesQuery.data) as JsonRecord[], 'numero'), [cabinesQuery.data])
   const clienteOptions = useMemo(() => toLookupOptions(asArray(clientesQuery.data) as JsonRecord[]), [clientesQuery.data])
