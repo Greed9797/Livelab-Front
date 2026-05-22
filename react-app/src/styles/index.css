@@ -211,6 +211,16 @@ button:disabled {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
+.settings-users-panel .design-input {
+  background: color-mix(in srgb, var(--bg-elev-3) 82%, var(--bg-elev-2));
+  border-color: var(--border-strong);
+}
+
+.settings-users-panel .design-input:focus {
+  background: var(--bg-elev-2);
+  border-color: var(--primary);
+}
+
 /* Autofill (iOS/Android Safari + Chrome) força cor própria e deixava texto invisível.
    Cobre tanto .design-input quanto inputs internos (ex: campo de senha que usa
    bg-transparent dentro de um wrapper .design-input). */
