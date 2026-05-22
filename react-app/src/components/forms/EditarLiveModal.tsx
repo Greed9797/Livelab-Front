@@ -209,7 +209,8 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
       }
     }
 
-    setIfChanged('cabine_id', form.cabine_id, live.cabine_id)
+    // cabine_id nunca pode ser null (live sempre tem cabine) — só envia se preenchido e mudou.
+    if (form.cabine_id && form.cabine_id !== asString(live.cabine_id, '')) payload.cabine_id = form.cabine_id
     setIfChanged('cliente_id', form.cliente_id, live.cliente_id)
     setIfChanged('marca_id', form.marca_id, live.marca_id)
     setIfChanged('apresentador_id', form.apresentador_id, live.apresentadora_id ?? live.apresentador_id)
