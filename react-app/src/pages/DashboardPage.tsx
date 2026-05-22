@@ -1,142 +1,207 @@
-import { Activity, CalendarClock, Radio, Video } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
-import { MetricCard } from '../components/ui/MetricCard'
-import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
-import { GmvHeroCard } from '../components/dashboard/GmvHeroCard'
-import { LiveNowTable } from '../components/dashboard/LiveNowTable'
-import { TodayScheduleTable } from '../components/dashboard/TodayScheduleTable'
-import { RankingTable } from '../components/dashboard/RankingTable'
 import { KpiStrip } from '../components/dashboard/KpiStrip'
+import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
 import { CabinesGantt } from '../components/dashboard/CabinesGantt'
 import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
-import { getHomeDashboard, getPublicRanking, getRankingApresentadoras } from '../services/domain'
+import { getHomeDashboard, getPublicRanking } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { normalizeHome } from './page-helpers'
 import { asNumber, asString, formatMoney } from '../utils/format'
 import type { Cabine, JsonRecord } from '../types/models'
 
-const icons = [CalendarClock, Radio, Video, Activity]
+function RankingNacional({ data }: { data: JsonRecord[] }) {
+  return (
+    <div
+      className="flex flex-col rounded-[10px] overflow-hidden"
+      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
+    >
+      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
+          Ranking nacional
+        </span>
+      </div>
+      <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1 } as React.CSSProperties}>
+        {data.length === 0 && (
+          <p className="px-4 py-3 text-[12px]" style={{ color: 'var(--text-faint)' }}>Sem dados</p>
+        )}
+        {data.slice(0, 8).map((item) => {
+          const pos = asNumber(item.posicao)
+          const gmv = asNumber(item.gmv_mes)
+          return (
+            <div
+              key={String(item.id ?? item.posicao)}
+              className="flex items-center gap-3 px-4 py-2.5"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <span
+                className="w-6 shrink-0 text-right text-[11px] font-mono font-semibold"
+                style={{ color: 'var(--text-faint)', fontVariantNumeric: 'tabular-nums' }}
+              >
+                #{pos}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {asString(item.nome)}
+                </div>
+                <div className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
+                  {[asString(item.cidade, ''), asString(item.uf, '')].filter(Boolean).join('/') || '—'}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div
+                  className="text-[12px] font-mono font-semibold"
+                  style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {formatMoney(gmv, true)}
+                </div>
+                <div className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                  {asNumber(item.total_lives)} lives
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
-function currentMonth() {
-  return new Date().toISOString().slice(0, 7)
+function ProximasLives({ agenda }: { agenda: JsonRecord[] }) {
+  function fmtHora(v: unknown) {
+    if (!v) return '—'
+    const d = new Date(v as string)
+    if (!isNaN(d.getTime())) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    return String(v).slice(0, 5)
+  }
+
+  const proximas = agenda
+    .filter(ev => {
+      const s = asString(ev.status, '')
+      const inicio = new Date(asString(ev.data_inicio, ''))
+      return s !== 'ao_vivo' && !s.includes('encerr') && !s.includes('cancela') && inicio > new Date()
+    })
+    .slice(0, 5)
+
+  return (
+    <div
+      className="flex flex-col rounded-[10px] overflow-hidden"
+      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
+    >
+      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
+          Próximas lives — hoje
+        </span>
+      </div>
+      <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1 } as React.CSSProperties}>
+        {proximas.length === 0 && (
+          <p className="px-4 py-3 text-[12px]" style={{ color: 'var(--text-faint)' }}>Sem lives agendadas</p>
+        )}
+        {proximas.map((ev, i) => {
+          const cabNum = asNumber(ev.cabine_numero ?? ev.numero)
+          const cabLabel = cabNum > 0 ? `C-${String(cabNum).padStart(2, '0')}` : '—'
+          return (
+            <div
+              key={String(ev.id ?? i)}
+              className="flex items-center gap-3 px-4 py-2.5"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <span
+                className="w-10 shrink-0 text-[12px] font-mono font-semibold"
+                style={{ color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}
+              >
+                {fmtHora(ev.data_inicio ?? ev.hora_inicio)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {asString(ev.marca_nome ?? ev.cliente_nome ?? ev.titulo, '—')}
+                </div>
+                <div className="text-[11px] truncate" style={{ color: 'var(--text-faint)' }}>
+                  {asString(ev.apresentadora_nome ?? ev.apresentador_nome, 'A definir')}
+                </div>
+              </div>
+              <span
+                className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-mono font-medium"
+                style={{ background: 'var(--bg-elev-3)', color: 'var(--text-muted)' }}
+              >
+                {cabLabel}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 export function DashboardPage() {
-  const query = useQuery({ queryKey: ['home-dashboard'], queryFn: getHomeDashboard, refetchInterval: () => (document.hidden ? false : 30_000), refetchIntervalInBackground: false, staleTime: 15_000 })
-  const rankingPublicoQuery = useQuery({ queryKey: ['public-ranking', 'home'], queryFn: () => getPublicRanking({ limit: 5 }) })
-  const rankingApresentadorasQuery = useQuery({
-    queryKey: ['ranking-apresentadoras', currentMonth(), 'home'],
-    queryFn: () => getRankingApresentadoras({ mes: currentMonth(), limit: 5 }),
+  const query = useQuery({
+    queryKey: ['home-dashboard'],
+    queryFn: getHomeDashboard,
+    refetchInterval: () => (document.hidden ? false : 30_000),
+    refetchIntervalInBackground: false,
+    staleTime: 15_000,
+  })
+  const rankingQuery = useQuery({
+    queryKey: ['public-ranking', 'nacional'],
+    queryFn: () => getPublicRanking({ limit: 8 }),
   })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
   const raw = (query.data ?? {}) as JsonRecord
-  const data = normalizeHome(raw)
+  const cabines = (raw.cabines as Cabine[] | undefined) ?? []
+  const agendaHoje = (raw.agenda_hoje as JsonRecord[] | undefined) ?? []
+  const liveNow = cabines.filter(c => asString(c.status, '').includes('ao_vivo'))
+  const rankingData = rankingQuery.data ?? []
 
   return (
-    <div className="space-y-6">
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <PageHeader
         accent="Visão"
         title="da unidade"
-        subtitle="Pulso operacional, comercial e financeiro — atualizado em tempo real."
+        subtitle="Resumo operacional de hoje e acumulado do mês."
       />
 
-      {/* KPI strip — 6 métricas com sparkline e delta */}
-      <div className="overflow-x-auto">
-        <div style={{ minWidth: 720 }}>
-          <KpiStrip raw={raw} />
+      <KpiStrip raw={raw} />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 14 }}>
+        <GmvHeroPanel raw={raw} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <RankingNacional data={rankingData} />
+          <ProximasLives agenda={agendaHoje} />
         </div>
       </div>
 
-      <GmvHeroCard
-        gmvMes={data.hero.gmvMes}
-        gmvLivesMes={data.hero.gmvLivesMes}
-        gmvVideosMes={data.hero.gmvVideosMes}
-        livesMes={data.hero.livesMes}
-        videosMes={data.hero.videosMes}
-        ticketMedio={data.hero.ticketMedio}
-        variacaoMesAnterior={data.hero.variacaoMesAnterior}
-        comparacaoLabel={data.hero.comparacaoLabel}
-      />
-
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {data.metrics.map((item, index) => (
-          <MetricCard key={item.label} metric={item} icon={icons[index]} />
-        ))}
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-        <LiveNowTable liveNow={data.liveNow} upcoming={data.upcoming} />
-        <TodayScheduleTable agenda={data.agendaHoje} />
-      </section>
-
-      {/* Cabines Gantt + Ao Vivo — operação em tempo real */}
-      <section className="grid gap-4 xl:grid-cols-[1fr_340px]">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-bold text-ink">Cabines — ocupação de hoje</p>
-              <div className="flex items-center gap-4 text-xs text-ink-muted">
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.66 0.22 25 / 0.5)', border: '1px solid oklch(0.66 0.22 25)' }} />
-                  Ao vivo
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.74 0.11 235 / 0.3)', border: '1px solid oklch(0.74 0.11 235 / 0.6)' }} />
-                  Agendada
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-sm border border-line bg-surface-muted" />
-                  Concluída
-                </span>
-              </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 14 }}>
+        <div
+          className="rounded-[10px] overflow-hidden"
+          style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)', padding: 16 }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
+              Cabines — ocupação de hoje
+            </span>
+            <div className="flex items-center gap-4 text-[11px]" style={{ color: 'var(--text-faint)' }}>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.66 0.22 25 / 0.5)', border: '1px solid oklch(0.66 0.22 25)' }} />
+                Ao vivo
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.74 0.11 235 / 0.3)', border: '1px solid oklch(0.74 0.11 235 / 0.6)' }} />
+                Agendada
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--bg-elev-3)', border: '1px solid var(--border)' }} />
+                Concluída
+              </span>
             </div>
-          </CardHeader>
-          <CardBody>
-            <CabinesGantt agenda={data.agendaHoje} cabines={data.liveNow as unknown as Cabine[]} />
-          </CardBody>
-        </Card>
-        <AoVivoPanel liveCabines={data.liveNow as unknown as Cabine[]} />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <RankingTable title="Ranking de marcas no mês" data={data.rankingMarcasMes} subject="marca" />
-        <RankingTable
-          title="Ranking de apresentadoras"
-          data={rankingApresentadorasQuery.data ?? data.rankingApresentadoras}
-          subject="apresentadora"
-        />
-      </section>
-
-      <Card>
-        <CardHeader>
-          <p className="text-base font-bold text-ink">Ranking público</p>
-          <p className="mt-1 text-xs text-ink-muted">Visão compacta da rede, abaixo da operação da unidade.</p>
-        </CardHeader>
-        <CardBody>
-          {rankingPublicoQuery.isLoading ? (
-            <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Carregando ranking.</p>
-          ) : rankingPublicoQuery.isError || !rankingPublicoQuery.data?.length ? (
-            <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Ranking público ainda sem dados publicados.</p>
-          ) : (
-            <DataTable<JsonRecord>
-              data={rankingPublicoQuery.data}
-              columns={[
-                { key: 'posicao', header: '#', render: (item) => asNumber(item.posicao).toLocaleString('pt-BR') },
-                { key: 'nome', header: 'Unidade', render: (item) => asString(item.nome) },
-                { key: 'cidade', header: 'Cidade', render: (item) => [asString(item.cidade, ''), asString(item.uf, '')].filter(Boolean).join('/') || '—' },
-                { key: 'gmv_mes', header: 'GMV mês', align: 'right', render: (item) => formatMoney(item.gmv_mes) },
-                { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives).toLocaleString('pt-BR') },
-              ]}
-            />
-          )}
-        </CardBody>
-      </Card>
+          </div>
+          <CabinesGantt agenda={agendaHoje} cabines={liveNow as unknown as Cabine[]} />
+        </div>
+        <AoVivoPanel liveCabines={liveNow} />
+      </div>
     </div>
   )
 }

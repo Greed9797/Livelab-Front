@@ -132,6 +132,11 @@ export async function apiDelete<T>(path: string): Promise<T> {
   return response.data
 }
 
+export async function apiPut<T>(path: string, data?: unknown): Promise<T> {
+  const response = await api.put<T>(path, data)
+  return response.data
+}
+
 export function apiBaseUrl(): string {
   return api.defaults.baseURL ?? ''
 }

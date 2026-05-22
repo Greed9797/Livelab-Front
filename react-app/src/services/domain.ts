@@ -1,5 +1,5 @@
 import type { Cabine, JsonRecord, Lead, LiveAtual, Period } from '../types/models'
-import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 import { periodToParam } from '../utils/format'
 
 export function getHomeDashboard() {
@@ -489,4 +489,12 @@ export function criarLiveManual(payload: JsonRecord) {
 
 export function getHistoricoGmv(liveId: string) {
   return apiGet<JsonRecord[]>(`/lives/${liveId}/historico-gmv`)
+}
+
+export function getMetaUnidade(anoMes?: string) {
+  return apiGet<JsonRecord>('/meta-unidade', anoMes ? { ano_mes: anoMes } : {})
+}
+
+export function saveMetaUnidade(payload: JsonRecord) {
+  return apiPut<JsonRecord>('/meta-unidade', payload)
 }

@@ -1,4 +1,4 @@
-import { AtSign, KeyRound, Lock, Moon, Plug, Save, Sun, Target, Trophy, Users } from 'lucide-react'
+import { AtSign, BarChart2, KeyRound, Lock, Moon, Plug, Save, Sun, Target, Trophy, Users } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -7,16 +7,16 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { getClienteMeta, getClientePerfil, getConfiguracoes, getRankingPublicoConfig, trocarSenha, updateClienteMeta, updateClienteTiktok, updateConfiguracoes, updateRankingPublicoConfig } from '../services/domain'
+import { getClienteMeta, getClientePerfil, getConfiguracoes, getMetaUnidade, getRankingPublicoConfig, saveMetaUnidade, trocarSenha, updateClienteMeta, updateClienteTiktok, updateConfiguracoes, updateRankingPublicoConfig } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asString, currentPeriod, formatMoney, periodLabel } from '../utils/format'
+import { asNumber, asString, currentPeriod, formatMoney, periodLabel } from '../utils/format'
 import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
 import { useThemeStore } from '../stores/theme-store'
 import { SettingsUsuariosPanel } from './SettingsUsuariosPanel'
 import type { JsonRecord } from '../types/models'
 
-type SettingsTab = 'unidade' | 'usuarios' | 'ranking' | 'aparencia' | 'integracoes' | 'seguranca'
-const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'ranking', 'aparencia', 'integracoes', 'seguranca']
+type SettingsTab = 'unidade' | 'usuarios' | 'ranking' | 'metas' | 'aparencia' | 'integracoes' | 'seguranca'
+const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'ranking', 'metas', 'aparencia', 'integracoes', 'seguranca']
 
 export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boolean }) {
   const client = useQueryClient()
@@ -49,6 +49,26 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   const rankingMutation = useMutation({
     mutationFn: updateRankingPublicoConfig,
     onSuccess: () => client.invalidateQueries({ queryKey: ['configuracoes-ranking-publico'] }),
+  })
+  const [metaAnoMes, setMetaAnoMes] = useState(new Date().toISOString().slice(0, 7))
+  const metaUnidadeQuery = useQuery({
+    queryKey: ['meta-unidade', metaAnoMes],
+    queryFn: () => getMetaUnidade(metaAnoMes),
+    enabled: !clienteMode,
+  })
+  const [metaUnidadeForm, setMetaUnidadeForm] = useState({
+    meta_gmv: '',
+    m1_teto: '',
+    m1_pct: '',
+    m2_teto: '',
+    m2_pct: '',
+    m3_teto: '',
+    m3_pct: '',
+    m4_pct: '',
+  })
+  const metaUnidadeMutation = useMutation({
+    mutationFn: saveMetaUnidade,
+    onSuccess: () => client.invalidateQueries({ queryKey: ['meta-unidade'] }),
   })
   const tiktokMutation = useMutation({
     mutationFn: updateClienteTiktok,
@@ -90,6 +110,21 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   useEffect(() => {
     if (metaQuery.data) setMetaGmv(formatBRLWithoutSymbol(metaQuery.data.meta_gmv))
   }, [metaQuery.data])
+
+  useEffect(() => {
+    if (!metaUnidadeQuery.data) return
+    const d = metaUnidadeQuery.data
+    setMetaUnidadeForm({
+      meta_gmv: formatBRLWithoutSymbol(d.meta_gmv ?? 0),
+      m1_teto: formatBRLWithoutSymbol(d.m1_teto ?? 600000),
+      m1_pct: String(asNumber(d.m1_pct, 0.25) * 100),
+      m2_teto: formatBRLWithoutSymbol(d.m2_teto ?? 1200000),
+      m2_pct: String(asNumber(d.m2_pct, 0.35) * 100),
+      m3_teto: formatBRLWithoutSymbol(d.m3_teto ?? 2000000),
+      m3_pct: String(asNumber(d.m3_pct, 0.65) * 100),
+      m4_pct: String(asNumber(d.m4_pct, 1.00) * 100),
+    })
+  }, [metaUnidadeQuery.data])
 
   if (clienteMode) {
     if (perfilQuery.isLoading || metaQuery.isLoading) return <LoadingState />
@@ -249,6 +284,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
           ['unidade', Save, 'Unidade'],
           ['usuarios', Users, 'Usuários e equipe'],
           ['ranking', Trophy, 'Ranking público'],
+          ['metas', BarChart2, 'Metas'],
           ['aparencia', Sun, 'Aparência'],
           ['integracoes', Plug, 'Integrações'],
           ['seguranca', Lock, 'Segurança'],
@@ -264,6 +300,90 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
           </button>
         ))}
       </div>
+
+      {settingsTab === 'metas' ? (
+        <Card>
+          <CardHeader>
+            <p className="text-sm font-bold text-ink">Metas da unidade</p>
+            <p className="mt-1 text-xs text-ink-muted">Configure a meta de GMV mensal e os tiers de comissão para o período selecionado.</p>
+          </CardHeader>
+          <CardBody>
+            {metaUnidadeQuery.isLoading ? <LoadingState label="Carregando metas" /> : null}
+            {metaUnidadeQuery.isError ? <ErrorState message={extractErrorMessage(metaUnidadeQuery.error)} onRetry={() => void metaUnidadeQuery.refetch()} /> : null}
+            {!metaUnidadeQuery.isLoading && !metaUnidadeQuery.isError ? (
+              <form
+                className="grid gap-4 md:grid-cols-2"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  metaUnidadeMutation.mutate({
+                    ano_mes: metaAnoMes,
+                    meta_gmv: parseBRMoneyToDecimal(metaUnidadeForm.meta_gmv),
+                    m1_teto: parseBRMoneyToDecimal(metaUnidadeForm.m1_teto),
+                    m1_pct: parseFloat(metaUnidadeForm.m1_pct) / 100,
+                    m2_teto: parseBRMoneyToDecimal(metaUnidadeForm.m2_teto),
+                    m2_pct: parseFloat(metaUnidadeForm.m2_pct) / 100,
+                    m3_teto: parseBRMoneyToDecimal(metaUnidadeForm.m3_teto),
+                    m3_pct: parseFloat(metaUnidadeForm.m3_pct) / 100,
+                    m4_pct: parseFloat(metaUnidadeForm.m4_pct) / 100,
+                  })
+                }}
+              >
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-semibold text-ink">Mês de referência</span>
+                  <input
+                    type="month"
+                    className="design-input mt-2 h-11 w-full px-4"
+                    value={metaAnoMes}
+                    onChange={(event) => setMetaAnoMes(event.target.value)}
+                  />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-semibold text-ink">Meta de GMV</span>
+                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.meta_gmv} onChange={(raw) => setMetaUnidadeForm((c) => ({ ...c, meta_gmv: raw }))} />
+                </label>
+                <div className="md:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted mb-3">Tiers de comissão</p>
+                </div>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">M1 — Teto</span>
+                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m1_teto} onChange={(raw) => setMetaUnidadeForm((c) => ({ ...c, m1_teto: raw }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">M1 — Percentual (%)</span>
+                  <input type="number" step="0.01" min="0" max="100" className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m1_pct} onChange={(event) => setMetaUnidadeForm((c) => ({ ...c, m1_pct: event.target.value }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">M2 — Teto</span>
+                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m2_teto} onChange={(raw) => setMetaUnidadeForm((c) => ({ ...c, m2_teto: raw }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">M2 — Percentual (%)</span>
+                  <input type="number" step="0.01" min="0" max="100" className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m2_pct} onChange={(event) => setMetaUnidadeForm((c) => ({ ...c, m2_pct: event.target.value }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">M3 — Teto</span>
+                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m3_teto} onChange={(raw) => setMetaUnidadeForm((c) => ({ ...c, m3_teto: raw }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">M3 — Percentual (%)</span>
+                  <input type="number" step="0.01" min="0" max="100" className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m3_pct} onChange={(event) => setMetaUnidadeForm((c) => ({ ...c, m3_pct: event.target.value }))} />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-semibold text-ink">M4 — Percentual acima do teto M3 (%)</span>
+                  <input type="number" step="0.01" min="0" max="100" className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m4_pct} onChange={(event) => setMetaUnidadeForm((c) => ({ ...c, m4_pct: event.target.value }))} />
+                </label>
+                {metaUnidadeMutation.isError ? <p className="md:col-span-2 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(metaUnidadeMutation.error)}</p> : null}
+                {metaUnidadeMutation.isSuccess ? <p className="md:col-span-2 rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Metas salvas.</p> : null}
+                <div className="md:col-span-2">
+                  <Button type="submit" icon={BarChart2} isLoading={metaUnidadeMutation.isPending}>
+                    Salvar metas
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+          </CardBody>
+        </Card>
+      ) : null}
 
       {settingsTab === 'aparencia' ? (
         <Card>
