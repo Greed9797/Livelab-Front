@@ -45,13 +45,15 @@ const papelLabels: Record<string, string> = {
   cliente_parceiro: 'Cliente parceiro',
 }
 
+const DEFAULT_PRESENTER_FIXED = '2700'
+
 const emptyForm = {
   nome: '',
   email: '',
   papel: 'gerente',
   cliente_id: '',
   apresentadora_id: '',
-  fixo: '',
+  fixo: DEFAULT_PRESENTER_FIXED,
   comissao_pct: '',
   meta_diaria_gmv: '',
   senha_temporaria: '',
@@ -61,7 +63,7 @@ const emptyEditForm = {
   nome: '',
   papel: 'gerente',
   ativo: true,
-  fixo: '',
+  fixo: DEFAULT_PRESENTER_FIXED,
   comissao_pct: '',
   meta_diaria_gmv: '',
 }
@@ -82,6 +84,11 @@ function isPresenterProfile(item: JsonRecord | null | undefined) {
 
 function isPresenterUser(item: JsonRecord | null | undefined) {
   return isPresenterRole(item?.papel) || item?.pode_apresentar_live === true
+}
+
+function presenterFixedValue(item: JsonRecord | null | undefined) {
+  const value = asNumber(item?.fixo_mensal ?? item?.fixo)
+  return value > 0 ? String(value) : DEFAULT_PRESENTER_FIXED
 }
 
 export function SettingsUsuariosPanel() {
@@ -259,7 +266,12 @@ export function SettingsUsuariosPanel() {
   if (usuarios.isError) return <ErrorState message={extractErrorMessage(usuarios.error)} onRetry={() => void usuarios.refetch()} />
 
   function setField(key: keyof typeof emptyForm, value: string) {
-    setForm((current) => ({ ...current, [key]: value }))
+    setForm((current) => {
+      if (key === 'papel' && isPresenterRole(value) && !current.fixo) {
+        return { ...current, [key]: value, fixo: DEFAULT_PRESENTER_FIXED }
+      }
+      return { ...current, [key]: value }
+    })
   }
 
   function openEditUser(item: JsonRecord) {
@@ -269,14 +281,19 @@ export function SettingsUsuariosPanel() {
       nome: asString(item.nome, ''),
       papel: asString(item.papel, 'gerente'),
       ativo: ativoValue(item.ativo),
-      fixo: asString(item.fixo_mensal ?? item.fixo, ''),
+      fixo: isPresenterUser(item) || isPresenterProfile(item) ? presenterFixedValue(item) : asString(item.fixo_mensal ?? item.fixo, ''),
       comissao_pct: asString(item.comissao_live_pct ?? item.comissao_pct, ''),
       meta_diaria_gmv: asString(item.meta_diaria_gmv, ''),
     })
   }
 
   function setEditField(key: keyof typeof emptyEditForm, value: string | boolean) {
-    setEditForm((current) => ({ ...current, [key]: value }))
+    setEditForm((current) => {
+      if (key === 'papel' && typeof value === 'string' && isPresenterRole(value) && !current.fixo) {
+        return { ...current, [key]: value, fixo: DEFAULT_PRESENTER_FIXED }
+      }
+      return { ...current, [key]: value }
+    })
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
