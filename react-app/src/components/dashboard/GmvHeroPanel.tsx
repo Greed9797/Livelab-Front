@@ -1,3 +1,4 @@
+import { useState, useRef, useCallback } from 'react'
 import { asNumber, formatMoney } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 
@@ -57,54 +58,123 @@ function MetaBar({ gmv, meta }: { gmv: number; meta: number | null }) {
   )
 }
 
+const W = 300
+const H = 100
+const PAD_X = 8
+const PAD_Y = 10
+
 function DailyChart({ data }: { data: Array<{ dia: number; gmv: number }> }) {
   const today = new Date().getDate()
-  const values = data.map(d => d.gmv)
-  const plotted = data.filter(d => d.dia <= today).map(d => d.gmv)
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  const max = Math.max(...values, 1)
-  const W = 100
-  const H = 120
-  const pad = 6
+  const plotted = data.filter(d => d.dia <= today)
+  const max = Math.max(...plotted.map(d => d.gmv), 1)
 
-  const pts = plotted.map((v, i) => {
-    const x = plotted.length <= 1 ? W / 2 : (i / (plotted.length - 1)) * (W - pad * 2) + pad
-    const y = H - pad - ((v / max) * (H - pad * 2))
-    return [x, y]
-  })
+  const pts = plotted.map((d, i) => ({
+    x: plotted.length <= 1 ? W / 2 : (i / (plotted.length - 1)) * (W - PAD_X * 2) + PAD_X,
+    y: H - PAD_Y - ((d.gmv / max) * (H - PAD_Y * 2)),
+    dia: d.dia,
+    gmv: d.gmv,
+  }))
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect || pts.length < 2) return
+    const svgX = ((e.clientX - rect.left) / rect.width) * W
+    let closest = 0
+    let minDist = Infinity
+    pts.forEach((p, i) => {
+      const dist = Math.abs(p.x - svgX)
+      if (dist < minDist) { minDist = dist; closest = i }
+    })
+    setHoveredIdx(closest)
+  }, [pts])
 
   if (pts.length < 2) return (
-    <div className="flex items-center justify-center h-12 text-[11px]" style={{ color: 'var(--text-faint)' }}>
-      sem dados ainda
+    <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>sem dados ainda</span>
     </div>
   )
 
-  const line = pts.map(([x, y], i) => (i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`)).join(' ')
-  const area = `${line} L ${pts[pts.length - 1][0]} ${H} L ${pts[0][0]} ${H} Z`
+  const line = pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ')
+  const area = `${line} L ${pts[pts.length - 1].x} ${H} L ${pts[0].x} ${H} Z`
   const gradId = 'gmv-daily-grad'
 
-  const tickDays = data.filter(d => d.dia % 5 === 0 || d.dia === 1)
+  const hp = hoveredIdx !== null ? pts[hoveredIdx] : null
+  const lastPt = pts[pts.length - 1]
+  const tickDays = data.filter(d => d.dia === 1 || d.dia % 5 === 0)
+
+  const tooltipPct = hp ? (hp.x / W) * 100 : 0
+  const tooltipFlip = tooltipPct > 75
 
   return (
-    <div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: 120, display: 'block' }}>
+    <div
+      ref={containerRef}
+      style={{ position: 'relative', cursor: 'crosshair' }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHoveredIdx(null)}
+    >
+      {hp && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${tooltipPct}%`,
+            top: `${(hp.y / H) * 100}%`,
+            transform: tooltipFlip ? 'translate(-100%, -120%)' : 'translate(8px, -120%)',
+            background: 'var(--bg-elev-3)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            padding: '4px 8px',
+            fontSize: 11,
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            zIndex: 10,
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-mono)',
+          }}
+        >
+          <span style={{ color: 'var(--text-faint)', marginRight: 4 }}>Dia {hp.dia}</span>
+          {formatMoney(hp.gmv, true)}
+        </div>
+      )}
+
+      <svg
+        width="100%"
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        style={{ height: 100, display: 'block' }}
+      >
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
           </linearGradient>
-          {[0.25, 0.5, 0.75].map(f => (
-            <line key={f} x1={0} y1={H * f} x2={W} y2={H * f} stroke="var(--hairline)" strokeWidth="0.5" />
-          ))}
         </defs>
+
+        {[0.25, 0.5, 0.75].map(f => (
+          <line key={f} x1={0} y1={H * f} x2={W} y2={H * f} stroke="var(--border)" strokeWidth="0.8" />
+        ))}
+
+        {hp && (
+          <line
+            x1={hp.x} y1={PAD_Y} x2={hp.x} y2={H}
+            stroke="var(--primary)" strokeWidth="0.8" strokeDasharray="3 3" opacity="0.5"
+          />
+        )}
+
         <path d={area} fill={`url(#${gradId})`} />
         <path d={line} fill="none" stroke="var(--primary)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-        <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="2" fill="var(--primary)" />
+
+        {hp ? (
+          <circle cx={hp.x} cy={hp.y} r="3.5" fill="var(--primary)" stroke="var(--bg-elev-1)" strokeWidth="1.5" />
+        ) : (
+          <circle cx={lastPt.x} cy={lastPt.y} r="2.5" fill="var(--primary)" />
+        )}
       </svg>
-      <div className="flex justify-between mt-1 text-[10px]" style={{ color: 'var(--text-faint)' }}>
-        {tickDays.map(d => (
-          <span key={d.dia}>{d.dia}</span>
-        ))}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--text-faint)' }}>
+        {tickDays.map(d => <span key={d.dia}>{d.dia}</span>)}
       </div>
     </div>
   )
