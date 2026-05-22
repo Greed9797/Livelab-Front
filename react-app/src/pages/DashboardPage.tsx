@@ -10,6 +10,7 @@ import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatMoney } from '../utils/format'
 import type { Cabine, JsonRecord } from '../types/models'
 
+// ─── Ranking Nacional ──────────────────────────────────────────────────────
 function RankingNacional({ data }: { data: JsonRecord[] }) {
   return (
     <div
@@ -21,18 +22,18 @@ function RankingNacional({ data }: { data: JsonRecord[] }) {
           Ranking nacional
         </span>
       </div>
-      <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1 } as React.CSSProperties}>
+      <div className="flex flex-col">
         {data.length === 0 && (
           <p className="px-4 py-3 text-[12px]" style={{ color: 'var(--text-faint)' }}>Sem dados</p>
         )}
-        {data.slice(0, 8).map((item) => {
+        {data.slice(0, 8).map((item, i) => {
           const pos = asNumber(item.posicao)
           const gmv = asNumber(item.gmv_mes)
           return (
             <div
               key={String(item.id ?? item.posicao)}
               className="flex items-center gap-3 px-4 py-2.5"
-              style={{ borderColor: 'var(--border)' }}
+              style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined }}
             >
               <span
                 className="w-6 shrink-0 text-right text-[11px] font-mono font-semibold"
@@ -67,6 +68,66 @@ function RankingNacional({ data }: { data: JsonRecord[] }) {
   )
 }
 
+// ─── Ranking Apresentadoras ────────────────────────────────────────────────
+function RankingApresentadoras({ data }: { data: JsonRecord[] }) {
+  return (
+    <div
+      className="flex flex-col rounded-[10px] overflow-hidden"
+      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
+    >
+      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
+          Ranking apresentadoras — mês
+        </span>
+      </div>
+      <div className="flex flex-col">
+        {data.length === 0 && (
+          <p className="px-4 py-3 text-[12px]" style={{ color: 'var(--text-faint)' }}>Sem dados</p>
+        )}
+        {data.slice(0, 8).map((item, i) => {
+          const gmv = asNumber(item.gmv)
+          const lives = asNumber(item.lives)
+          const total = asNumber(item.total_recebido)
+          return (
+            <div
+              key={String(item.id ?? i)}
+              className="flex items-center gap-3 px-4 py-2.5"
+              style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined }}
+            >
+              <span
+                className="w-5 shrink-0 text-right text-[11px] font-mono font-semibold"
+                style={{ color: 'var(--text-faint)', fontVariantNumeric: 'tabular-nums' }}
+              >
+                #{i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {asString(item.nome ?? item.apresentadora_nome)}
+                </div>
+                <div className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
+                  {lives} live{lives !== 1 ? 's' : ''}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div
+                  className="text-[12px] font-mono font-semibold"
+                  style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {formatMoney(gmv, true)}
+                </div>
+                <div className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                  {formatMoney(total, true)} comissão
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Próximas Lives ────────────────────────────────────────────────────────
 function ProximasLives({ agenda }: { agenda: JsonRecord[] }) {
   function fmtHora(v: unknown) {
     if (!v) return '—'
@@ -93,7 +154,7 @@ function ProximasLives({ agenda }: { agenda: JsonRecord[] }) {
           Próximas lives — hoje
         </span>
       </div>
-      <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1 } as React.CSSProperties}>
+      <div className="flex flex-col">
         {proximas.length === 0 && (
           <p className="px-4 py-3 text-[12px]" style={{ color: 'var(--text-faint)' }}>Sem lives agendadas</p>
         )}
@@ -104,7 +165,7 @@ function ProximasLives({ agenda }: { agenda: JsonRecord[] }) {
             <div
               key={String(ev.id ?? i)}
               className="flex items-center gap-3 px-4 py-2.5"
-              style={{ borderColor: 'var(--border)' }}
+              style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined }}
             >
               <span
                 className="w-10 shrink-0 text-[12px] font-mono font-semibold"
@@ -134,6 +195,7 @@ function ProximasLives({ agenda }: { agenda: JsonRecord[] }) {
   )
 }
 
+// ─── Dashboard Page ────────────────────────────────────────────────────────
 export function DashboardPage() {
   const query = useQuery({
     queryKey: ['home-dashboard'],
@@ -153,6 +215,7 @@ export function DashboardPage() {
   const raw = (query.data ?? {}) as JsonRecord
   const cabines = (raw.cabines as Cabine[] | undefined) ?? []
   const agendaHoje = (raw.agenda_hoje as JsonRecord[] | undefined) ?? []
+  const rankingApresentadoras = (raw.ranking_apresentadoras_mes as JsonRecord[] | undefined) ?? []
   const liveNow = cabines.filter(c => asString(c.status, '').includes('ao_vivo'))
   const rankingData = rankingQuery.data ?? []
 
@@ -164,43 +227,49 @@ export function DashboardPage() {
         subtitle="Resumo operacional de hoje e acumulado do mês."
       />
 
-      <KpiStrip raw={raw} />
+      {/* 1. Hero GMV */}
+      <GmvHeroPanel raw={raw} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 14 }}>
-        <GmvHeroPanel raw={raw} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <RankingNacional data={rankingData} />
-          <ProximasLives agenda={agendaHoje} />
-        </div>
+      {/* 2. Rankings lado a lado */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <RankingNacional data={rankingData} />
+        <RankingApresentadoras data={rankingApresentadoras} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 14 }}>
-        <div
-          className="rounded-[10px] overflow-hidden"
-          style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)', padding: 16 }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
-              Cabines — ocupação de hoje
+      {/* 3. KPI strip */}
+      <KpiStrip raw={raw} />
+
+      {/* 4. Cabines Gantt — largura total */}
+      <div
+        className="rounded-[10px]"
+        style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)', padding: 16 }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
+            Cabines — ocupação de hoje
+          </span>
+          <div className="flex items-center gap-4 text-[11px]" style={{ color: 'var(--text-faint)' }}>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.66 0.22 25 / 0.5)', border: '1px solid oklch(0.66 0.22 25)' }} />
+              Ao vivo
             </span>
-            <div className="flex items-center gap-4 text-[11px]" style={{ color: 'var(--text-faint)' }}>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.66 0.22 25 / 0.5)', border: '1px solid oklch(0.66 0.22 25)' }} />
-                Ao vivo
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.74 0.11 235 / 0.3)', border: '1px solid oklch(0.74 0.11 235 / 0.6)' }} />
-                Agendada
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--bg-elev-3)', border: '1px solid var(--border)' }} />
-                Concluída
-              </span>
-            </div>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.74 0.11 235 / 0.3)', border: '1px solid oklch(0.74 0.11 235 / 0.6)' }} />
+              Agendada
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--bg-elev-3)', border: '1px solid var(--border)' }} />
+              Concluída
+            </span>
           </div>
-          <CabinesGantt agenda={agendaHoje} cabines={liveNow as unknown as Cabine[]} />
         </div>
+        <CabinesGantt agenda={agendaHoje} cabines={cabines} />
+      </div>
+
+      {/* 5. Ao vivo + Próximas */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <AoVivoPanel liveCabines={liveNow} />
+        <ProximasLives agenda={agendaHoje} />
       </div>
     </div>
   )

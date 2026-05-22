@@ -26,78 +26,153 @@ function DeltaPill({ d }: { d: number }) {
 interface KpiCell {
   label: string
   value: string
+  prefix?: string
+  suffix?: string
   d?: number
   spark?: number[]
   sparkColor?: string
 }
 
-interface KpiStripProps {
-  raw: JsonRecord
-}
+export function KpiStrip({ raw }: { raw: JsonRecord }) {
+  const livesMes    = asNumber(raw.lives_mes)
+  const livesPrev   = asNumber(raw.lives_prev)
+  const horasLive   = asNumber(raw.horas_live_mes ?? raw.horas_live)
+  const horasPrev   = asNumber(raw.horas_prev)
+  const gmvLives    = asNumber(raw.gmv_lives_mes)
+  const gmvLivesPrev = asNumber(raw.gmv_lives_prev)
+  const videosMes   = asNumber(raw.videos_mes)
+  const videosPrev  = asNumber(raw.videos_prev)
+  const gmvVideos   = asNumber(raw.gmv_videos_mes)
+  const gmvVideosPrev = asNumber(raw.gmv_videos_prev)
 
-export function KpiStrip({ raw }: KpiStripProps) {
-  const gmvMes = asNumber(raw.gmv_total_mes ?? raw.gmv_mes)
-  const gmvPrev = asNumber(raw.gmv_mes_prev ?? raw.gmv_prev)
-  const livesMes = asNumber(raw.lives_mes)
-  const livesPrev = asNumber(raw.lives_prev)
-  const videosMes = asNumber(raw.videos_mes)
-  const videosPrev = asNumber(raw.videos_prev)
-  const ticketMedio = asNumber(raw.ticket_medio_live_mes)
-  const ticketPrev = asNumber(raw.ticket_prev)
-  const viewers = asNumber(raw.media_viewers)
-  const viewersPrev = asNumber(raw.media_viewers_prev)
-  const clientesAtivos = asNumber(raw.clientes_ativos)
-  const clientesPrev = asNumber(raw.clientes_prev)
+  const gmvPorHora  = horasLive > 0 ? gmvLives / horasLive : 0
+  const gmvPorHoraPrev = asNumber(raw.horas_prev) > 0 ? gmvLivesPrev / asNumber(raw.horas_prev) : 0
+  const gmvPorVideo = videosMes > 0 ? gmvVideos / videosMes : 0
+  const gmvPorVideoPrev = asNumber(raw.videos_prev) > 0 ? gmvVideosPrev / asNumber(raw.videos_prev) : 0
 
-  function fmtCompact(v: number): string {
+  function fmtMoney(v: number): string {
     if (v >= 1_000_000) return `${(v / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`
     if (v >= 1_000) return `${(v / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`
     return v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
   }
 
   const cells: KpiCell[] = [
-    { label: 'GMV mês', value: `R$ ${fmtCompact(gmvMes)}`, d: delta(gmvMes, gmvPrev), spark: raw.gmv_year as number[] | undefined, sparkColor: 'var(--primary)' },
-    { label: 'Lives', value: livesMes.toLocaleString('pt-BR'), d: delta(livesMes, livesPrev), spark: raw.lives_year as number[] | undefined, sparkColor: 'var(--info)' },
-    { label: 'Vídeos', value: videosMes.toLocaleString('pt-BR'), d: delta(videosMes, videosPrev), spark: raw.videos_year as number[] | undefined, sparkColor: 'var(--success)' },
-    { label: 'Ticket médio', value: `R$ ${fmtCompact(ticketMedio)}`, d: delta(ticketMedio, ticketPrev), sparkColor: 'var(--warning)' },
-    { label: 'Viewers méd.', value: viewers.toLocaleString('pt-BR'), d: delta(viewers, viewersPrev), sparkColor: 'var(--info)' },
-    { label: 'Clientes ativos', value: clientesAtivos.toLocaleString('pt-BR'), d: delta(clientesAtivos, clientesPrev), sparkColor: 'var(--success)' },
+    {
+      label: 'Lives',
+      value: livesMes.toLocaleString('pt-BR'),
+      suffix: 'lives',
+      d: delta(livesMes, livesPrev),
+      spark: raw.lives_year as number[] | undefined,
+      sparkColor: 'var(--info)',
+    },
+    {
+      label: 'Hs em live',
+      value: horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 }),
+      suffix: 'h',
+      d: delta(horasLive, horasPrev),
+      sparkColor: 'var(--success)',
+    },
+    {
+      label: 'GMV / hora',
+      value: fmtMoney(gmvPorHora),
+      prefix: 'R$',
+      d: delta(gmvPorHora, gmvPorHoraPrev),
+      sparkColor: 'var(--primary)',
+    },
+    {
+      label: 'Vídeos',
+      value: videosMes.toLocaleString('pt-BR'),
+      suffix: 'vídeos',
+      d: delta(videosMes, videosPrev),
+      spark: raw.videos_year as number[] | undefined,
+      sparkColor: 'var(--warning)',
+    },
+    {
+      label: 'GMV vídeos',
+      value: fmtMoney(gmvVideos),
+      prefix: 'R$',
+      d: delta(gmvVideos, gmvVideosPrev),
+      sparkColor: 'var(--primary)',
+    },
+    {
+      label: 'GMV / vídeo',
+      value: fmtMoney(gmvPorVideo),
+      prefix: 'R$',
+      d: delta(gmvPorVideo, gmvPorVideoPrev),
+      sparkColor: 'var(--warning)',
+    },
   ]
 
   return (
     <div
       className="rounded-[10px] overflow-hidden"
-      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)' }}
+      style={{
+        background: 'var(--bg-elev-1)',
+        border: '1px solid var(--border)',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(6, 1fr)',
+      }}
     >
       {cells.map((cell, i) => (
         <div
           key={cell.label}
-          className="flex flex-col justify-between gap-2"
           style={{
-            padding: '18px 20px',
+            padding: '16px 18px',
             borderRight: i < cells.length - 1 ? '1px solid var(--divider, var(--border))' : undefined,
             minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
           }}
         >
           <span
-            className="truncate text-[11px] font-semibold uppercase"
-            style={{ color: 'var(--text-muted)', letterSpacing: '0.08em' }}
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
           >
             {cell.label}
           </span>
-          <div className="flex items-end justify-between gap-1">
-            <span
-              className="text-2xl font-medium font-mono leading-none"
-              style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
-            >
-              {cell.value}
-            </span>
+
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, minWidth: 0 }}>
+              {cell.prefix && (
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                  {cell.prefix}
+                </span>
+              )}
+              <span
+                style={{
+                  fontSize: 20,
+                  fontWeight: 500,
+                  fontFamily: 'var(--font-mono)',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: 'var(--text-primary)',
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {cell.value}
+              </span>
+              {cell.suffix && (
+                <span style={{ fontSize: 11, color: 'var(--text-faint)', flexShrink: 0 }}>
+                  {cell.suffix}
+                </span>
+              )}
+            </div>
             {cell.spark && cell.spark.length > 2 && (
-              <div className="shrink-0 opacity-70">
-                <Sparkline data={cell.spark} width={70} height={24} stroke={cell.sparkColor ?? 'var(--primary)'} />
+              <div style={{ flexShrink: 0, opacity: 0.7 }}>
+                <Sparkline data={cell.spark} width={56} height={22} stroke={cell.sparkColor ?? 'var(--primary)'} />
               </div>
             )}
           </div>
+
           {cell.d !== undefined && <DeltaPill d={cell.d} />}
         </div>
       ))}

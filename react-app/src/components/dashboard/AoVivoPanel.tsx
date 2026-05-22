@@ -42,9 +42,6 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
           <span style={{ color: 'var(--live)' }}>●</span>
           Ao vivo agora · {liveCabines.length}
         </h3>
-        <a href="#" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
-          Sala de controle →
-        </a>
       </div>
 
       {/* Summary */}
