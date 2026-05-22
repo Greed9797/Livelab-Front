@@ -87,7 +87,7 @@ function RankingApresentadoras({ data }: { data: JsonRecord[] }) {
         {data.slice(0, 8).map((item, i) => {
           const gmv = asNumber(item.gmv)
           const lives = asNumber(item.lives)
-          const total = asNumber(item.total_recebido)
+          const gmvMedioLive = asNumber(item.gmv_medio_live)
           return (
             <div
               key={String(item.id ?? i)}
@@ -115,9 +115,11 @@ function RankingApresentadoras({ data }: { data: JsonRecord[] }) {
                 >
                   {formatMoney(gmv, true)}
                 </div>
-                <div className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                  {formatMoney(total, true)} comissão
-                </div>
+                {gmvMedioLive > 0 && (
+                  <div className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                    {formatMoney(gmvMedioLive, true)}/live
+                  </div>
+                )}
               </div>
             </div>
           )

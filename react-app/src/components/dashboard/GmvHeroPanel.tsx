@@ -64,8 +64,8 @@ function DailyChart({ data }: { data: Array<{ dia: number; gmv: number }> }) {
 
   const max = Math.max(...values, 1)
   const W = 100
-  const H = 48
-  const pad = 4
+  const H = 120
+  const pad = 6
 
   const pts = plotted.map((v, i) => {
     const x = plotted.length <= 1 ? W / 2 : (i / (plotted.length - 1)) * (W - pad * 2) + pad
@@ -87,7 +87,7 @@ function DailyChart({ data }: { data: Array<{ dia: number; gmv: number }> }) {
 
   return (
     <div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: 48, display: 'block' }}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: 120, display: 'block' }}>
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.25" />

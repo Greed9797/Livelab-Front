@@ -60,7 +60,6 @@ export function KpiStrip({ raw }: { raw: JsonRecord }) {
     {
       label: 'Lives',
       value: livesMes.toLocaleString('pt-BR'),
-      suffix: 'lives',
       d: delta(livesMes, livesPrev),
       spark: raw.lives_year as number[] | undefined,
       sparkColor: 'var(--info)',
@@ -82,7 +81,6 @@ export function KpiStrip({ raw }: { raw: JsonRecord }) {
     {
       label: 'Vídeos',
       value: videosMes.toLocaleString('pt-BR'),
-      suffix: 'vídeos',
       d: delta(videosMes, videosPrev),
       spark: raw.videos_year as number[] | undefined,
       sparkColor: 'var(--warning)',
