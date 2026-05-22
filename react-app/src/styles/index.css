@@ -10,9 +10,9 @@
   --color-ink: var(--text-primary);
   --color-ink-muted: var(--text-muted);
   --color-line: var(--border);
-  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-serif: "Instrument Serif", Georgia, serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 :root {
@@ -51,33 +51,38 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg-base: #0e0e10;
-  --bg-elev-1: #16161a;
-  --bg-elev-2: #1e1e22;
-  --bg-elev-3: #26262b;
-  --bg-input: #1a1a1e;
-  --text-primary: #f5f0eb;
-  --text-secondary: #b8b2ac;
-  --text-muted: #75716d;
-  --text-faint: #4a4744;
-  --primary: #ff6a2f;
-  --primary-hover: #ff7e48;
-  --primary-soft: rgba(255, 106, 47, 0.14);
-  --primary-softer: rgba(255, 106, 47, 0.07);
-  --primary-glow: 0 0 0 1px rgba(255, 106, 47, 0.3), 0 8px 24px -6px rgba(255, 106, 47, 0.4);
-  --success: #34d399;
-  --success-soft: rgba(52, 211, 153, 0.12);
-  --warning: #fbbf24;
-  --warning-soft: rgba(251, 191, 36, 0.12);
-  --danger: #f87171;
-  --danger-soft: rgba(248, 113, 113, 0.12);
-  --info: #60a5fa;
-  --info-soft: rgba(96, 165, 250, 0.12);
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.1);
-  --hairline: rgba(255, 255, 255, 0.04);
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.3);
-  --shadow-card-lg: 0 24px 54px rgba(0, 0, 0, 0.36);
+  /* warm off-black — direção C fintech premium */
+  --bg-base: oklch(0.155 0.006 60);
+  --bg-elev-1: oklch(0.185 0.006 60);
+  --bg-elev-2: oklch(0.205 0.006 60);
+  --bg-elev-3: oklch(0.235 0.006 60);
+  --bg-input: oklch(0.185 0.006 60);
+  --text-primary: oklch(0.97 0.004 60);
+  --text-secondary: oklch(0.78 0.005 60);
+  --text-muted: oklch(0.58 0.005 60);
+  --text-faint: oklch(0.42 0.005 60);
+  --primary: oklch(0.74 0.17 50);
+  --primary-hover: oklch(0.78 0.15 50);
+  --primary-soft: oklch(0.74 0.17 50 / 0.14);
+  --primary-softer: oklch(0.74 0.17 50 / 0.07);
+  --primary-glow: 0 0 0 1px oklch(0.74 0.17 50 / 0.3), 0 8px 24px -6px oklch(0.74 0.17 50 / 0.4);
+  --success: oklch(0.78 0.14 155);
+  --success-soft: oklch(0.78 0.14 155 / 0.16);
+  --warning: oklch(0.80 0.14 80);
+  --warning-soft: oklch(0.80 0.14 80 / 0.14);
+  --danger: oklch(0.66 0.22 25);
+  --danger-soft: oklch(0.66 0.22 25 / 0.18);
+  --info: oklch(0.74 0.11 235);
+  --info-soft: oklch(0.74 0.11 235 / 0.16);
+  --border: oklch(0.30 0.006 60);
+  --border-strong: oklch(0.40 0.006 60);
+  --hairline: oklch(0.25 0.006 60);
+  --divider: oklch(0.25 0.006 60);
+  --shadow-card: 0 1px 0 oklch(1 0 0 / 0.03) inset, 0 8px 24px oklch(0 0 0 / 0.3);
+  --shadow-card-lg: 0 24px 54px oklch(0 0 0 / 0.36);
+  /* live-state accent */
+  --live: oklch(0.66 0.22 25);
+  --live-soft: oklch(0.66 0.22 25 / 0.18);
 }
 
 * {

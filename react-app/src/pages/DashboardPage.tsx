@@ -1,135 +1,452 @@
-import { Activity, CircleDollarSign, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { PageHeader } from '../components/ui/PageHeader'
-import { MetricCard } from '../components/ui/MetricCard'
-import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { Badge, statusTone } from '../components/ui/Badge'
-import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
-import { getComissoesApresentadoras, getHomeDashboard } from '../services/domain'
+import { KpiStrip } from '../components/dashboard/KpiStrip'
+import { GmvHeroCard } from '../components/dashboard/GmvHeroCard'
+import { CabinesGantt } from '../components/dashboard/CabinesGantt'
+import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
+import { getAgenda, getCabines, getComissoesApresentadoras, getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asNumber, asString, formatMoney } from '../utils/format'
-import { normalizeHome } from './page-helpers'
+import { asArray, asNumber, asString, formatMoney } from '../utils/format'
 import type { JsonRecord } from '../types/models'
 
-const icons = [CircleDollarSign, Activity, Activity, Users]
+const today = new Date().toISOString().slice(0, 10)
 
-export function DashboardPage() {
-  const query = useQuery({ queryKey: ['home-dashboard'], queryFn: getHomeDashboard, refetchInterval: 30_000 })
-  const rankingApresentadoras = useQuery({ queryKey: ['comissoes-apresentadoras'], queryFn: () => getComissoesApresentadoras(), refetchInterval: 30_000 })
+function fmtBRL(v: number): string {
+  return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
 
-  if (query.isLoading) return <LoadingState />
-  if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+function fmtCompact(v: number): string {
+  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`
+  if (v >= 1_000) return `R$ ${(v / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`
+  return `R$ ${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
+}
 
-  const data = normalizeHome(query.data ?? {})
+/* ── Page header ── */
+function PageHead({ liveCount }: { liveCount: number }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h1 className="m-0 text-2xl font-bold leading-tight tracking-tight" style={{ color: 'var(--text-primary)' }}>
+          <span className="font-serif italic font-normal" style={{ color: 'var(--primary)' }}>Visão</span>{' '}
+          da unidade
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+          Pulso operacional, comercial e financeiro — atualizado em tempo real.
+        </p>
+      </div>
+      {liveCount > 0 && (
+        <span
+          className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
+          style={{ background: 'var(--live-soft)', color: 'var(--live)', border: '1px solid var(--live)' }}
+        >
+          <span
+            className="h-1.5 w-1.5 rounded-full animate-pulse"
+            style={{ background: 'var(--live)' }}
+          />
+          {liveCount} {liveCount === 1 ? 'live' : 'lives'} ao vivo agora
+        </span>
+      )}
+    </div>
+  )
+}
+
+/* ── Ranking nacional ── */
+function RankingNacionalCard({ ranking }: { ranking: JsonRecord[] }) {
+  return (
+    <div
+      className="flex flex-col rounded-xl overflow-hidden"
+      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
+    >
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          Ranking nacional
+        </h3>
+        <a href="#" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
+          Ver rede →
+        </a>
+      </div>
+      <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1 } as React.CSSProperties}>
+        {ranking.length === 0 && (
+          <p className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>—</p>
+        )}
+        {ranking.slice(0, 8).map((r, i) => {
+          const isSelf = Boolean(r.self ?? r.is_self ?? r.tenant_id === 'self')
+          const pos = asNumber(r.rk ?? r.posicao ?? i + 1)
+          const nome = asString(r.nome ?? r.tenant_nome ?? r.cliente_nome)
+          const gmv = asNumber(r.gmv ?? r.valor)
+          const d = asNumber(r.d ?? r.delta ?? r.variacao)
+          return (
+            <div
+              key={i}
+              className="flex items-center gap-2 px-4 py-2 text-sm"
+              style={{
+                background: isSelf ? 'var(--primary-softer)' : 'transparent',
+                borderLeft: isSelf ? '2px solid var(--primary)' : '2px solid transparent',
+              }}
+            >
+              <span
+                className="w-7 shrink-0 text-[11px] font-mono font-medium"
+                style={{ color: isSelf ? 'var(--primary)' : 'var(--text-muted)' }}
+              >
+                #{String(pos).padStart(2, '0')}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-medium" style={{ color: 'var(--text-primary)' }}>
+                {nome}
+              </span>
+              <span className="shrink-0 font-mono text-[12px]" style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                {fmtCompact(gmv)}
+              </span>
+              {d !== 0 && (
+                <span
+                  className="shrink-0 text-[11px] font-mono"
+                  style={{ color: d >= 0 ? 'var(--success)' : 'var(--danger)' }}
+                >
+                  {d >= 0 ? '+' : ''}{d.toFixed(1)}%
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ── Agenda card ── */
+function AgendaCard({ agenda }: { agenda: JsonRecord[] }) {
+  function parseHora(dt: string | undefined): string {
+    if (!dt) return '—'
+    const d = new Date(dt)
+    if (isNaN(d.getTime())) return dt.slice(0, 5)
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const upcoming = agenda
+    .filter((ev) => {
+      const status = asString(ev.status, '')
+      return !status.includes('conclu') && !status.includes('cancel') && !status.includes('encerr')
+    })
+    .slice(0, 6)
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        accent="Visão"
-        title="da unidade"
-        subtitle="Pulso operacional, comercial e financeiro da unidade."
-      />
+    <div
+      className="flex flex-col rounded-xl overflow-hidden"
+      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
+    >
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          Próximas lives · hoje
+        </h3>
+        <a href="#" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
+          Agenda completa →
+        </a>
+      </div>
+      <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1 } as React.CSSProperties}>
+        {upcoming.length === 0 && (
+          <p className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+            Nenhuma live agendada para hoje
+          </p>
+        )}
+        {upcoming.map((ev, i) => {
+          const hora = parseHora(asString(ev.data_inicio ?? ev.hora_inicio, ''))
+          const nome = asString(ev.cliente_nome ?? ev.marca_nome ?? ev.titulo)
+          const cabNum = asNumber(ev.cabine_numero ?? ev.numero)
+          const cab = cabNum > 0 ? `C-${String(cabNum).padStart(2, '0')}` : ''
+          const isLive = asString(ev.status, '').includes('ao_vivo') || asString(ev.status, '').includes('live')
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {data.metrics.map((item, index) => (
-          <MetricCard key={item.label} metric={item} icon={icons[index]} />
-        ))}
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-        <Card className="overflow-hidden">
-          <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-ink">Operação em tempo real</p>
-                <p className="mt-1 text-xs text-ink-muted">
-                  {data.occupancy.live} de {data.occupancy.total} cabines em live
-                </p>
-              </div>
-              <Badge tone={data.occupancy.live > 0 ? 'success' : 'neutral'}>{data.occupancy.live > 0 ? 'ao vivo' : 'sem lives ativas'}</Badge>
-            </div>
-          </CardHeader>
-          <CardBody>
-            <DataTable<JsonRecord>
-              data={data.liveCabines}
-              columns={[
-                { key: 'numero', header: 'Cabine', render: (item) => `Cabine ${String(item.numero ?? '').padStart(2, '0')}` },
-                { key: 'cliente_nome', header: 'Cliente', render: (item) => asString(item.cliente_nome) },
-                { key: 'viewer_count', header: 'Viewers', align: 'right', render: (item) => asNumber(item.viewer_count).toLocaleString('pt-BR') },
-                { key: 'gmv_atual', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_atual) },
-              ]}
-            />
-          </CardBody>
-        </Card>
-
-        <div className="space-y-4">
-          {data.alerts.map((alert) => (
-            <Card key={alert.label}>
-              <CardBody className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-bold text-ink">{alert.label}</p>
-                  <p className="mt-1 text-xs text-ink-muted">{alert.hint}</p>
+          return (
+            <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+              <div className="w-14 shrink-0">
+                <div
+                  className="text-[13px] font-semibold font-mono leading-none"
+                  style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {hora}
                 </div>
-                <span className="text-2xl font-bold text-ink">{alert.value}</span>
-              </CardBody>
-            </Card>
-          ))}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  {isLive && <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--live)' }} />}
+                  <span className="truncate text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {nome}
+                  </span>
+                </div>
+                {asString(ev.apresentadora_nome ?? ev.apresentador_nome, '') && (
+                  <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                    {asString(ev.apresentadora_nome ?? ev.apresentador_nome)}
+                  </div>
+                )}
+              </div>
+              {cab && (
+                <span
+                  className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium font-mono"
+                  style={{ background: 'var(--bg-elev-3)', color: 'var(--text-muted)' }}
+                >
+                  {cab}
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ── Ranking apresentadoras ── */
+function RankingApresentadorasCard({ data }: { data: JsonRecord[] }) {
+  return (
+    <div
+      className="flex flex-col rounded-xl overflow-hidden"
+      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
+    >
+      <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border)' }}>
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          Ranking de apresentadoras
+        </h3>
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          {data.length} cadastradas
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              {['#', 'Apresentadora', 'GMV', 'Lives', 'GMV / live', 'Comissão'].map((h, i) => (
+                <th
+                  key={h}
+                  className={`px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide ${i > 1 ? 'text-right' : 'text-left'}`}
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Sem dados no período
+                </td>
+              </tr>
+            )}
+            {data.map((row, i) => {
+              const gmv = asNumber(row.gmv ?? row.gmv_total)
+              const lives = asNumber(row.lives ?? row.total_lives)
+              const gmvPerLive = lives > 0 ? gmv / lives : 0
+              const comissao = asNumber(row.comissao_apresentadora ?? row.comissao)
+              const metaPct = asNumber(row.pct_meta ?? row.percentual_meta)
+              const nome = asString(row.nome)
+              const posEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`
+              return (
+                <tr
+                  key={row.id as string ?? i}
+                  style={{ borderBottom: '1px solid var(--hairline)' }}
+                  className="transition-colors hover:bg-[var(--bg-elev-2)]"
+                >
+                  <td className="px-4 py-3 text-[12px] font-mono w-10" style={{ color: 'var(--text-muted)' }}>
+                    {posEmoji}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                        style={{
+                          background: 'linear-gradient(160deg, var(--primary), oklch(0.60 0.19 40))',
+                          color: '#1a1208',
+                        }}
+                      >
+                        {nome.split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]).join('').toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {nome}
+                        </div>
+                        {metaPct > 0 && (
+                          <div className="mt-0.5 flex items-center gap-1.5">
+                            <div className="h-1 w-16 overflow-hidden rounded-full" style={{ background: 'var(--bg-elev-3)' }}>
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${Math.min(metaPct, 100)}%`,
+                                  background: metaPct >= 100 ? 'var(--success)' : 'var(--primary)',
+                                }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                              {metaPct.toFixed(0)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-[13px]" style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                    {formatMoney(gmv)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-[13px]" style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                    {lives.toLocaleString('pt-BR')}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-[13px]" style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                    {gmvPerLive > 0 ? formatMoney(gmvPerLive) : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-[13px]" style={{ color: comissao > 0 ? 'var(--success)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                    {comissao > 0 ? formatMoney(comissao) : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+/* ── Alerts strip ── */
+function AlertsStrip({ raw }: { raw: JsonRecord }) {
+  const alertas = (raw.alertas ?? {}) as JsonRecord
+  const contratos = asNumber(alertas.contratos_aguardando_assinatura ?? raw.contratos_aguardando_assinatura)
+  const boletos = asNumber(alertas.boletos_vencidos ?? raw.boletos_vencidos)
+  const conflitos = asNumber(alertas.conflitos_agenda ?? raw.conflitos_agenda)
+
+  const items = [
+    { label: 'Contratos aguardando', value: contratos, hint: 'assinatura pendente', tone: 'warning' as const },
+    { label: 'Boletos vencidos', value: boletos, hint: 'atenção financeira', tone: 'danger' as const },
+    { label: 'Conflitos de agenda', value: conflitos, hint: 'próximas 48h', tone: 'neutral' as const },
+  ].filter((a) => a.value > 0)
+
+  if (items.length === 0) return null
+
+  return (
+    <div className="flex flex-wrap gap-3">
+      {items.map((a) => (
+        <div
+          key={a.label}
+          className="flex items-center gap-3 rounded-xl px-4 py-3"
+          style={{
+            background: a.tone === 'danger' ? 'var(--danger-soft)' : a.tone === 'warning' ? 'var(--warning-soft)' : 'var(--bg-elev-1)',
+            border: `1px solid ${a.tone === 'danger' ? 'var(--danger)' : a.tone === 'warning' ? 'var(--warning)' : 'var(--border)'}`,
+          }}
+        >
+          <span
+            className="text-xl font-bold font-mono leading-none"
+            style={{ color: a.tone === 'danger' ? 'var(--danger)' : a.tone === 'warning' ? 'var(--warning)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
+          >
+            {a.value}
+          </span>
+          <div>
+            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              {a.label}
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {a.hint}
+            </div>
+          </div>
         </div>
-      </section>
+      ))}
+    </div>
+  )
+}
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <p className="text-sm font-bold text-ink">Próximas lives</p>
-          </CardHeader>
-          <CardBody>
-            <DataTable<JsonRecord>
-              data={data.upcoming}
-              columns={[
-                { key: 'hora', header: 'Horário', render: (item) => asString(item.hora ?? item.hora_inicio) },
-                { key: 'cliente_nome', header: 'Cliente', render: (item) => asString(item.cliente_nome) },
-                { key: 'cabine_numero', header: 'Cabine', render: (item) => `Cabine ${asString(item.cabine_numero ?? item.numero)}` },
-                { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, ''))}>{asString(item.status)}</Badge> },
-              ]}
-            />
-          </CardBody>
-        </Card>
+/* ── Main page ── */
+export function DashboardPage() {
+  const homeQuery = useQuery({
+    queryKey: ['home-dashboard'],
+    queryFn: getHomeDashboard,
+    refetchInterval: 30_000,
+  })
+  const agendaQuery = useQuery({
+    queryKey: ['agenda-today', today],
+    queryFn: () => getAgenda({ data: today }),
+    refetchInterval: 60_000,
+  })
+  const cabinesQuery = useQuery({
+    queryKey: ['cabines'],
+    queryFn: getCabines,
+    refetchInterval: 30_000,
+  })
+  const rankingQuery = useQuery({
+    queryKey: ['comissoes-apresentadoras'],
+    queryFn: () => getComissoesApresentadoras(),
+    refetchInterval: 60_000,
+  })
 
-        <Card>
-          <CardHeader>
-            <p className="text-sm font-bold text-ink">Ranking comercial</p>
-          </CardHeader>
-          <CardBody>
-            <DataTable<JsonRecord>
-              data={data.ranking}
-              columns={[
-                { key: 'nome', header: 'Cliente', render: (item) => asString(item.nome ?? item.cliente_nome ?? item.tenant_nome) },
-                { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv ?? item.valor) },
-                { key: 'lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives ?? item.total_lives).toLocaleString('pt-BR') },
-              ]}
-            />
-          </CardBody>
-        </Card>
-      </section>
+  if (homeQuery.isLoading) return <LoadingState />
+  if (homeQuery.isError) return (
+    <ErrorState
+      message={extractErrorMessage(homeQuery.error)}
+      onRetry={() => void homeQuery.refetch()}
+    />
+  )
 
-      <section className="grid gap-4 xl:grid-cols-1">
-        <Card>
-          <CardHeader>
-            <p className="text-sm font-bold text-ink">Ranking de apresentadoras</p>
-          </CardHeader>
-          <CardBody>
-            <DataTable<JsonRecord>
-              data={rankingApresentadoras.data ?? []}
-              columns={[
-                { key: 'nome', header: 'Apresentadora', render: (item) => asString(item.nome) },
-                { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv) },
-                { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => formatMoney(item.comissao_apresentadora) },
-              ]}
-            />
-          </CardBody>
-        </Card>
-      </section>
+  const raw = (homeQuery.data ?? {}) as JsonRecord
+  const agenda = asArray<JsonRecord>(agendaQuery.data)
+  const cabines = cabinesQuery.data ?? []
+  const rankingApresentadoras = asArray<JsonRecord>(rankingQuery.data)
+
+  const liveCabines = cabines.filter(
+    (c) => asString(c.status, '').includes('ao_vivo') || asString(c.status, '') === 'live'
+  )
+  const rankingNacional = asArray<JsonRecord>(raw.ranking ?? raw.ranking_clientes ?? raw.top_clientes)
+
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHead liveCount={liveCabines.length} />
+
+      {/* KPI strip */}
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: 720 }}>
+          <KpiStrip raw={raw} />
+        </div>
+      </div>
+
+      {/* Alerts (only if any) */}
+      <AlertsStrip raw={raw} />
+
+      {/* Hero row */}
+      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 340px' }}>
+        <GmvHeroCard raw={raw} />
+        <div className="flex flex-col gap-4">
+          <RankingNacionalCard ranking={rankingNacional} />
+          <AgendaCard agenda={agenda} />
+        </div>
+      </div>
+
+      {/* Operations row */}
+      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 340px' }}>
+        <div
+          className="flex flex-col gap-4 rounded-xl p-4"
+          style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Cabines — ocupação de hoje
+            </h3>
+            <div className="flex items-center gap-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm" style={{ background: 'oklch(0.66 0.22 25 / 0.5)', border: '1px solid oklch(0.66 0.22 25)' }} />
+                Ao vivo
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm" style={{ background: 'oklch(0.74 0.11 235 / 0.3)', border: '1px solid oklch(0.74 0.11 235 / 0.6)' }} />
+                Agendada
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm" style={{ background: 'var(--bg-elev-3)', border: '1px solid var(--border)' }} />
+                Concluída
+              </span>
+            </div>
+          </div>
+          <CabinesGantt agenda={agenda} cabines={cabines} />
+        </div>
+
+        <AoVivoPanel liveCabines={liveCabines} />
+      </div>
+
+      {/* Ranking apresentadoras */}
+      <RankingApresentadorasCard data={rankingApresentadoras} />
     </div>
   )
 }
