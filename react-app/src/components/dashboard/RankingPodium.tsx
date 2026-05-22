@@ -34,6 +34,11 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+function getSubjectImage(item: JsonRecord, subject: Subject): string {
+  if (subject === 'marca' || subject === 'unidade') return getBrandImage(item)
+  return asString(item.foto_url ?? item.apresentadora_foto_url ?? item.avatar_url, '')
+}
+
 function PodiumCard({ item, place, subject, valueKey, valueLabel, metaKey, metaLabel }: {
   item: JsonRecord
   place: 1 | 2 | 3
@@ -45,7 +50,7 @@ function PodiumCard({ item, place, subject, valueKey, valueLabel, metaKey, metaL
 }) {
   const name = getName(item, subject)
   const value = item[valueKey] ?? item.gmv ?? item.valor
-  const img = subject === 'marca' ? getBrandImage(item) : ''
+  const img = getSubjectImage(item, subject)
   const meta = metaKey ? asNumber(item[metaKey]).toLocaleString('pt-BR') : ''
 
   const barHeight = place === 1 ? 'h-[72px]' : place === 2 ? 'h-[48px]' : 'h-[32px]'

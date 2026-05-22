@@ -9,9 +9,11 @@ import { Badge, statusTone } from '../components/ui/Badge'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, updateCliente, updateMarca } from '../services/domain'
+import { ImagePicker } from '../components/ui/ImagePicker'
+import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
+import { getBrandImage } from '../utils/favicon'
 import { downloadCsv } from '../utils/exportCsv'
 import { metric, moneyMetric, percentMetric } from './page-helpers'
 import { CrmPage } from './CrmPage'
@@ -27,6 +29,7 @@ const emptyClienteForm = {
   cnpj: '',
   nicho: '',
   tiktok_username: '',
+  logo_url: '',
 }
 
 const emptyAfiliadoForm = {
@@ -69,6 +72,8 @@ export function ComercialPage() {
       setClienteForm(emptyClienteForm)
       setShowClienteForm(false)
       void queryClient.invalidateQueries({ queryKey: ['clientes'] })
+      void queryClient.invalidateQueries({ queryKey: ['comissoes-marcas'] })
+      void queryClient.invalidateQueries({ queryKey: ['ranking-marcas'] })
     },
   })
   const afiliadoMutation = useMutation({
@@ -78,6 +83,8 @@ export function ComercialPage() {
       setShowAfiliadoForm(false)
       void queryClient.invalidateQueries({ queryKey: ['marcas'] })
       void queryClient.invalidateQueries({ queryKey: ['marcas', 'ativas'] })
+      void queryClient.invalidateQueries({ queryKey: ['comissoes-marcas'] })
+      void queryClient.invalidateQueries({ queryKey: ['ranking-marcas'] })
     },
   })
   const ativoUpdateMutation = useMutation({
@@ -88,6 +95,9 @@ export function ComercialPage() {
       void queryClient.invalidateQueries({ queryKey: ['clientes'] })
       void queryClient.invalidateQueries({ queryKey: ['marcas'] })
       void queryClient.invalidateQueries({ queryKey: ['ativo-operacional'] })
+      void queryClient.invalidateQueries({ queryKey: ['agenda'] })
+      void queryClient.invalidateQueries({ queryKey: ['comissoes-marcas'] })
+      void queryClient.invalidateQueries({ queryKey: ['ranking-marcas'] })
     },
   })
   const ativoDeleteMutation = useMutation({
@@ -99,7 +109,22 @@ export function ComercialPage() {
       void queryClient.invalidateQueries({ queryKey: ['clientes'] })
       void queryClient.invalidateQueries({ queryKey: ['marcas'] })
       void queryClient.invalidateQueries({ queryKey: ['marcas', 'ativas'] })
+      void queryClient.invalidateQueries({ queryKey: ['agenda'] })
+      void queryClient.invalidateQueries({ queryKey: ['comissoes-marcas'] })
+      void queryClient.invalidateQueries({ queryKey: ['ranking-marcas'] })
     },
+  })
+  const uploadClienteImage = useMutation({
+    mutationFn: (file: File) => uploadImageAsset(file, 'clientes'),
+    onSuccess: (data) => setClienteField('logo_url', asString(data.url, '')),
+  })
+  const uploadAfiliadoImage = useMutation({
+    mutationFn: (file: File) => uploadImageAsset(file, 'marcas'),
+    onSuccess: (data) => setAfiliadoField('logo_url', asString(data.url, '')),
+  })
+  const uploadAtivoImage = useMutation({
+    mutationFn: ({ file, folder }: { file: File; folder: 'clientes' | 'marcas' }) => uploadImageAsset(file, folder),
+    onSuccess: (data) => setAtivoForm((current) => ({ ...current, logo_url: asString(data.url, '') })),
   })
 
   const isLoading = summaryQuery.isLoading || leadsQuery.isLoading || clientesQuery.isLoading || marcasQuery.isLoading
@@ -155,6 +180,8 @@ export function ComercialPage() {
       }
       unique.set(key, {
         ...existing,
+        logo_url: existing.logo_url || item.logo_url,
+        site: existing.site || item.site,
         gmv_mes: asNumber(existing.gmv_mes ?? existing.fat_anual) + asNumber(item.gmv_mes ?? item.fat_anual),
         lives_mes: asNumber(existing.lives_mes ?? existing.total_lives) + asNumber(item.lives_mes ?? item.total_lives),
         videos_mes: asNumber(existing.videos_mes ?? existing.quantidade_videos) + asNumber(item.videos_mes ?? item.quantidade_videos),
@@ -223,6 +250,7 @@ export function ComercialPage() {
       razao_social: clienteForm.responsavel || undefined,
       nicho: clienteForm.nicho || undefined,
       tiktok_username: clienteForm.tiktok_username || undefined,
+      logo_url: clienteForm.logo_url || undefined,
     })
   }
 
@@ -254,6 +282,7 @@ export function ComercialPage() {
           status: ativoForm.status,
           email: ativoForm.email || undefined,
           celular: ativoForm.celular || undefined,
+          logo_url: ativoForm.logo_url || null,
         }
       : {
           nome: ativoForm.nome,
@@ -379,12 +408,21 @@ export function ComercialPage() {
                   {
                     key: 'nome',
                     header: 'Nome',
-                    render: (item) => (
-                      <span className="inline-flex items-center gap-2 font-semibold">
-                        {asString(item.nome)}
-                        {asNumber(item.duplicado_count) > 1 ? <Badge tone="warning">{asNumber(item.duplicado_count)} cadastros</Badge> : null}
-                      </span>
-                    ),
+                    render: (item) => {
+                      const image = getBrandImage(item)
+                      const initials = asString(item.nome, 'CL').slice(0, 2).toUpperCase()
+                      return (
+                        <div className="flex min-w-56 items-center gap-3">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border border-line bg-surface-muted text-xs font-black text-ink-muted">
+                            {image ? <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : initials}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-ink">{asString(item.nome)}</p>
+                            {asNumber(item.duplicado_count) > 1 ? <Badge className="mt-1" tone="warning">{asNumber(item.duplicado_count)} cadastros</Badge> : null}
+                          </div>
+                        </div>
+                      )
+                    },
                   },
                   { key: 'marca_principal', header: 'Marca principal', render: (item) => asString(item.marca_principal) },
                   { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, 'ativa'))}>{asString(item.status, 'ativa')}</Badge> },
@@ -433,6 +471,17 @@ export function ComercialPage() {
           <input className="design-input h-11 px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="Nicho" value={clienteForm.nicho} onChange={(event) => setClienteField('nicho', event.target.value)} />
           <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value)} />
+          <div className="md:col-span-2">
+            <ImagePicker
+              label="Imagem do cliente"
+              value={clienteForm.logo_url}
+              onChange={(value) => setClienteField('logo_url', value)}
+              onFileSelect={(file) => uploadClienteImage.mutate(file)}
+              isUploading={uploadClienteImage.isPending}
+              helper="Aparece nas agendas e rankings de marca quando este cliente for usado."
+            />
+          </div>
+          {uploadClienteImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadClienteImage.error)}</p> : null}
           {clienteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(clienteMutation.error)}</p> : null}
           <Button type="submit" isLoading={clienteMutation.isPending}>Salvar cliente</Button>
         </form>
@@ -450,8 +499,18 @@ export function ComercialPage() {
           <input className="design-input h-11 px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} />
           <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value)} />
-          <input className="design-input h-11 px-4 md:col-span-2" placeholder="Logo URL" type="url" value={afiliadoForm.logo_url} onChange={(event) => setAfiliadoField('logo_url', event.target.value)} />
+          <div className="md:col-span-2">
+            <ImagePicker
+              label="Imagem da marca"
+              value={afiliadoForm.logo_url}
+              onChange={(value) => setAfiliadoField('logo_url', value)}
+              onFileSelect={(file) => uploadAfiliadoImage.mutate(file)}
+              isUploading={uploadAfiliadoImage.isPending}
+              helper="Aparece nos rankings de marca, agendas e telas operacionais."
+            />
+          </div>
           <textarea className="design-input min-h-24 px-4 py-3 md:col-span-2" placeholder="Observações" value={afiliadoForm.observacoes} onChange={(event) => setAfiliadoField('observacoes', event.target.value)} />
+          {uploadAfiliadoImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadAfiliadoImage.error)}</p> : null}
           {afiliadoMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(afiliadoMutation.error)}</p> : null}
           <Button type="submit" isLoading={afiliadoMutation.isPending}>Salvar afiliado</Button>
         </form>
@@ -494,6 +553,16 @@ export function ComercialPage() {
                     <option value="cancelado">Cancelado</option>
                   </select>
                 </label>
+                <div className="md:col-span-2">
+                  <ImagePicker
+                    label={selectedAtivoKind === 'cliente' ? 'Imagem do cliente' : 'Imagem da marca'}
+                    value={ativoForm.logo_url}
+                    onChange={(value) => setAtivoForm((current) => ({ ...current, logo_url: value }))}
+                    onFileSelect={(file) => uploadAtivoImage.mutate({ file, folder: selectedAtivoKind === 'cliente' ? 'clientes' : 'marcas' })}
+                    isUploading={uploadAtivoImage.isPending}
+                    helper={selectedAtivoKind === 'cliente' ? 'Aparece nas agendas e rankings de marca quando este cliente for usado.' : 'Aparece nos rankings de marca, agendas e telas operacionais.'}
+                  />
+                </div>
                 {selectedAtivoKind === 'cliente' ? (
                   <>
                     <label className="block">
@@ -511,11 +580,6 @@ export function ComercialPage() {
                       <span className="text-sm font-semibold text-ink">Comissão LiveLab (%)</span>
                       <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
                     </label>
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Logo URL</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" type="url" value={ativoForm.logo_url} onChange={(event) => setAtivoForm((current) => ({ ...current, logo_url: event.target.value }))} />
-                      <span className="mt-1 text-[11px] text-ink-muted">Deixe vazio para usar o favicon do site automaticamente.</span>
-                    </label>
                   </>
                 )}
                 <div className="flex flex-wrap items-end gap-2">
@@ -527,6 +591,7 @@ export function ComercialPage() {
                     Excluir
                   </Button>
                 </div>
+                {uploadAtivoImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadAtivoImage.error)}</p> : null}
                 {ativoUpdateMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
                 {ativoDeleteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoDeleteMutation.error)}</p> : null}
               </form>

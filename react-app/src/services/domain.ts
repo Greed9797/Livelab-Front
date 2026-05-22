@@ -1,9 +1,13 @@
 import type { Cabine, JsonRecord, Lead, LiveAtual, Period } from '../types/models'
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
 
 export function getHomeDashboard() {
   return apiGet<JsonRecord>('/home/dashboard')
+}
+
+export function uploadImageAsset(file: File, folder: 'apresentadoras' | 'clientes' | 'marcas' | 'logos' = 'logos') {
+  return apiUpload<JsonRecord>('/uploads/image', file, { folder })
 }
 
 export function getPublicRanking(params: Record<string, unknown> = {}) {

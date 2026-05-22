@@ -26,6 +26,7 @@ export function RankingApresentadorasPage() {
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
   const rows = query.data ?? []
+  const presenterName = (item: JsonRecord) => asString(item.nome ?? item.apresentadora_nome, '—')
 
   return (
     <div className="space-y-6">
@@ -62,7 +63,22 @@ export function RankingApresentadorasPage() {
           <DataTable<JsonRecord>
             data={rows.slice(3)}
             columns={[
-              { key: 'nome', header: 'Apresentadora', render: (item) => asString(item.nome ?? item.apresentadora_nome, '—') },
+              {
+                key: 'nome',
+                header: 'Apresentadora',
+                render: (item) => {
+                  const name = presenterName(item)
+                  const photo = asString(item.foto_url ?? item.apresentadora_foto_url, '')
+                  return (
+                    <span className="inline-flex min-w-48 items-center gap-3 font-semibold">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-brand-soft text-xs font-black text-brand">
+                        {photo ? <img src={photo} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : name.slice(0, 2).toUpperCase()}
+                      </span>
+                      {name}
+                    </span>
+                  )
+                },
+              },
               { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv) },
               { key: 'lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives).toLocaleString('pt-BR') },
               { key: 'fixo', header: 'Fixo', align: 'right', render: (item) => formatMoney(item.fixo) },

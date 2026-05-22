@@ -12,14 +12,12 @@ import {
   RefreshCcw,
   Search,
   Shield,
-  SlidersHorizontal,
   Trash2,
   UserPlus,
   UserRoundCheck,
-  UsersRound,
   type LucideIcon,
 } from 'lucide-react'
-import { FormEvent, type ReactNode, useMemo, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -28,6 +26,7 @@ import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
 import { MoneyInput } from '../components/ui/MoneyInput'
+import { ImagePicker } from '../components/ui/ImagePicker'
 import { asNumber, asString, formatMoney } from '../utils/format'
 import { parseBRMoneyToDecimal } from '../utils/money'
 import { isPresenterRole, presenterProfileId, toPresenterOptions } from '../utils/presenters'
@@ -45,6 +44,7 @@ import {
   getUsuarios,
   reenviarConviteUsuario,
   resetSenhaUsuario,
+  uploadImageAsset,
   updateApresentadoraFaixaComissao,
   updateApresentadora,
   updateUsuario,
@@ -89,6 +89,7 @@ const emptyForm = {
   fixo: DEFAULT_PRESENTER_FIXED,
   comissao_pct: '',
   meta_diaria_gmv: '',
+  foto_url: '',
   senha_temporaria: '',
 }
 
@@ -99,6 +100,7 @@ const emptyEditForm = {
   fixo: DEFAULT_PRESENTER_FIXED,
   comissao_pct: '',
   meta_diaria_gmv: '',
+  foto_url: '',
 }
 
 const emptyFaixaForm = {
@@ -150,29 +152,6 @@ function matchesSearch(item: JsonRecord, term: string) {
   return haystack.includes(term)
 }
 
-function FilterButton({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean
-  children: ReactNode
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      className={clsx(
-        'inline-flex h-9 items-center justify-center rounded-full px-3 text-xs font-bold transition focus:outline-none focus:ring-4 focus:ring-brand/20',
-        active ? 'bg-brand text-white shadow-[0_6px_14px_-6px_rgba(255,90,31,0.55)]' : 'border border-line bg-surface text-ink-muted hover:bg-surface-muted hover:text-ink',
-      )}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  )
-}
-
 function IconActionButton({
   icon: Icon,
   label,
@@ -213,6 +192,7 @@ function IconActionButton({
 export function SettingsUsuariosPanel() {
   const client = useQueryClient()
   const [form, setForm] = useState(emptyForm)
+  const [isCreateOpen, setCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<JsonRecord | null>(null)
   const [editForm, setEditForm] = useState(emptyEditForm)
   const [faixaForm, setFaixaForm] = useState(emptyFaixaForm)
@@ -241,10 +221,19 @@ export function SettingsUsuariosPanel() {
     mutationFn: convidarUsuario,
     onSuccess: () => {
       setForm(emptyForm)
+      setCreateOpen(false)
       void client.invalidateQueries({ queryKey: ['usuarios'] })
       void client.invalidateQueries({ queryKey: ['clientes'] })
       void client.invalidateQueries({ queryKey: ['apresentadoras'] })
     },
+  })
+  const uploadCreatePresenterImage = useMutation({
+    mutationFn: (file: File) => uploadImageAsset(file, 'apresentadoras'),
+    onSuccess: (data) => setField('foto_url', asString(data.url, '')),
+  })
+  const uploadEditPresenterImage = useMutation({
+    mutationFn: (file: File) => uploadImageAsset(file, 'apresentadoras'),
+    onSuccess: (data) => setEditField('foto_url', asString(data.url, '')),
   })
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateUsuario(id, payload),
@@ -323,6 +312,7 @@ export function SettingsUsuariosPanel() {
         if (form.fixo !== '') presenterPayload.fixo = asNumber(form.fixo)
         if (form.comissao_pct !== '') presenterPayload.comissao_pct = asNumber(form.comissao_pct)
         if (form.meta_diaria_gmv !== '') presenterPayload.meta_diaria_gmv = asNumber(form.meta_diaria_gmv)
+        presenterPayload.foto_url = form.foto_url || null
       }
 
       if (isPresenterProfile(user)) {
@@ -383,14 +373,6 @@ export function SettingsUsuariosPanel() {
     })
   }, [allRows, ativoFilter, papelFilter, searchTerm])
 
-  const summary = useMemo(() => {
-    const active = allRows.filter((item) => ativoValue(item.ativo)).length
-    const presenters = allRows.filter((item) => isPresenterUser(item) || isPresenterProfile(item)).length
-    const profileOnly = allRows.filter((item) => isPresenterProfile(item)).length
-    const clients = allRows.filter((item) => asString(item.papel) === 'cliente_parceiro').length
-    return { total: allRows.length, active, presenters, profileOnly, clients }
-  }, [allRows])
-
   if (usuarios.isLoading || clientes.isLoading || apresentadoras.isLoading) return <LoadingState />
   if (usuarios.isError) return <ErrorState message={extractErrorMessage(usuarios.error)} onRetry={() => void usuarios.refetch()} />
 
@@ -413,6 +395,7 @@ export function SettingsUsuariosPanel() {
       fixo: isPresenterUser(item) || isPresenterProfile(item) ? presenterFixedValue(item) : asString(item.fixo_mensal ?? item.fixo, ''),
       comissao_pct: asString(item.comissao_live_pct ?? item.comissao_pct, ''),
       meta_diaria_gmv: asString(item.meta_diaria_gmv, ''),
+      foto_url: asString(item.foto_url ?? item.apresentadora_foto_url, ''),
     })
   }
 
@@ -436,6 +419,7 @@ export function SettingsUsuariosPanel() {
       ...(isPresenterRole(form.papel) && form.fixo !== '' ? { fixo: parseBRMoneyToDecimal(form.fixo) } : {}),
       ...(isPresenterRole(form.papel) && form.comissao_pct !== '' ? { comissao_pct: Number(form.comissao_pct || 0) } : {}),
       ...(isPresenterRole(form.papel) && form.meta_diaria_gmv !== '' ? { meta_diaria_gmv: parseBRMoneyToDecimal(form.meta_diaria_gmv) } : {}),
+      ...(isPresenterRole(form.papel) && form.foto_url ? { foto_url: form.foto_url } : {}),
       ...(form.senha_temporaria ? { senha_temporaria: form.senha_temporaria } : {}),
     })
   }
@@ -471,158 +455,33 @@ export function SettingsUsuariosPanel() {
 
   return (
     <div className="settings-users-panel space-y-4">
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Pessoas', value: summary.total, hint: `${summary.active} ativas`, icon: UsersRound, tone: 'brand' },
-          { label: 'Apresentadoras', value: summary.presenters, hint: `${summary.profileOnly} sem acesso`, icon: UserRoundCheck, tone: 'success' },
-          { label: 'Clientes parceiros', value: summary.clients, hint: 'com login próprio', icon: Building2, tone: 'info' },
-          { label: 'Resultado filtrado', value: filteredRows.length, hint: 'linhas na visão', icon: SlidersHorizontal, tone: 'neutral' },
-        ].map((item) => {
-          const Icon = item.icon
-          return (
-            <div key={item.label} className="design-card flex items-center justify-between gap-4 p-4">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">{item.label}</p>
-                <p className="num mt-2 text-3xl font-bold leading-none text-ink">{item.value}</p>
-                <p className="mt-1 text-xs text-ink-muted">{item.hint}</p>
-              </div>
-              <div className={clsx(
-                'grid h-11 w-11 shrink-0 place-items-center rounded-2xl',
-                item.tone === 'brand' && 'bg-brand-soft text-brand',
-                item.tone === 'success' && 'bg-[var(--success-soft)] text-[var(--success)]',
-                item.tone === 'info' && 'bg-[var(--info-soft)] text-[var(--info)]',
-                item.tone === 'neutral' && 'bg-surface-muted text-ink-muted',
-              )}>
-                <Icon className="h-5 w-5" />
-              </div>
-            </div>
-          )
-        })}
-      </section>
-
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-base font-bold text-ink">Novo acesso</p>
-              <p className="mt-1 text-xs text-ink-muted">Cadastro único para equipe, apresentadoras e clientes parceiros.</p>
+              <p className="text-base font-bold text-ink">Usuários e perfis</p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {filteredRows.length} exibidos de {allRows.length} cadastros consolidados.
+              </p>
             </div>
-            <Badge tone={isPresenterRole(form.papel) ? 'success' : form.papel === 'cliente_parceiro' ? 'info' : 'brand'}>
-              {papelLabels[form.papel] ?? form.papel}
-            </Badge>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" icon={RefreshCcw} onClick={() => {
+                void usuarios.refetch()
+                void apresentadoras.refetch()
+              }}>
+                Atualizar
+              </Button>
+              <Button icon={UserPlus} onClick={() => setCreateOpen(true)}>Novo acesso</Button>
+            </div>
           </div>
-        </CardHeader>
-        <CardBody>
-          <form className="space-y-5" onSubmit={onSubmit}>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {roleOptions.map((option) => {
-                const Icon = option.icon
-                const active = form.papel === option.value
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={clsx(
-                      'flex min-h-20 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus:ring-4 focus:ring-brand/20',
-                      active ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-surface text-ink hover:bg-surface-muted',
-                    )}
-                    onClick={() => setField('papel', option.value)}
-                  >
-                    <span className={clsx('grid h-10 w-10 shrink-0 place-items-center rounded-xl', active ? 'bg-brand text-white' : 'bg-surface-muted text-ink-muted')}>
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span>
-                      <span className="block text-sm font-bold">{option.label}</span>
-                      <span className={clsx('mt-0.5 block text-xs', active ? 'text-brand/80' : 'text-ink-muted')}>{option.helper}</span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <label className="block xl:col-span-1">
-                <span className="text-sm font-semibold text-ink">Nome</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={form.nome} onChange={(event) => setField('nome', event.target.value)} placeholder="Nome completo" required />
-              </label>
-              <label className="block xl:col-span-1">
-                <span className="text-sm font-semibold text-ink">E-mail</span>
-                <input className="design-input mt-2 h-11 w-full px-4" type="email" value={form.email} onChange={(event) => setField('email', event.target.value)} placeholder="email@empresa.com.br" required />
-              </label>
-              <label className="block xl:col-span-1">
-                <span className="text-sm font-semibold text-ink">Senha temporária</span>
-                <input className="design-input mt-2 h-11 w-full px-4" value={form.senha_temporaria} onChange={(event) => setField('senha_temporaria', event.target.value)} placeholder="Opcional" />
-              </label>
-            </div>
-
-            {form.papel === 'cliente_parceiro' ? (
-              <label className="block max-w-xl">
-                <span className="text-sm font-semibold text-ink">Cliente vinculado</span>
-                <select className="design-input mt-2 h-11 w-full px-4" value={form.cliente_id} onChange={(event) => setField('cliente_id', event.target.value)} required>
-                  <option value="">Selecionar cliente</option>
-                  {(clientes.data ?? []).map((cliente) => <option key={asString(cliente.id, '')} value={asString(cliente.id, '')}>{asString(cliente.nome)}</option>)}
-                </select>
-              </label>
-            ) : null}
-            {isPresenterRole(form.papel) ? (
-              <section className="space-y-4 rounded-2xl border border-line bg-surface-muted/45 p-4">
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-ink">Remuneração da apresentadora</p>
-                    <p className="mt-1 text-xs text-ink-muted">Fixo padrão de R$ 2.700,00 e escada mensal aplicada automaticamente.</p>
-                  </div>
-                  <Badge tone="success">padrão ativo</Badge>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  <label className="block md:col-span-2">
-                    <span className="text-sm font-semibold text-ink">Perfil operacional</span>
-                    <select className="design-input mt-2 h-11 w-full px-4" value={form.apresentadora_id} onChange={(event) => setField('apresentadora_id', event.target.value)}>
-                      <option value="">Criar perfil novo</option>
-                      {presenterProfileOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
-                    <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.fixo} onChange={(raw) => setField('fixo', raw)} />
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Meta diária GMV (R$)</span>
-                    <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.meta_diaria_gmv} onChange={(raw) => setField('meta_diaria_gmv', raw)} />
-                  </label>
-                  <label className="block md:col-span-2 xl:col-span-1">
-                    <span className="text-sm font-semibold text-ink">Comissão base opcional (%)</span>
-                    <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={form.comissao_pct} onChange={(event) => setField('comissao_pct', event.target.value)} placeholder="Escada padrão" />
-                  </label>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {defaultCommissionTiers.map((tier) => (
-                    <span key={tier.label} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink">
-                      <CircleDollarSign className="h-3.5 w-3.5 text-brand" />
-                      {tier.label} · <strong>{tier.value}</strong>
-                    </span>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-            {inviteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(inviteMutation.error)}</p> : null}
-            {inviteMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Convite enviado.</p> : null}
-            <div>
-              <Button type="submit" icon={UserPlus} isLoading={inviteMutation.isPending}>Enviar convite</Button>
-            </div>
-          </form>
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardBody className="space-y-4 p-4">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <label className="relative block min-w-0 flex-1">
+          <div className="mt-4 grid gap-2 lg:grid-cols-[1fr_180px_160px] lg:items-center">
+            <label className="relative block min-w-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
               <input
-                className="design-input h-11 w-full px-10"
+                className="design-input h-10 w-full px-10 text-sm"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar por nome, e-mail, cidade ou papel"
+                placeholder="Buscar pessoa"
               />
               {searchTerm ? (
                 <button
@@ -634,41 +493,17 @@ export function SettingsUsuariosPanel() {
                 </button>
               ) : null}
             </label>
-            <Button variant="secondary" icon={RefreshCcw} onClick={() => {
-              void usuarios.refetch()
-              void apresentadoras.refetch()
-            }}>
-              Atualizar
-            </Button>
-          </div>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-2">
-              <FilterButton active={papelFilter === 'all'} onClick={() => setPapelFilter('all')}>Todos</FilterButton>
+            <select className="design-input h-10 px-3 text-sm" value={papelFilter} onChange={(event) => setPapelFilter(event.target.value)}>
+              <option value="all">Todos os papéis</option>
               {roleOptions.map((option) => (
-                <FilterButton key={option.value} active={papelFilter === option.value} onClick={() => setPapelFilter(option.value)}>
-                  {option.label}
-                </FilterButton>
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
+            </select>
+            <select className="design-input h-10 px-3 text-sm" value={ativoFilter} onChange={(event) => setAtivoFilter(event.target.value)}>
               {statusOptions.map((option) => (
-                <FilterButton key={option.value} active={ativoFilter === option.value} onClick={() => setAtivoFilter(option.value)}>
-                  {option.label}
-                </FilterButton>
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
-            </div>
-          </div>
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-base font-bold text-ink">Equipe e acessos</p>
-              <p className="mt-1 text-xs text-ink-muted">Visualização consolidada de usuários e perfis operacionais.</p>
-            </div>
-            <Badge tone="neutral">{filteredRows.length} de {allRows.length}</Badge>
+            </select>
           </div>
         </CardHeader>
         <CardBody>
@@ -680,10 +515,11 @@ export function SettingsUsuariosPanel() {
                 header: 'Pessoa',
                 render: (item) => {
                   const profileOnly = isPresenterProfile(item)
+                  const photo = asString(item.foto_url ?? item.apresentadora_foto_url, '')
                   return (
                     <div className="flex min-w-60 items-center gap-3">
-                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-brand-soft text-sm font-black text-brand">
-                        {initialsFor(item)}
+                      <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl bg-brand-soft text-sm font-black text-brand">
+                        {photo ? <img src={photo} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : initialsFor(item)}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate font-bold text-ink">{asString(item.nome)}</p>
@@ -762,6 +598,124 @@ export function SettingsUsuariosPanel() {
       </Card>
 
       <Modal
+        open={isCreateOpen}
+        title="Novo acesso"
+        subtitle="Cadastro único para equipe, apresentadoras e clientes parceiros."
+        size="lg"
+        onClose={() => setCreateOpen(false)}
+        footer={(
+          <>
+            <Button type="submit" form="usuario-create-form" icon={UserPlus} isLoading={inviteMutation.isPending}>Enviar convite</Button>
+            <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+          </>
+        )}
+      >
+        <form className="space-y-5" id="usuario-create-form" onSubmit={onSubmit}>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {roleOptions.map((option) => {
+              const Icon = option.icon
+              const active = form.papel === option.value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={clsx(
+                    'flex min-h-20 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus:ring-4 focus:ring-brand/20',
+                    active ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-surface text-ink hover:bg-surface-muted',
+                  )}
+                  onClick={() => setField('papel', option.value)}
+                >
+                  <span className={clsx('grid h-10 w-10 shrink-0 place-items-center rounded-xl', active ? 'bg-brand text-white' : 'bg-surface-muted text-ink-muted')}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-bold">{option.label}</span>
+                    <span className={clsx('mt-0.5 block text-xs', active ? 'text-brand/80' : 'text-ink-muted')}>{option.helper}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <label className="block">
+              <span className="text-sm font-semibold text-ink">Nome</span>
+              <input className="design-input mt-2 h-11 w-full px-4" value={form.nome} onChange={(event) => setField('nome', event.target.value)} placeholder="Nome completo" required />
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold text-ink">E-mail</span>
+              <input className="design-input mt-2 h-11 w-full px-4" type="email" value={form.email} onChange={(event) => setField('email', event.target.value)} placeholder="email@empresa.com.br" required />
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold text-ink">Senha temporária</span>
+              <input className="design-input mt-2 h-11 w-full px-4" value={form.senha_temporaria} onChange={(event) => setField('senha_temporaria', event.target.value)} placeholder="Opcional" />
+            </label>
+          </div>
+
+          {form.papel === 'cliente_parceiro' ? (
+            <label className="block max-w-xl">
+              <span className="text-sm font-semibold text-ink">Cliente vinculado</span>
+              <select className="design-input mt-2 h-11 w-full px-4" value={form.cliente_id} onChange={(event) => setField('cliente_id', event.target.value)} required>
+                <option value="">Selecionar cliente</option>
+                {(clientes.data ?? []).map((cliente) => <option key={asString(cliente.id, '')} value={asString(cliente.id, '')}>{asString(cliente.nome)}</option>)}
+              </select>
+            </label>
+          ) : null}
+
+          {isPresenterRole(form.papel) ? (
+            <section className="space-y-4 rounded-2xl border border-line bg-surface-muted/45 p-4">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-ink">Perfil de apresentadora</p>
+                  <p className="mt-1 text-xs text-ink-muted">Foto, fixo padrão de R$ 2.700,00 e escada mensal aplicada automaticamente.</p>
+                </div>
+                <Badge tone="success">padrão ativo</Badge>
+              </div>
+              <ImagePicker
+                label="Foto da apresentadora"
+                value={form.foto_url}
+                onChange={(value) => setField('foto_url', value)}
+                onFileSelect={(file) => uploadCreatePresenterImage.mutate(file)}
+                isUploading={uploadCreatePresenterImage.isPending}
+                helper="Aparece nos rankings de apresentadoras."
+              />
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-semibold text-ink">Perfil operacional</span>
+                  <select className="design-input mt-2 h-11 w-full px-4" value={form.apresentadora_id} onChange={(event) => setField('apresentadora_id', event.target.value)}>
+                    <option value="">Criar perfil novo</option>
+                    {presenterProfileOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
+                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.fixo} onChange={(raw) => setField('fixo', raw)} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Meta diária GMV (R$)</span>
+                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.meta_diaria_gmv} onChange={(raw) => setField('meta_diaria_gmv', raw)} />
+                </label>
+                <label className="block md:col-span-2 xl:col-span-1">
+                  <span className="text-sm font-semibold text-ink">Comissão base opcional (%)</span>
+                  <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={form.comissao_pct} onChange={(event) => setField('comissao_pct', event.target.value)} placeholder="Escada padrão" />
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {defaultCommissionTiers.map((tier) => (
+                  <span key={tier.label} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink">
+                    <CircleDollarSign className="h-3.5 w-3.5 text-brand" />
+                    {tier.label} · <strong>{tier.value}</strong>
+                  </span>
+                ))}
+              </div>
+              {uploadCreatePresenterImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(uploadCreatePresenterImage.error)}</p> : null}
+            </section>
+          ) : null}
+          {inviteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(inviteMutation.error)}</p> : null}
+        </form>
+      </Modal>
+
+      <Modal
         open={!!editingUser}
         title="Editar usuário"
         subtitle={editingUser ? asString(editingUser.email, '') : undefined}
@@ -833,10 +787,18 @@ export function SettingsUsuariosPanel() {
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-sm font-bold text-ink">Remuneração da apresentadora</p>
-                  <p className="mt-1 text-xs text-ink-muted">Fixo, meta e comissão base ficam juntos para evitar cadastro incompleto.</p>
+                  <p className="mt-1 text-xs text-ink-muted">Foto, fixo, meta e comissão base ficam juntos para evitar cadastro incompleto.</p>
                 </div>
                 <Badge tone="success">fixo padrão R$ 2.700</Badge>
               </div>
+              <ImagePicker
+                label="Foto da apresentadora"
+                value={editForm.foto_url}
+                onChange={(value) => setEditField('foto_url', value)}
+                onFileSelect={(file) => uploadEditPresenterImage.mutate(file)}
+                isUploading={uploadEditPresenterImage.isPending}
+                helper="Aparece nos rankings de apresentadoras."
+              />
               <div className="grid gap-4 md:grid-cols-3">
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
@@ -859,6 +821,7 @@ export function SettingsUsuariosPanel() {
                   </span>
                 ))}
               </div>
+              {uploadEditPresenterImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(uploadEditPresenterImage.error)}</p> : null}
             </section>
           ) : null}
           {editingPresenterId && editingHasPresenterProfile ? (

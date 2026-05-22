@@ -137,6 +137,16 @@ export async function apiPut<T>(path: string, data?: unknown): Promise<T> {
   return response.data
 }
 
+export async function apiUpload<T>(path: string, file: File, params?: Record<string, unknown>): Promise<T> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await api.post<T>(path, formData, {
+    params,
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return response.data
+}
+
 export function apiBaseUrl(): string {
   return api.defaults.baseURL ?? ''
 }
