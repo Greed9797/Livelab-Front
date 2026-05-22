@@ -13,13 +13,14 @@ import { getClienteDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, currentPeriod, formatMoney } from '../utils/format'
 import { historyPoints, normalizeCliente } from './page-helpers'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 const icons = [CircleDollarSign, WalletCards, MonitorPlay, TrendingUp, Clock, Target]
 
 export function ClienteDashboardPage() {
   const [period, setPeriod] = useState(currentPeriod())
-  const query = useQuery({ queryKey: ['cliente-dashboard', period], queryFn: () => getClienteDashboard(period), refetchInterval: 30_000 })
+  const query = useQuery({ queryKey: QK.clienteDashboard(period), queryFn: () => getClienteDashboard(period), refetchInterval: 30_000 })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />

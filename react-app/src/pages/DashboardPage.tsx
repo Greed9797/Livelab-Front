@@ -10,6 +10,7 @@ import { TikTokLiveButton } from '../components/ui/TikTokLiveButton'
 import { getHomeDashboard, getPublicRanking } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatMoney } from '../utils/format'
+import { QK } from '../services/query-keys'
 import type { Cabine, JsonRecord } from '../types/models'
 
 // ─── Ranking Nacional ──────────────────────────────────────────────────────
@@ -163,14 +164,14 @@ function ProximasLives({ agenda }: { agenda: JsonRecord[] }) {
 // ─── Dashboard Page ────────────────────────────────────────────────────────
 export function DashboardPage() {
   const query = useQuery({
-    queryKey: ['home-dashboard'],
+    queryKey: QK.homeDashboard,
     queryFn: getHomeDashboard,
     refetchInterval: () => (document.hidden ? false : 30_000),
     refetchIntervalInBackground: false,
     staleTime: 15_000,
   })
   const rankingQuery = useQuery({
-    queryKey: ['public-ranking', 'nacional'],
+    queryKey: QK.publicRankingNacional,
     queryFn: () => getPublicRanking({ limit: 8 }),
   })
 

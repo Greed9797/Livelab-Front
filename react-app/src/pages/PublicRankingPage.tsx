@@ -7,14 +7,15 @@ import { RankingPodium } from '../components/dashboard/RankingPodium'
 import { getPublicRanking, getPublicRankingApresentadoras } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, formatPercent } from '../utils/format'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 export function PublicRankingPage() {
   const [params] = useSearchParams()
   const unidadeId = params.get('unidade') ?? ''
-  const query = useQuery({ queryKey: ['public-ranking'], queryFn: () => getPublicRanking() })
+  const query = useQuery({ queryKey: QK.publicRanking, queryFn: () => getPublicRanking() })
   const apresentadorasQuery = useQuery({
-    queryKey: ['public-ranking-apresentadoras', unidadeId],
+    queryKey: QK.publicRankingApresentadoras(unidadeId),
     queryFn: () => getPublicRankingApresentadoras({ tenant: unidadeId }),
     enabled: Boolean(unidadeId),
   })

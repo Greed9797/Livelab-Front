@@ -1,36 +1,22 @@
-import clsx from 'clsx'
 import {
-  Building2,
   CheckCircle2,
-  CircleDollarSign,
-  Edit2,
-  KeyRound,
-  LogOut,
-  Mail,
-  MailPlus,
-  MonitorPlay,
   RefreshCcw,
   Search,
-  Shield,
   Trash2,
   UserPlus,
-  UserRoundCheck,
-  type LucideIcon,
 } from 'lucide-react'
 import { FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { Badge, statusTone } from '../components/ui/Badge'
-import { DataTable } from '../components/ui/DataTable'
+import { Badge } from '../components/ui/Badge'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Modal } from '../components/ui/Modal'
-import { MoneyInput } from '../components/ui/MoneyInput'
-import { ImagePicker } from '../components/ui/ImagePicker'
-import { asNumber, asString, formatMoney } from '../utils/format'
+import { asNumber, asString } from '../utils/format'
 import { parseBRMoneyToDecimal } from '../utils/money'
 import { isPresenterRole, presenterProfileId, toPresenterOptions } from '../utils/presenters'
 import { extractErrorMessage } from '../services/api'
+import { QK } from '../services/query-keys'
 import {
   createApresentadoraFaixaComissao,
   convidarUsuario,
@@ -50,64 +36,15 @@ import {
   updateUsuario,
 } from '../services/domain'
 import type { JsonRecord } from '../types/models'
+import { UsuariosList } from '../components/configuracoes/UsuariosList'
+import { UsuarioForm, type CreateFormState } from '../components/configuracoes/UsuarioForm'
+import { UsuarioPapelSelect } from '../components/configuracoes/UsuarioPapelSelect'
+import { ApresentadoraRemuneracao } from '../components/configuracoes/ApresentadoraRemuneracao'
+import { ApresentadoraFaixas } from '../components/configuracoes/ApresentadoraFaixas'
 
-const papelLabels: Record<string, string> = {
-  gerente: 'Gerente',
-  operacional: 'Operacional',
-  apresentador: 'Apresentadora',
-  cliente_parceiro: 'Cliente parceiro',
-}
-
-const DEFAULT_PRESENTER_FIXED = '2700'
-
-const roleOptions: Array<{ value: string; label: string; helper: string; icon: LucideIcon }> = [
-  { value: 'gerente', label: 'Gerente', helper: 'Gestão da unidade', icon: Shield },
-  { value: 'operacional', label: 'Operacional', helper: 'Agenda, lives e vídeos', icon: MonitorPlay },
-  { value: 'apresentador', label: 'Apresentadora', helper: 'Perfil e remuneração', icon: UserRoundCheck },
-  { value: 'cliente_parceiro', label: 'Cliente', helper: 'Acesso do parceiro', icon: Building2 },
-]
-
-const statusOptions = [
-  { value: 'true', label: 'Ativos' },
-  { value: 'all', label: 'Todos' },
-  { value: 'false', label: 'Inativos' },
-]
-
-const defaultCommissionTiers = [
-  { label: 'até R$ 50k', value: '0,5%' },
-  { label: 'até R$ 150k', value: '1%' },
-  { label: 'até R$ 500k', value: '1,5%' },
-  { label: 'acima de R$ 500k', value: '2%' },
-]
-
-const emptyForm = {
-  nome: '',
-  email: '',
-  papel: 'gerente',
-  cliente_id: '',
-  apresentadora_id: '',
-  fixo: DEFAULT_PRESENTER_FIXED,
-  comissao_pct: '',
-  meta_diaria_gmv: '',
-  foto_url: '',
-  senha_temporaria: '',
-}
-
-const emptyEditForm = {
-  nome: '',
-  papel: 'gerente',
-  ativo: true,
-  fixo: DEFAULT_PRESENTER_FIXED,
-  comissao_pct: '',
-  meta_diaria_gmv: '',
-  foto_url: '',
-}
-
-const emptyFaixaForm = {
-  gmv_inicio: '0',
-  gmv_fim: '',
-  comissao_pct: '0',
-}
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function ativoValue(value: unknown) {
   return value === true || value === 'true'
@@ -123,75 +60,55 @@ function isPresenterUser(item: JsonRecord | null | undefined) {
 
 function presenterFixedValue(item: JsonRecord | null | undefined) {
   const value = asNumber(item?.fixo_mensal ?? item?.fixo)
-  return value > 0 ? String(value) : DEFAULT_PRESENTER_FIXED
-}
-
-function initialsFor(item: JsonRecord) {
-  const source = asString(item.nome ?? item.email, '')
-  const parts = source.split(/\s+/).filter(Boolean)
-  const initials = parts.length > 1
-    ? `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`
-    : source.slice(0, 2)
-  return initials.toUpperCase() || 'US'
-}
-
-function roleLabel(item: JsonRecord) {
-  return papelLabels[asString(item.papel)] ?? asString(item.papel)
+  return value > 0 ? String(value) : '2700'
 }
 
 function matchesSearch(item: JsonRecord, term: string) {
   if (!term) return true
-  const haystack = [
-    item.nome,
-    item.email,
-    item.telefone,
-    item.cidade,
-    item.papel,
-    item.origem_perfil,
-  ].map((value) => asString(value, '').toLowerCase()).join(' ')
+  const haystack = [item.nome, item.email, item.telefone, item.cidade, item.papel, item.origem_perfil]
+    .map((v) => asString(v, '').toLowerCase())
+    .join(' ')
   return haystack.includes(term)
 }
 
-function IconActionButton({
-  icon: Icon,
-  label,
-  tone = 'neutral',
-  disabled,
-  onClick,
-}: {
-  icon: LucideIcon
-  label: string
-  tone?: 'neutral' | 'brand' | 'danger' | 'success'
-  disabled?: boolean
-  onClick: () => void
-}) {
-  const toneClass = {
-    neutral: 'border-line bg-surface text-ink-muted hover:bg-surface-muted hover:text-ink',
-    brand: 'border-brand/25 bg-brand-soft text-brand hover:bg-brand/15',
-    success: 'border-[var(--success-soft)] bg-[var(--success-soft)] text-[var(--success)] hover:brightness-110',
-    danger: 'border-[var(--danger-soft)] bg-[var(--danger-soft)] text-[var(--danger)] hover:brightness-110',
-  }
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className={clsx(
-        'inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus:outline-none focus:ring-4 focus:ring-brand/20',
-        toneClass[tone],
-        disabled && 'cursor-not-allowed opacity-50',
-      )}
-    >
-      <Icon className="h-4 w-4" />
-    </button>
-  )
+const statusOptions = [
+  { value: 'true', label: 'Ativos' },
+  { value: 'all', label: 'Todos' },
+  { value: 'false', label: 'Inativos' },
+]
+
+const emptyForm: CreateFormState = {
+  nome: '',
+  email: '',
+  papel: 'gerente',
+  cliente_id: '',
+  apresentadora_id: '',
+  fixo: '2700',
+  comissao_pct: '',
+  meta_diaria_gmv: '',
+  foto_url: '',
+  senha_temporaria: '',
 }
+
+const emptyEditForm = {
+  nome: '',
+  papel: 'gerente',
+  ativo: true,
+  fixo: '2700',
+  comissao_pct: '',
+  meta_diaria_gmv: '',
+  foto_url: '',
+}
+
+const emptyFaixaForm = { gmv_inicio: '0', gmv_fim: '', comissao_pct: '0' }
+
+// ---------------------------------------------------------------------------
+// Panel
+// ---------------------------------------------------------------------------
 
 export function SettingsUsuariosPanel() {
   const client = useQueryClient()
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState<CreateFormState>(emptyForm)
   const [isCreateOpen, setCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<JsonRecord | null>(null)
   const [editForm, setEditForm] = useState(emptyEditForm)
@@ -199,55 +116,52 @@ export function SettingsUsuariosPanel() {
   const [searchTerm, setSearchTerm] = useState('')
   const [papelFilter, setPapelFilter] = useState('all')
   const [ativoFilter, setAtivoFilter] = useState('true')
-  const usuarios = useQuery({
-    queryKey: ['usuarios'],
-    queryFn: () => getUsuarios(),
-  })
-  const clientes = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
-  const apresentadoras = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
+
+  const usuarios = useQuery({ queryKey: QK.usuarios, queryFn: getUsuarios })
+  const clientes = useQuery({ queryKey: QK.clientes(), queryFn: getClientes })
+  const apresentadoras = useQuery({ queryKey: QK.apresentadoras(), queryFn: getApresentadoras })
+
   const presenterProfileOptions = useMemo(
     () => toPresenterOptions((apresentadoras.data ?? []).filter((item) => !asString(item.user_id, ''))),
     [apresentadoras.data],
   )
+
   const editingPresenterId = editingUser ? presenterProfileId(editingUser) : ''
   const editingHasPresenterProfile = Boolean(editingUser && (isPresenterProfile(editingUser) || isPresenterUser(editingUser)))
+
   const faixasQuery = useQuery({
-    queryKey: ['apresentadora-faixas-comissao', editingPresenterId],
+    queryKey: QK.apresentadoraFaixasComissao(editingPresenterId),
     queryFn: () => getApresentadoraFaixasComissao(editingPresenterId),
     enabled: Boolean(editingPresenterId) && editingHasPresenterProfile,
   })
 
+  // ---- Mutations ------------------------------------------------------------
   const inviteMutation = useMutation({
     mutationFn: convidarUsuario,
     onSuccess: () => {
       setForm(emptyForm)
       setCreateOpen(false)
-      void client.invalidateQueries({ queryKey: ['usuarios'] })
-      void client.invalidateQueries({ queryKey: ['clientes'] })
-      void client.invalidateQueries({ queryKey: ['apresentadoras'] })
+      void client.invalidateQueries({ queryKey: QK.usuarios })
+      void client.invalidateQueries({ queryKey: QK.clientes() })
+      void client.invalidateQueries({ queryKey: QK.apresentadoras() })
     },
   })
   const uploadCreatePresenterImage = useMutation({
     mutationFn: (file: File) => uploadImageAsset(file, 'apresentadoras'),
-    onSuccess: (data) => setField('foto_url', asString(data.url, '')),
+    onSuccess: (data) => setForm((f) => ({ ...f, foto_url: asString(data.url, '') })),
   })
   const uploadEditPresenterImage = useMutation({
     mutationFn: (file: File) => uploadImageAsset(file, 'apresentadoras'),
-    onSuccess: (data) => setEditField('foto_url', asString(data.url, '')),
+    onSuccess: (data) => setEditForm((f) => ({ ...f, foto_url: asString(data.url, '') })),
   })
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateUsuario(id, payload),
-    onSuccess: () => {
-      setEditingUser(null)
-      setEditForm(emptyEditForm)
-      void client.invalidateQueries({ queryKey: ['usuarios'] })
-    },
+    onSuccess: () => { setEditingUser(null); setEditForm(emptyEditForm); void client.invalidateQueries({ queryKey: ['usuarios'] }) },
   })
   const updatePresenterMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateApresentadora(id, payload),
     onSuccess: () => {
-      setEditingUser(null)
-      setEditForm(emptyEditForm)
+      setEditingUser(null); setEditForm(emptyEditForm)
       void client.invalidateQueries({ queryKey: ['usuarios'] })
       void client.invalidateQueries({ queryKey: ['apresentadoras'] })
     },
@@ -255,24 +169,18 @@ export function SettingsUsuariosPanel() {
   const deleteMutation = useMutation({
     mutationFn: deleteUsuario,
     onSuccess: (_data, id) => {
-      setAtivoFilter('true')
-      setEditingUser(null)
-      setEditForm(emptyEditForm)
-      client.setQueriesData<JsonRecord[]>({ queryKey: ['usuarios'] }, (old) =>
-        Array.isArray(old) ? old.filter((item) => asString(item.id, '') !== id) : old
-      )
+      setAtivoFilter('true'); setEditingUser(null); setEditForm(emptyEditForm)
+      client.setQueriesData<JsonRecord[]>({ queryKey: QK.usuarios }, (old) =>
+        Array.isArray(old) ? old.filter((item) => asString(item.id, '') !== id) : old)
       void client.invalidateQueries({ queryKey: ['usuarios'] })
     },
   })
   const deletePresenterMutation = useMutation({
     mutationFn: deleteApresentadora,
     onSuccess: (_data, id) => {
-      setAtivoFilter('true')
-      setEditingUser(null)
-      setEditForm(emptyEditForm)
-      client.setQueriesData<JsonRecord[]>({ queryKey: ['apresentadoras'] }, (old) =>
-        Array.isArray(old) ? old.filter((item) => asString(item.id, '') !== id) : old
-      )
+      setAtivoFilter('true'); setEditingUser(null); setEditForm(emptyEditForm)
+      client.setQueriesData<JsonRecord[]>({ queryKey: QK.apresentadoras() }, (old) =>
+        Array.isArray(old) ? old.filter((item) => asString(item.id, '') !== id) : old)
       void client.invalidateQueries({ queryKey: ['usuarios'] })
       void client.invalidateQueries({ queryKey: ['apresentadoras'] })
     },
@@ -287,7 +195,7 @@ export function SettingsUsuariosPanel() {
     mutationFn: ({ apresentadoraId, payload }: { apresentadoraId: string; payload: JsonRecord }) => createApresentadoraFaixaComissao(apresentadoraId, payload),
     onSuccess: () => {
       setFaixaForm(emptyFaixaForm)
-      void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] })
+      void client.invalidateQueries({ queryKey: QK.apresentadoraFaixasComissao() })
       void client.invalidateQueries({ queryKey: ['usuarios'] })
       void client.invalidateQueries({ queryKey: ['apresentadoras'] })
     },
@@ -301,45 +209,34 @@ export function SettingsUsuariosPanel() {
     onSuccess: () => void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] }),
   })
   const editMutation = useMutation({
-    mutationFn: async ({ user, form }: { user: JsonRecord; form: typeof emptyEditForm }) => {
+    mutationFn: async ({ user, form: ef }: { user: JsonRecord; form: typeof emptyEditForm }) => {
       const presenterIdResolved = presenterProfileId(user)
-      const presenterPapel = isPresenterUser(user) || isPresenterRole(form.papel) || isPresenterProfile(user)
+      const presenterPapel = isPresenterUser(user) || isPresenterRole(ef.papel) || isPresenterProfile(user)
       const presenterPayload: JsonRecord = {}
-
       if (presenterPapel) {
-        presenterPayload.nome = form.nome
-        presenterPayload.ativo = form.ativo
-        if (form.fixo !== '') presenterPayload.fixo = asNumber(form.fixo)
-        if (form.comissao_pct !== '') presenterPayload.comissao_pct = asNumber(form.comissao_pct)
-        if (form.meta_diaria_gmv !== '') presenterPayload.meta_diaria_gmv = asNumber(form.meta_diaria_gmv)
-        presenterPayload.foto_url = form.foto_url || null
+        presenterPayload.nome = ef.nome
+        presenterPayload.ativo = ef.ativo
+        if (ef.fixo !== '') presenterPayload.fixo = asNumber(ef.fixo)
+        if (ef.comissao_pct !== '') presenterPayload.comissao_pct = asNumber(ef.comissao_pct)
+        if (ef.meta_diaria_gmv !== '') presenterPayload.meta_diaria_gmv = asNumber(ef.meta_diaria_gmv)
+        presenterPayload.foto_url = ef.foto_url || null
       }
-
-      if (isPresenterProfile(user)) {
-        return updateApresentadora(presenterIdResolved, presenterPayload)
-      }
-
-      const updatedUser = await updateUsuario(asString(user.id, ''), {
-        nome: form.nome,
-        papel: form.papel,
-        ativo: form.ativo,
-      })
-
+      if (isPresenterProfile(user)) return updateApresentadora(presenterIdResolved, presenterPayload)
+      const updatedUser = await updateUsuario(asString(user.id, ''), { nome: ef.nome, papel: ef.papel, ativo: ef.ativo })
       if (presenterPapel && presenterIdResolved && Object.keys(presenterPayload).length > 0) {
         await updateApresentadora(presenterIdResolved, presenterPayload)
       }
-
       return updatedUser
     },
     onSuccess: () => {
-      setEditingUser(null)
-      setEditForm(emptyEditForm)
+      setEditingUser(null); setEditForm(emptyEditForm)
       void client.invalidateQueries({ queryKey: ['usuarios'] })
       void client.invalidateQueries({ queryKey: ['apresentadoras'] })
-      void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] })
+      void client.invalidateQueries({ queryKey: QK.apresentadoraFaixasComissao() })
     },
   })
 
+  // ---- Derived data --------------------------------------------------------
   const allRows = useMemo(() => {
     const userRows = usuarios.data ?? []
     const linkedPresenterIds = new Set(userRows.map((item) => asString(item.apresentadora_id, '')).filter(Boolean))
@@ -376,10 +273,20 @@ export function SettingsUsuariosPanel() {
   if (usuarios.isLoading || clientes.isLoading || apresentadoras.isLoading) return <LoadingState />
   if (usuarios.isError) return <ErrorState message={extractErrorMessage(usuarios.error)} onRetry={() => void usuarios.refetch()} />
 
-  function setField(key: keyof typeof emptyForm, value: string) {
+  // ---- Handlers ------------------------------------------------------------
+  function setField(key: keyof CreateFormState, value: string) {
     setForm((current) => {
       if (key === 'papel' && isPresenterRole(value) && !current.fixo) {
-        return { ...current, [key]: value, fixo: DEFAULT_PRESENTER_FIXED }
+        return { ...current, [key]: value, fixo: '2700' }
+      }
+      return { ...current, [key]: value }
+    })
+  }
+
+  function setEditField(key: keyof typeof emptyEditForm, value: string | boolean) {
+    setEditForm((current) => {
+      if (key === 'papel' && typeof value === 'string' && isPresenterRole(value) && !current.fixo) {
+        return { ...current, [key]: value, fixo: '2700' }
       }
       return { ...current, [key]: value }
     })
@@ -396,15 +303,6 @@ export function SettingsUsuariosPanel() {
       comissao_pct: asString(item.comissao_live_pct ?? item.comissao_pct, ''),
       meta_diaria_gmv: asString(item.meta_diaria_gmv, ''),
       foto_url: asString(item.foto_url ?? item.apresentadora_foto_url, ''),
-    })
-  }
-
-  function setEditField(key: keyof typeof emptyEditForm, value: string | boolean) {
-    setEditForm((current) => {
-      if (key === 'papel' && typeof value === 'string' && isPresenterRole(value) && !current.fixo) {
-        return { ...current, [key]: value, fixo: DEFAULT_PRESENTER_FIXED }
-      }
-      return { ...current, [key]: value }
     })
   }
 
@@ -433,10 +331,7 @@ export function SettingsUsuariosPanel() {
   function onDeleteUser(item: JsonRecord) {
     const label = asString(item.nome ?? item.email, 'usuário')
     if (!window.confirm(`Excluir/desativar o usuário "${label}"?`)) return
-    if (isPresenterProfile(item)) {
-      deletePresenterMutation.mutate(presenterProfileId(item))
-      return
-    }
+    if (isPresenterProfile(item)) { deletePresenterMutation.mutate(presenterProfileId(item)); return }
     deleteMutation.mutate(asString(item.id, ''))
   }
 
@@ -453,6 +348,20 @@ export function SettingsUsuariosPanel() {
     })
   }
 
+  const listMutations = {
+    updatePending: updateMutation.isPending || updatePresenterMutation.isPending,
+    deletePending: deleteMutation.isPending || deletePresenterMutation.isPending,
+    resetPending: resetMutation.isPending,
+    resendPending: resendMutation.isPending,
+    logoutPending: logoutMutation.isPending,
+    updateError: updateMutation.error ?? updatePresenterMutation.error,
+    deleteError: deleteMutation.error ?? deletePresenterMutation.error,
+    resetError: resetMutation.error,
+    logoutError: logoutMutation.error,
+    resendError: resendMutation.error,
+    resetData: resetMutation.data,
+  }
+
   return (
     <div className="settings-users-panel space-y-4">
       <Card>
@@ -465,10 +374,7 @@ export function SettingsUsuariosPanel() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" icon={RefreshCcw} onClick={() => {
-                void usuarios.refetch()
-                void apresentadoras.refetch()
-              }}>
+              <Button variant="secondary" icon={RefreshCcw} onClick={() => { void usuarios.refetch(); void apresentadoras.refetch() }}>
                 Atualizar
               </Button>
               <Button icon={UserPlus} onClick={() => setCreateOpen(true)}>Novo acesso</Button>
@@ -477,126 +383,45 @@ export function SettingsUsuariosPanel() {
           <div className="mt-4 grid gap-2 lg:grid-cols-[1fr_180px_160px] lg:items-center">
             <label className="relative block min-w-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-              <input
-                className="design-input h-10 w-full px-10 text-sm"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar pessoa"
-              />
-              {searchTerm ? (
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-ink-muted hover:text-ink"
-                  onClick={() => setSearchTerm('')}
-                >
-                  limpar
-                </button>
-              ) : null}
+              <input className="design-input h-10 w-full px-10 text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar pessoa" />
+              {searchTerm ? <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-ink-muted hover:text-ink" onClick={() => setSearchTerm('')}>limpar</button> : null}
             </label>
-            <select className="design-input h-10 px-3 text-sm" value={papelFilter} onChange={(event) => setPapelFilter(event.target.value)}>
+            <select className="design-input h-10 px-3 text-sm" value={papelFilter} onChange={(e) => setPapelFilter(e.target.value)}>
               <option value="all">Todos os papéis</option>
-              {roleOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
+              <option value="gerente">Gerente</option>
+              <option value="operacional">Operacional</option>
+              <option value="apresentador">Apresentadora</option>
+              <option value="cliente_parceiro">Cliente</option>
             </select>
-            <select className="design-input h-10 px-3 text-sm" value={ativoFilter} onChange={(event) => setAtivoFilter(event.target.value)}>
-              {statusOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
+            <select className="design-input h-10 px-3 text-sm" value={ativoFilter} onChange={(e) => setAtivoFilter(e.target.value)}>
+              {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </div>
         </CardHeader>
         <CardBody>
-          <DataTable<JsonRecord>
+          <UsuariosList
             data={filteredRows}
-            columns={[
-              {
-                key: 'pessoa',
-                header: 'Pessoa',
-                render: (item) => {
-                  const profileOnly = isPresenterProfile(item)
-                  const photo = asString(item.foto_url ?? item.apresentadora_foto_url, '')
-                  return (
-                    <div className="flex min-w-60 items-center gap-3">
-                      <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl bg-brand-soft text-sm font-black text-brand">
-                        {photo ? <img src={photo} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : initialsFor(item)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-bold text-ink">{asString(item.nome)}</p>
-                        <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-muted">
-                          <Mail className="h-3.5 w-3.5 shrink-0" />
-                          {asString(item.email)}
-                        </p>
-                        {profileOnly ? <Badge className="mt-2" tone="warning">sem acesso</Badge> : null}
-                      </div>
-                    </div>
-                  )
-                },
+            mutations={listMutations}
+            actions={{
+              onEdit: openEditUser,
+              onDelete: onDeleteUser,
+              onToggleAtivo: (item) => {
+                const id = asString(item.id, '')
+                const presenterOnly = asString(item.origem_perfil) === 'apresentadora'
+                const ativo = ativoValue(item.ativo)
+                const presenterId = presenterProfileId(item)
+                if (presenterOnly) { updatePresenterMutation.mutate({ id: presenterId, payload: { ativo: !ativo } }); return }
+                updateMutation.mutate({ id, payload: { ativo: !ativo } })
               },
-              { key: 'papel', header: 'Papel', render: (item) => <Badge tone={isPresenterUser(item) ? 'success' : asString(item.papel) === 'cliente_parceiro' ? 'info' : 'brand'}>{roleLabel(item)}</Badge> },
-              {
-                key: 'remuneracao',
-                header: 'Remuneração',
-                align: 'right',
-                render: (item) => {
-                  const presenter = isPresenterUser(item) || isPresenterProfile(item)
-                  if (!presenter) return <span className="text-ink-muted">—</span>
-                  return (
-                    <div className="space-y-1 text-right">
-                      <p className="num font-bold text-ink">{formatMoney(item.fixo_mensal ?? item.fixo)}</p>
-                      <p className="text-xs text-ink-muted">base {asNumber(item.comissao_live_pct ?? item.comissao_pct).toLocaleString('pt-BR')}% · meta {formatMoney(item.meta_diaria_gmv)}</p>
-                    </div>
-                  )
-                },
-              },
-              { key: 'ativo', header: 'Status', render: (item) => <Badge tone={statusTone(ativoValue(item.ativo) ? 'ativo' : 'inativo')}>{ativoValue(item.ativo) ? 'ativo' : 'inativo'}</Badge> },
-              {
-                key: 'acoes',
-                header: 'Ações',
-                align: 'right',
-                render: (item) => {
-                  const id = asString(item.id, '')
-                  const presenterOnly = asString(item.origem_perfil) === 'apresentadora'
-                  const ativo = ativoValue(item.ativo)
-                  const presenterId = presenterProfileId(item)
-                  const writePending = updateMutation.isPending || updatePresenterMutation.isPending
-                  const deletePending = deleteMutation.isPending || deletePresenterMutation.isPending
-                  return (
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <Button className="h-9 px-3" variant="secondary" icon={Edit2} disabled={writePending} onClick={() => openEditUser(item)}>Editar</Button>
-                      <IconActionButton
-                        icon={ativo ? Shield : CheckCircle2}
-                        label={ativo ? 'Inativar' : 'Reativar'}
-                        tone={ativo ? 'neutral' : 'success'}
-                        disabled={writePending}
-                        onClick={() => presenterOnly
-                          ? updatePresenterMutation.mutate({ id: presenterId, payload: { ativo: !ativo } })
-                          : updateMutation.mutate({ id, payload: { ativo: !ativo } })
-                        }
-                      />
-                      <IconActionButton icon={KeyRound} label="Resetar senha" disabled={presenterOnly || resetMutation.isPending} onClick={() => resetMutation.mutate(id)} />
-                      <IconActionButton icon={MailPlus} label="Reenviar convite" disabled={presenterOnly || resendMutation.isPending} onClick={() => resendMutation.mutate(id)} />
-                      <IconActionButton icon={LogOut} label="Forçar logout" disabled={presenterOnly || logoutMutation.isPending} onClick={() => logoutMutation.mutate(id)} />
-                      <IconActionButton icon={Trash2} label="Excluir" tone="danger" disabled={deletePending} onClick={() => onDeleteUser(item)} />
-                    </div>
-                  )
-                },
-              },
-            ]}
+              onResetSenha: (id) => resetMutation.mutate(id),
+              onResendConvite: (id) => resendMutation.mutate(id),
+              onForceLogout: (id) => logoutMutation.mutate(id),
+            }}
           />
-          {updateMutation.isError || updatePresenterMutation.isError || resetMutation.isError || logoutMutation.isError || resendMutation.isError || deleteMutation.isError || deletePresenterMutation.isError ? (
-            <p className="mt-4 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
-              {extractErrorMessage(updateMutation.error ?? updatePresenterMutation.error ?? resetMutation.error ?? logoutMutation.error ?? resendMutation.error ?? deleteMutation.error ?? deletePresenterMutation.error)}
-            </p>
-          ) : null}
-          {resetMutation.data ? (
-            <p className="mt-4 rounded-2xl bg-[var(--warning-soft)] px-4 py-3 text-sm font-semibold text-[var(--warning)]">
-              Senha temporária: {asString((resetMutation.data as JsonRecord).senha_temporaria)}
-            </p>
-          ) : null}
         </CardBody>
       </Card>
 
+      {/* ---- Create modal ---- */}
       <Modal
         open={isCreateOpen}
         title="Novo acesso"
@@ -611,110 +436,20 @@ export function SettingsUsuariosPanel() {
         )}
       >
         <form className="space-y-5" id="usuario-create-form" onSubmit={onSubmit}>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {roleOptions.map((option) => {
-              const Icon = option.icon
-              const active = form.papel === option.value
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={clsx(
-                    'flex min-h-20 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus:ring-4 focus:ring-brand/20',
-                    active ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-surface text-ink hover:bg-surface-muted',
-                  )}
-                  onClick={() => setField('papel', option.value)}
-                >
-                  <span className={clsx('grid h-10 w-10 shrink-0 place-items-center rounded-xl', active ? 'bg-brand text-white' : 'bg-surface-muted text-ink-muted')}>
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <span>
-                    <span className="block text-sm font-bold">{option.label}</span>
-                    <span className={clsx('mt-0.5 block text-xs', active ? 'text-brand/80' : 'text-ink-muted')}>{option.helper}</span>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">Nome</span>
-              <input className="design-input mt-2 h-11 w-full px-4" value={form.nome} onChange={(event) => setField('nome', event.target.value)} placeholder="Nome completo" required />
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">E-mail</span>
-              <input className="design-input mt-2 h-11 w-full px-4" type="email" value={form.email} onChange={(event) => setField('email', event.target.value)} placeholder="email@empresa.com.br" required />
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">Senha temporária</span>
-              <input className="design-input mt-2 h-11 w-full px-4" value={form.senha_temporaria} onChange={(event) => setField('senha_temporaria', event.target.value)} placeholder="Opcional" />
-            </label>
-          </div>
-
-          {form.papel === 'cliente_parceiro' ? (
-            <label className="block max-w-xl">
-              <span className="text-sm font-semibold text-ink">Cliente vinculado</span>
-              <select className="design-input mt-2 h-11 w-full px-4" value={form.cliente_id} onChange={(event) => setField('cliente_id', event.target.value)} required>
-                <option value="">Selecionar cliente</option>
-                {(clientes.data ?? []).map((cliente) => <option key={asString(cliente.id, '')} value={asString(cliente.id, '')}>{asString(cliente.nome)}</option>)}
-              </select>
-            </label>
-          ) : null}
-
-          {isPresenterRole(form.papel) ? (
-            <section className="space-y-4 rounded-2xl border border-line bg-surface-muted/45 p-4">
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm font-bold text-ink">Perfil de apresentadora</p>
-                  <p className="mt-1 text-xs text-ink-muted">Foto, fixo padrão de R$ 2.700,00 e escada mensal aplicada automaticamente.</p>
-                </div>
-                <Badge tone="success">padrão ativo</Badge>
-              </div>
-              <ImagePicker
-                label="Foto da apresentadora"
-                value={form.foto_url}
-                onChange={(value) => setField('foto_url', value)}
-                onFileSelect={(file) => uploadCreatePresenterImage.mutate(file)}
-                isUploading={uploadCreatePresenterImage.isPending}
-                helper="Aparece nos rankings de apresentadoras."
-              />
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-semibold text-ink">Perfil operacional</span>
-                  <select className="design-input mt-2 h-11 w-full px-4" value={form.apresentadora_id} onChange={(event) => setField('apresentadora_id', event.target.value)}>
-                    <option value="">Criar perfil novo</option>
-                    {presenterProfileOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
-                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.fixo} onChange={(raw) => setField('fixo', raw)} />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">Meta diária GMV (R$)</span>
-                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.meta_diaria_gmv} onChange={(raw) => setField('meta_diaria_gmv', raw)} />
-                </label>
-                <label className="block md:col-span-2 xl:col-span-1">
-                  <span className="text-sm font-semibold text-ink">Comissão base opcional (%)</span>
-                  <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={form.comissao_pct} onChange={(event) => setField('comissao_pct', event.target.value)} placeholder="Escada padrão" />
-                </label>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {defaultCommissionTiers.map((tier) => (
-                  <span key={tier.label} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink">
-                    <CircleDollarSign className="h-3.5 w-3.5 text-brand" />
-                    {tier.label} · <strong>{tier.value}</strong>
-                  </span>
-                ))}
-              </div>
-              {uploadCreatePresenterImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(uploadCreatePresenterImage.error)}</p> : null}
-            </section>
-          ) : null}
-          {inviteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(inviteMutation.error)}</p> : null}
+          <UsuarioForm
+            form={form}
+            onFieldChange={setField}
+            clientes={clientes.data ?? []}
+            presenterProfileOptions={presenterProfileOptions}
+            uploadState={{ isPending: uploadCreatePresenterImage.isPending, isError: uploadCreatePresenterImage.isError, error: uploadCreatePresenterImage.error }}
+            onFileSelect={(file) => uploadCreatePresenterImage.mutate(file)}
+            inviteError={inviteMutation.error}
+            isInviteError={inviteMutation.isError}
+          />
         </form>
       </Modal>
 
+      {/* ---- Edit modal ---- */}
       <Modal
         open={!!editingUser}
         title="Editar usuário"
@@ -733,11 +468,11 @@ export function SettingsUsuariosPanel() {
           <div className="grid gap-4 md:grid-cols-[1fr_220px]">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Nome</span>
-              <input className="design-input mt-2 h-11 w-full px-4" value={editForm.nome} onChange={(event) => setEditField('nome', event.target.value)} placeholder="Nome completo" required />
+              <input className="design-input mt-2 h-11 w-full px-4" value={editForm.nome} onChange={(e) => setEditField('nome', e.target.value)} placeholder="Nome completo" required />
             </label>
             <label className="block">
               <span className="text-sm font-semibold text-ink">Status</span>
-              <select className="design-input mt-2 h-11 w-full px-4" value={editForm.ativo ? 'true' : 'false'} onChange={(event) => setEditField('ativo', event.target.value === 'true')}>
+              <select className="design-input mt-2 h-11 w-full px-4" value={editForm.ativo ? 'true' : 'false'} onChange={(e) => setEditField('ativo', e.target.value === 'true')}>
                 <option value="true">Ativo</option>
                 <option value="false">Inativo</option>
               </select>
@@ -752,78 +487,22 @@ export function SettingsUsuariosPanel() {
               </div>
               {isPresenterProfile(editingUser) ? <Badge tone="warning">perfil sem login</Badge> : null}
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {roleOptions.map((option) => {
-                const Icon = option.icon
-                const active = editForm.papel === option.value
-                const locked = isPresenterProfile(editingUser)
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    disabled={locked}
-                    className={clsx(
-                      'flex min-h-20 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus:ring-4 focus:ring-brand/20',
-                      active ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-surface text-ink hover:bg-surface-muted',
-                      locked && 'cursor-not-allowed opacity-60',
-                    )}
-                    onClick={() => setEditField('papel', option.value)}
-                  >
-                    <span className={clsx('grid h-10 w-10 shrink-0 place-items-center rounded-xl', active ? 'bg-brand text-white' : 'bg-surface-muted text-ink-muted')}>
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span>
-                      <span className="block text-sm font-bold">{option.label}</span>
-                      <span className={clsx('mt-0.5 block text-xs', active ? 'text-brand/80' : 'text-ink-muted')}>{option.helper}</span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
+            <UsuarioPapelSelect
+              value={editForm.papel}
+              onChange={(role) => setEditField('papel', role)}
+              disabled={isPresenterProfile(editingUser)}
+            />
           </section>
 
           {(isPresenterRole(editForm.papel) || isPresenterProfile(editingUser)) ? (
-            <section className="space-y-4 rounded-2xl border border-line bg-surface-muted/45 p-4">
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm font-bold text-ink">Remuneração da apresentadora</p>
-                  <p className="mt-1 text-xs text-ink-muted">Foto, fixo, meta e comissão base ficam juntos para evitar cadastro incompleto.</p>
-                </div>
-                <Badge tone="success">fixo padrão R$ 2.700</Badge>
-              </div>
-              <ImagePicker
-                label="Foto da apresentadora"
-                value={editForm.foto_url}
-                onChange={(value) => setEditField('foto_url', value)}
-                onFileSelect={(file) => uploadEditPresenterImage.mutate(file)}
-                isUploading={uploadEditPresenterImage.isPending}
-                helper="Aparece nos rankings de apresentadoras."
-              />
-              <div className="grid gap-4 md:grid-cols-3">
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
-                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={editForm.fixo} onChange={(raw) => setEditField('fixo', raw)} />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">Meta diária GMV (R$)</span>
-                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={editForm.meta_diaria_gmv} onChange={(raw) => setEditField('meta_diaria_gmv', raw)} />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">Comissão base opcional (%)</span>
-                  <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={editForm.comissao_pct} onChange={(event) => setEditField('comissao_pct', event.target.value)} placeholder="Escada padrão" />
-                </label>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {defaultCommissionTiers.map((tier) => (
-                  <span key={tier.label} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink">
-                    <CircleDollarSign className="h-3.5 w-3.5 text-brand" />
-                    {tier.label} · <strong>{tier.value}</strong>
-                  </span>
-                ))}
-              </div>
-              {uploadEditPresenterImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(uploadEditPresenterImage.error)}</p> : null}
-            </section>
+            <ApresentadoraRemuneracao
+              form={editForm}
+              onFieldChange={(key, value) => setEditField(key as keyof typeof emptyEditForm, value)}
+              uploadState={{ isPending: uploadEditPresenterImage.isPending, isError: uploadEditPresenterImage.isError, error: uploadEditPresenterImage.error }}
+              onFileSelect={(file) => uploadEditPresenterImage.mutate(file)}
+            />
           ) : null}
+
           {editingPresenterId && editingHasPresenterProfile ? (
             <div className="space-y-4 rounded-2xl border border-line bg-surface-muted p-4">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -836,15 +515,15 @@ export function SettingsUsuariosPanel() {
               <div className="grid gap-3 md:grid-cols-[1fr_1fr_120px_auto]">
                 <label className="block">
                   <span className="text-xs font-semibold text-ink-muted">GMV inicial</span>
-                  <MoneyInput className="design-input mt-2 h-10 w-full px-3" value={faixaForm.gmv_inicio} onChange={(raw) => setFaixaForm((current) => ({ ...current, gmv_inicio: raw }))} />
+                  <MoneyInput className="design-input mt-2 h-10 w-full px-3" value={faixaForm.gmv_inicio} onChange={(raw) => setFaixaForm((f) => ({ ...f, gmv_inicio: raw }))} />
                 </label>
                 <label className="block">
                   <span className="text-xs font-semibold text-ink-muted">GMV final</span>
-                  <MoneyInput className="design-input mt-2 h-10 w-full px-3" value={faixaForm.gmv_fim} onChange={(raw) => setFaixaForm((current) => ({ ...current, gmv_fim: raw }))} placeholder="Sem limite" />
+                  <MoneyInput className="design-input mt-2 h-10 w-full px-3" value={faixaForm.gmv_fim} onChange={(raw) => setFaixaForm((f) => ({ ...f, gmv_fim: raw }))} placeholder="Sem limite" />
                 </label>
                 <label className="block">
                   <span className="text-xs font-semibold text-ink-muted">Comissão (%)</span>
-                  <input className="design-input mt-2 h-10 w-full px-3" type="number" min="0" max="100" step="0.01" value={faixaForm.comissao_pct} onChange={(event) => setFaixaForm((current) => ({ ...current, comissao_pct: event.target.value }))} />
+                  <input className="design-input mt-2 h-10 w-full px-3" type="number" min="0" max="100" step="0.01" value={faixaForm.comissao_pct} onChange={(e) => setFaixaForm((f) => ({ ...f, comissao_pct: e.target.value }))} />
                 </label>
                 <div className="flex items-end">
                   <Button type="button" isLoading={createFaixaMutation.isPending} onClick={submitFaixa}>Adicionar</Button>
@@ -860,17 +539,13 @@ export function SettingsUsuariosPanel() {
                     { key: 'comissao_pct', header: 'Comissão', align: 'right', render: (item) => `${asNumber(item.comissao_pct).toLocaleString('pt-BR')}%` },
                     { key: 'ativo', header: 'Status', render: (item) => <Badge tone={item.ativo === false ? 'neutral' : 'success'}>{item.ativo === false ? 'inativa' : 'ativa'}</Badge> },
                     {
-                      key: 'acoes',
-                      header: 'Ações',
-                      align: 'right',
+                      key: 'acoes', header: 'Ações', align: 'right',
                       render: (item) => (
                         <div className="flex justify-end gap-2">
                           <Button variant="ghost" disabled={updateFaixaMutation.isPending} onClick={() => updateFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId: asString(item.id, ''), payload: { ativo: item.ativo === false } })}>
                             {item.ativo === false ? 'Reativar' : 'Inativar'}
                           </Button>
-                          <Button variant="danger" disabled={deleteFaixaMutation.isPending} onClick={() => deleteFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId: asString(item.id, '') })}>
-                            Excluir
-                          </Button>
+                          <Button variant="danger" disabled={deleteFaixaMutation.isPending} onClick={() => deleteFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId: asString(item.id, '') })}>Excluir</Button>
                         </div>
                       ),
                     },

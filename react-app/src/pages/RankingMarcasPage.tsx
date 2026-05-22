@@ -8,6 +8,7 @@ import { RankingPodium } from '../components/dashboard/RankingPodium'
 import { RankingBars } from '../components/dashboard/RankingBars'
 import { getComissoesMarcas } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
+import { QK } from '../services/query-keys'
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7)
@@ -16,7 +17,7 @@ function currentMonth() {
 export function RankingMarcasPage() {
   const [mes, setMes] = useState(currentMonth())
   const query = useQuery({
-    queryKey: ['ranking-marcas', mes],
+    queryKey: QK.rankingMarcas(parseInt(mes.split('-')[1], 10)),
     queryFn: () => getComissoesMarcas({ mes }),
   })
 

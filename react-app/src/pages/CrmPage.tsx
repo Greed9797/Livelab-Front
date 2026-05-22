@@ -13,6 +13,7 @@ import { extractErrorMessage } from '../services/api'
 import { asArray, asString } from '../utils/format'
 import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
 import { CRM_STAGES, leadTitle, moveLeadToStage, normalizeCrmStage, type CrmStageKey } from '../utils/crm'
+import { QK } from '../services/query-keys'
 import type { JsonRecord, Lead } from '../types/models'
 
 export { groupLeadsByStage, moveLeadToStage, normalizeCrmStage } from '../utils/crm'
@@ -41,17 +42,17 @@ export function CrmPage() {
   const [selectedLeadId, setSelectedLeadId] = useState('')
   const [leadForm, setLeadForm] = useState(emptyLeadForm)
   const client = useQueryClient()
-  const leadsQuery = useQuery({ queryKey: ['leads'], queryFn: getLeads })
+  const leadsQuery = useQuery({ queryKey: QK.leads, queryFn: getLeads })
   const leadDetailQuery = useQuery({
-    queryKey: ['lead', selectedLeadId],
+    queryKey: QK.leadById(selectedLeadId),
     queryFn: () => getLead(selectedLeadId),
     enabled: modalMode === 'detail' && Boolean(selectedLeadId),
   })
 
   const invalidateCrm = () => {
-    void client.invalidateQueries({ queryKey: ['leads'] })
-    void client.invalidateQueries({ queryKey: ['crm-summary'] })
-    if (selectedLeadId) void client.invalidateQueries({ queryKey: ['lead', selectedLeadId] })
+    void client.invalidateQueries({ queryKey: QK.leads })
+    void client.invalidateQueries({ queryKey: QK.crmSummary })
+    if (selectedLeadId) void client.invalidateQueries({ queryKey: QK.leadById(selectedLeadId) })
   }
 
   const closeModal = () => {
@@ -94,7 +95,7 @@ export function CrmPage() {
     onSuccess: () => {
       closeModal()
       invalidateCrm()
-      void client.invalidateQueries({ queryKey: ['clientes'] })
+      void client.invalidateQueries({ queryKey: QK.clientes() })
     },
   })
   const perderMutation = useMutation({
@@ -191,7 +192,7 @@ export function CrmPage() {
   function moveLead(id: string, stage: CrmStageKey) {
     const currentLead = leads.find((lead) => asString(lead.id, '') === id) as JsonRecord | undefined
     if (!currentLead || normalizeCrmStage(currentLead) === stage) return
-    client.setQueryData<Lead[]>(['leads'], (current = []) => moveLeadToStage(current as unknown as JsonRecord[], id, stage) as unknown as Lead[])
+    client.setQueryData<Lead[]>(QK.leads, (current = []) => moveLeadToStage(current as unknown as JsonRecord[], id, stage) as unknown as Lead[])
     updateMutation.mutate({ id, payload: { crm_etapa: stage } })
   }
 

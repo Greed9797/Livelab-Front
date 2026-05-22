@@ -5,6 +5,7 @@ import { extractErrorMessage } from '../services/api'
 import { asString, formatDate } from '../utils/format'
 import { Button } from '../components/ui/Button'
 import { ErrorState, EmptyState, LoadingState } from '../components/ui/States'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 interface HistoricoGmvModalProps {
@@ -14,7 +15,7 @@ interface HistoricoGmvModalProps {
 
 export function HistoricoGmvModal({ liveId, onClose }: HistoricoGmvModalProps) {
   const query = useQuery({
-    queryKey: ['historico-gmv', liveId],
+    queryKey: QK.historicoGmv(liveId!),
     queryFn: () => getHistoricoGmv(liveId!),
     enabled: Boolean(liveId),
   })

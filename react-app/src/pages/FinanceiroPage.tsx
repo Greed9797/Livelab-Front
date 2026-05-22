@@ -18,6 +18,7 @@ import { asArray, asNumber, asString, currentPeriod, formatDate, formatMoney, ge
 import { parseBRMoneyToDecimal } from '../utils/money'
 import { historyPoints, metric, moneyMetric } from './page-helpers'
 import { BoletosPanel } from './BoletosPage'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 const icons = [CircleDollarSign, TrendingUp, TrendingDown, Receipt]
@@ -38,21 +39,21 @@ export function FinanceiroPage() {
   })
   const [selectedCliente, setSelectedCliente] = useState<JsonRecord | null>(null)
   const client = useQueryClient()
-  const resumo = useQuery({ queryKey: ['financeiro-resumo'], queryFn: () => getFinanceiroResumo(), enabled: !isCliente })
-  const fluxo = useQuery({ queryKey: ['financeiro-fluxo'], queryFn: () => getFinanceiroFluxo(), enabled: !isCliente })
-  const faturamento = useQuery({ queryKey: ['financeiro-faturamento'], queryFn: () => getFinanceiroFaturamento(), enabled: !isCliente })
-  const custos = useQuery({ queryKey: ['financeiro-custos', custo.competencia], queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
-  const franqueadora = useQuery({ queryKey: ['financeiro-franqueadora'], queryFn: () => getFinanceiroFranqueadora(), enabled: user?.papel === 'franqueador_master' })
-  const boletos = useQuery({ queryKey: ['boletos'], queryFn: getBoletos })
-  const comissoesResumo = useQuery({ queryKey: ['comissoes-resumo'], queryFn: () => getComissoesResumo(), enabled: !isCliente && tab === 'comissoes' })
-  const comissoesApresentadoras = useQuery({ queryKey: ['comissoes-apresentadoras'], queryFn: () => getComissoesApresentadoras(), enabled: !isCliente && tab === 'comissoes' })
-  const comissoesMarcas = useQuery({ queryKey: ['comissoes-marcas'], queryFn: () => getComissoesMarcas(), enabled: !isCliente && tab === 'comissoes' })
+  const resumo = useQuery({ queryKey: QK.financeiroResumo, queryFn: () => getFinanceiroResumo(), enabled: !isCliente })
+  const fluxo = useQuery({ queryKey: QK.financeiroFluxo, queryFn: () => getFinanceiroFluxo(), enabled: !isCliente })
+  const faturamento = useQuery({ queryKey: QK.financeiroFaturamento, queryFn: () => getFinanceiroFaturamento(), enabled: !isCliente })
+  const custos = useQuery({ queryKey: QK.financeiroCustos(custo.competencia), queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
+  const franqueadora = useQuery({ queryKey: QK.financeiroFranqueadora, queryFn: () => getFinanceiroFranqueadora(), enabled: user?.papel === 'franqueador_master' })
+  const boletos = useQuery({ queryKey: QK.boletos, queryFn: getBoletos })
+  const comissoesResumo = useQuery({ queryKey: QK.comissoesResumo, queryFn: () => getComissoesResumo(), enabled: !isCliente && tab === 'comissoes' })
+  const comissoesApresentadoras = useQuery({ queryKey: QK.comissoesApresentadoras, queryFn: () => getComissoesApresentadoras(), enabled: !isCliente && tab === 'comissoes' })
+  const comissoesMarcas = useQuery({ queryKey: QK.comissoesMarcas, queryFn: () => getComissoesMarcas(), enabled: !isCliente && tab === 'comissoes' })
   const selectedClienteKind = asString(selectedCliente?.tipo_operacional ?? selectedCliente?.tipo_entidade) === 'afiliada' || asString(selectedCliente?.tipo_entidade) === 'marca' ? 'marca' : 'cliente'
   const selectedClienteId = selectedClienteKind === 'marca'
     ? asString(selectedCliente?.marca_id ?? selectedCliente?.id, '')
     : asString(selectedCliente?.cliente_id ?? selectedCliente?.id, '')
   const selectedClienteDetail = useQuery({
-    queryKey: ['financeiro-cliente-operacional', selectedClienteKind, selectedClienteId],
+    queryKey: QK.financeiroClienteOperacional({ clienteKind: selectedClienteKind, clienteId: selectedClienteId }),
     enabled: Boolean(selectedClienteId),
     queryFn: () => selectedClienteKind === 'marca'
       ? getMarcaOperacional(selectedClienteId)
@@ -62,17 +63,17 @@ export function FinanceiroPage() {
     mutationFn: createFinanceiroCusto,
     onSuccess: () => {
       setCusto((current) => ({ ...current, descricao: '', valor: '' }))
-      void client.invalidateQueries({ queryKey: ['financeiro-custos'] })
-      void client.invalidateQueries({ queryKey: ['financeiro-resumo'] })
-      void client.invalidateQueries({ queryKey: ['financeiro-fluxo'] })
+      void client.invalidateQueries({ queryKey: QK.financeiroCustos() })
+      void client.invalidateQueries({ queryKey: QK.financeiroResumo })
+      void client.invalidateQueries({ queryKey: QK.financeiroFluxo })
     },
   })
   const deleteCusto = useMutation({
     mutationFn: deleteFinanceiroCusto,
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['financeiro-custos'] })
-      void client.invalidateQueries({ queryKey: ['financeiro-resumo'] })
-      void client.invalidateQueries({ queryKey: ['financeiro-fluxo'] })
+      void client.invalidateQueries({ queryKey: QK.financeiroCustos() })
+      void client.invalidateQueries({ queryKey: QK.financeiroResumo })
+      void client.invalidateQueries({ queryKey: QK.financeiroFluxo })
     },
   })
 

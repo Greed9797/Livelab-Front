@@ -7,10 +7,11 @@ import { ErrorState, LoadingState } from '../components/ui/States'
 import { getKnowledgeArticles, getKnowledgeCategories } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asString } from '../utils/format'
+import { QK } from '../services/query-keys'
 
 export function KnowledgePage() {
-  const categories = useQuery({ queryKey: ['knowledge-categories'], queryFn: getKnowledgeCategories })
-  const articles = useQuery({ queryKey: ['knowledge-articles'], queryFn: () => getKnowledgeArticles() })
+  const categories = useQuery({ queryKey: QK.knowledgeCategories, queryFn: getKnowledgeCategories })
+  const articles = useQuery({ queryKey: QK.knowledgeArticles, queryFn: () => getKnowledgeArticles() })
 
   if (categories.isLoading || articles.isLoading) return <LoadingState />
   if (categories.isError) return <ErrorState message={extractErrorMessage(categories.error)} onRetry={() => void categories.refetch()} />

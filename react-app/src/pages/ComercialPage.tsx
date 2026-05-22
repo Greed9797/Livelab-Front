@@ -17,6 +17,7 @@ import { getBrandImage } from '../utils/favicon'
 import { downloadCsv } from '../utils/exportCsv'
 import { metric, moneyMetric, percentMetric } from './page-helpers'
 import { CrmPage } from './CrmPage'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 type ComercialTab = 'dashboard' | 'crm' | 'ativos'
@@ -52,14 +53,14 @@ export function ComercialPage() {
   const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', logo_url: '' })
   const queryClient = useQueryClient()
 
-  const summaryQuery = useQuery({ queryKey: ['crm-summary'], queryFn: getCrmSummary })
-  const leadsQuery = useQuery({ queryKey: ['leads'], queryFn: getLeads })
-  const clientesQuery = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
-  const marcasQuery = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
+  const summaryQuery = useQuery({ queryKey: QK.crmSummary, queryFn: getCrmSummary })
+  const leadsQuery = useQuery({ queryKey: QK.leads, queryFn: getLeads })
+  const clientesQuery = useQuery({ queryKey: QK.clientes(), queryFn: getClientes })
+  const marcasQuery = useQuery({ queryKey: QK.marcas('ativas'), queryFn: () => getMarcas({ status: 'ativa' }) })
   const selectedAtivoId = asString(selectedAtivo?.id, '')
   const selectedAtivoKind = asString(selectedAtivo?.tipo_operacional) === 'cliente_ecommerce' ? 'cliente' : 'marca'
   const ativoDetailQuery = useQuery({
-    queryKey: ['ativo-operacional', selectedAtivoKind, selectedAtivoId],
+    queryKey: QK.ativoOperacional({ kind: selectedAtivoKind, id: selectedAtivoId }),
     enabled: Boolean(selectedAtivoId),
     queryFn: () => selectedAtivoKind === 'cliente'
       ? getClienteOperacional(selectedAtivoId)
@@ -71,9 +72,9 @@ export function ComercialPage() {
     onSuccess: () => {
       setClienteForm(emptyClienteForm)
       setShowClienteForm(false)
-      void queryClient.invalidateQueries({ queryKey: ['clientes'] })
-      void queryClient.invalidateQueries({ queryKey: ['comissoes-marcas'] })
-      void queryClient.invalidateQueries({ queryKey: ['ranking-marcas'] })
+      void queryClient.invalidateQueries({ queryKey: QK.clientes() })
+      void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
+      void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
     },
   })
   const afiliadoMutation = useMutation({
@@ -81,10 +82,10 @@ export function ComercialPage() {
     onSuccess: () => {
       setAfiliadoForm(emptyAfiliadoForm)
       setShowAfiliadoForm(false)
-      void queryClient.invalidateQueries({ queryKey: ['marcas'] })
-      void queryClient.invalidateQueries({ queryKey: ['marcas', 'ativas'] })
-      void queryClient.invalidateQueries({ queryKey: ['comissoes-marcas'] })
-      void queryClient.invalidateQueries({ queryKey: ['ranking-marcas'] })
+      void queryClient.invalidateQueries({ queryKey: QK.marcas() })
+      void queryClient.invalidateQueries({ queryKey: QK.marcas('ativas') })
+      void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
+      void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
     },
   })
   const ativoUpdateMutation = useMutation({
@@ -92,12 +93,12 @@ export function ComercialPage() {
       kind === 'cliente' ? updateCliente(id, payload) : updateMarca(id, payload)
     ),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['clientes'] })
-      void queryClient.invalidateQueries({ queryKey: ['marcas'] })
-      void queryClient.invalidateQueries({ queryKey: ['ativo-operacional'] })
-      void queryClient.invalidateQueries({ queryKey: ['agenda'] })
-      void queryClient.invalidateQueries({ queryKey: ['comissoes-marcas'] })
-      void queryClient.invalidateQueries({ queryKey: ['ranking-marcas'] })
+      void queryClient.invalidateQueries({ queryKey: QK.clientes() })
+      void queryClient.invalidateQueries({ queryKey: QK.marcas() })
+      void queryClient.invalidateQueries({ queryKey: QK.ativoOperacional() })
+      void queryClient.invalidateQueries({ queryKey: QK.agenda() })
+      void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
+      void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
     },
   })
   const ativoDeleteMutation = useMutation({
@@ -106,12 +107,12 @@ export function ComercialPage() {
     ),
     onSuccess: () => {
       setSelectedAtivo(null)
-      void queryClient.invalidateQueries({ queryKey: ['clientes'] })
-      void queryClient.invalidateQueries({ queryKey: ['marcas'] })
-      void queryClient.invalidateQueries({ queryKey: ['marcas', 'ativas'] })
-      void queryClient.invalidateQueries({ queryKey: ['agenda'] })
-      void queryClient.invalidateQueries({ queryKey: ['comissoes-marcas'] })
-      void queryClient.invalidateQueries({ queryKey: ['ranking-marcas'] })
+      void queryClient.invalidateQueries({ queryKey: QK.clientes() })
+      void queryClient.invalidateQueries({ queryKey: QK.marcas() })
+      void queryClient.invalidateQueries({ queryKey: QK.marcas('ativas') })
+      void queryClient.invalidateQueries({ queryKey: QK.agenda() })
+      void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
+      void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
     },
   })
   const uploadClienteImage = useMutation({

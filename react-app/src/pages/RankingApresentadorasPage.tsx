@@ -9,6 +9,7 @@ import { RankingPodium } from '../components/dashboard/RankingPodium'
 import { getRankingApresentadoras } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, formatMoney } from '../utils/format'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 function currentMonth() {
@@ -18,7 +19,7 @@ function currentMonth() {
 export function RankingApresentadorasPage() {
   const [mes, setMes] = useState(currentMonth())
   const query = useQuery({
-    queryKey: ['ranking-apresentadoras', mes],
+    queryKey: QK.rankingApresentadoras(parseInt(mes.split('-')[1], 10)),
     queryFn: () => getRankingApresentadoras({ mes }),
   })
 

@@ -12,6 +12,7 @@ import {
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney } from '../utils/format'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 type Tab = 'marca' | 'faixa'
@@ -44,14 +45,14 @@ function classifyVinculo(vinculo?: JsonRecord): VinculoStatus {
 export function ComissoesConfigPage() {
   const [tab, setTab] = useState<Tab>('marca')
 
-  const marcasQuery = useQuery({ queryKey: ['marcas', { include: 'apresentadoras' }], queryFn: () => getMarcas({ include: 'apresentadoras' }) })
-  const apresentadorasQuery = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
+  const marcasQuery = useQuery({ queryKey: QK.marcas('com-apresentadoras'), queryFn: () => getMarcas({ include: 'apresentadoras' }) })
+  const apresentadorasQuery = useQuery({ queryKey: QK.apresentadoras(), queryFn: getApresentadoras })
 
   const apresentadoras = useMemo(() => asArray<JsonRecord>(apresentadorasQuery.data), [apresentadorasQuery.data])
 
   const faixasQueries = useQueries({
     queries: apresentadoras.map((ap) => ({
-      queryKey: ['apresentadora-faixas', asString(ap.id)],
+      queryKey: QK.apresentadoraFaixasComissao(asString(ap.id)),
       queryFn: () => getApresentadoraFaixasComissao(asString(ap.id)),
       enabled: tab === 'faixa' && Boolean(asString(ap.id)),
       staleTime: 60_000,

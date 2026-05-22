@@ -10,12 +10,13 @@ import { getAnalyticsDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, currentPeriod, formatMoney } from '../utils/format'
 import { historyPoints, metric, moneyMetric } from './page-helpers'
+import { QK } from '../services/query-keys'
 
 const icons = [CircleDollarSign, TrendingUp, Clock, BarChart3]
 
 export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const [period, setPeriod] = useState(currentPeriod())
-  const query = useQuery({ queryKey: ['analytics-dashboard', period], queryFn: () => getAnalyticsDashboard({ mes: period.mes, ano: period.ano }) })
+  const query = useQuery({ queryKey: QK.analyticsDashboard(period), queryFn: () => getAnalyticsDashboard({ mes: period.mes, ano: period.ano }) })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />

@@ -13,6 +13,7 @@ import { asNumber, asString, currentPeriod, formatMoney, periodLabel } from '../
 import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
 import { useThemeStore } from '../stores/theme-store'
 import { SettingsUsuariosPanel } from './SettingsUsuariosPanel'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 type SettingsTab = 'unidade' | 'usuarios' | 'ranking' | 'metas' | 'aparencia' | 'integracoes' | 'seguranca'
@@ -21,11 +22,11 @@ const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'ranking', 'metas', 
 export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boolean }) {
   const client = useQueryClient()
   const [params, setParams] = useSearchParams()
-  const query = useQuery({ queryKey: ['configuracoes', clienteMode], queryFn: getConfiguracoes, enabled: !clienteMode })
-  const rankingQuery = useQuery({ queryKey: ['configuracoes-ranking-publico'], queryFn: getRankingPublicoConfig, enabled: !clienteMode })
+  const query = useQuery({ queryKey: QK.configuracoes(clienteMode), queryFn: getConfiguracoes, enabled: !clienteMode })
+  const rankingQuery = useQuery({ queryKey: QK.configuracoeRankingPublico, queryFn: getRankingPublicoConfig, enabled: !clienteMode })
   const period = currentPeriod()
-  const perfilQuery = useQuery({ queryKey: ['cliente-perfil'], queryFn: getClientePerfil, enabled: clienteMode })
-  const metaQuery = useQuery({ queryKey: ['cliente-meta', period.ano, period.mes], queryFn: () => getClienteMeta(period), enabled: clienteMode })
+  const perfilQuery = useQuery({ queryKey: QK.clientePerfil, queryFn: getClientePerfil, enabled: clienteMode })
+  const metaQuery = useQuery({ queryKey: QK.clienteMeta(period), queryFn: () => getClienteMeta(period), enabled: clienteMode })
   const [form, setForm] = useState<JsonRecord>({})
   const [rankingForm, setRankingForm] = useState({
     ativo: true,
@@ -44,15 +45,15 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   const setTheme = useThemeStore((state) => state.setTheme)
   const mutation = useMutation({
     mutationFn: updateConfiguracoes,
-    onSuccess: () => client.invalidateQueries({ queryKey: ['configuracoes'] }),
+    onSuccess: () => client.invalidateQueries({ queryKey: QK.configuracoes() }),
   })
   const rankingMutation = useMutation({
     mutationFn: updateRankingPublicoConfig,
-    onSuccess: () => client.invalidateQueries({ queryKey: ['configuracoes-ranking-publico'] }),
+    onSuccess: () => client.invalidateQueries({ queryKey: QK.configuracoeRankingPublico }),
   })
   const [metaAnoMes, setMetaAnoMes] = useState(new Date().toISOString().slice(0, 7))
   const metaUnidadeQuery = useQuery({
-    queryKey: ['meta-unidade', metaAnoMes],
+    queryKey: QK.metaUnidade(metaAnoMes),
     queryFn: () => getMetaUnidade(metaAnoMes),
     enabled: !clienteMode,
   })
@@ -68,18 +69,18 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   })
   const metaUnidadeMutation = useMutation({
     mutationFn: saveMetaUnidade,
-    onSuccess: () => client.invalidateQueries({ queryKey: ['meta-unidade'] }),
+    onSuccess: () => client.invalidateQueries({ queryKey: QK.metaUnidade() }),
   })
   const tiktokMutation = useMutation({
     mutationFn: updateClienteTiktok,
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['cliente-perfil'] })
+      void client.invalidateQueries({ queryKey: QK.clientePerfil })
     },
   })
   const metaMutation = useMutation({
     mutationFn: updateClienteMeta,
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['cliente-meta'] })
+      void client.invalidateQueries({ queryKey: QK.clienteMeta() })
     },
   })
   const senhaMutation = useMutation({

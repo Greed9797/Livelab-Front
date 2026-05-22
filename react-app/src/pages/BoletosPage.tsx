@@ -10,6 +10,7 @@ import { getBoletoAlertas, getBoletoDetalhe, getBoletos, marcarBoletoPago, marca
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { asString, formatDate, formatMoney } from '../utils/format'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 const writeRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'financeiro'])
@@ -34,25 +35,25 @@ export function BoletosPanel({ embedded = false }: { embedded?: boolean }) {
   const [selectedId, setSelectedId] = useState('')
   const client = useQueryClient()
 
-  const boletosQuery = useQuery({ queryKey: ['boletos'], queryFn: getBoletos })
-  const alertaQuery = useQuery({ queryKey: ['boletos-alerta'], queryFn: getBoletoAlertas })
+  const boletosQuery = useQuery({ queryKey: QK.boletos, queryFn: getBoletos })
+  const alertaQuery = useQuery({ queryKey: QK.boletoAlertas, queryFn: getBoletoAlertas })
   const detalheQuery = useQuery({
-    queryKey: ['boleto-detalhe', selectedId],
+    queryKey: QK.boletoDetalhe(selectedId),
     queryFn: () => getBoletoDetalhe(selectedId),
     enabled: Boolean(selectedId),
   })
   const vistoMutation = useMutation({
     mutationFn: marcarBoletoVisto,
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['boletos-alerta'] })
-      void client.invalidateQueries({ queryKey: ['boletos'] })
+      void client.invalidateQueries({ queryKey: QK.boletoAlertas })
+      void client.invalidateQueries({ queryKey: QK.boletos })
     },
   })
   const pagoMutation = useMutation({
     mutationFn: marcarBoletoPago,
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['boletos'] })
-      void client.invalidateQueries({ queryKey: ['boleto-detalhe'] })
+      void client.invalidateQueries({ queryKey: QK.boletos })
+      void client.invalidateQueries({ queryKey: QK.boletoDetalhe('') })
     },
   })
 
