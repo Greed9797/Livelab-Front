@@ -17,7 +17,7 @@ import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { PresenterSelect } from '../components/forms/PresenterSelect'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
-import { assignAgendaLanes, getAgendaEventLayout, publicationStatusLabel } from './conteudo-helpers'
+import { assignAgendaLanes, getAgendaEventLayout, publicationStatusLabel, publicationStatusTone } from './conteudo-helpers'
 import {
   createAgendaEvento,
   createVideo,
@@ -838,7 +838,7 @@ export function ConteudoPage() {
                                   <button type="button" className="min-w-0 max-w-full truncate text-left text-base font-extrabold text-ink hover:text-brand" onClick={() => openLiveDetail(item)}>
                                     {asString(item.marca_nome ?? item.cliente_nome, 'Sem marca')}
                                   </button>
-                                  <Badge tone={statusTone(asString(item.status_publicacao, 'rascunho'))}>{publicationStatusLabel(item.status_publicacao)}</Badge>
+                                  <Badge tone={publicationStatusTone(item.status_publicacao)}>{publicationStatusLabel(item.status_publicacao)}</Badge>
                                   {asString(item.origem_dados, '') === 'manual' ? <Badge tone="neutral">Manual</Badge> : null}
                                 </div>
                                 <p className="mt-1 truncate text-sm text-ink-muted">

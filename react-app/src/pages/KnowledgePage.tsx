@@ -2,7 +2,7 @@ import { BookOpen, FileText } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { Badge } from '../components/ui/Badge'
+import { Badge, statusTone } from '../components/ui/Badge'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { getKnowledgeArticles, getKnowledgeCategories } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -56,7 +56,7 @@ export function KnowledgePage() {
                   <p className="mt-1 text-sm text-ink-muted">{asString(article.resumo ?? article.excerpt ?? article.slug, '')}</p>
                 </div>
               </div>
-              <Badge tone="neutral">{asString(article.status ?? 'publicado')}</Badge>
+              <Badge tone={statusTone(asString(article.status ?? 'publicado'))}>{asString(article.status ?? 'publicado')}</Badge>
             </div>
           ))}
         </CardBody>

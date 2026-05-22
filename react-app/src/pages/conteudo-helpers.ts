@@ -1,5 +1,6 @@
 import { asString } from '../utils/format'
 import type { JsonRecord } from '../types/models'
+import type { BadgeTone } from '../components/ui/Badge'
 
 export const publicationStatusLabels: Record<string, string> = {
   rascunho: 'Rascunho',
@@ -10,6 +11,13 @@ export const publicationStatusLabels: Record<string, string> = {
 export function publicationStatusLabel(value: unknown) {
   const key = asString(value, 'rascunho')
   return publicationStatusLabels[key] ?? (key || 'Rascunho')
+}
+
+export function publicationStatusTone(value: unknown): BadgeTone {
+  const key = asString(value, 'rascunho').toLowerCase()
+  if (key === 'publicado') return 'success'
+  if (key === 'revisado') return 'info'
+  return 'neutral'
 }
 
 function localMinutes(value: unknown) {

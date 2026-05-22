@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getAgendaEventLayout, publicationStatusLabel } from './conteudo-helpers'
+import { getAgendaEventLayout, publicationStatusLabel, publicationStatusTone } from './conteudo-helpers'
 
 describe('conteudo helpers', () => {
   it('expands day agenda event height for the full scheduled interval', () => {
@@ -19,5 +19,11 @@ describe('conteudo helpers', () => {
     expect(publicationStatusLabel('rascunho')).toBe('Rascunho')
     expect(publicationStatusLabel('revisado')).toBe('Revisado')
     expect(publicationStatusLabel('publicado')).toBe('Publicado')
+  })
+
+  it('gives publication status a clear visual progression', () => {
+    expect(publicationStatusTone('rascunho')).toBe('neutral')
+    expect(publicationStatusTone('revisado')).toBe('info')
+    expect(publicationStatusTone('publicado')).toBe('success')
   })
 })

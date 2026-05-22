@@ -14,4 +14,10 @@ describe('statusTone', () => {
     expect(statusTone('reservada')).toBe('warning')
     expect(statusTone('manutencao')).toBe('danger')
   })
+
+  it('maps publication workflow statuses to distinct tones', () => {
+    expect(statusTone('rascunho')).toBe('neutral')
+    expect(statusTone('revisado')).toBe('info')
+    expect(statusTone('publicado')).toBe('success')
+  })
 })
