@@ -30,6 +30,7 @@ import {
   getApresentadoras,
   getCabines,
   getClientes,
+  getLivePorId,
   getLives,
   getMarcas,
   getVideos,
@@ -156,6 +157,7 @@ export function ConteudoPage() {
   const [agendaView, setAgendaView] = useState<'dia' | 'semana'>('dia')
   const [agendaModalMode, setAgendaModalMode] = useState<AgendarLiveModalMode | null>(null)
   const [selectedAgendaEvent, setSelectedAgendaEvent] = useState<JsonRecord | null>(null)
+  const [fetchingAgendaLive, setFetchingAgendaLive] = useState(false)
   const [metricsModalMode, setMetricsModalMode] = useState<RegistrarMetricasLiveMode | null>(null)
   const [editLiveData, setEditLiveData] = useState<JsonRecord | null>(null)
   const [metricsAgendaEvent, setMetricsAgendaEvent] = useState<JsonRecord | null>(null)
@@ -337,6 +339,18 @@ export function ConteudoPage() {
   }
 
   function openEditAgendaModal(event: JsonRecord) {
+    // ao_vivo events with a linked live → open live edit modal for consistency with CabinesPage
+    if (asString(event.status) === 'ao_vivo' && event.live_id) {
+      setFetchingAgendaLive(true)
+      getLivePorId(asString(event.live_id, '')).then((fullLive) => {
+        setEditLiveData(fullLive as unknown as JsonRecord)
+      }).catch(() => {
+        // fallback: open agenda modal if fetch fails
+        setSelectedAgendaEvent(event)
+        setAgendaModalMode('edit')
+      }).finally(() => setFetchingAgendaLive(false))
+      return
+    }
     setSelectedAgendaEvent(event)
     setAgendaModalMode('edit')
   }
@@ -590,7 +604,7 @@ export function ConteudoPage() {
                         <div className="flex justify-end gap-2">
                           {isLiveOnAir(item) ? <TikTokLiveButton username={item.tiktok_username} compact /> : null}
                           {isPastRegisterable(item) ? <Button variant="secondary" icon={CheckCircle2} onClick={() => openRegisterResult(item)}>Registrar resultado</Button> : null}
-                          <Button variant="ghost" icon={Edit2} onClick={() => openEditAgendaModal(item)}>Editar</Button>
+                          <Button variant="ghost" icon={Edit2} isLoading={fetchingAgendaLive && asString(item.status) === 'ao_vivo' && Boolean(item.live_id)} onClick={() => openEditAgendaModal(item)}>Editar</Button>
                         </div>
                       ),
                     },
