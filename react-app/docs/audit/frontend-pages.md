@@ -1,8 +1,9 @@
 # Páginas Frontend
 
-> Auditoria gerada em: 2026-05-18
-> Branch: `stabilization/core-restructure`
+> Auditoria gerada em: 2026-05-22
+> Branch: `codex/blumenau-operational-fase1`
 > Fontes: `src/routes/AppRouter.tsx`, `src/routes/ProtectedRoute.tsx`, `src/utils/access.ts`
+> ⚠️ Componentes agora usam React.lazy + Suspense (AppRouter.tsx, commit 19a8ce9)
 
 ---
 
@@ -83,3 +84,5 @@ Definida em `src/utils/access.ts` — função `routeForRole()`:
 4. **`onboarding`** redireciona automaticamente clientes com `onboarding_completed = false` antes de acessar qualquer outra rota (ProtectedRoute.tsx linha 14–16).
 
 5. **Roles específicas ausentes do AppRouter**: `gerente`, `gerente_comercial`, `financeiro`, `financeiro_readonly`, `operacional`, `auditor`, `suporte`, `produtor_live`, `marketing`, `comercial_readonly` — todas acessam páginas via grupos (`internalRoles`, `opsRoles` etc.), nunca listadas individualmente nas rotas.
+
+6. **Lazy loading ativo:** todos os componentes exceto `LoginPage`, `ForgotPasswordPage`, `NotFoundPage` usam `React.lazy()`. O `Suspense` fallback é um spinner inline (`PageFallback`).
