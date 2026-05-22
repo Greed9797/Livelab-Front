@@ -9,11 +9,14 @@ import { GmvHeroCard } from '../components/dashboard/GmvHeroCard'
 import { LiveNowTable } from '../components/dashboard/LiveNowTable'
 import { TodayScheduleTable } from '../components/dashboard/TodayScheduleTable'
 import { RankingTable } from '../components/dashboard/RankingTable'
+import { KpiStrip } from '../components/dashboard/KpiStrip'
+import { CabinesGantt } from '../components/dashboard/CabinesGantt'
+import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
 import { getHomeDashboard, getPublicRanking, getRankingApresentadoras } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { normalizeHome } from './page-helpers'
 import { asNumber, asString, formatMoney } from '../utils/format'
-import type { JsonRecord } from '../types/models'
+import type { Cabine, JsonRecord } from '../types/models'
 
 const icons = [CalendarClock, Radio, Video, Activity]
 
@@ -32,15 +35,23 @@ export function DashboardPage() {
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
-  const data = normalizeHome(query.data ?? {})
+  const raw = (query.data ?? {}) as JsonRecord
+  const data = normalizeHome(raw)
 
   return (
     <div className="space-y-6">
       <PageHeader
-        accent="Home"
-        title="da Unidade"
-        subtitle="Resumo operacional de hoje e GMV do mês."
+        accent="Visão"
+        title="da unidade"
+        subtitle="Pulso operacional, comercial e financeiro — atualizado em tempo real."
       />
+
+      {/* KPI strip — 6 métricas com sparkline e delta */}
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: 720 }}>
+          <KpiStrip raw={raw} />
+        </div>
+      </div>
 
       <GmvHeroCard
         gmvMes={data.hero.gmvMes}
@@ -62,6 +73,35 @@ export function DashboardPage() {
       <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <LiveNowTable liveNow={data.liveNow} upcoming={data.upcoming} />
         <TodayScheduleTable agenda={data.agendaHoje} />
+      </section>
+
+      {/* Cabines Gantt + Ao Vivo — operação em tempo real */}
+      <section className="grid gap-4 xl:grid-cols-[1fr_340px]">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold text-ink">Cabines — ocupação de hoje</p>
+              <div className="flex items-center gap-4 text-xs text-ink-muted">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.66 0.22 25 / 0.5)', border: '1px solid oklch(0.66 0.22 25)' }} />
+                  Ao vivo
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.74 0.11 235 / 0.3)', border: '1px solid oklch(0.74 0.11 235 / 0.6)' }} />
+                  Agendada
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-sm border border-line bg-surface-muted" />
+                  Concluída
+                </span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardBody>
+            <CabinesGantt agenda={data.agendaHoje} cabines={data.liveNow as unknown as Cabine[]} />
+          </CardBody>
+        </Card>
+        <AoVivoPanel liveCabines={data.liveNow as unknown as Cabine[]} />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
