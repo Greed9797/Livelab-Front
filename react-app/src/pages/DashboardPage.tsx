@@ -5,6 +5,7 @@ import { KpiStrip } from '../components/dashboard/KpiStrip'
 import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
 import { CabinesGantt } from '../components/dashboard/CabinesGantt'
 import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
+import { RankingPodium } from '../components/dashboard/RankingPodium'
 import { TikTokLiveButton } from '../components/ui/TikTokLiveButton'
 import { getHomeDashboard, getPublicRanking } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -72,60 +73,20 @@ function RankingNacional({ data }: { data: JsonRecord[] }) {
 // ─── Ranking Apresentadoras ────────────────────────────────────────────────
 function RankingApresentadoras({ data }: { data: JsonRecord[] }) {
   return (
-    <div
-      className="flex flex-col rounded-[10px] overflow-hidden"
-      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
-    >
-      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="px-1">
         <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
           Ranking apresentadoras — mês
         </span>
       </div>
-      <div className="flex flex-col">
-        {data.length === 0 && (
-          <p className="px-4 py-3 text-[12px]" style={{ color: 'var(--text-faint)' }}>Sem dados</p>
-        )}
-        {data.slice(0, 8).map((item, i) => {
-          const gmv = asNumber(item.gmv)
-          const lives = asNumber(item.lives)
-          const gmvMedioLive = asNumber(item.gmv_medio_live)
-          return (
-            <div
-              key={String(item.id ?? i)}
-              className="flex items-center gap-3 px-4 py-2.5"
-              style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined }}
-            >
-              <span
-                className="w-5 shrink-0 text-right text-[11px] font-mono font-semibold"
-                style={{ color: 'var(--text-faint)', fontVariantNumeric: 'tabular-nums' }}
-              >
-                #{i + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[12px] font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {asString(item.nome ?? item.apresentadora_nome)}
-                </div>
-                <div className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
-                  {lives} live{lives !== 1 ? 's' : ''}
-                </div>
-              </div>
-              <div className="shrink-0 text-right">
-                <div
-                  className="text-[12px] font-mono font-semibold"
-                  style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {formatMoney(gmv, true)}
-                </div>
-                {gmvMedioLive > 0 && (
-                  <div className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                    {formatMoney(gmvMedioLive, true)}/live
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
+      <RankingPodium
+        data={data}
+        subject="apresentadora"
+        valueKey="total_recebido"
+        valueLabel="Total recebido"
+        metaKey="lives"
+        metaLabel="Lives"
+      />
     </div>
   )
 }
@@ -235,7 +196,7 @@ export function DashboardPage() {
       <GmvHeroPanel raw={raw} />
 
       {/* 2. Rankings lado a lado */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div className="grid gap-3 xl:grid-cols-2">
         <RankingNacional data={rankingData} />
         <RankingApresentadoras data={rankingApresentadoras} />
       </div>

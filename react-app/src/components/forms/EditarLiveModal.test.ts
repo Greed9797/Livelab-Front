@@ -5,8 +5,8 @@ describe('EditarLiveModal presenter id contract', () => {
   const source = readFileSync(new URL('./EditarLiveModal.tsx', import.meta.url), 'utf8')
 
   it('prefers apresentadoras ids over legacy user ids when hydrating presenter selects', () => {
-    expect(source).toContain('apresentador_id: asString(live.apresentadora_id ?? live.apresentador_id)')
-    expect(source).toContain('apresentador2_id: asString(live.apresentadora2_id ?? live.apresentador2_id)')
+    expect(source).toContain("apresentador_id: asString(live.apresentadora_id ?? live.apresentador_id, '')")
+    expect(source).toContain("apresentador2_id: asString(live.apresentadora2_id ?? live.apresentador2_id, '')")
   })
 
   it('compares saved presenter fields against apresentadoras ids', () => {
