@@ -10,6 +10,23 @@ import { extractErrorMessage } from '../../services/api'
 import type { JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
 
+function clienteMarcaCell(live: JsonRecord): React.ReactNode {
+  const tipo = asString(live.tipo, '')
+  const isSistema = (live.marca as JsonRecord | undefined)?.sistema === true
+  const label = asString(live.marca_nome ?? live.cliente_nome)
+
+  if (['afiliado', 'teste'].includes(tipo) && isSistema) {
+    return (
+      <div className="flex items-center gap-2">
+        <span>{label}</span>
+        <Badge tone="sistema">Sistema</Badge>
+      </div>
+    )
+  }
+
+  return label
+}
+
 function formatTime(value: unknown) {
   const date = typeof value === 'string' ? new Date(value) : null
   if (!date || Number.isNaN(date.getTime())) return '—'
@@ -117,7 +134,7 @@ export function LivesTab({
               {
                 key: 'cliente_nome',
                 header: 'Cliente/Marca',
-                render: (item) => clienteMarcaLabel(item),
+                render: (item) => clienteMarcaCell(item),
               },
               {
                 key: 'cabine_numero',
