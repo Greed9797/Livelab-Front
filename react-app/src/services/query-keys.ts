@@ -1,0 +1,18 @@
+export const QK = {
+  cabines: ['cabines'] as const,
+  cabineHistorico: (id: string) => ['cabine-historico', id] as const,
+  liveTiktokStatus: (id: string) => ['live-tiktok-status', id] as const,
+  agenda: ['agenda'] as const,
+  lives: ['lives'] as const,
+  homeDashboard: ['home-dashboard'] as const,
+  rankingApresentadoras: ['ranking-apresentadoras'] as const,
+  comissoesResumo: ['comissoes-resumo'] as const,
+  comissoesApresentadoras: ['comissoes-apresentadoras'] as const,
+  comissoesMarcas: ['comissoes-marcas'] as const,
+  comissoesPendentes: ['comissoes-pendentes'] as const,
+  clientes: (scope?: string) => (scope ? ['clientes', scope] : ['clientes']) as readonly string[],
+  marcas: (scope?: string) => (scope ? ['marcas', scope] : ['marcas']) as readonly string[],
+  apresentadoras: (scope?: string) => (scope ? ['apresentadoras', scope] : ['apresentadoras']) as readonly string[],
+  leads: ['leads'] as const,
+  boletos: ['boletos'] as const,
+}

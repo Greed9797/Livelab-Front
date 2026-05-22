@@ -351,3 +351,36 @@ textarea {
   opacity: 0.45;
   animation: cabine-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
+
+/* Conic border sheen — spinning gradient on the card edge */
+@property --cabine-ang {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes cabine-spin-ang { to { --cabine-ang: 360deg; } }
+
+.cabine-card-live {
+  isolation: isolate;
+}
+.cabine-card-live::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--cabine-ang),
+    transparent 0deg,
+    color-mix(in srgb, var(--primary) 70%, transparent) 40deg,
+    transparent 100deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.9;
+  animation: cabine-spin-ang 6s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
