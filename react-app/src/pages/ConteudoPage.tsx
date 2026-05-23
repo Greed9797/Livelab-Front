@@ -290,8 +290,8 @@ export function ConteudoPage() {
             key={key}
             type="button"
             className={tab === key
-              ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white'
-              : 'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted'}
+              ? 'inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 text-sm font-semibold text-ink'
+              : 'inline-flex h-10 items-center gap-2 rounded-xl border border-transparent px-4 text-sm font-semibold text-ink-muted hover:text-ink hover:bg-surface-muted'}
             onClick={() => switchTab(key)}
           >
             <Icon className="h-4 w-4" />
