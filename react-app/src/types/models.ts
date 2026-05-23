@@ -89,9 +89,27 @@ export interface Lead {
   cliente_nome?: string
   origem?: string
   nicho?: string
+  cidade?: string
+  estado?: string
   etapa?: string
   status?: string
+  crm_etapa?: string
   valor_estimado?: number | string
+  valor_oportunidade?: number | string
+  responsavel_nome?: string
+  contato_email?: string
+  contato_whatsapp?: string
+  observacoes_internas?: string
+  motivo_perda?: string
+  historico_contatos?: JsonRecord[]
+  tarefas?: JsonRecord[]
+  contatos_estruturados?: JsonRecord[]
+  tarefas_estruturadas?: JsonRecord[]
+  etapa_historico?: JsonRecord[]
+  convertido_cliente_id?: string
+  ganho_em?: string
+  atualizado_em?: string
+  dados_extras?: JsonRecord
   criado_em?: string
 }
 
@@ -101,6 +119,13 @@ export interface Cabine {
   status?: string
   cliente_id?: string
   cliente_nome?: string
+  cliente_em_live_id?: string
+  cliente_em_live?: JsonRecord | string | null
+  cliente_reservado_id?: string
+  cliente_reservado?: JsonRecord | string | null
+  proxima_cliente_id?: string
+  proxima_agenda?: JsonRecord | null
+  marca_logo_url?: string
   apresentador_nome?: string
   live_atual_id?: string
   tiktok_username?: string

@@ -1,38 +1,135 @@
-import { Building2, CircleDollarSign, Handshake, LayoutDashboard, Store, Users, Workflow } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { Building2, CircleDollarSign, Download, Eye, Handshake, LayoutDashboard, Plus, Store, Trash2, Users, Workflow } from 'lucide-react'
+import { FormEvent, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { MetricCard } from '../components/ui/MetricCard'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { LoadingState, ErrorState } from '../components/ui/States'
-import { getClientes, getCrmSummary, getLeads, getMarcas } from '../services/domain'
+import { Button } from '../components/ui/Button'
+import { Modal } from '../components/ui/Modal'
+import { ImagePicker } from '../components/ui/ImagePicker'
+import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
+import { getBrandImage } from '../utils/favicon'
+import { downloadCsv } from '../utils/exportCsv'
 import { metric, moneyMetric, percentMetric } from './page-helpers'
 import { CrmPage } from './CrmPage'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 type ComercialTab = 'dashboard' | 'crm' | 'ativos'
 
+const emptyClienteForm = {
+  nome: '',
+  responsavel: '',
+  whatsapp: '',
+  email: '',
+  cnpj: '',
+  nicho: '',
+  tiktok_username: '',
+  logo_url: '',
+}
+
+const emptyAfiliadoForm = {
+  nome: '',
+  responsavel: '',
+  whatsapp: '',
+  email: '',
+  tiktok_username: '',
+  logo_url: '',
+  observacoes: '',
+}
+
 export function ComercialPage() {
   const [tab, setTab] = useState<ComercialTab>('dashboard')
-  const summaryQuery = useQuery({ queryKey: ['crm-summary'], queryFn: getCrmSummary })
-  const leadsQuery = useQuery({ queryKey: ['leads'], queryFn: getLeads })
-  const clientesQuery = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
-  const marcasQuery = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
+  const [showClienteForm, setShowClienteForm] = useState(false)
+  const [showAfiliadoForm, setShowAfiliadoForm] = useState(false)
+  const [clienteForm, setClienteForm] = useState(emptyClienteForm)
+  const [afiliadoForm, setAfiliadoForm] = useState(emptyAfiliadoForm)
+  const [selectedAtivo, setSelectedAtivo] = useState<JsonRecord | null>(null)
+  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', logo_url: '' })
+  const queryClient = useQueryClient()
+
+  const summaryQuery = useQuery({ queryKey: QK.crmSummary, queryFn: getCrmSummary })
+  const leadsQuery = useQuery({ queryKey: QK.leads, queryFn: getLeads })
+  const clientesQuery = useQuery({ queryKey: QK.clientes(), queryFn: getClientes })
+  const marcasQuery = useQuery({ queryKey: QK.marcas('ativas'), queryFn: () => getMarcas({ status: 'ativa' }) })
+  const selectedAtivoId = asString(selectedAtivo?.id, '')
+  const selectedAtivoKind = asString(selectedAtivo?.tipo_operacional) === 'cliente_ecommerce' ? 'cliente' : 'marca'
+  const ativoDetailQuery = useQuery({
+    queryKey: QK.ativoOperacional({ kind: selectedAtivoKind, id: selectedAtivoId }),
+    enabled: Boolean(selectedAtivoId),
+    queryFn: () => selectedAtivoKind === 'cliente'
+      ? getClienteOperacional(selectedAtivoId)
+      : getMarcaOperacional(selectedAtivoId),
+  })
+
+  const clienteMutation = useMutation({
+    mutationFn: createCliente,
+    onSuccess: () => {
+      setClienteForm(emptyClienteForm)
+      setShowClienteForm(false)
+      void queryClient.invalidateQueries({ queryKey: QK.clientes() })
+      void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
+      void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
+    },
+  })
+  const afiliadoMutation = useMutation({
+    mutationFn: createMarca,
+    onSuccess: () => {
+      setAfiliadoForm(emptyAfiliadoForm)
+      setShowAfiliadoForm(false)
+      void queryClient.invalidateQueries({ queryKey: QK.marcas() })
+      void queryClient.invalidateQueries({ queryKey: QK.marcas('ativas') })
+      void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
+      void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
+    },
+  })
+  const ativoUpdateMutation = useMutation({
+    mutationFn: ({ id, kind, payload }: { id: string; kind: 'cliente' | 'marca'; payload: JsonRecord }) => (
+      kind === 'cliente' ? updateCliente(id, payload) : updateMarca(id, payload)
+    ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QK.clientes() })
+      void queryClient.invalidateQueries({ queryKey: QK.marcas() })
+      void queryClient.invalidateQueries({ queryKey: QK.ativoOperacional() })
+      void queryClient.invalidateQueries({ queryKey: QK.agenda() })
+      void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
+      void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
+    },
+  })
+  const ativoDeleteMutation = useMutation({
+    mutationFn: ({ id, kind }: { id: string; kind: 'cliente' | 'marca' }) => (
+      kind === 'cliente' ? deleteCliente(id) : deleteMarca(id)
+    ),
+    onSuccess: () => {
+      setSelectedAtivo(null)
+      void queryClient.invalidateQueries({ queryKey: QK.clientes() })
+      void queryClient.invalidateQueries({ queryKey: QK.marcas() })
+      void queryClient.invalidateQueries({ queryKey: QK.marcas('ativas') })
+      void queryClient.invalidateQueries({ queryKey: QK.agenda() })
+      void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
+      void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
+    },
+  })
+  const uploadClienteImage = useMutation({
+    mutationFn: (file: File) => uploadImageAsset(file, 'clientes'),
+    onSuccess: (data) => setClienteField('logo_url', asString(data.url, '')),
+  })
+  const uploadAfiliadoImage = useMutation({
+    mutationFn: (file: File) => uploadImageAsset(file, 'marcas'),
+    onSuccess: (data) => setAfiliadoField('logo_url', asString(data.url, '')),
+  })
+  const uploadAtivoImage = useMutation({
+    mutationFn: ({ file, folder }: { file: File; folder: 'clientes' | 'marcas' }) => uploadImageAsset(file, folder),
+    onSuccess: (data) => setAtivoForm((current) => ({ ...current, logo_url: asString(data.url, '') })),
+  })
 
   const isLoading = summaryQuery.isLoading || leadsQuery.isLoading || clientesQuery.isLoading || marcasQuery.isLoading
   const error = summaryQuery.error ?? leadsQuery.error ?? clientesQuery.error ?? marcasQuery.error
-  if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
-    void summaryQuery.refetch()
-    void leadsQuery.refetch()
-    void clientesQuery.refetch()
-    void marcasQuery.refetch()
-  }} />
-
   const summary = getRecord(summaryQuery.data?.summary)
   const totals = getRecord(summaryQuery.data?.totals)
   const leads = leadsQuery.data ?? []
@@ -41,13 +138,12 @@ export function ComercialPage() {
   const ganhos = asNumber(summary.ganhos ?? totals.ganhos)
   const taxaConversao = leads.length ? (ganhos / leads.length) * 100 : 0
   const metrics = [
-    metric('Leads totais', summary.total_leads ?? totals.total_leads ?? leads.length, 'pipeline comercial', 'neutral'),
-    moneyMetric('Pipeline', summary.valor_estimado ?? totals.valor_pipeline ?? totals.valor_estimado, 'valor estimado', 'brand'),
-    metric('Ganhos 30 dias', ganhos, 'clientes convertidos', 'success'),
+    metric('Leads abertos', leads.filter((lead) => !['ganho', 'perdido'].includes(asString((lead as unknown as JsonRecord).crm_etapa))).length, 'pipeline ativo', 'neutral'),
+    moneyMetric('Valor em negociação', summary.valor_estimado ?? totals.valor_pipeline ?? totals.valor_estimado, 'pipeline aberto', 'brand'),
+    metric('Ganhos no mês', ganhos, 'clientes convertidos', 'success'),
     percentMetric('Conversão', taxaConversao, 'ganhos sobre leads', 'info'),
     metric('Clientes ativos', clientes.length, 'carteira da unidade', 'success'),
     metric('Afiliados ativos', marcas.filter((item) => asString(item.tipo) === 'afiliada').length, 'marcas afiliadas', 'brand'),
-    metric('Marcas ativas', marcas.length, 'operação comercial', 'neutral'),
   ]
 
   const ativos = useMemo(() => {
@@ -60,7 +156,8 @@ export function ComercialPage() {
 
     const clientesRows = clientes.map((cliente) => ({
       ...cliente,
-      tipo_operacional: 'cliente',
+      tipo_entidade: 'cliente',
+      tipo_operacional: 'cliente_ecommerce',
       marca_principal: asString(marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.nome, asString(cliente.nome)),
       apresentadoras: marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.apresentadoras,
     }))
@@ -68,12 +165,155 @@ export function ComercialPage() {
       .filter((marca) => !marca.cliente_id)
       .map((marca) => ({
         ...marca,
+        tipo_entidade: 'marca',
         tipo_operacional: asString(marca.tipo, 'marca'),
         marca_principal: asString(marca.nome),
       }))
 
-    return [...clientesRows, ...marcasSemCliente]
+    const unique = new Map<string, JsonRecord>()
+    for (const itemRaw of [...clientesRows, ...marcasSemCliente]) {
+      const item = itemRaw as JsonRecord
+      const key = `${asString(item.tipo_operacional)}:${asString(item.nome).trim().toLowerCase()}`
+      const existing = unique.get(key)
+      if (!existing) {
+        unique.set(key, item)
+        continue
+      }
+      unique.set(key, {
+        ...existing,
+        logo_url: existing.logo_url || item.logo_url,
+        site: existing.site || item.site,
+        gmv_mes: asNumber(existing.gmv_mes ?? existing.fat_anual) + asNumber(item.gmv_mes ?? item.fat_anual),
+        lives_mes: asNumber(existing.lives_mes ?? existing.total_lives) + asNumber(item.lives_mes ?? item.total_lives),
+        videos_mes: asNumber(existing.videos_mes ?? existing.quantidade_videos) + asNumber(item.videos_mes ?? item.quantidade_videos),
+        duplicado_count: asNumber(existing.duplicado_count, 1) + 1,
+      })
+    }
+
+    return [...unique.values()]
   }, [clientes, marcas])
+
+  if (isLoading) return <LoadingState />
+  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
+    void summaryQuery.refetch()
+    void leadsQuery.refetch()
+    void clientesQuery.refetch()
+    void marcasQuery.refetch()
+  }} />
+
+  function setClienteField(key: keyof typeof emptyClienteForm, value: string) {
+    setClienteForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function setAfiliadoField(key: keyof typeof emptyAfiliadoForm, value: string) {
+    setAfiliadoForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function exportAtivosCsv() {
+    downloadCsv('clientes-afiliados.csv', ativos, [
+      { key: 'tipo_operacional', header: 'tipo' },
+      { key: 'nome', header: 'nome' },
+      { key: 'marca_principal', header: 'marca_principal' },
+      { key: 'status', header: 'status' },
+      { key: 'gmv_mes', header: 'gmv_mes', value: (row) => row.gmv_mes ?? row.fat_anual ?? 0 },
+      { key: 'lives_mes', header: 'lives_mes', value: (row) => row.lives_mes ?? row.total_lives ?? 0 },
+      { key: 'videos_mes', header: 'videos_mes', value: (row) => row.videos_mes ?? row.quantidade_videos ?? 0 },
+      {
+        key: 'apresentadoras',
+        header: 'apresentadoras',
+        value: (row) => Array.isArray(row.apresentadoras)
+          ? row.apresentadoras.map((ap) => asString((ap as JsonRecord).nome)).join(', ')
+          : asString(row.apresentadora_nome, ''),
+      },
+      { key: 'responsavel', header: 'responsavel', value: (row) => row.responsavel_nome ?? row.gerente_nome ?? '' },
+    ])
+  }
+
+  function openAtivo(item: JsonRecord) {
+    setSelectedAtivo(item)
+    setAtivoForm({
+      nome: asString(item.nome, ''),
+      status: asString(item.status, 'ativo'),
+      email: asString(item.email, ''),
+      celular: asString(item.celular ?? item.whatsapp, ''),
+      comissao_franquia_pct: asString(item.comissao_franquia_pct ?? 0, '0'),
+      logo_url: asString(item.logo_url, ''),
+    })
+  }
+
+  function onClienteSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    clienteMutation.mutate({
+      nome: clienteForm.nome,
+      celular: clienteForm.whatsapp,
+      email: clienteForm.email || undefined,
+      cnpj: clienteForm.cnpj || undefined,
+      razao_social: clienteForm.responsavel || undefined,
+      nicho: clienteForm.nicho || undefined,
+      tiktok_username: clienteForm.tiktok_username || undefined,
+      logo_url: clienteForm.logo_url || undefined,
+    })
+  }
+
+  function onAfiliadoSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    afiliadoMutation.mutate({
+      nome: afiliadoForm.nome,
+      tipo: 'afiliada',
+      status: 'ativa',
+      tiktok_username: afiliadoForm.tiktok_username || undefined,
+      logo_url: afiliadoForm.logo_url || undefined,
+      observacoes: [
+        afiliadoForm.responsavel ? `Responsável: ${afiliadoForm.responsavel}` : '',
+        afiliadoForm.whatsapp ? `WhatsApp: ${afiliadoForm.whatsapp}` : '',
+        afiliadoForm.email ? `E-mail: ${afiliadoForm.email}` : '',
+        afiliadoForm.observacoes,
+      ].filter(Boolean).join('\n') || undefined,
+    })
+  }
+
+  function onAtivoSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!selectedAtivo) return
+    const id = asString(selectedAtivo.id, '')
+    const kind = selectedAtivoKind
+    const payload = kind === 'cliente'
+      ? {
+          nome: ativoForm.nome,
+          status: ativoForm.status,
+          email: ativoForm.email || undefined,
+          celular: ativoForm.celular || undefined,
+          logo_url: ativoForm.logo_url || null,
+        }
+      : {
+          nome: ativoForm.nome,
+          status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
+          comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
+          logo_url: ativoForm.logo_url || null,
+        }
+    ativoUpdateMutation.mutate({ id, kind, payload })
+  }
+
+  function toggleAtivoStatus(item = selectedAtivo) {
+    if (!item) return
+    const id = asString(item.id, '')
+    const kind = selectedAtivoKind
+    const current = asString(ativoForm.status || item.status)
+    const nextStatus = kind === 'cliente'
+      ? current === 'ativo' ? 'cancelado' : 'ativo'
+      : current === 'ativa' ? 'inativa' : 'ativa'
+    ativoUpdateMutation.mutate({ id, kind, payload: { status: nextStatus } })
+    setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
+  }
+
+  function deleteAtivo() {
+    if (!selectedAtivo) return
+    const id = asString(selectedAtivo.id, '')
+    const kind = selectedAtivoKind
+    const ok = window.confirm(`Excluir ${kind === 'cliente' ? 'cliente' : 'afiliado'}? Se houver histórico, a API pode bloquear a exclusão definitiva.`)
+    if (!ok) return
+    ativoDeleteMutation.mutate({ id, kind })
+  }
 
   return (
     <div className="space-y-6">
@@ -82,7 +322,7 @@ export function ComercialPage() {
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
         {[
           ['dashboard', LayoutDashboard, 'Dashboard'],
-          ['crm', Workflow, 'CRM Comercial'],
+          ['crm', Workflow, 'CRM'],
           ['ativos', Store, 'Clientes e afiliados'],
         ].map(([key, Icon, label]) => (
           <button
@@ -101,7 +341,7 @@ export function ComercialPage() {
         <>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {metrics.map((item, index) => (
-              <MetricCard key={item.label} metric={item} icon={[Users, CircleDollarSign, Handshake, Workflow, Building2, Store, LayoutDashboard][index]} />
+              <MetricCard key={item.label} metric={item} icon={[Users, CircleDollarSign, Handshake, Workflow, Building2, Store][index]} />
             ))}
           </section>
           <section className="grid gap-4 xl:grid-cols-[1fr_0.85fr]">
@@ -121,18 +361,22 @@ export function ComercialPage() {
             </Card>
             <Card>
               <CardHeader>
-                <p className="text-base font-bold text-ink">Origem dos leads</p>
+                <p className="text-base font-bold text-ink">Leads parados</p>
               </CardHeader>
               <CardBody className="space-y-3">
-                {['Cliente', 'Creator', 'Unidade', 'Bio'].map((origem) => {
-                  const count = leads.filter((lead) => `${lead.origem ?? ''} ${lead.nicho ?? ''}`.toLowerCase().includes(origem.toLowerCase())).length
-                  return (
-                    <div key={origem} className="flex items-center justify-between rounded-2xl border border-line bg-surface-muted p-3">
-                      <span className="text-sm font-semibold text-ink">{origem}</span>
-                      <Badge tone="brand">{count}</Badge>
+                {leads
+                  .filter((lead) => {
+                    const record = lead as unknown as JsonRecord
+                    const updated = new Date(asString(record.atualizado_em ?? record.criado_em, ''))
+                    return !Number.isNaN(updated.getTime()) && Date.now() - updated.getTime() > 7 * 24 * 60 * 60 * 1000
+                  })
+                  .slice(0, 5)
+                  .map((lead) => (
+                    <div key={lead.id} className="flex items-center justify-between rounded-2xl border border-line bg-surface-muted p-3">
+                      <span className="text-sm font-semibold text-ink">{asString(lead.nome ?? lead.nome_cliente ?? lead.cliente_nome)}</span>
+                      <Badge tone="warning">{asString((lead as unknown as JsonRecord).crm_etapa, 'lead_novo')}</Badge>
                     </div>
-                  )
-                })}
+                  ))}
               </CardBody>
             </Card>
           </section>
@@ -142,37 +386,251 @@ export function ComercialPage() {
       {tab === 'crm' ? <CrmPage /> : null}
 
       {tab === 'ativos' ? (
-        <Card>
-          <CardHeader>
-            <p className="text-base font-bold text-ink">Clientes e afiliados ativos</p>
-          </CardHeader>
-          <CardBody>
-            <DataTable<JsonRecord>
-              data={ativos}
-              columns={[
-                { key: 'tipo_operacional', header: 'Tipo', render: (item) => <Badge tone="brand">{asString(item.tipo_operacional ?? item.tipo)}</Badge> },
-                { key: 'nome', header: 'Nome', render: (item) => <span className="font-semibold">{asString(item.nome)}</span> },
-                { key: 'marca_principal', header: 'Marca principal', render: (item) => asString(item.marca_principal) },
-                { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, 'ativa'))}>{asString(item.status, 'ativa')}</Badge> },
-                { key: 'gmv_mes', header: 'GMV mês', align: 'right', render: (item) => formatMoney(item.gmv_mes ?? item.fat_anual) },
-                { key: 'lives_mes', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives_mes ?? item.total_lives).toLocaleString('pt-BR') },
-                { key: 'videos_mes', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.videos_mes ?? item.quantidade_videos).toLocaleString('pt-BR') },
-                {
-                  key: 'apresentadoras',
-                  header: 'Apresentadoras',
-                  render: (item) => {
-                    const vinculadas = Array.isArray(item.apresentadoras) ? item.apresentadoras : []
-                    return vinculadas.length
-                      ? vinculadas.map((ap) => asString((ap as JsonRecord).nome)).join(', ')
-                      : asString(item.apresentadora_nome)
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-base font-bold text-ink">Clientes e afiliados</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button icon={Plus} onClick={() => setShowClienteForm((value) => !value)}>Novo cliente</Button>
+                  <Button variant="secondary" icon={Plus} onClick={() => setShowAfiliadoForm((value) => !value)}>Novo afiliado</Button>
+                  <Button variant="secondary" icon={Download} onClick={exportAtivosCsv}>Exportar CSV</Button>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardBody>
+              <DataTable<JsonRecord>
+                data={ativos}
+                columns={[
+                  { key: 'tipo_operacional', header: 'Tipo', render: (item) => <Badge tone="brand">{asString(item.tipo_operacional ?? item.tipo)}</Badge> },
+                  {
+                    key: 'nome',
+                    header: 'Nome',
+                    render: (item) => {
+                      const image = getBrandImage(item)
+                      const initials = asString(item.nome, 'CL').slice(0, 2).toUpperCase()
+                      return (
+                        <div className="flex min-w-56 items-center gap-3">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border border-line bg-surface-muted text-xs font-black text-ink-muted">
+                            {image ? <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : initials}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-ink">{asString(item.nome)}</p>
+                            {asNumber(item.duplicado_count) > 1 ? <Badge className="mt-1" tone="warning">{asNumber(item.duplicado_count)} cadastros</Badge> : null}
+                          </div>
+                        </div>
+                      )
+                    },
                   },
-                },
-                { key: 'responsavel', header: 'Responsável', render: (item) => asString(item.responsavel_nome ?? item.gerente_nome) },
-              ]}
-            />
-          </CardBody>
-        </Card>
+                  { key: 'marca_principal', header: 'Marca principal', render: (item) => asString(item.marca_principal) },
+                  { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, 'ativa'))}>{asString(item.status, 'ativa')}</Badge> },
+                  { key: 'gmv_mes', header: 'GMV mês', align: 'right', render: (item) => formatMoney(item.gmv_mes ?? item.fat_anual) },
+                  { key: 'lives_mes', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives_mes ?? item.total_lives).toLocaleString('pt-BR') },
+                  { key: 'videos_mes', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.videos_mes ?? item.quantidade_videos).toLocaleString('pt-BR') },
+                  {
+                    key: 'apresentadoras',
+                    header: 'Apresentadoras',
+                    render: (item) => {
+                      const vinculadas = Array.isArray(item.apresentadoras) ? item.apresentadoras : []
+                      return vinculadas.length
+                        ? vinculadas.map((ap) => asString((ap as JsonRecord).nome)).join(', ')
+                        : asString(item.apresentadora_nome)
+                    },
+                  },
+                  { key: 'responsavel', header: 'Responsável', render: (item) => asString(item.responsavel_nome ?? item.gerente_nome) },
+                  {
+                    key: 'acoes',
+                    header: 'Ações',
+                    align: 'right',
+                    render: (item) => (
+                      <div className="flex justify-end gap-2">
+                        <Button variant="secondary" icon={Eye} onClick={() => openAtivo(item)}>Detalhes</Button>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
+            </CardBody>
+          </Card>
+        </div>
       ) : null}
+
+      <Modal
+        open={showClienteForm}
+        title="Novo cliente"
+        subtitle="Cadastro manual de cliente/e-commerce."
+        onClose={() => setShowClienteForm(false)}
+      >
+        <form className="grid gap-3 md:grid-cols-2" onSubmit={onClienteSubmit}>
+          <input className="design-input h-11 px-4" placeholder="Nome da empresa/marca" value={clienteForm.nome} onChange={(event) => setClienteField('nome', event.target.value)} required />
+          <input className="design-input h-11 px-4" placeholder="Responsável" value={clienteForm.responsavel} onChange={(event) => setClienteField('responsavel', event.target.value)} />
+          <input className="design-input h-11 px-4" placeholder="WhatsApp" value={clienteForm.whatsapp} onChange={(event) => setClienteField('whatsapp', event.target.value)} required />
+          <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={clienteForm.email} onChange={(event) => setClienteField('email', event.target.value)} />
+          <input className="design-input h-11 px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} />
+          <input className="design-input h-11 px-4" placeholder="Nicho" value={clienteForm.nicho} onChange={(event) => setClienteField('nicho', event.target.value)} />
+          <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value.replace(/@/g, ''))} />
+          <div className="md:col-span-2">
+            <ImagePicker
+              label="Imagem do cliente"
+              value={clienteForm.logo_url}
+              onChange={(value) => setClienteField('logo_url', value)}
+              onFileSelect={(file) => uploadClienteImage.mutate(file)}
+              isUploading={uploadClienteImage.isPending}
+              helper="Aparece nas agendas e rankings de marca quando este cliente for usado."
+            />
+          </div>
+          {uploadClienteImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadClienteImage.error)}</p> : null}
+          {clienteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(clienteMutation.error)}</p> : null}
+          <Button type="submit" isLoading={clienteMutation.isPending}>Salvar cliente</Button>
+        </form>
+      </Modal>
+
+      <Modal
+        open={showAfiliadoForm}
+        title="Novo afiliado"
+        subtitle="Cadastro de marca afiliada sem exigir cliente/e-commerce vinculado."
+        onClose={() => setShowAfiliadoForm(false)}
+      >
+        <form className="grid gap-3 md:grid-cols-2" onSubmit={onAfiliadoSubmit}>
+          <input className="design-input h-11 px-4" placeholder="Nome da marca afiliada" value={afiliadoForm.nome} onChange={(event) => setAfiliadoField('nome', event.target.value)} required />
+          <input className="design-input h-11 px-4" placeholder="Responsável" value={afiliadoForm.responsavel} onChange={(event) => setAfiliadoField('responsavel', event.target.value)} />
+          <input className="design-input h-11 px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} />
+          <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} />
+          <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value.replace(/@/g, ''))} />
+          <div className="md:col-span-2">
+            <ImagePicker
+              label="Imagem da marca"
+              value={afiliadoForm.logo_url}
+              onChange={(value) => setAfiliadoField('logo_url', value)}
+              onFileSelect={(file) => uploadAfiliadoImage.mutate(file)}
+              isUploading={uploadAfiliadoImage.isPending}
+              helper="Aparece nos rankings de marca, agendas e telas operacionais."
+            />
+          </div>
+          <textarea className="design-input min-h-24 px-4 py-3 md:col-span-2" placeholder="Observações" value={afiliadoForm.observacoes} onChange={(event) => setAfiliadoField('observacoes', event.target.value)} />
+          {uploadAfiliadoImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadAfiliadoImage.error)}</p> : null}
+          {afiliadoMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(afiliadoMutation.error)}</p> : null}
+          <Button type="submit" isLoading={afiliadoMutation.isPending}>Salvar afiliado</Button>
+        </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(selectedAtivo)}
+        title={selectedAtivoKind === 'cliente' ? 'Cliente' : 'Afiliado'}
+        subtitle="Dados operacionais, histórico e configuração comercial."
+        size="xl"
+        onClose={() => setSelectedAtivo(null)}
+      >
+        <div className="space-y-5">
+          {ativoDetailQuery.isLoading ? <LoadingState label="Carregando histórico" /> : null}
+          {ativoDetailQuery.isError ? <ErrorState message={extractErrorMessage(ativoDetailQuery.error)} onRetry={() => void ativoDetailQuery.refetch()} /> : null}
+          {ativoDetailQuery.data ? (
+            <>
+              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  moneyMetric('GMV mês', getRecord(ativoDetailQuery.data.metrics).gmv_mes, 'período atual', 'brand'),
+                  moneyMetric('GMV acumulado', getRecord(ativoDetailQuery.data.metrics).gmv_acumulado, 'histórico total', 'success'),
+                  metric('Lives', getRecord(ativoDetailQuery.data.metrics).total_lives ?? 0, 'histórico', 'neutral'),
+                  metric('Vídeos', getRecord(ativoDetailQuery.data.metrics).total_videos ?? 0, 'histórico', 'info'),
+                ].map((item) => <MetricCard key={item.label} metric={item} icon={Store} />)}
+              </section>
+
+              <form className="grid gap-3 rounded-2xl border border-line bg-surface-muted p-4 md:grid-cols-2" onSubmit={onAtivoSubmit}>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Nome</span>
+                  <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.nome} onChange={(event) => setAtivoForm((current) => ({ ...current, nome: event.target.value }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Status</span>
+                  <select className="design-input mt-2 h-11 w-full px-4" value={ativoForm.status} onChange={(event) => setAtivoForm((current) => ({ ...current, status: event.target.value }))}>
+                    <option value="ativo">Ativo</option>
+                    <option value="ativa">Ativa</option>
+                    <option value="pausada">Pausada</option>
+                    <option value="inativa">Inativa</option>
+                    <option value="inadimplente">Inadimplente</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </label>
+                <div className="md:col-span-2">
+                  <ImagePicker
+                    label={selectedAtivoKind === 'cliente' ? 'Imagem do cliente' : 'Imagem da marca'}
+                    value={ativoForm.logo_url}
+                    onChange={(value) => setAtivoForm((current) => ({ ...current, logo_url: value }))}
+                    onFileSelect={(file) => uploadAtivoImage.mutate({ file, folder: selectedAtivoKind === 'cliente' ? 'clientes' : 'marcas' })}
+                    isUploading={uploadAtivoImage.isPending}
+                    helper={selectedAtivoKind === 'cliente' ? 'Aparece nas agendas e rankings de marca quando este cliente for usado.' : 'Aparece nos rankings de marca, agendas e telas operacionais.'}
+                  />
+                </div>
+                {selectedAtivoKind === 'cliente' ? (
+                  <>
+                    <label className="block">
+                      <span className="text-sm font-semibold text-ink">E-mail</span>
+                      <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.email} onChange={(event) => setAtivoForm((current) => ({ ...current, email: event.target.value }))} />
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-semibold text-ink">WhatsApp</span>
+                      <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.celular} onChange={(event) => setAtivoForm((current) => ({ ...current, celular: event.target.value }))} />
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <label className="block">
+                      <span className="text-sm font-semibold text-ink">Comissão LiveLab (%)</span>
+                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
+                    </label>
+                  </>
+                )}
+                <div className="flex flex-wrap items-end gap-2">
+                  <Button type="submit" isLoading={ativoUpdateMutation.isPending}>Salvar alterações</Button>
+                  <Button type="button" variant="secondary" onClick={() => toggleAtivoStatus()} disabled={ativoUpdateMutation.isPending}>
+                    {['ativo', 'ativa'].includes(ativoForm.status) ? 'Inativar' : 'Reativar'}
+                  </Button>
+                  <Button type="button" variant="ghost" icon={Trash2} onClick={deleteAtivo} disabled={ativoDeleteMutation.isPending}>
+                    Excluir
+                  </Button>
+                </div>
+                {uploadAtivoImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadAtivoImage.error)}</p> : null}
+                {ativoUpdateMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
+                {ativoDeleteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoDeleteMutation.error)}</p> : null}
+              </form>
+
+              <section className="grid gap-4 xl:grid-cols-2">
+                <Card>
+                  <CardHeader><p className="text-base font-bold text-ink">Histórico de lives</p></CardHeader>
+                  <CardBody>
+                    <DataTable<JsonRecord>
+                      data={asArray<JsonRecord>(ativoDetailQuery.data.lives)}
+                      columns={[
+                        { key: 'iniciado_em', header: 'Data', render: (item) => asString(item.iniciado_em).slice(0, 10) },
+                        { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome ?? getRecord(ativoDetailQuery.data?.marca).nome ?? getRecord(ativoDetailQuery.data?.cliente).nome) },
+                        { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, '—') },
+                        { key: 'fat_gerado', header: 'GMV', align: 'right', render: (item) => formatMoney(item.fat_gerado) },
+                      ]}
+                    />
+                  </CardBody>
+                </Card>
+                <Card>
+                  <CardHeader><p className="text-base font-bold text-ink">Histórico de vídeos</p></CardHeader>
+                  <CardBody>
+                    <DataTable<JsonRecord>
+                      data={asArray<JsonRecord>(ativoDetailQuery.data.videos)}
+                      columns={[
+                        { key: 'data', header: 'Data', render: (item) => asString(item.data).slice(0, 10) },
+                        { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome ?? getRecord(ativoDetailQuery.data?.marca).nome) },
+                        { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, '—') },
+                        { key: 'gmv_atribuido', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_atribuido) },
+                      ]}
+                    />
+                  </CardBody>
+                </Card>
+              </section>
+            </>
+          ) : null}
+        </div>
+      </Modal>
     </div>
   )
 }

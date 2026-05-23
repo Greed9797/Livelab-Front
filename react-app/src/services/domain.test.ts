@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getLiveAtualDaCabine, getLivePorId, iniciarLive, publishLive } from './domain'
-import { apiGet, apiPatch, apiPost } from './api'
+import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateVideo } from './domain'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
   apiDelete: vi.fn(),
@@ -12,6 +12,7 @@ vi.mock('./api', () => ({
 describe('domain live operations', () => {
   beforeEach(() => {
     vi.mocked(apiGet).mockReset()
+    vi.mocked(apiDelete).mockReset()
     vi.mocked(apiPatch).mockReset()
     vi.mocked(apiPost).mockReset()
   })
@@ -32,6 +33,38 @@ describe('domain live operations', () => {
     })
   })
 
+  it('posts manual customer creation to /clientes', async () => {
+    vi.mocked(apiPost).mockResolvedValue({ id: 'cliente-1' })
+
+    await createCliente({ nome: 'Marca A', celular: '47999999999' })
+
+    expect(apiPost).toHaveBeenCalledWith('/clientes', { nome: 'Marca A', celular: '47999999999' })
+  })
+
+  it('sends explicit CABINE confirmation when deleting a cabine with history', async () => {
+    vi.mocked(apiDelete).mockResolvedValue({ ok: true })
+
+    await deleteCabine('cabine-1', 'CABINE')
+
+    expect(apiDelete).toHaveBeenCalledWith('/cabines/cabine-1?confirmacao=CABINE')
+  })
+
+  it('converts a lead through the ganhar endpoint', async () => {
+    vi.mocked(apiPost).mockResolvedValue({ ok: true, cliente_id: 'cliente-1' })
+
+    await ganharLead('lead-1')
+
+    expect(apiPost).toHaveBeenCalledWith('/leads/lead-1/ganhar', {})
+  })
+
+  it('loads a CRM lead detail by id', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ id: 'lead-1' })
+
+    await getLead('lead-1')
+
+    expect(apiGet).toHaveBeenCalledWith('/leads/lead-1')
+  })
+
   it('loads a selected live by id from the canonical lives endpoint', async () => {
     vi.mocked(apiGet).mockResolvedValue({ id: 'live-1' })
 
@@ -40,12 +73,88 @@ describe('domain live operations', () => {
     expect(apiGet).toHaveBeenCalledWith('/lives/live-1')
   })
 
+  it('loads completed lives with explicit status filter', async () => {
+    vi.mocked(apiGet).mockResolvedValue([])
+
+    await getLives({ status: 'encerrada' })
+
+    expect(apiGet).toHaveBeenCalledWith('/lives', { status: 'encerrada' })
+  })
+
+  it('loads TikTok connector status for the selected live', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ status: 'connected' })
+
+    await getLiveTiktokStatus('live-1')
+
+    expect(apiGet).toHaveBeenCalledWith('/lives/live-1/tiktok-status')
+  })
+
+  it('checks agenda conflicts by cabine and apresentadora', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ total: 0 })
+
+    await getAgendaConflitos({
+      cabineId: 'cabine-1',
+      apresentadoraId: 'apresentadora-1',
+      dataInicio: '2026-05-19T18:00:00.000Z',
+      dataFim: '2026-05-19T21:00:00.000Z',
+    })
+
+    expect(apiGet).toHaveBeenCalledWith('/agenda/conflitos?cabine_id=cabine-1&apresentadora_id=apresentadora-1&data_inicio=2026-05-19T18%3A00%3A00.000Z&data_fim=2026-05-19T21%3A00%3A00.000Z')
+  })
+
+  it('keeps video CRUD wired to the canonical videos endpoints', async () => {
+    vi.mocked(apiGet).mockResolvedValue([])
+    vi.mocked(apiPost).mockResolvedValue({ id: 'video-1' })
+    vi.mocked(apiPatch).mockResolvedValue({ id: 'video-1' })
+    vi.mocked(apiDelete).mockResolvedValue({})
+
+    await getVideos({ data_inicio: '2026-05-01' })
+    await createVideo({ marca_id: 'marca-1', quantidade: 2 })
+    await updateVideo('video-1', { quantidade: 3 })
+    await deleteVideo('video-1')
+
+    expect(apiGet).toHaveBeenCalledWith('/videos', { data_inicio: '2026-05-01' })
+    expect(apiPost).toHaveBeenCalledWith('/videos', { marca_id: 'marca-1', quantidade: 2 })
+    expect(apiPatch).toHaveBeenCalledWith('/videos/video-1', { quantidade: 3 })
+    expect(apiDelete).toHaveBeenCalledWith('/videos/video-1')
+  })
+
   it('publishes a live through the dedicated publicar endpoint', async () => {
     vi.mocked(apiPatch).mockResolvedValue({ id: 'live-1', status_publicacao: 'publicado' })
 
     await publishLive('live-1', 'publicado')
 
     expect(apiPatch).toHaveBeenCalledWith('/lives/live-1/publicar', { status_publicacao: 'publicado' })
+  })
+
+  it('updates and deletes lives through CRUD endpoints', async () => {
+    vi.mocked(apiPatch).mockResolvedValue({ ok: true })
+    vi.mocked(apiDelete).mockResolvedValue({})
+
+    await updateLive('live-1', { status_publicacao: 'revisado' })
+    await deleteLive('live-1')
+
+    expect(apiPatch).toHaveBeenCalledWith('/lives/live-1', { status_publicacao: 'revisado' })
+    expect(apiDelete).toHaveBeenCalledWith('/lives/live-1')
+  })
+
+  it('soft-deletes users through the usuarios endpoint', async () => {
+    vi.mocked(apiDelete).mockResolvedValue({})
+
+    await deleteUsuario('user-1')
+
+    expect(apiDelete).toHaveBeenCalledWith('/usuarios/user-1')
+  })
+
+  it('updates and deletes presenter profiles through apresentadoras endpoints', async () => {
+    vi.mocked(apiPatch).mockResolvedValue({ id: 'ap-1' })
+    vi.mocked(apiDelete).mockResolvedValue({})
+
+    await updateApresentadora('ap-1', { ativo: false })
+    await deleteApresentadora('ap-1')
+
+    expect(apiPatch).toHaveBeenCalledWith('/apresentadoras/ap-1', { ativo: false })
+    expect(apiDelete).toHaveBeenCalledWith('/apresentadoras/ap-1')
   })
 
   it('normalizes cabine live-atual payload into the selected live shape', async () => {

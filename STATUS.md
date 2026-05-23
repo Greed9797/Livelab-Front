@@ -7,6 +7,24 @@
 
 ---
 
+## ⚠️ Nota: Branch ativa é React, não Flutter
+
+O desenvolvimento ativo ocorre no React app em `react-app/`.
+Branch: `codex/blumenau-operational-fase1` (Vercel auto-deploy)
+CLAUDE.md React: `react-app/CLAUDE.md`
+
+Última sessão (2026-05-22):
+- feat(cabines): conic border sheen animation (`.cabine-card-live::before`, `@property --cabine-ang`)
+- perf: route-based lazy loading (React.lazy + Suspense) — reduz bundle inicial ~30-40%
+- chore: 3 páginas mortas deletadas (LiveManualPage, PlaceholderPage, ComissoesPendentesPage)
+- refactor: `src/services/query-keys.ts` criado (QK constants para React Query)
+- fix(agenda): eventos `ao_vivo` com `live_id` abrem EditarLiveModal (não AgendarLiveModal)
+- fix(sync): sincronização bidirecional lives↔agenda_eventos (backend)
+
+Branch commit: `19a8ce9` (frontend), `f6ee8fc` (backend)
+
+---
+
 ## Estado atual
 
 - ✅ `flutter analyze`: 0 errors (287 warnings/info, todos não-críticos)

@@ -12,13 +12,14 @@ import { getMasterConsolidated } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, currentPeriod, formatMoney, formatPercent, getRecord } from '../utils/format'
 import { historyPoints, metric, moneyMetric } from './page-helpers'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 const icons = [CircleDollarSign, Receipt, TrendingUp, Percent]
 
 export function MasterConsolidatedPage() {
   const [period, setPeriod] = useState(currentPeriod())
-  const query = useQuery({ queryKey: ['master-consolidated', period], queryFn: () => getMasterConsolidated(period) })
+  const query = useQuery({ queryKey: QK.masterConsolidated(period), queryFn: () => getMasterConsolidated(period) })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />

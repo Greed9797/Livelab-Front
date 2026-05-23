@@ -1,13 +1,21 @@
 import type { Cabine, JsonRecord, Lead, LiveAtual, Period, Solicitacao } from '../types/models'
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
 
 export function getHomeDashboard() {
   return apiGet<JsonRecord>('/home/dashboard')
 }
 
+export function uploadImageAsset(file: File, folder: 'apresentadoras' | 'clientes' | 'marcas' | 'logos' = 'logos') {
+  return apiUpload<JsonRecord>('/uploads/image', file, { folder })
+}
+
 export function getPublicRanking(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/public/ranking', params)
+}
+
+export function getPublicRankingApresentadoras(params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>('/public/ranking/apresentadoras', params)
 }
 
 export function getMasterDashboard(period: Period) {
@@ -30,12 +38,20 @@ export function getLeads() {
   return apiGet<Lead[]>('/leads')
 }
 
+export function getLead(id: string) {
+  return apiGet<Lead>(`/leads/${id}`)
+}
+
 export function createLead(payload: JsonRecord) {
   return apiPost<Lead>('/leads', payload)
 }
 
 export function updateLead(id: string, payload: JsonRecord) {
   return apiPatch<Lead>(`/leads/${id}`, payload)
+}
+
+export function ganharLead(id: string, payload: JsonRecord = {}) {
+  return apiPost<JsonRecord>(`/leads/${id}/ganhar`, payload)
 }
 
 export function deleteLead(id: string) {
@@ -54,6 +70,30 @@ export function getClientes() {
   return apiGet<JsonRecord[]>('/clientes')
 }
 
+export function createCliente(payload: JsonRecord) {
+  return apiPost<JsonRecord>('/clientes', payload)
+}
+
+export function updateCliente(id: string, payload: JsonRecord) {
+  return apiPatch<JsonRecord>(`/clientes/${id}`, payload)
+}
+
+export function deleteCliente(id: string) {
+  return apiDelete(`/clientes/${id}`)
+}
+
+export function getClienteOperacional(id: string, params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>(`/clientes/${id}/operacional`, params)
+}
+
+export function getRankingPublicoConfig() {
+  return apiGet<JsonRecord>('/configuracoes/ranking-publico')
+}
+
+export function updateRankingPublicoConfig(payload: JsonRecord) {
+  return apiPatch<JsonRecord>('/configuracoes/ranking-publico', payload)
+}
+
 export function getUsuarios(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/usuarios', params)
 }
@@ -68,6 +108,10 @@ export function convidarUsuario(payload: JsonRecord) {
 
 export function updateUsuario(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/usuarios/${id}`, payload)
+}
+
+export function deleteUsuario(id: string) {
+  return apiDelete(`/usuarios/${id}`)
 }
 
 export function resetSenhaUsuario(id: string) {
@@ -94,6 +138,10 @@ export function updateMarca(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/marcas/${id}`, payload)
 }
 
+export function getMarcaOperacional(id: string, params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>(`/marcas/${id}/operacional`, params)
+}
+
 export function deleteMarca(id: string) {
   return apiDelete(`/marcas/${id}`)
 }
@@ -110,12 +158,38 @@ export function updateAgendaEvento(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/agenda/${id}`, payload)
 }
 
-export function deleteAgendaEvento(id: string) {
-  return apiDelete(`/agenda/${id}`)
+export function deleteAgendaEvento(id: string, params: Record<string, unknown> = {}) {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value))
+  })
+  return apiDelete(`/agenda/${id}${search.toString() ? `?${search.toString()}` : ''}`)
 }
 
-export function getAgendaConflitos(cabineId: string, dataInicio: string, dataFim: string) {
-  return apiGet<JsonRecord>(`/agenda/conflitos?cabine_id=${cabineId}&data_inicio=${encodeURIComponent(dataInicio)}&data_fim=${encodeURIComponent(dataFim)}`)
+export function getAgendaConflitos(
+  input: string | {
+    cabineId?: string
+    apresentadoraId?: string
+    dataInicio: string
+    dataFim: string
+    excludeId?: string
+  },
+  dataInicio?: string,
+  dataFim?: string,
+) {
+  const params = new URLSearchParams()
+  if (typeof input === 'string') {
+    params.set('cabine_id', input)
+    params.set('data_inicio', dataInicio ?? '')
+    params.set('data_fim', dataFim ?? '')
+  } else {
+    if (input.cabineId) params.set('cabine_id', input.cabineId)
+    if (input.apresentadoraId) params.set('apresentadora_id', input.apresentadoraId)
+    if (input.excludeId) params.set('exclude_id', input.excludeId)
+    params.set('data_inicio', input.dataInicio)
+    params.set('data_fim', input.dataFim)
+  }
+  return apiGet<JsonRecord>(`/agenda/conflitos?${params.toString()}`)
 }
 
 export function criarEventoAgenda(payload: {
@@ -166,8 +240,41 @@ export function getComissoesApresentadoras(params: Record<string, unknown> = {})
   return apiGet<JsonRecord[]>('/comissoes/apresentadoras', params)
 }
 
+export function getRankingApresentadoras(params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord[]>('/ranking/apresentadoras', params)
+}
+
 export function getComissoesMarcas(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/comissoes/marcas', params)
+}
+
+export function getApresentadoraFaixasComissao(id: string) {
+  return apiGet<JsonRecord[]>(`/apresentadoras/${id}/faixas-comissao`)
+}
+
+export function createApresentadoraFaixaComissao(id: string, payload: JsonRecord) {
+  return apiPost<JsonRecord>(`/apresentadoras/${id}/faixas-comissao`, payload)
+}
+
+export function updateApresentadoraFaixaComissao(id: string, faixaId: string, payload: JsonRecord) {
+  return apiPatch<JsonRecord>(`/apresentadoras/${id}/faixas-comissao/${faixaId}`, payload)
+}
+
+export function deleteApresentadoraFaixaComissao(id: string, faixaId: string) {
+  return apiDelete(`/apresentadoras/${id}/faixas-comissao/${faixaId}`)
+}
+
+// Faixas de comissão da apresentadora (alias endpoints)
+export function getFaixasApresentadora(id: string) {
+  return apiGet<JsonRecord[]>(`/apresentadoras/${id}/faixas`)
+}
+
+export function createFaixaApresentadora(id: string, payload: JsonRecord) {
+  return apiPost<JsonRecord>(`/apresentadoras/${id}/faixas`, payload)
+}
+
+export function deleteFaixaApresentadora(id: string, faixaId: string) {
+  return apiDelete(`/apresentadoras/${id}/faixas/${faixaId}`)
 }
 
 export function getContratos(params: Record<string, unknown> = {}) {
@@ -218,12 +325,13 @@ export function getCabinesFilaAtivacao() {
   return apiGet<JsonRecord[]>('/cabines/fila-ativacao')
 }
 
-export function createCabine(payload: JsonRecord) {
-  return apiPost<JsonRecord>('/cabines', payload)
-}
-
 export function updateCabine(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/cabines/${id}`, payload)
+}
+
+export function deleteCabine(id: string, confirmacao?: string) {
+  const suffix = confirmacao ? `?confirmacao=${encodeURIComponent(confirmacao)}` : ''
+  return apiDelete(`/cabines/${id}${suffix}`)
 }
 
 export function liberarCabine(id: string) {
@@ -268,8 +376,20 @@ export function getLivePorId(liveId: string): Promise<LiveAtual> {
   return apiGet<LiveAtual>(`/lives/${liveId}`)
 }
 
+export function getLiveTiktokStatus(liveId: string) {
+  return apiGet<JsonRecord>(`/lives/${liveId}/tiktok-status`)
+}
+
 export function publishLive(liveId: string, statusPublicacao: 'revisado' | 'publicado'): Promise<LiveAtual> {
   return apiPatch<LiveAtual>(`/lives/${liveId}/publicar`, { status_publicacao: statusPublicacao })
+}
+
+export function updateLive(id: string, payload: JsonRecord) {
+  return apiPatch<JsonRecord>(`/lives/${id}`, payload)
+}
+
+export function deleteLive(id: string) {
+  return apiDelete(`/lives/${id}`)
 }
 
 export function iniciarLive(payload: JsonRecord) {
@@ -278,22 +398,6 @@ export function iniciarLive(payload: JsonRecord) {
 
 export function encerrarLive(id: string, payload: JsonRecord) {
   return apiPatch(`/lives/${id}/encerrar`, payload)
-}
-
-export function getSolicitacoes(status = 'all') {
-  return apiGet<Solicitacao[]>('/solicitacoes', { status })
-}
-
-export function aprovarSolicitacao(id: string) {
-  return apiPatch(`/solicitacoes/${id}/aprovar`, {})
-}
-
-export function recusarSolicitacao(id: string, motivo?: string) {
-  return apiPatch(`/solicitacoes/${id}/recusar`, { motivo_recusa: motivo })
-}
-
-export function criarSolicitacao(payload: JsonRecord) {
-  return apiPost<JsonRecord>('/solicitacoes', payload)
 }
 
 export function getApresentadoras() {
@@ -380,22 +484,50 @@ export function getKnowledgeArticles(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/knowledge/articles', params)
 }
 
-// Faixas de comissão da apresentadora
-export function getFaixasApresentadora(id: string) {
-  return apiGet<JsonRecord[]>(`/apresentadoras/${id}/faixas`)
+export function getComissoesPendentes() {
+  return apiGet<JsonRecord[]>('/comissoes/pendentes')
 }
 
-export function createFaixaApresentadora(id: string, payload: JsonRecord) {
-  return apiPost<JsonRecord>(`/apresentadoras/${id}/faixas`, payload)
+export function aprovarComissao(id: string) {
+  return apiPatch<JsonRecord>(`/comissoes/${id}/aprovar`, {})
 }
 
-export function deleteFaixaApresentadora(id: string, faixaId: string) {
-  return apiDelete(`/apresentadoras/${id}/faixas/${faixaId}`)
+export function reprovarComissao(id: string, motivo: string) {
+  return apiPatch<JsonRecord>(`/comissoes/${id}/reprovar`, { motivo })
 }
 
-// Ranking de apresentadoras
-export function getRankingApresentadoras(params?: { mes?: string }) {
-  return apiGet<JsonRecord[]>('/ranking/apresentadoras', params)
+export function getFinanceiroFranqueadora(filters: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>('/financeiro/franqueadora', filters)
+}
+
+export function exportarDadosCliente(clienteId: string) {
+  return apiGet<JsonRecord>(`/clientes/${clienteId}/exportar-dados`)
+}
+
+export function criarLiveManual(payload: JsonRecord) {
+  return apiPost<JsonRecord>('/lives/manual', payload)
+}
+
+export function getHistoricoGmv(liveId: string) {
+  return apiGet<JsonRecord[]>(`/lives/${liveId}/historico-gmv`)
+}
+
+export function getMetaUnidade(anoMes?: string) {
+  return apiGet<JsonRecord>('/meta-unidade', anoMes ? { ano_mes: anoMes } : {})
+}
+
+export function saveMetaUnidade(payload: JsonRecord) {
+  return apiPut<JsonRecord>('/meta-unidade', payload)
+}
+
+export function getUltimaLiveCabine(cabineId: string): Promise<{
+  avg_fat_gerado?: number
+  avg_qtd_pedidos?: number
+  avg_views?: number
+  avg_likes?: number
+  amostra?: number
+}> {
+  return apiGet(`/cabines/${cabineId}/ultimas-metricas`)
 }
 
 // Metas
@@ -417,4 +549,9 @@ export function getMetaSupervisor(mes?: string) {
 
 export function upsertMetaSupervisor(mes: string, payload: { gmv_meta_total: number; calculado_automaticamente?: boolean }) {
   return apiPut<JsonRecord>('/metas/supervisor', payload, { mes })
+}
+
+// Solicitações
+export function getSolicitacoes(params: Record<string, unknown> = {}) {
+  return apiGet<Solicitacao[]>('/solicitacoes', params)
 }

@@ -13,6 +13,7 @@ import { getMasterUnits } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, currentPeriod, formatMoney, getRecord } from '../utils/format'
 import { historyPoints, metric, moneyMetric } from './page-helpers'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 const icons = [Store, Users, CircleDollarSign, Building2]
@@ -20,7 +21,7 @@ const icons = [Store, Users, CircleDollarSign, Building2]
 export function MasterUnitsPage({ title = 'Unidades', mode }: { title?: string; mode?: 'franqueados' }) {
   const [period, setPeriod] = useState(currentPeriod())
   const [status, setStatus] = useState('all')
-  const query = useQuery({ queryKey: ['master-units', period, status], queryFn: () => getMasterUnits(period, status) })
+  const query = useQuery({ queryKey: QK.masterUnits(period, status), queryFn: () => getMasterUnits(period, status) })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />

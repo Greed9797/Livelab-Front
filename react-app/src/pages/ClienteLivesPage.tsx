@@ -12,13 +12,14 @@ import { getClienteLives } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, currentPeriod, formatMoney, getRecord } from '../utils/format'
 import { metric, moneyMetric } from './page-helpers'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 const icons = [MonitorPlay, Clock, WalletCards, TrendingUp]
 
 export function ClienteLivesPage() {
   const [period, setPeriod] = useState(currentPeriod())
-  const query = useQuery({ queryKey: ['cliente-lives', period], queryFn: () => getClienteLives(period) })
+  const query = useQuery({ queryKey: QK.clienteLives(period), queryFn: () => getClienteLives(period) })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />

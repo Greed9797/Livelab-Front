@@ -11,9 +11,6 @@ import type { JsonRecord } from '../types/models'
 
 const today = new Date().toISOString().slice(0, 10)
 
-function fmtBRL(v: number): string {
-  return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-}
 
 function fmtCompact(v: number): string {
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`

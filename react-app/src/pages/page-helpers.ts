@@ -13,14 +13,14 @@ export function percentMetric(label: string, value: unknown, hint?: string, tone
   return metric(label, formatPercent(value), hint, tone)
 }
 
-export function historyPoints(raw: unknown, labelKeys = ['label', 'mes', 'periodo', 'data'], valueKeys = ['gmv', 'valor', 'total', 'receita']): ChartPoint[] {
+export function historyPoints(raw: unknown, labelKeys = ['label', 'mes', 'periodo', 'data', 'dia'], valueKeys = ['gmv', 'valor', 'total', 'receita', 'entradas']): ChartPoint[] {
   return asArray<JsonRecord>(raw).map((item, index) => {
     const labelValue = labelKeys.map((key) => item[key]).find((value) => value !== undefined)
     const value = valueKeys.map((key) => item[key]).find((candidate) => candidate !== undefined)
     return {
       label: asString(labelValue, `${index + 1}`),
       value: asNumber(value),
-      secondary: asNumber(item.lives ?? item.qtd_lives ?? item.total_lives),
+      secondary: asNumber(item.saidas ?? item.lives ?? item.qtd_lives ?? item.total_lives),
     }
   })
 }
@@ -30,27 +30,43 @@ export function normalizeHome(raw: JsonRecord) {
   const cabines = asArray<JsonRecord>(raw.cabines)
   const liveCabines = cabines.filter((cabine) => asString(cabine.status, '').includes('ao_vivo'))
   const ocupacao = getRecord(raw.ocupacao_cabines_hoje)
-  const alertas = getRecord(raw.alertas)
+  const livesMes = asNumber(raw.lives_mes ?? resumo.lives_mes)
+  const videosMes = asNumber(raw.videos_mes ?? resumo.videos_mes)
+  const gmvMes = raw.gmv_total_mes ?? resumo.gmv_total_mes ?? 0
+  const gmvLivesMes = raw.gmv_lives_mes ?? resumo.gmv_lives_mes ?? 0
+  const gmvVideosMes = raw.gmv_videos_mes ?? resumo.gmv_videos_mes ?? 0
+  const ticketMedio = raw.ticket_medio_live_mes ?? (livesMes > 0 ? asNumber(gmvLivesMes) / livesMes : 0)
+  const liveNow = asArray<JsonRecord>(raw.live_now ?? raw.lives_acontecendo_agora ?? liveCabines)
+  const agendaHoje = asArray<JsonRecord>(raw.agenda_hoje ?? raw.agendaHoje)
 
   return {
+    hero: {
+      gmvMes,
+      gmvLivesMes,
+      gmvVideosMes,
+      livesMes,
+      videosMes,
+      ticketMedio,
+      variacaoMesAnterior: raw.variacao_gmv_mes_anterior_pct ?? raw.gmv_crescimento_pct ?? 0,
+      comparacaoLabel: raw.comparacao_label ?? raw.gmv_comparacao_label,
+    },
     metrics: [
-      moneyMetric('GMV do mês', raw.gmv_lives_mes ?? raw.gmv_mes ?? resumo.gmv_lives_mes ?? raw.fat_bruto, 'lives e vendas do período', 'brand'),
-      moneyMetric('Pipeline aberto', resumo.pipeline_aberto ?? raw.valor_pipeline ?? raw.pipeline_aberto, 'oportunidades comerciais', 'info'),
-      percentMetric('Taxa de conversão', raw.taxa_conversao ?? resumo.taxa_conversao, 'últimos 90 dias', 'success'),
-      metric('Clientes ativos', resumo.clientes_ativos ?? raw.clientes_ativos ?? 0, 'contratos faturando', 'neutral'),
+      metric('Agenda de hoje', agendaHoje.length, undefined, 'info'),
+      metric('Lives realizadas', livesMes.toLocaleString('pt-BR'), 'mês atual', 'brand'),
+      metric('Vídeos gravados', videosMes.toLocaleString('pt-BR'), 'mês atual', 'info'),
+      metric('Cabines em live', `${asNumber(raw.lives_ativas_agora ?? ocupacao.ao_vivo ?? liveNow.length)} / ${asNumber(ocupacao.operacionais ?? cabines.length)}`, `${asNumber(ocupacao.operacionais ?? cabines.length)} operacionais`, 'neutral'),
     ],
-    liveCabines,
-    alerts: [
-      metric('Contratos aguardando', alertas.contratos_aguardando_assinatura ?? raw.contratos_aguardando_assinatura ?? 0, 'assinatura pendente', 'warning'),
-      metric('Boletos vencidos', alertas.boletos_vencidos ?? raw.boletos_vencidos ?? 0, 'atenção financeira', 'danger'),
-      metric('Conflitos de agenda', alertas.conflitos_agenda ?? raw.conflitos_agenda ?? 0, 'próximas 48h', 'neutral'),
-    ],
+    liveNow,
+    liveCabines: liveNow,
     occupancy: {
       live: asNumber(ocupacao.ao_vivo ?? liveCabines.length),
       total: asNumber(ocupacao.operacionais ?? cabines.length),
     },
-    ranking: asArray<JsonRecord>(raw.ranking_dia ?? raw.ranking ?? raw.ranking_clientes ?? raw.top_clientes),
+    ranking: asArray<JsonRecord>(raw.ranking_marcas_mes),
+    rankingMarcasMes: asArray<JsonRecord>(raw.ranking_marcas_mes),
+    rankingApresentadoras: asArray<JsonRecord>(raw.ranking_apresentadoras_mes ?? raw.ranking_apresentadoras),
     upcoming: asArray<JsonRecord>(raw.proximas_lives_dia ?? raw.proximas_lives),
+    agendaHoje,
   }
 }
 

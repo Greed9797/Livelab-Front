@@ -37,11 +37,17 @@ function blockClass(status: string): { bg: string; border: string; text: string 
       text: 'oklch(0.92 0.02 235)',
     }
   }
-  // done / concluido / default
+  if (s.includes('concl') || s.includes('encerr') || s.includes('finaliz') || s === 'done') {
+    return {
+      bg: 'oklch(0.72 0.10 160 / 0.22)',
+      border: 'oklch(0.72 0.10 160 / 0.55)',
+      text: 'oklch(0.86 0.06 160)',
+    }
+  }
   return {
-    bg: 'var(--bg-elev-3)',
-    border: 'var(--border)',
-    text: 'var(--text-muted)',
+    bg: 'oklch(0.62 0.02 60 / 0.18)',
+    border: 'var(--border-strong)',
+    text: 'var(--text-secondary)',
   }
 }
 

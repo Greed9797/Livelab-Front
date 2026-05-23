@@ -1,74 +1,191 @@
-import { BarChart3, CalendarClock, MonitorPlay, Plus, Presentation, RefreshCcw, Video } from 'lucide-react'
-import { FormEvent, useMemo, useState } from 'react'
+import { BarChart3, CalendarClock, MonitorPlay, Presentation, Video } from 'lucide-react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
-import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { Button } from '../components/ui/Button'
-import { Badge, statusTone } from '../components/ui/Badge'
-import { DataTable } from '../components/ui/DataTable'
-import { MetricCard } from '../components/ui/MetricCard'
 import { LoadingState, ErrorState } from '../components/ui/States'
+import { RegistrarMetricasLiveModal, type RegistrarMetricasLiveMode } from '../components/forms/RegistrarMetricasLiveModal'
+import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
+import { AgendaTab } from '../components/conteudo/AgendaTab'
+import { LivesTab } from '../components/conteudo/LivesTab'
+import { VideosTab, emptyVideo, type VideoForm } from '../components/conteudo/VideosTab'
 import {
   createAgendaEvento,
   createVideo,
+  criarLiveManual,
+  deleteAgendaEvento,
+  deleteLive,
+  deleteVideo,
+  encerrarLive,
   getAgenda,
   getApresentadoras,
   getCabines,
-  getComissoesResumo,
+  getClientes,
+  getLivePorId,
   getLives,
   getMarcas,
   getVideos,
+  updateAgendaEvento,
+  updateLive,
+  updateVideo,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asNumber, asString, currentPeriod, formatDate, formatMoney } from '../utils/format'
-import { metric, moneyMetric } from './page-helpers'
+import { asNumber, asString } from '../utils/format'
+import { parseBRMoneyToDecimal } from '../utils/money'
 import type { JsonRecord } from '../types/models'
+import type { AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
 
-type ConteudoTab = 'calendario' | 'cabines' | 'lives' | 'videos' | 'analytics'
+type ConteudoTab = 'agenda' | 'cabines' | 'lives' | 'videos' | 'analytics'
 
-const emptyVideo = {
-  marca_id: '',
-  apresentadora_id: '',
-  data: new Date().toISOString().slice(0, 10),
-  quantidade: '1',
-  plataforma: 'tiktok',
-  campanha: '',
-  gmv_atribuido: '0',
-  pedidos_atribuidos: '0',
-  observacoes: '',
+const today = () => new Date().toISOString().slice(0, 10)
+
+function dayRange(date: string, days: number) {
+  const start = new Date(`${date}T00:00:00`)
+  const end = new Date(start)
+  end.setDate(start.getDate() + days)
+  return { start: start.toISOString(), end: end.toISOString() }
+}
+
+function normalizeConteudoTab(value: string | null): ConteudoTab {
+  if (!value || value === 'calendario' || value === 'agenda') return 'agenda'
+  if (['cabines', 'lives', 'videos', 'analytics'].includes(value)) return value as ConteudoTab
+  return 'agenda'
+}
+
+function parseLiveDate(value: unknown): Date | null {
+  if (typeof value !== 'string' || !value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function liveStartDate(live: JsonRecord): Date | null {
+  return parseLiveDate(live.iniciado_em ?? live.agenda_data_inicio)
+}
+
+function liveEndDate(live: JsonRecord): Date | null {
+  return parseLiveDate(live.encerrado_em ?? live.agenda_data_fim ?? live.previsto_fim)
+}
+
+export function isSyntheticLiveEvent(item: JsonRecord) {
+  return item._source === 'live_orphan'
+}
+
+function buildLiveAgendaFallback(live: JsonRecord, cabines: JsonRecord[]): JsonRecord | null {
+  const inicio = liveStartDate(live)
+  const fim = liveEndDate(live)
+  const liveId = asString(live.id, '')
+  if (!liveId || !inicio || !fim || fim <= inicio) return null
+  const cabineId = asString(live.cabine_id, '')
+  const cabine = cabines.find((item) => asString(item.id, '') === cabineId)
+  return {
+    _source: 'live_orphan',
+    id: `live:${liveId}`,
+    live_id: liveId,
+    tipo: 'live',
+    status: 'concluido',
+    data_inicio: inicio.toISOString(),
+    data_fim: fim.toISOString(),
+    marca_id: live.marca_id,
+    marca_nome: live.marca_nome ?? live.cliente_nome,
+    marca_logo_url: live.marca_logo_url,
+    marca_site: live.marca_site,
+    cliente_nome: live.cliente_nome,
+    cabine_id: cabineId,
+    cabine_numero: live.cabine_numero ?? cabine?.numero,
+    cabine_nome: live.cabine_nome ?? (cabine ? `Cabine ${asString(cabine.numero, '')}` : undefined),
+    apresentadora_nome: live.apresentadora_nome ?? live.apresentador_nome,
+    tiktok_username: live.tiktok_username,
+    observacoes: 'Live registrada sem evento de agenda vinculado.',
+  }
+}
+
+function mergeAgendaWithLiveFallbacks(
+  agendaRows: JsonRecord[],
+  livesRows: JsonRecord[],
+  cabines: JsonRecord[],
+  range: { start: string; end: string },
+) {
+  const linkedLiveIds = new Set(agendaRows.map((e) => asString(e.live_id, '')).filter(Boolean))
+  const linkedAgendaIds = new Set(agendaRows.map((e) => asString(e.id, '')).filter(Boolean))
+  const rangeStart = new Date(range.start)
+  const rangeEnd = new Date(range.end)
+  const fallbacks = livesRows
+    .filter((live) => {
+      const liveId = asString(live.id, '')
+      const agendaId = asString(live.agenda_evento_id, '')
+      if (!liveId || linkedLiveIds.has(liveId) || (agendaId && linkedAgendaIds.has(agendaId))) return false
+      const start = liveStartDate(live)
+      const end = liveEndDate(live)
+      return Boolean(start && end && start < rangeEnd && end > rangeStart)
+    })
+    .map((live) => buildLiveAgendaFallback(live, cabines))
+    .filter((event): event is JsonRecord => Boolean(event))
+  return [...agendaRows, ...fallbacks]
 }
 
 export function ConteudoPage() {
   const [params, setParams] = useSearchParams()
-  const initialTab = (params.get('tab') as ConteudoTab | null) ?? 'calendario'
-  const [tab, setTab] = useState<ConteudoTab>(initialTab)
-  const [videoForm, setVideoForm] = useState(emptyVideo)
-  const period = currentPeriod()
+  const requestedTab = normalizeConteudoTab(params.get('tab'))
+  const requestedCabineId = params.get('cabine') ?? ''
+  const requestedDate = params.get('data') ?? ''
+  const [tab, setTab] = useState<ConteudoTab>(requestedTab)
+  const [agendaDate, setAgendaDate] = useState(requestedDate || today())
+  const [agendaView, setAgendaView] = useState<'dia' | 'semana'>('dia')
+  const [agendaModalMode, setAgendaModalMode] = useState<AgendarLiveModalMode | null>(null)
+  const [selectedAgendaEvent, setSelectedAgendaEvent] = useState<JsonRecord | null>(null)
+  const [fetchingAgendaLive, setFetchingAgendaLive] = useState(false)
+  const [metricsModalMode, setMetricsModalMode] = useState<RegistrarMetricasLiveMode | null>(null)
+  const [editLiveData, setEditLiveData] = useState<JsonRecord | null>(null)
+  const [metricsAgendaEvent, setMetricsAgendaEvent] = useState<JsonRecord | null>(null)
+  const [videoModalOpen, setVideoModalOpen] = useState(false)
+  const [videoForm, setVideoForm] = useState<VideoForm>(emptyVideo)
+  const [selectedVideo, setSelectedVideo] = useState<JsonRecord | null>(null)
+  const [liveModalMode, setLiveModalMode] = useState<'detail' | null>(null)
+  const [selectedLiveRecord, setSelectedLiveRecord] = useState<JsonRecord | null>(null)
+  const [reportCopied, setReportCopied] = useState(false)
   const client = useQueryClient()
 
-  const agenda = useQuery({ queryKey: ['agenda'], queryFn: () => getAgenda() })
+  const range = dayRange(agendaDate, agendaView === 'semana' ? 7 : 1)
+  const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }) })
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
   const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada' }) })
   const livesAll = useQuery({ queryKey: ['lives'], queryFn: () => getLives() })
   const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos() })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
+  const clientes = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
   const apresentadoras = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
-  const comissoes = useQuery({ queryKey: ['comissoes-resumo', period.ano, period.mes], queryFn: () => getComissoesResumo() })
-  const createVideoMutation = useMutation({
-    mutationFn: createVideo,
-    onSuccess: () => {
-      setVideoForm(emptyVideo)
-      void client.invalidateQueries({ queryKey: ['videos'] })
-      void client.invalidateQueries({ queryKey: ['comissoes-resumo'] })
-    },
-  })
-  const createAgendaMutation = useMutation({
-    mutationFn: createAgendaEvento,
-    onSuccess: () => void client.invalidateQueries({ queryKey: ['agenda'] }),
-  })
+
+  function invalidateOperational() {
+    ;[
+      ['agenda'], ['cabines'], ['lives'], ['home-dashboard'], ['ranking-apresentadoras'],
+      ['comissoes-resumo'], ['comissoes-apresentadoras'], ['comissoes-marcas'],
+      ['comissoes-pendentes'], ['public-ranking'],
+    ].forEach((queryKey) => void client.invalidateQueries({ queryKey }))
+  }
+
+  function closeAgendaModal() { setAgendaModalMode(null); setSelectedAgendaEvent(null); invalidateOperational() }
+  function closeVideoModal(resetForm = true) { if (resetForm) setVideoForm(emptyVideo); setSelectedVideo(null); setVideoModalOpen(false); invalidateOperational(); void client.invalidateQueries({ queryKey: ['videos'] }) }
+  function closeMetrics() { setMetricsModalMode(null); setMetricsAgendaEvent(null); setSelectedLiveRecord(null); invalidateOperational() }
+  function closeLiveRecord() { setLiveModalMode(null); setSelectedLiveRecord(null); invalidateOperational() }
+
+  const createAgendaMutation = useMutation({ mutationFn: createAgendaEvento, onSuccess: closeAgendaModal })
+  const updateAgendaMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateAgendaEvento(id, payload), onSuccess: closeAgendaModal })
+  const deleteAgendaMutation = useMutation({ mutationFn: ({ id, modoRecorrencia }: { id: string; modoRecorrencia: string }) => deleteAgendaEvento(id, { modo_recorrencia: modoRecorrencia }), onSuccess: closeAgendaModal })
+  const createVideoMutation = useMutation({ mutationFn: createVideo, onSuccess: () => closeVideoModal() })
+  const updateVideoMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateVideo(id, payload), onSuccess: () => closeVideoModal() })
+  const deleteVideoMutation = useMutation({ mutationFn: deleteVideo, onSuccess: () => { invalidateOperational(); void client.invalidateQueries({ queryKey: ['videos'] }) } })
+  const createManualLiveMutation = useMutation({ mutationFn: criarLiveManual, onSuccess: closeMetrics })
+  const updateLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setSelectedLiveRecord(null); invalidateOperational() } })
+  const encerrarLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => encerrarLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setMetricsAgendaEvent(null); invalidateOperational() } })
+  const deleteLiveMutation = useMutation({ mutationFn: deleteLive, onSuccess: closeLiveRecord })
+
+  useEffect(() => { setTab(requestedTab) }, [requestedTab])
+  useEffect(() => {
+    if (requestedDate) setAgendaDate(requestedDate)
+    if (requestedCabineId) { setSelectedAgendaEvent(null); setAgendaModalMode('create') }
+  }, [requestedCabineId, requestedDate])
 
   const selectedLiveId = params.get('live') ?? ''
   const selectedLive = useMemo(() => {
@@ -77,73 +194,81 @@ export function ConteudoPage() {
     return rows.find((live) => asString(live.id, '') === selectedLiveId) ?? null
   }, [lives.data, selectedLiveId])
 
-  const cabinesComStatus = (cabines.data ?? []).map((cabine) => ({
-    ...cabine,
-    ocupada: (livesAll.data ?? []).some(
-      (live) => live.cabine_id === cabine.id && live.status === 'em_andamento'
-    ),
-  }))
+  useEffect(() => {
+    if (!selectedLive || liveModalMode || metricsModalMode) return
+    setSelectedLiveRecord(selectedLive)
+    setLiveModalMode('detail')
+  }, [liveModalMode, metricsModalMode, selectedLive])
 
-  const isLoading = agenda.isLoading || cabines.isLoading || lives.isLoading || livesAll.isLoading || videos.isLoading || marcas.isLoading || apresentadoras.isLoading || comissoes.isLoading
-  const error = agenda.error ?? cabines.error ?? lives.error ?? livesAll.error ?? videos.error ?? marcas.error ?? apresentadoras.error ?? comissoes.error
+  const isLoading = agenda.isLoading || cabines.isLoading || lives.isLoading || livesAll.isLoading || videos.isLoading || marcas.isLoading || clientes.isLoading || apresentadoras.isLoading
+  const error = agenda.error ?? cabines.error ?? lives.error ?? livesAll.error ?? videos.error ?? marcas.error ?? clientes.error ?? apresentadoras.error
   if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
-    void agenda.refetch()
-    void cabines.refetch()
-    void lives.refetch()
-    void livesAll.refetch()
-    void videos.refetch()
-    void marcas.refetch()
-    void apresentadoras.refetch()
-    void comissoes.refetch()
-  }} />
+  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => { void agenda.refetch(); void cabines.refetch(); void lives.refetch(); void livesAll.refetch(); void videos.refetch(); void marcas.refetch(); void clientes.refetch(); void apresentadoras.refetch() }} />
 
-  const metrics = [
-    metric('Cabines', cabines.data?.length ?? 0, 'recursos físicos', 'neutral'),
-    metric('Lives mês', lives.data?.length ?? 0, 'realizadas', 'success'),
-    metric('Vídeos', videos.data?.reduce((sum, item) => sum + asNumber(item.quantidade), 0) ?? 0, 'gravados', 'brand'),
-    moneyMetric('GMV vídeos', comissoes.data?.gmv_videos, 'vendas atribuídas', 'info'),
-    moneyMetric('Comissão', comissoes.data?.comissao_apresentadoras, 'live + vídeo', 'warning'),
-  ]
+  const cabineRows = cabines.data ?? []
+  const activeCabines = cabineRows.filter((c) => (c as unknown as JsonRecord).ativo !== false && asString(c.status, '') !== 'inativa')
+  const agendaRows = mergeAgendaWithLiveFallbacks(agenda.data ?? [], lives.data ?? [], cabineRows as unknown as JsonRecord[], range)
+  const marcaRows = marcas.data ?? []
+  const clienteRows = clientes.data ?? []
+  const apresentadoraRows = apresentadoras.data ?? []
 
   function switchTab(next: ConteudoTab) {
     setTab(next)
     const nextParams = new URLSearchParams(params)
-    if (next === 'calendario') nextParams.delete('tab')
+    if (next === 'agenda') nextParams.delete('tab')
     else nextParams.set('tab', next)
     setParams(nextParams, { replace: true })
   }
 
-  function setVideoField(key: keyof typeof emptyVideo, value: string) {
-    setVideoForm((current) => ({ ...current, [key]: value }))
+  function openEditAgendaModal(event: JsonRecord) {
+    if (isSyntheticLiveEvent(event)) {
+      const live = (lives.data ?? []).find((item) => asString(item.id, '') === asString(event.live_id, ''))
+      if (live) { setSelectedLiveRecord(live); setLiveModalMode('detail'); setParams({ tab: 'lives', live: asString(live.id, '') }, { replace: true }) }
+      return
+    }
+    if (asString(event.status) === 'ao_vivo' && event.live_id) {
+      setFetchingAgendaLive(true)
+      getLivePorId(asString(event.live_id, '')).then((fullLive) => {
+        setEditLiveData(fullLive as unknown as JsonRecord)
+      }).catch(() => { setSelectedAgendaEvent(event); setAgendaModalMode('edit') }).finally(() => setFetchingAgendaLive(false))
+      return
+    }
+    setSelectedAgendaEvent(event)
+    setAgendaModalMode('edit')
+  }
+
+  function openEditVideoModal(video: JsonRecord) {
+    setSelectedVideo(video)
+    setVideoForm({
+      marca_id: asString(video.marca_id, ''),
+      apresentadora_id: asString(video.apresentadora_id, ''),
+      data: asString(video.data, today()).slice(0, 10),
+      quantidade: asString(video.quantidade ?? 1, '1'),
+      plataforma: asString(video.plataforma, 'tiktok'),
+      campanha: asString(video.campanha, ''),
+      gmv_atribuido: asString(video.gmv_atribuido ?? 0, '0'),
+      pedidos_atribuidos: asString(video.pedidos_atribuidos ?? 0, '0'),
+      observacoes: asString(video.observacoes, ''),
+    })
+    setVideoModalOpen(true)
   }
 
   function onVideoSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    createVideoMutation.mutate({
+    const payload = {
       ...videoForm,
       quantidade: asNumber(videoForm.quantidade),
-      gmv_atribuido: asNumber(videoForm.gmv_atribuido),
+      gmv_atribuido: parseBRMoneyToDecimal(videoForm.gmv_atribuido),
       pedidos_atribuidos: asNumber(videoForm.pedidos_atribuidos),
       apresentadora_id: videoForm.apresentadora_id || null,
       campanha: videoForm.campanha || null,
       observacoes: videoForm.observacoes || null,
-    })
+    }
+    if (selectedVideo) { updateVideoMutation.mutate({ id: asString(selectedVideo.id, ''), payload }); return }
+    createVideoMutation.mutate(payload)
   }
 
-  function createQuickAgenda(tipo: 'live' | 'gravacao_video') {
-    const marcaId = asString(marcas.data?.[0]?.id, '')
-    if (!marcaId) return
-    const inicio = new Date()
-    const fim = new Date(inicio.getTime() + 60 * 60 * 1000)
-    createAgendaMutation.mutate({
-      tipo,
-      marca_id: marcaId,
-      data_inicio: inicio.toISOString(),
-      data_fim: fim.toISOString(),
-      status: 'planejado',
-    })
-  }
+  const metricError = createManualLiveMutation.error ?? updateLiveMutation.error ?? encerrarLiveMutation.error
 
   return (
     <div className="space-y-6">
@@ -151,181 +276,130 @@ export function ConteudoPage() {
         eyebrow="Conteúdo"
         accent="Produção"
         title="operacional"
-        subtitle="Calendário, cabines, lives, vídeos e analytics em um fluxo único."
-        actions={<Button variant="secondary" icon={RefreshCcw} onClick={() => {
-          void agenda.refetch()
-          void cabines.refetch()
-          void lives.refetch()
-          void livesAll.refetch()
-          void videos.refetch()
-        }}>Atualizar</Button>}
+        subtitle="Agenda por cabine, lives, vídeos e analytics em um fluxo único."
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {metrics.map((item, index) => (
-          <MetricCard key={item.label} metric={item} icon={[Presentation, MonitorPlay, Video, BarChart3, CalendarClock][index]} />
-        ))}
-      </section>
-
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
-        {[
-          ['calendario', CalendarClock, 'Calendário'],
+        {([
+          ['agenda', CalendarClock, 'Agenda'],
           ['cabines', Presentation, 'Cabines'],
           ['lives', MonitorPlay, 'Lives realizadas'],
           ['videos', Video, 'Vídeos gravados'],
           ['analytics', BarChart3, 'Analytics'],
-        ].map(([key, Icon, label]) => (
-          <button key={String(key)} type="button" className={tab === key ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white' : 'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted'} onClick={() => switchTab(key as ConteudoTab)}>
+        ] as const).map(([key, Icon, label]) => (
+          <button
+            key={key}
+            type="button"
+            className={tab === key
+              ? 'inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 text-sm font-semibold text-ink'
+              : 'inline-flex h-10 items-center gap-2 rounded-xl border border-transparent px-4 text-sm font-semibold text-ink-muted hover:text-ink hover:bg-surface-muted'}
+            onClick={() => switchTab(key)}
+          >
             <Icon className="h-4 w-4" />
-            {label as string}
+            {label}
           </button>
         ))}
       </div>
 
-      {tab === 'calendario' ? (
-        <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
-          <Card>
-            <CardHeader>
-              <p className="text-base font-bold text-ink">Agenda operacional</p>
-            </CardHeader>
-            <CardBody>
-              <DataTable<JsonRecord>
-                data={agenda.data ?? []}
-                columns={[
-                  { key: 'tipo', header: 'Tipo', render: (item) => <Badge tone="brand">{asString(item.tipo)}</Badge> },
-                  { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome) },
-                  { key: 'cabine_numero', header: 'Cabine', render: (item) => asString(item.cabine_nome ?? item.cabine_numero, 'Sem cabine') },
-                  { key: 'data_inicio', header: 'Início', render: (item) => formatDate(asString(item.data_inicio, '')) },
-                  { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status))}>{asString(item.status)}</Badge> },
-                ]}
-              />
-            </CardBody>
-          </Card>
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <p className="text-base font-bold text-ink">Status das cabines</p>
-              </CardHeader>
-              <CardBody>
-                <DataTable<JsonRecord>
-                  data={cabinesComStatus}
-                  columns={[
-                    { key: 'numero', header: 'Cabine', render: (item) => `Cabine ${String(item.numero ?? '').padStart(2, '0')}` },
-                    { key: 'ocupada', header: 'Status', render: (item) => <Badge tone={item.ocupada ? 'danger' : 'success'}>{item.ocupada ? 'Em live' : 'Livre'}</Badge> },
-                  ]}
-                />
-              </CardBody>
-            </Card>
-            <Card>
-              <CardHeader>
-                <p className="text-base font-bold text-ink">Novo evento rápido</p>
-              </CardHeader>
-              <CardBody className="space-y-3">
-                <Button icon={MonitorPlay} className="w-full" isLoading={createAgendaMutation.isPending} onClick={() => createQuickAgenda('live')}>Live</Button>
-                <Button icon={Video} variant="secondary" className="w-full" isLoading={createAgendaMutation.isPending} onClick={() => createQuickAgenda('gravacao_video')}>Gravação de vídeo</Button>
-                {createAgendaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createAgendaMutation.error)}</p> : null}
-              </CardBody>
-            </Card>
-          </div>
-        </section>
+      {tab === 'agenda' ? (
+        <AgendaTab
+          agendaDate={agendaDate}
+          agendaView={agendaView}
+          agendaRows={agendaRows}
+          activeCabines={activeCabines}
+          marcaRows={marcaRows}
+          clienteRows={clienteRows}
+          apresentadoraRows={apresentadoraRows}
+          agendaModalMode={agendaModalMode}
+          selectedAgendaEvent={selectedAgendaEvent}
+          fetchingAgendaLive={fetchingAgendaLive}
+          requestedDate={requestedDate}
+          requestedCabineId={requestedCabineId}
+          createAgendaMutation={createAgendaMutation}
+          updateAgendaMutation={updateAgendaMutation}
+          deleteAgendaMutation={deleteAgendaMutation}
+          onAgendaDateChange={setAgendaDate}
+          onAgendaViewChange={setAgendaView}
+          onOpenCreateAgendaModal={() => { setSelectedAgendaEvent(null); setAgendaModalMode('create') }}
+          onOpenEditAgendaModal={openEditAgendaModal}
+          onOpenRegisterResult={(event) => { setMetricsAgendaEvent(event); setSelectedLiveRecord(null); setMetricsModalMode('result') }}
+          onCloseAgendaModal={() => { setAgendaModalMode(null); setSelectedAgendaEvent(null) }}
+          onCreateAgenda={(payload) => createAgendaMutation.mutate(payload)}
+          onUpdateAgenda={(id, payload) => updateAgendaMutation.mutate({ id, payload })}
+          onDeleteAgenda={(id, modoRecorrencia) => deleteAgendaMutation.mutate({ id, modoRecorrencia })}
+        />
       ) : null}
 
-      {tab === 'cabines' ? <CabinesPage title="Cabines de conteúdo" /> : null}
+      {tab === 'cabines' ? <CabinesPage title="Cabines de conteúdo" embedded /> : null}
 
       {tab === 'lives' ? (
-        <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
-          <Card>
-            <CardHeader>
-              <p className="text-base font-bold text-ink">Lives</p>
-            </CardHeader>
-            <CardBody>
-              <DataTable<JsonRecord>
-                data={lives.data ?? []}
-                columns={[
-                  { key: 'iniciado_em', header: 'Data', render: (item) => formatDate(asString(item.iniciado_em, '')) },
-                  { key: 'cliente_nome', header: 'Marca/cliente', render: (item) => asString(item.marca_nome ?? item.cliente_nome) },
-                  { key: 'cabine_numero', header: 'Cabine', render: (item) => asString(item.cabine_numero) },
-                  { key: 'apresentador_nome', header: 'Apresentadora', render: (item) => asString(item.apresentador_nome) },
-                  { key: 'fat_gerado', header: 'GMV', align: 'right', render: (item) => formatMoney(item.fat_gerado) },
-                  { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status))}>{asString(item.status)}</Badge> },
-                  { key: 'selecionar', header: '', align: 'right', render: (item) => <Button variant="ghost" onClick={() => setParams({ live: asString(item.id, ''), tab: 'lives' })}>Selecionar</Button> },
-                ]}
-              />
-            </CardBody>
-          </Card>
-          <Card>
-            <CardHeader>
-              <p className="text-base font-bold text-ink">Live selecionada</p>
-            </CardHeader>
-            <CardBody>
-              {selectedLive ? (
-                <dl className="space-y-3 text-sm">
-                  <div className="flex justify-between gap-4"><dt className="text-ink-muted">Cliente</dt><dd className="font-semibold text-ink">{asString(selectedLive.cliente_nome)}</dd></div>
-                  <div className="flex justify-between gap-4"><dt className="text-ink-muted">GMV</dt><dd className="font-semibold text-ink">{formatMoney(selectedLive.fat_gerado)}</dd></div>
-                  <div className="flex justify-between gap-4"><dt className="text-ink-muted">Pedidos</dt><dd className="font-semibold text-ink">{asNumber(selectedLive.final_orders_count).toLocaleString('pt-BR')}</dd></div>
-                </dl>
-              ) : (
-                <p className="rounded-2xl border border-dashed border-line p-4 text-center text-sm text-ink-muted">Nenhuma live selecionada.</p>
-              )}
-            </CardBody>
-          </Card>
-        </section>
+        <LivesTab
+          livesData={lives.data ?? []}
+          liveModalMode={liveModalMode}
+          selectedLiveRecord={selectedLiveRecord}
+          reportCopied={reportCopied}
+          deleteLiveMutation={deleteLiveMutation}
+          onOpenCreateLiveModal={() => { setMetricsAgendaEvent(null); setSelectedLiveRecord(null); setMetricsModalMode('manual') }}
+          onOpenLiveDetail={(live) => { setSelectedLiveRecord(live); setLiveModalMode('detail'); setParams({ tab: 'lives', live: asString(live.id, '') }, { replace: true }) }}
+          onOpenEditLive={(live) => setEditLiveData(live)}
+          onDeleteLive={(live) => {
+            const label = asString(live.marca_nome ?? live.cliente_nome ?? live.id, 'live')
+            if (!window.confirm(`Excluir a live "${label}"?`)) return
+            deleteLiveMutation.mutate(asString(live.id, ''))
+          }}
+          onCloseLiveModal={() => {
+            setLiveModalMode(null); setSelectedLiveRecord(null); setReportCopied(false)
+            const nextParams = new URLSearchParams(params); nextParams.delete('live'); setParams(nextParams, { replace: true })
+          }}
+          onCopyLiveReport={(text) => void navigator.clipboard.writeText(text).then(() => { setReportCopied(true); setTimeout(() => setReportCopied(false), 2000) })}
+        />
       ) : null}
+
+      <EditarLiveModal open={Boolean(editLiveData)} live={editLiveData} onClose={() => setEditLiveData(null)} />
+
+      <RegistrarMetricasLiveModal
+        open={metricsModalMode !== null}
+        mode={metricsModalMode ?? 'manual'}
+        live={selectedLiveRecord}
+        agendaEvent={metricsAgendaEvent}
+        cabines={activeCabines}
+        marcas={marcaRows}
+        clientes={clienteRows}
+        apresentadoras={apresentadoraRows}
+        isSaving={createManualLiveMutation.isPending || updateLiveMutation.isPending || encerrarLiveMutation.isPending}
+        error={metricError}
+        onClose={() => { setMetricsModalMode(null); setMetricsAgendaEvent(null); setSelectedLiveRecord(null) }}
+        onCreateManual={(payload) => createManualLiveMutation.mutate(payload)}
+        onCreateResultFromAgenda={(payload) => createManualLiveMutation.mutate(payload)}
+        onUpdateLive={(id, payload) => updateLiveMutation.mutate({ id, payload })}
+        onCloseLive={(id, payload) => encerrarLiveMutation.mutate({ id, payload })}
+      />
 
       {tab === 'videos' ? (
-        <section className="grid gap-4 xl:grid-cols-[1fr_380px]">
-          <Card>
-            <CardHeader>
-              <p className="text-base font-bold text-ink">Vídeos gravados</p>
-            </CardHeader>
-            <CardBody>
-              <DataTable<JsonRecord>
-                data={videos.data ?? []}
-                columns={[
-                  { key: 'data', header: 'Data', render: (item) => formatDate(asString(item.data, '')) },
-                  { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome) },
-                  { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome) },
-                  { key: 'quantidade', header: 'Qtd', align: 'right', render: (item) => asNumber(item.quantidade).toLocaleString('pt-BR') },
-                  { key: 'gmv_atribuido', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_atribuido) },
-                  { key: 'pedidos_atribuidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos_atribuidos).toLocaleString('pt-BR') },
-                ]}
-              />
-            </CardBody>
-          </Card>
-          <Card>
-            <CardHeader>
-              <p className="text-base font-bold text-ink">Registrar vídeo</p>
-            </CardHeader>
-            <CardBody>
-              <form className="space-y-3" onSubmit={onVideoSubmit}>
-                <select className="design-input h-11 w-full px-4" value={videoForm.marca_id} onChange={(event) => setVideoField('marca_id', event.target.value)} required>
-                  <option value="">Marca</option>
-                  {(marcas.data ?? []).map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome)}</option>)}
-                </select>
-                <select className="design-input h-11 w-full px-4" value={videoForm.apresentadora_id} onChange={(event) => setVideoField('apresentadora_id', event.target.value)}>
-                  <option value="">Apresentadora</option>
-                  {(apresentadoras.data ?? []).map((item) => <option key={asString(item.id, '')} value={asString(item.id, '')}>{asString(item.nome)}</option>)}
-                </select>
-                <input className="design-input h-11 w-full px-4" type="date" value={videoForm.data} onChange={(event) => setVideoField('data', event.target.value)} required />
-                <div className="grid grid-cols-2 gap-3">
-                  <input className="design-input h-11 w-full px-4" type="number" min="0" value={videoForm.quantidade} onChange={(event) => setVideoField('quantidade', event.target.value)} />
-                  <input className="design-input h-11 w-full px-4" value={videoForm.plataforma} onChange={(event) => setVideoField('plataforma', event.target.value)} />
-                </div>
-                <input className="design-input h-11 w-full px-4" placeholder="Campanha" value={videoForm.campanha} onChange={(event) => setVideoField('campanha', event.target.value)} />
-                <div className="grid grid-cols-2 gap-3">
-                  <input className="design-input h-11 w-full px-4" type="number" min="0" step="0.01" placeholder="GMV" value={videoForm.gmv_atribuido} onChange={(event) => setVideoField('gmv_atribuido', event.target.value)} />
-                  <input className="design-input h-11 w-full px-4" type="number" min="0" placeholder="Pedidos" value={videoForm.pedidos_atribuidos} onChange={(event) => setVideoField('pedidos_atribuidos', event.target.value)} />
-                </div>
-                <textarea className="design-input min-h-24 w-full px-4 py-3" placeholder="Observação" value={videoForm.observacoes} onChange={(event) => setVideoField('observacoes', event.target.value)} />
-                {createVideoMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createVideoMutation.error)}</p> : null}
-                <Button type="submit" icon={Plus} isLoading={createVideoMutation.isPending}>Registrar vídeo</Button>
-              </form>
-            </CardBody>
-          </Card>
-        </section>
+        <VideosTab
+          videosData={videos.data ?? []}
+          marcaRows={marcaRows}
+          apresentadoraRows={apresentadoraRows}
+          videoModalOpen={videoModalOpen}
+          videoForm={videoForm}
+          selectedVideo={selectedVideo}
+          createVideoMutation={createVideoMutation}
+          updateVideoMutation={updateVideoMutation}
+          deleteVideoMutation={deleteVideoMutation}
+          onOpenCreateVideoModal={() => { setSelectedVideo(null); setVideoForm(emptyVideo); setVideoModalOpen(true) }}
+          onOpenEditVideoModal={openEditVideoModal}
+          onDeleteVideo={(video) => {
+            const label = asString(video.campanha ?? video.marca_nome ?? video.id, 'vídeo')
+            if (!window.confirm(`Excluir o vídeo "${label}"?`)) return
+            deleteVideoMutation.mutate(asString(video.id, ''))
+          }}
+          onCloseVideoModal={() => { setVideoModalOpen(false); setSelectedVideo(null); setVideoForm(emptyVideo) }}
+          onVideoFieldChange={(key, value) => setVideoForm((cur) => ({ ...cur, [key]: value }))}
+          onVideoSubmit={onVideoSubmit}
+        />
       ) : null}
 
-      {tab === 'analytics' ? <AnalyticsPage /> : null}
+      {tab === 'analytics' ? <AnalyticsPage embedded /> : null}
     </div>
   )
 }

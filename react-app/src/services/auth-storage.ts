@@ -22,10 +22,37 @@ const accessKey = 'livelab.react.access_token'
 const refreshKey = 'livelab.react.refresh_token'
 const userKey = 'livelab.react.user'
 const lastEmailKey = 'livelab.react.last_email'
+const rememberKey = 'livelab.react.remember'
 
+// "Manter conectado": marcado → localStorage (persiste após fechar aba).
+// Desmarcado → sessionStorage (cai ao fechar a aba). A escolha é gravada no
+// próprio localStorage para o boot saber qual storage consultar.
+function isRemember(): boolean {
+  try {
+    return window.localStorage.getItem(rememberKey) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+export function setRemember(remember: boolean): void {
+  try {
+    window.localStorage.setItem(rememberKey, remember ? 'true' : 'false')
+  } catch {
+    // ignore
+  }
+}
+
+function primaryStorage(): Storage {
+  return isRemember() ? window.localStorage : window.sessionStorage
+}
+
+// Lê do storage primário; se não achar, tenta o outro (cobre troca de modo).
 function read(key: string): string | null {
   try {
-    return window.localStorage.getItem(key)
+    return primaryStorage().getItem(key)
+      ?? window.localStorage.getItem(key)
+      ?? window.sessionStorage.getItem(key)
   } catch {
     return null
   }
@@ -33,7 +60,7 @@ function read(key: string): string | null {
 
 function write(key: string, value: string): void {
   try {
-    window.localStorage.setItem(key, value)
+    primaryStorage().setItem(key, value)
   } catch {
     // Storage can be unavailable in restricted browsers.
   }
@@ -42,6 +69,7 @@ function write(key: string, value: string): void {
 function remove(key: string): void {
   try {
     window.localStorage.removeItem(key)
+    window.sessionStorage.removeItem(key)
   } catch {
     // ignore
   }
@@ -99,9 +127,18 @@ export function restoreSession(): Session | null {
 }
 
 export function saveLastEmail(email: string): void {
-  write(lastEmailKey, email)
+  // Email lembrado sempre em localStorage, independente de "manter conectado".
+  try {
+    window.localStorage.setItem(lastEmailKey, email)
+  } catch {
+    // ignore
+  }
 }
 
 export function getLastEmail(): string {
-  return read(lastEmailKey) ?? ''
+  try {
+    return window.localStorage.getItem(lastEmailKey) ?? ''
+  } catch {
+    return ''
+  }
 }

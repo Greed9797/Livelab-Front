@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { getClienteAgenda, getClienteReservas, solicitarClienteLive } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asString, formatDate } from '../utils/format'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 function toDateInput(date: Date): string {
@@ -42,16 +43,16 @@ export function ClienteAgendaPage() {
   const client = useQueryClient()
 
   const agendaQuery = useQuery({
-    queryKey: ['cliente-agenda', start, end],
+    queryKey: QK.clienteAgenda({ start, end }),
     queryFn: () => getClienteAgenda({ data_inicio: start, data_fim: end }),
   })
-  const reservasQuery = useQuery({ queryKey: ['cliente-reservas'], queryFn: getClienteReservas })
+  const reservasQuery = useQuery({ queryKey: QK.clienteReservas, queryFn: getClienteReservas })
   const solicitarMutation = useMutation({
     mutationFn: solicitarClienteLive,
     onSuccess: () => {
       setForm((current) => ({ ...initialForm, cabine_id: current.cabine_id, data_solicitada: current.data_solicitada }))
-      void client.invalidateQueries({ queryKey: ['cliente-agenda'] })
-      void client.invalidateQueries({ queryKey: ['cliente-reservas'] })
+      void client.invalidateQueries({ queryKey: QK.clienteAgenda() })
+      void client.invalidateQueries({ queryKey: QK.clienteReservas })
     },
   })
 

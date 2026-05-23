@@ -13,13 +13,14 @@ import { getMasterDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, currentPeriod, formatMoney } from '../utils/format'
 import { normalizeMaster } from './page-helpers'
+import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
 const icons = [CircleDollarSign, Building2, Users, TrendingUp]
 
 export function MasterDashboardPage() {
   const [period, setPeriod] = useState(currentPeriod())
-  const query = useQuery({ queryKey: ['master-dashboard', period], queryFn: () => getMasterDashboard(period) })
+  const query = useQuery({ queryKey: QK.masterDashboard(period), queryFn: () => getMasterDashboard(period) })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />

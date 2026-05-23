@@ -1,6 +1,7 @@
 import { Users, Clock } from 'lucide-react'
 import type { Cabine } from '../../types/models'
 import { asNumber, asString } from '../../utils/format'
+import { TikTokLiveButton } from '../ui/TikTokLiveButton'
 
 function elapsedMin(startedAt: string | undefined): number {
   if (!startedAt) return 0
@@ -152,6 +153,7 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
                     parcial
                   </div>
                 </div>
+                <TikTokLiveButton username={(cab as Cabine & { tiktok_username?: string }).tiktok_username} compact />
               </div>
             )
           })}
