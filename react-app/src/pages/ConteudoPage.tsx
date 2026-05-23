@@ -151,6 +151,7 @@ export function ConteudoPage() {
   const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }) })
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
   const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada' }) })
+  const livesAll = useQuery({ queryKey: ['lives'], queryFn: () => getLives() })
   const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos() })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
@@ -199,10 +200,10 @@ export function ConteudoPage() {
     setLiveModalMode('detail')
   }, [liveModalMode, metricsModalMode, selectedLive])
 
-  const isLoading = agenda.isLoading || cabines.isLoading || lives.isLoading || videos.isLoading || marcas.isLoading || clientes.isLoading || apresentadoras.isLoading
-  const error = agenda.error ?? cabines.error ?? lives.error ?? videos.error ?? marcas.error ?? clientes.error ?? apresentadoras.error
+  const isLoading = agenda.isLoading || cabines.isLoading || lives.isLoading || livesAll.isLoading || videos.isLoading || marcas.isLoading || clientes.isLoading || apresentadoras.isLoading
+  const error = agenda.error ?? cabines.error ?? lives.error ?? livesAll.error ?? videos.error ?? marcas.error ?? clientes.error ?? apresentadoras.error
   if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => { void agenda.refetch(); void cabines.refetch(); void lives.refetch(); void videos.refetch(); void marcas.refetch(); void clientes.refetch(); void apresentadoras.refetch() }} />
+  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => { void agenda.refetch(); void cabines.refetch(); void lives.refetch(); void livesAll.refetch(); void videos.refetch(); void marcas.refetch(); void clientes.refetch(); void apresentadoras.refetch() }} />
 
   const cabineRows = cabines.data ?? []
   const activeCabines = cabineRows.filter((c) => (c as unknown as JsonRecord).ativo !== false && asString(c.status, '') !== 'inativa')

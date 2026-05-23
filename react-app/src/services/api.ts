@@ -132,8 +132,8 @@ export async function apiDelete<T>(path: string): Promise<T> {
   return response.data
 }
 
-export async function apiPut<T>(path: string, data?: unknown): Promise<T> {
-  const response = await api.put<T>(path, data)
+export async function apiPut<T>(path: string, body?: unknown, params?: Record<string, unknown>): Promise<T> {
+  const response = await api.put<T>(path, body, { params })
   return response.data
 }
 

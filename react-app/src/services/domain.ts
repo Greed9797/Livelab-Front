@@ -1,4 +1,4 @@
-import type { Cabine, JsonRecord, Lead, LiveAtual, Period } from '../types/models'
+import type { Cabine, JsonRecord, Lead, LiveAtual, Period, Solicitacao } from '../types/models'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
 
@@ -264,6 +264,19 @@ export function deleteApresentadoraFaixaComissao(id: string, faixaId: string) {
   return apiDelete(`/apresentadoras/${id}/faixas-comissao/${faixaId}`)
 }
 
+// Faixas de comissão da apresentadora (alias endpoints)
+export function getFaixasApresentadora(id: string) {
+  return apiGet<JsonRecord[]>(`/apresentadoras/${id}/faixas`)
+}
+
+export function createFaixaApresentadora(id: string, payload: JsonRecord) {
+  return apiPost<JsonRecord>(`/apresentadoras/${id}/faixas`, payload)
+}
+
+export function deleteFaixaApresentadora(id: string, faixaId: string) {
+  return apiDelete(`/apresentadoras/${id}/faixas/${faixaId}`)
+}
+
 export function getContratos(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/contratos', params)
 }
@@ -391,6 +404,10 @@ export function getApresentadoras() {
   return apiGet<JsonRecord[]>('/apresentadoras')
 }
 
+export function createApresentadora(payload: JsonRecord) {
+  return apiPost<JsonRecord>('/apresentadoras', payload)
+}
+
 export function updateApresentadora(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/apresentadoras/${id}`, payload)
 }
@@ -511,4 +528,30 @@ export function getUltimaLiveCabine(cabineId: string): Promise<{
   amostra?: number
 }> {
   return apiGet(`/cabines/${cabineId}/ultimas-metricas`)
+}
+
+// Metas
+export function getMetasApresentadoras(mes?: string) {
+  return apiGet<JsonRecord[]>('/metas/apresentadoras', mes ? { mes } : undefined)
+}
+
+export function upsertMetaApresentadora(id: string, mes: string, payload: { gmv_meta: number }) {
+  return apiPut<JsonRecord>(`/metas/apresentadoras/${id}`, payload, { mes })
+}
+
+export function deleteMetaApresentadora(id: string, mes: string) {
+  return apiDelete(`/metas/apresentadoras/${id}?mes=${mes}`)
+}
+
+export function getMetaSupervisor(mes?: string) {
+  return apiGet<JsonRecord>('/metas/supervisor', mes ? { mes } : undefined)
+}
+
+export function upsertMetaSupervisor(mes: string, payload: { gmv_meta_total: number; calculado_automaticamente?: boolean }) {
+  return apiPut<JsonRecord>('/metas/supervisor', payload, { mes })
+}
+
+// Solicitações
+export function getSolicitacoes(params: Record<string, unknown> = {}) {
+  return apiGet<Solicitacao[]>('/solicitacoes', params)
 }

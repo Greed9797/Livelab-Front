@@ -19,6 +19,9 @@ const ClienteAgendaPage = lazy(() => import('../pages/ClienteAgendaPage').then(m
 const ConteudoPage = lazy(() => import('../pages/ConteudoPage').then(m => ({ default: m.ConteudoPage })))
 const FinanceiroPage = lazy(() => import('../pages/FinanceiroPage').then(m => ({ default: m.FinanceiroPage })))
 const ComissoesConfigPage = lazy(() => import('../pages/ComissoesConfigPage').then(m => ({ default: m.ComissoesConfigPage })))
+const SolicitacoesPage = lazy(() => import('../pages/SolicitacoesPage').then(m => ({ default: m.SolicitacoesPage })))
+const ApresentadorasPage = lazy(() => import('../pages/ApresentadorasPage').then(m => ({ default: m.ApresentadorasPage })))
+const MetasPage = lazy(() => import('../pages/MetasPage').then(m => ({ default: m.MetasPage })))
 const RankingApresentadorasPage = lazy(() => import('../pages/RankingApresentadorasPage').then(m => ({ default: m.RankingApresentadorasPage })))
 const RankingMarcasPage = lazy(() => import('../pages/RankingMarcasPage').then(m => ({ default: m.RankingMarcasPage })))
 const ConfiguracoesPage = lazy(() => import('../pages/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
@@ -78,8 +81,11 @@ export function AppRouter() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={opsRoles} />}>
-              <Route path="/solicitacoes" element={<Navigate to="/conteudo?tab=agenda" replace />} />
-              <Route path="/apresentadoras" element={<Navigate to="/configuracoes?tab=usuarios" replace />} />
+              {/* /solicitacoes mantida apenas para acesso histórico — não é mais fluxo principal */}
+              <Route path="/solicitacoes" element={<Suspense fallback={<PageFallback />}><SolicitacoesPage /></Suspense>} />
+              <Route path="/apresentadoras" element={<Suspense fallback={<PageFallback />}><ApresentadorasPage /></Suspense>} />
+              <Route path="/metas" element={<Suspense fallback={<PageFallback />}><MetasPage /></Suspense>} />
+              <Route path="/ranking/apresentadoras" element={<Suspense fallback={<PageFallback />}><RankingApresentadorasPage /></Suspense>} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={[...financeRoles, ...commercialRoles]} />}>

@@ -1,58 +1,154 @@
-import { TrendingDown, TrendingUp } from 'lucide-react'
-import { Card, CardBody } from '../ui/Card'
-import { asNumber, formatMoney, formatPercent } from '../../utils/format'
-import { liveCountLabel } from '../../utils/plural'
+import { asNumber } from '../../utils/format'
+import type { JsonRecord } from '../../types/models'
 
 interface GmvHeroCardProps {
-  gmvMes: unknown
-  gmvLivesMes?: unknown
-  gmvVideosMes?: unknown
-  livesMes: unknown
-  videosMes?: unknown
-  ticketMedio: unknown
-  variacaoMesAnterior: unknown
-  comparacaoLabel?: unknown
+  raw: JsonRecord
 }
 
-export function GmvHeroCard({ gmvMes, gmvLivesMes, gmvVideosMes, livesMes, videosMes, ticketMedio, variacaoMesAnterior, comparacaoLabel }: GmvHeroCardProps) {
-  const variation = asNumber(variacaoMesAnterior)
-  const VariationIcon = variation >= 0 ? TrendingUp : TrendingDown
-  const comparisonText = typeof comparacaoLabel === 'string' && comparacaoLabel.trim()
-    ? comparacaoLabel
-    : 'comparado com o mês anterior'
+function fmtBRL(v: number, dec = 2): string {
+  return v.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+}
+
+function fmtCompact(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`
+  if (v >= 1_000) return `${(v / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`
+  return v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+}
+
+export function GmvHeroCard({ raw }: GmvHeroCardProps) {
+  const gmvMes = asNumber(raw.gmv_lives_mes ?? raw.gmv_mes ?? raw.fat_bruto)
+  const gmvPrev = asNumber(raw.gmv_mes_prev ?? raw.gmv_prev)
+  const metaMes = asNumber(raw.meta_mes)
+  const ritmo = asNumber(raw.ritmo_projetado)
+  const diaUtil = asNumber(raw.dia_util ?? raw.dia_util_atual)
+  const diasUteis = asNumber(raw.dias_uteis_total ?? raw.dias_uteis ?? 22)
+
+  const delta = gmvPrev > 0 ? ((gmvMes - gmvPrev) / gmvPrev) * 100 : 0
+  const pctMeta = metaMes > 0 ? (gmvMes / metaMes) * 100 : 0
+  const pctRitmo = metaMes > 0 ? (ritmo / metaMes) * 100 : 0
+  const falta = metaMes > gmvMes ? metaMes - gmvMes : 0
 
   return (
-    <Card className="border-brand/25">
-      <CardBody className="grid gap-5 md:grid-cols-[1.4fr_1fr] md:items-end">
+    <div
+      className="flex flex-col gap-4 rounded-xl p-5"
+      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          GMV — desempenho do mês
+        </h3>
+        <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-2 w-2 rounded-sm"
+              style={{ background: 'var(--primary)' }}
+            />
+            Acumulado
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-2 w-2 rounded-sm opacity-50"
+              style={{ background: 'var(--text-muted)' }}
+            />
+            Mês anterior
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">GMV do mês</p>
-          <p className="num mt-3 text-4xl font-extrabold leading-none text-ink md:text-5xl">{formatMoney(gmvMes, true)}</p>
-          <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
-            <div className="rounded-2xl border border-line bg-surface-muted px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">Lives</p>
-              <p className="num mt-1 text-lg font-extrabold text-ink">{formatMoney(gmvLivesMes, true)}</p>
-              <p className="mt-1 text-xs text-ink-muted">{liveCountLabel(asNumber(livesMes))}</p>
-            </div>
-            <div className="rounded-2xl border border-line bg-surface-muted px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">Vídeos</p>
-              <p className="num mt-1 text-lg font-extrabold text-ink">{formatMoney(gmvVideosMes, true)}</p>
-              <p className="mt-1 text-xs text-ink-muted">{asNumber(videosMes).toLocaleString('pt-BR')} vídeos gravados</p>
-            </div>
+          <div className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+            GMV acumulado do mês
           </div>
-          <div className="mt-3 flex flex-wrap gap-3 text-sm">
-            <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 font-semibold text-ink">
-              GMV médio por live {formatMoney(ticketMedio, true)}
+          <div className="flex items-baseline gap-1">
+            <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>R$</span>
+            <span
+              className="text-[32px] font-semibold leading-none tracking-tight font-mono"
+              style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
+            >
+              {fmtBRL(gmvMes, 0)}
             </span>
           </div>
         </div>
-        <div className="rounded-2xl border border-line bg-surface-muted p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-            <VariationIcon className="h-4 w-4 text-brand" />
-            {formatPercent(variation)}
+        {delta !== 0 && (
+          <div className="text-right">
+            <div
+              className="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-semibold font-mono"
+              style={{
+                background: delta >= 0 ? 'var(--success-soft)' : 'var(--danger-soft)',
+                color: delta >= 0 ? 'var(--success)' : 'var(--danger)',
+              }}
+            >
+              {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
+            </div>
+            <div className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              vs. mesmo período do mês anterior
+            </div>
           </div>
-          <p className="mt-2 text-xs text-ink-muted">{comparisonText}</p>
+        )}
+      </div>
+
+      {metaMes > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between text-xs">
+            <span style={{ color: 'var(--text-muted)' }}>
+              Meta · <strong style={{ color: 'var(--text-secondary)' }}>R$ {fmtBRL(metaMes, 0)}</strong>
+            </span>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono)' }}>
+                {pctMeta.toFixed(1)}%
+              </strong>{' '}
+              realizado
+            </span>
+          </div>
+
+          <div className="relative h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--bg-elev-3)' }}>
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+              style={{
+                width: `${Math.min(pctMeta, 100)}%`,
+                background: pctMeta >= 100 ? 'var(--success)' : 'var(--primary)',
+              }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            <span>
+              {diaUtil > 0 ? (
+                <>
+                  Dia útil{' '}
+                  <strong style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                    {diaUtil}/{diasUteis}
+                  </strong>
+                  {falta > 0 && (
+                    <> · faltam <strong style={{ color: 'var(--text-secondary)' }}>R$ {fmtCompact(falta)}</strong></>
+                  )}
+                </>
+              ) : (
+                falta > 0 && <>Faltam <strong style={{ color: 'var(--text-secondary)' }}>R$ {fmtCompact(falta)}</strong></>
+              )}
+            </span>
+            {ritmo > 0 && (
+              <span>
+                Ritmo projetado{' '}
+                <strong
+                  style={{
+                    color: pctRitmo >= 100 ? 'var(--success)' : 'var(--warning)',
+                    fontFamily: 'var(--font-mono)',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  R$ {fmtCompact(ritmo)}
+                </strong>
+                {' '}·{' '}
+                <span style={{ color: pctRitmo >= 100 ? 'var(--success)' : 'var(--text-secondary)' }}>
+                  {pctRitmo.toFixed(0)}% da meta
+                </span>
+              </span>
+            )}
+          </div>
         </div>
-      </CardBody>
-    </Card>
+      )}
+    </div>
   )
 }
