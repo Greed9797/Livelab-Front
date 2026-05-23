@@ -54,6 +54,77 @@ function normalizeConteudoTab(value: string | null): ConteudoTab {
   return 'agenda'
 }
 
+function parseLiveDate(value: unknown): Date | null {
+  if (typeof value !== 'string' || !value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function liveStartDate(live: JsonRecord): Date | null {
+  return parseLiveDate(live.iniciado_em ?? live.agenda_data_inicio)
+}
+
+function liveEndDate(live: JsonRecord): Date | null {
+  return parseLiveDate(live.encerrado_em ?? live.agenda_data_fim ?? live.previsto_fim)
+}
+
+export function isSyntheticLiveEvent(item: JsonRecord) {
+  return item._source === 'live_orphan'
+}
+
+function buildLiveAgendaFallback(live: JsonRecord, cabines: JsonRecord[]): JsonRecord | null {
+  const inicio = liveStartDate(live)
+  const fim = liveEndDate(live)
+  const liveId = asString(live.id, '')
+  if (!liveId || !inicio || !fim || fim <= inicio) return null
+  const cabineId = asString(live.cabine_id, '')
+  const cabine = cabines.find((item) => asString(item.id, '') === cabineId)
+  return {
+    _source: 'live_orphan',
+    id: `live:${liveId}`,
+    live_id: liveId,
+    tipo: 'live',
+    status: 'concluido',
+    data_inicio: inicio.toISOString(),
+    data_fim: fim.toISOString(),
+    marca_id: live.marca_id,
+    marca_nome: live.marca_nome ?? live.cliente_nome,
+    marca_logo_url: live.marca_logo_url,
+    marca_site: live.marca_site,
+    cliente_nome: live.cliente_nome,
+    cabine_id: cabineId,
+    cabine_numero: live.cabine_numero ?? cabine?.numero,
+    cabine_nome: live.cabine_nome ?? (cabine ? `Cabine ${asString(cabine.numero, '')}` : undefined),
+    apresentadora_nome: live.apresentadora_nome ?? live.apresentador_nome,
+    tiktok_username: live.tiktok_username,
+    observacoes: 'Live registrada sem evento de agenda vinculado.',
+  }
+}
+
+function mergeAgendaWithLiveFallbacks(
+  agendaRows: JsonRecord[],
+  livesRows: JsonRecord[],
+  cabines: JsonRecord[],
+  range: { start: string; end: string },
+) {
+  const linkedLiveIds = new Set(agendaRows.map((e) => asString(e.live_id, '')).filter(Boolean))
+  const linkedAgendaIds = new Set(agendaRows.map((e) => asString(e.id, '')).filter(Boolean))
+  const rangeStart = new Date(range.start)
+  const rangeEnd = new Date(range.end)
+  const fallbacks = livesRows
+    .filter((live) => {
+      const liveId = asString(live.id, '')
+      const agendaId = asString(live.agenda_evento_id, '')
+      if (!liveId || linkedLiveIds.has(liveId) || (agendaId && linkedAgendaIds.has(agendaId))) return false
+      const start = liveStartDate(live)
+      const end = liveEndDate(live)
+      return Boolean(start && end && start < rangeEnd && end > rangeStart)
+    })
+    .map((live) => buildLiveAgendaFallback(live, cabines))
+    .filter((event): event is JsonRecord => Boolean(event))
+  return [...agendaRows, ...fallbacks]
+}
+
 export function ConteudoPage() {
   const [params, setParams] = useSearchParams()
   const requestedTab = normalizeConteudoTab(params.get('tab'))
@@ -133,9 +204,9 @@ export function ConteudoPage() {
   if (isLoading) return <LoadingState />
   if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => { void agenda.refetch(); void cabines.refetch(); void lives.refetch(); void videos.refetch(); void marcas.refetch(); void clientes.refetch(); void apresentadoras.refetch() }} />
 
-  const agendaRows = agenda.data ?? []
   const cabineRows = cabines.data ?? []
   const activeCabines = cabineRows.filter((c) => (c as unknown as JsonRecord).ativo !== false && asString(c.status, '') !== 'inativa')
+  const agendaRows = mergeAgendaWithLiveFallbacks(agenda.data ?? [], lives.data ?? [], cabineRows as unknown as JsonRecord[], range)
   const marcaRows = marcas.data ?? []
   const clienteRows = clientes.data ?? []
   const apresentadoraRows = apresentadoras.data ?? []
@@ -149,6 +220,11 @@ export function ConteudoPage() {
   }
 
   function openEditAgendaModal(event: JsonRecord) {
+    if (isSyntheticLiveEvent(event)) {
+      const live = (lives.data ?? []).find((item) => asString(item.id, '') === asString(event.live_id, ''))
+      if (live) { setSelectedLiveRecord(live); setLiveModalMode('detail'); setParams({ tab: 'lives', live: asString(live.id, '') }, { replace: true }) }
+      return
+    }
     if (asString(event.status) === 'ao_vivo' && event.live_id) {
       setFetchingAgendaLive(true)
       getLivePorId(asString(event.live_id, '')).then((fullLive) => {

@@ -1,4 +1,4 @@
-import { Edit2, Plus, CheckCircle2 } from 'lucide-react'
+import { Edit2, Eye, Plus, CheckCircle2 } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Badge, statusTone } from '../ui/Badge'
@@ -7,6 +7,7 @@ import { TikTokLiveButton } from '../ui/TikTokLiveButton'
 import { AgendarLiveModal, type AgendarLiveModalMode } from '../forms/AgendarLiveModal'
 import { assignAgendaLanes, getAgendaEventLayout, publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asString, formatDate } from '../../utils/format'
+import { isSyntheticLiveEvent } from '../../pages/ConteudoPage'
 import { getBrandImage } from '../../utils/favicon'
 import type { JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
@@ -332,7 +333,7 @@ export function AgendaTab({
                       ) : null}
                       <Button
                         variant="ghost"
-                        icon={Edit2}
+                        icon={isSyntheticLiveEvent(item) ? Eye : Edit2}
                         isLoading={
                           fetchingAgendaLive &&
                           asString(item.status) === 'ao_vivo' &&
@@ -340,7 +341,7 @@ export function AgendaTab({
                         }
                         onClick={() => onOpenEditAgendaModal(item)}
                       >
-                        Editar
+                        {isSyntheticLiveEvent(item) ? 'Abrir' : 'Editar'}
                       </Button>
                     </div>
                   ),
