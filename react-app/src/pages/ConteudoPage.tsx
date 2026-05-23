@@ -250,6 +250,58 @@ function isLiveOnAir(item: JsonRecord) {
   return ['ao_vivo', 'em_andamento'].includes(asString(item.status, ''))
 }
 
+function isSyntheticLiveEvent(item: JsonRecord) {
+  return item._source === 'live_orphan'
+}
+
+function buildLiveAgendaFallback(live: JsonRecord, cabines: JsonRecord[]): JsonRecord | null {
+  const inicio = liveStartDate(live)
+  const fim = liveEndDate(live)
+  const liveId = asString(live.id, '')
+  if (!liveId || !inicio || !fim || fim <= inicio) return null
+  const cabineId = asString(live.cabine_id, '')
+  const cabine = cabines.find((item) => asString(item.id, '') === cabineId)
+  return {
+    _source: 'live_orphan',
+    id: `live:${liveId}`,
+    live_id: liveId,
+    tipo: 'live',
+    status: 'concluido',
+    data_inicio: inicio.toISOString(),
+    data_fim: fim.toISOString(),
+    marca_id: live.marca_id,
+    marca_nome: live.marca_nome ?? live.cliente_nome,
+    marca_logo_url: live.marca_logo_url,
+    marca_site: live.marca_site,
+    cliente_nome: live.cliente_nome,
+    cabine_id: cabineId,
+    cabine_numero: live.cabine_numero ?? cabine?.numero,
+    cabine_nome: live.cabine_nome ?? (cabine ? `Cabine ${asString(cabine.numero, '')}` : undefined),
+    apresentadora_nome: live.apresentadora_nome ?? live.apresentador_nome,
+    tiktok_username: live.tiktok_username,
+    observacoes: 'Live registrada sem evento de agenda vinculado.',
+  }
+}
+
+function mergeAgendaWithLiveFallbacks(agendaRows: JsonRecord[], livesRows: JsonRecord[], cabines: JsonRecord[], range: { start: string; end: string }) {
+  const linkedLiveIds = new Set(agendaRows.map((event) => asString(event.live_id, '')).filter(Boolean))
+  const linkedAgendaIds = new Set(agendaRows.map((event) => asString(event.id, '')).filter(Boolean))
+  const rangeStart = new Date(range.start)
+  const rangeEnd = new Date(range.end)
+  const fallbacks = livesRows
+    .filter((live) => {
+      const liveId = asString(live.id, '')
+      const agendaId = asString(live.agenda_evento_id, '')
+      if (!liveId || linkedLiveIds.has(liveId) || (agendaId && linkedAgendaIds.has(agendaId))) return false
+      const start = liveStartDate(live)
+      const end = liveEndDate(live)
+      return Boolean(start && end && start < rangeEnd && end > rangeStart)
+    })
+    .map((live) => buildLiveAgendaFallback(live, cabines))
+    .filter((event): event is JsonRecord => Boolean(event))
+  return [...agendaRows, ...fallbacks]
+}
+
 function typeLabel(tipo: unknown) {
   const value = asString(tipo, '')
   if (value === 'gravacao_video') return 'Gravação'
@@ -437,9 +489,9 @@ export function ConteudoPage() {
     void apresentadoras.refetch()
   }} />
 
-  const agendaRows = agenda.data ?? []
   const cabineRows = cabines.data ?? []
   const activeCabines = cabineRows.filter((cabine) => (cabine as unknown as JsonRecord).ativo !== false && asString(cabine.status, '') !== 'inativa')
+  const agendaRows = mergeAgendaWithLiveFallbacks(agenda.data ?? [], lives.data ?? [], cabineRows as unknown as JsonRecord[], range)
   const marcaRows = marcas.data ?? []
   const clienteRows = clientes.data ?? []
   const apresentadoraRows = apresentadoras.data ?? []
@@ -458,6 +510,11 @@ export function ConteudoPage() {
   }
 
   function openEditAgendaModal(event: JsonRecord) {
+    if (isSyntheticLiveEvent(event)) {
+      const live = (lives.data ?? []).find((item) => asString(item.id, '') === asString(event.live_id, ''))
+      if (live) openLiveDetail(live)
+      return
+    }
     // ao_vivo events with a linked live → open live edit modal for consistency with CabinesPage
     if (asString(event.status) === 'ao_vivo' && event.live_id) {
       setFetchingAgendaLive(true)
@@ -723,7 +780,14 @@ export function ConteudoPage() {
                         <div className="flex justify-end gap-2">
                           {isLiveOnAir(item) ? <TikTokLiveButton username={item.tiktok_username} compact /> : null}
                           {isPastRegisterable(item) ? <Button variant="secondary" icon={CheckCircle2} onClick={() => openRegisterResult(item)}>Registrar resultado</Button> : null}
-                          <Button variant="ghost" icon={Edit2} isLoading={fetchingAgendaLive && asString(item.status) === 'ao_vivo' && Boolean(item.live_id)} onClick={() => openEditAgendaModal(item)}>Editar</Button>
+                          <Button
+                            variant="ghost"
+                            icon={isSyntheticLiveEvent(item) ? Eye : Edit2}
+                            isLoading={fetchingAgendaLive && asString(item.status) === 'ao_vivo' && Boolean(item.live_id)}
+                            onClick={() => openEditAgendaModal(item)}
+                          >
+                            {isSyntheticLiveEvent(item) ? 'Abrir' : 'Editar'}
+                          </Button>
                         </div>
                       ),
                     },
