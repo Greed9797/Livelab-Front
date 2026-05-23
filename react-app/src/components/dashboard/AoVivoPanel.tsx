@@ -82,8 +82,8 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
           Nenhuma live ativa no momento
         </div>
       ) : (
-        <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1, borderColor: 'var(--border)' } as React.CSSProperties}>
-          {liveCabines.map((cab) => {
+        <div className="flex flex-col">
+          {liveCabines.map((cab, index) => {
             const nome = asString(cab.apresentador_nome ?? cab.cliente_nome, 'Apresentadora')
             const ini = initials(nome)
             const gmv = asNumber(cab.gmv_atual)
@@ -93,7 +93,11 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
             const cabLabel = cabNum > 0 ? `C-${String(cabNum).padStart(2, '0')}` : 'Cabine'
 
             return (
-              <div key={cab.id} className="flex items-center gap-3 px-4 py-3">
+              <div
+                key={cab.id}
+                className="flex items-center gap-3 px-4 py-3"
+                style={{ borderTop: index > 0 ? '1px solid var(--border)' : undefined }}
+              >
                 <div className="relative shrink-0">
                   <div
                     className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold"

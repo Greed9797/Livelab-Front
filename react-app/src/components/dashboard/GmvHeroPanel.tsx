@@ -111,85 +111,87 @@ function DailyChart({ data }: { data: Array<{ dia: number; gmv: number }> }) {
   const tooltipFlip = tooltipPct > 75
 
   return (
-    <div
-      ref={containerRef}
-      style={{ position: 'relative', cursor: 'crosshair' }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={() => setHoveredIdx(null)}
-    >
-      {hp && (
-        <div
-          style={{
-            position: 'absolute',
-            left: `${tooltipPct}%`,
-            top: `${(hp.y / H) * 100}%`,
-            transform: tooltipFlip ? 'translate(-100%, -120%)' : 'translate(8px, -120%)',
-            background: 'var(--bg-elev-3)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            padding: '4px 8px',
-            fontSize: 11,
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            zIndex: 10,
-            color: 'var(--text-primary)',
-            fontFamily: 'var(--font-mono)',
-          }}
-        >
-          <span style={{ color: 'var(--text-faint)', marginRight: 4 }}>Dia {hp.dia}</span>
-          {formatMoney(hp.gmv, true)}
-        </div>
-      )}
-
-      <svg
-        width="100%"
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        style={{ height: H, display: 'block' }}
+    <div>
+      <div
+        ref={containerRef}
+        style={{ position: 'relative', height: H, cursor: 'crosshair' }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoveredIdx(null)}
       >
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-
-        {[0.25, 0.5, 0.75].map(f => (
-          <line key={f} x1={0} y1={H * f} x2={W} y2={H * f} stroke="var(--border)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
-        ))}
-
         {hp && (
-          <line
-            x1={hp.x} y1={PAD_Y} x2={hp.x} y2={H - PAD_Y}
-            stroke="var(--primary)" strokeWidth="0.8" strokeDasharray="3 3" opacity="0.5" vectorEffect="non-scaling-stroke"
-          />
-        )}
-
-        <path d={area} fill={`url(#${gradId})`} />
-        <path d={line} fill="none" stroke="var(--primary)" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-      </svg>
-
-      {markerPts.map((point) => {
-        const active = hp?.dia === point.dia || (!hp && point.dia === lastPt.dia)
-        return (
-          <span
-            key={point.dia}
+          <div
             style={{
               position: 'absolute',
-              left: `${(point.x / W) * 100}%`,
-              top: `${(point.y / H) * 100}%`,
-              width: active ? 10 : 7,
-              height: active ? 10 : 7,
-              borderRadius: 999,
-              background: 'var(--primary)',
-              border: active ? '2px solid var(--bg-elev-1)' : '1px solid var(--bg-elev-1)',
-              boxShadow: active ? '0 0 0 4px color-mix(in srgb, var(--primary) 18%, transparent)' : 'none',
-              transform: 'translate(-50%, -50%)',
+              left: `${tooltipPct}%`,
+              top: `${(hp.y / H) * 100}%`,
+              transform: tooltipFlip ? 'translate(-100%, -120%)' : 'translate(8px, -120%)',
+              background: 'var(--bg-elev-3)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              padding: '4px 8px',
+              fontSize: 11,
+              whiteSpace: 'nowrap',
               pointerEvents: 'none',
+              zIndex: 10,
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-mono)',
             }}
-          />
-        )
-      })}
+          >
+            <span style={{ color: 'var(--text-faint)', marginRight: 4 }}>Dia {hp.dia}</span>
+            {formatMoney(hp.gmv, true)}
+          </div>
+        )}
+
+        <svg
+          width="100%"
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          style={{ height: H, display: 'block' }}
+        >
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+
+          {[0.25, 0.5, 0.75].map(f => (
+            <line key={f} x1={0} y1={H * f} x2={W} y2={H * f} stroke="var(--border)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
+          ))}
+
+          {hp && (
+            <line
+              x1={hp.x} y1={PAD_Y} x2={hp.x} y2={H - PAD_Y}
+              stroke="var(--primary)" strokeWidth="0.8" strokeDasharray="3 3" opacity="0.5" vectorEffect="non-scaling-stroke"
+            />
+          )}
+
+          <path d={area} fill={`url(#${gradId})`} />
+          <path d={line} fill="none" stroke="var(--primary)" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        </svg>
+
+        {markerPts.map((point) => {
+          const active = hp?.dia === point.dia || (!hp && point.dia === lastPt.dia)
+          return (
+            <span
+              key={point.dia}
+              style={{
+                position: 'absolute',
+                left: `${(point.x / W) * 100}%`,
+                top: `${(point.y / H) * 100}%`,
+                width: active ? 10 : 7,
+                height: active ? 10 : 7,
+                borderRadius: 999,
+                background: 'var(--primary)',
+                border: active ? '2px solid var(--bg-elev-1)' : '1px solid var(--bg-elev-1)',
+                boxShadow: active ? '0 0 0 4px color-mix(in srgb, var(--primary) 18%, transparent)' : 'none',
+                transform: 'translate(-50%, -50%)',
+                pointerEvents: 'none',
+              }}
+            />
+          )
+        })}
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--text-faint)' }}>
         {tickDays.map(d => <span key={d.dia}>{d.dia}</span>)}

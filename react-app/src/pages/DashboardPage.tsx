@@ -224,7 +224,7 @@ export function DashboardPage() {
               Agendada
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--bg-elev-3)', border: '1px solid var(--border)' }} />
+              <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'oklch(0.72 0.10 160 / 0.22)', border: '1px solid oklch(0.72 0.10 160 / 0.55)' }} />
               Concluída
             </span>
           </div>
