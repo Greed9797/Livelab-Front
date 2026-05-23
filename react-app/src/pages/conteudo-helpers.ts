@@ -21,9 +21,12 @@ export function publicationStatusTone(value: unknown): BadgeTone {
 }
 
 function localMinutes(value: unknown) {
-  const date = typeof value === 'string' ? new Date(value) : null
-  if (!date || Number.isNaN(date.getTime())) return null
-  return date.getHours() * 60 + date.getMinutes()
+  if (typeof value !== 'string') return null
+  // Extract HH:MM from the local portion of the ISO string (before any tz offset/Z)
+  // so the result is timezone-independent and matches what the user scheduled.
+  const m = value.match(/T(\d{2}):(\d{2})/)
+  if (!m) return null
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10)
 }
 
 /**
