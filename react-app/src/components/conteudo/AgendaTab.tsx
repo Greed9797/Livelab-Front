@@ -5,11 +5,11 @@ import { Badge, statusTone } from '../ui/Badge'
 import { DataTable } from '../ui/DataTable'
 import { TikTokLiveButton } from '../ui/TikTokLiveButton'
 import { AgendarLiveModal, type AgendarLiveModalMode } from '../forms/AgendarLiveModal'
-import { assignAgendaLanes, getAgendaEventLayout, publicationStatusLabel } from '../../pages/conteudo-helpers'
+import { assignAgendaLanes, getAgendaEventLayout } from '../../pages/conteudo-helpers'
 import { asString, formatDate } from '../../utils/format'
 import { isSyntheticLiveEvent } from '../../pages/ConteudoPage'
 import { getBrandImage } from '../../utils/favicon'
-import type { JsonRecord } from '../../types/models'
+import type { Cabine, JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
 
 // Re-export local helpers so they can be reused
@@ -55,7 +55,7 @@ export interface AgendaTabProps {
   agendaDate: string
   agendaView: 'dia' | 'semana'
   agendaRows: JsonRecord[]
-  activeCabines: JsonRecord[]
+  activeCabines: Cabine[]
   marcaRows: JsonRecord[]
   clienteRows: JsonRecord[]
   apresentadoraRows: JsonRecord[]

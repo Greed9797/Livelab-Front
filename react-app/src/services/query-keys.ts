@@ -38,7 +38,8 @@ export const QK = {
   clienteLives: (period?: { mes: number; ano: number }) =>
     period ? ['cliente-lives', period] as const : ['cliente-lives'] as const,
   crmSummary: ['crm-summary'] as const,
-  financeiroCustos: (mes: number) => ['financeiro-custos', mes] as const,
+  financeiroCustos: (mes?: string) =>
+    mes ? ['financeiro-custos', mes] as const : ['financeiro-custos'] as const,
   financeiroResumo: ['financeiro-resumo'] as const,
   financeiroFaturamento: ['financeiro-faturamento'] as const,
   financeiroFluxo: ['financeiro-fluxo'] as const,

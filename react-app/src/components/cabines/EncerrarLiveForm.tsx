@@ -24,15 +24,10 @@ export interface EncerrarLiveFormData {
   resumo: string
 }
 
-interface Apresentadora {
-  id: string
-  nome?: string
-}
-
 interface EncerrarLiveFormProps {
   live: JsonRecord
   formData: EncerrarLiveFormData
-  apresentadoras: Apresentadora[]
+  apresentadoras: JsonRecord[]
   isLoading: boolean
   error: Error | null
   onFieldChange: (key: keyof EncerrarLiveFormData, value: string) => void

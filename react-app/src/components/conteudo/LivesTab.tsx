@@ -77,13 +77,6 @@ function buildLiveReport(live: JsonRecord): string {
   return lines.filter((l) => l !== null).join('\n')
 }
 
-function clienteMarcaLabel(live: JsonRecord): string {
-  const tipo = asString(live.tipo, '')
-  const isSistema = (live.marca as JsonRecord | undefined)?.sistema === true
-  if (['afiliado', 'teste'].includes(tipo) && isSistema) return 'Sistema'
-  return asString(live.marca_nome ?? live.cliente_nome)
-}
-
 export interface LivesTabProps {
   livesData: JsonRecord[]
   liveModalMode: 'detail' | null
