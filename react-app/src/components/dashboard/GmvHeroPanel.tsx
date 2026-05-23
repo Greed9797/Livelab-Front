@@ -59,9 +59,9 @@ function MetaBar({ gmv, meta }: { gmv: number; meta: number | null }) {
 }
 
 const W = 300
-const H = 100
+const H = 156
 const PAD_X = 8
-const PAD_Y = 10
+const PAD_Y = 16
 
 function DailyChart({ data }: { data: Array<{ dia: number; gmv: number }> }) {
   const today = new Date().getDate()
@@ -70,10 +70,11 @@ function DailyChart({ data }: { data: Array<{ dia: number; gmv: number }> }) {
 
   const plotted = data.filter(d => d.dia <= today)
   const max = Math.max(...plotted.map(d => d.gmv), 1)
+  const yMax = max * 1.12
 
   const pts = plotted.map((d, i) => ({
     x: plotted.length <= 1 ? W / 2 : (i / (plotted.length - 1)) * (W - PAD_X * 2) + PAD_X,
-    y: H - PAD_Y - ((d.gmv / max) * (H - PAD_Y * 2)),
+    y: H - PAD_Y - ((d.gmv / yMax) * (H - PAD_Y * 2)),
     dia: d.dia,
     gmv: d.gmv,
   }))
@@ -92,17 +93,18 @@ function DailyChart({ data }: { data: Array<{ dia: number; gmv: number }> }) {
   }, [pts])
 
   if (pts.length < 2) return (
-    <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>sem dados ainda</span>
     </div>
   )
 
   const line = pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ')
-  const area = `${line} L ${pts[pts.length - 1].x} ${H} L ${pts[0].x} ${H} Z`
+  const area = `${line} L ${pts[pts.length - 1].x} ${H - PAD_Y} L ${pts[0].x} ${H - PAD_Y} Z`
   const gradId = 'gmv-daily-grad'
 
   const hp = hoveredIdx !== null ? pts[hoveredIdx] : null
   const lastPt = pts[pts.length - 1]
+  const markerPts = pts.filter((point, index) => point.gmv > 0 || index === pts.length - 1)
   const tickDays = data.filter(d => d.dia === 1 || d.dia % 5 === 0)
 
   const tooltipPct = hp ? (hp.x / W) * 100 : 0
@@ -143,7 +145,7 @@ function DailyChart({ data }: { data: Array<{ dia: number; gmv: number }> }) {
         width="100%"
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
-        style={{ height: 100, display: 'block' }}
+        style={{ height: H, display: 'block' }}
       >
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
@@ -153,25 +155,41 @@ function DailyChart({ data }: { data: Array<{ dia: number; gmv: number }> }) {
         </defs>
 
         {[0.25, 0.5, 0.75].map(f => (
-          <line key={f} x1={0} y1={H * f} x2={W} y2={H * f} stroke="var(--border)" strokeWidth="0.8" />
+          <line key={f} x1={0} y1={H * f} x2={W} y2={H * f} stroke="var(--border)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
         ))}
 
         {hp && (
           <line
-            x1={hp.x} y1={PAD_Y} x2={hp.x} y2={H}
-            stroke="var(--primary)" strokeWidth="0.8" strokeDasharray="3 3" opacity="0.5"
+            x1={hp.x} y1={PAD_Y} x2={hp.x} y2={H - PAD_Y}
+            stroke="var(--primary)" strokeWidth="0.8" strokeDasharray="3 3" opacity="0.5" vectorEffect="non-scaling-stroke"
           />
         )}
 
         <path d={area} fill={`url(#${gradId})`} />
-        <path d={line} fill="none" stroke="var(--primary)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-
-        {hp ? (
-          <circle cx={hp.x} cy={hp.y} r="3.5" fill="var(--primary)" stroke="var(--bg-elev-1)" strokeWidth="1.5" />
-        ) : (
-          <circle cx={lastPt.x} cy={lastPt.y} r="2.5" fill="var(--primary)" />
-        )}
+        <path d={line} fill="none" stroke="var(--primary)" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
       </svg>
+
+      {markerPts.map((point) => {
+        const active = hp?.dia === point.dia || (!hp && point.dia === lastPt.dia)
+        return (
+          <span
+            key={point.dia}
+            style={{
+              position: 'absolute',
+              left: `${(point.x / W) * 100}%`,
+              top: `${(point.y / H) * 100}%`,
+              width: active ? 10 : 7,
+              height: active ? 10 : 7,
+              borderRadius: 999,
+              background: 'var(--primary)',
+              border: active ? '2px solid var(--bg-elev-1)' : '1px solid var(--bg-elev-1)',
+              boxShadow: active ? '0 0 0 4px color-mix(in srgb, var(--primary) 18%, transparent)' : 'none',
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
+            }}
+          />
+        )
+      })}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--text-faint)' }}>
         {tickDays.map(d => <span key={d.dia}>{d.dia}</span>)}

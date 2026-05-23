@@ -185,25 +185,30 @@ export function Shell() {
 
         <main className="min-h-screen px-4 py-6 md:px-7 lg:px-8 lg:py-5">
           {isHomeRoute ? (
-          <div className="mb-6 hidden items-center justify-between lg:flex">
-            <div className="flex items-center gap-3">
-              <span className="grid h-13 w-13 place-items-center rounded-full bg-gradient-to-br from-brand to-[#ff8a3c] text-lg font-bold text-white shadow-[0_4px_12px_-2px_rgba(255,90,31,0.5)]">
-                {initials(user?.nome)}
-              </span>
-              <div>
-                <h1 className="m-0 text-[22px] font-bold leading-tight tracking-[-0.02em] text-ink">
-                  {user?.tenant_nome ?? 'Livelab'}
-                </h1>
-                <p className="mt-1 text-sm text-ink-muted">{user?.nome ?? 'Usuário'} · {roleLabel(user?.papel)}</p>
+            <div className="mb-5 hidden items-center justify-between gap-3 border-b border-line pb-4 lg:flex">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand to-[#ff8a3c] text-sm font-bold text-white shadow-[0_4px_12px_-4px_rgba(255,90,31,0.55)]">
+                  {initials(user?.tenant_nome ?? user?.nome)}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold leading-tight text-ink">{user?.tenant_nome ?? 'Livelab'}</p>
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-xs text-ink-muted">
+                    <span className="truncate">{user?.nome ?? 'Usuário'}</span>
+                    <span className="h-1 w-1 rounded-full bg-ink-muted/60" />
+                    <span className="rounded-full border border-line bg-surface px-2 py-0.5 font-semibold text-ink-muted">
+                      {roleLabel(user?.papel)}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="relative grid h-12 w-12 place-items-center rounded-2xl border border-line bg-surface text-ink-muted transition hover:bg-surface-muted" aria-label="Notificações">
-                <Bell className="h-5 w-5" />
-                <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full border-2 border-surface bg-brand" />
+              <button
+                className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-surface text-ink-muted transition hover:bg-surface-muted hover:text-ink"
+                aria-label="Notificações"
+              >
+                <Bell className="h-4 w-4" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-surface bg-brand" />
               </button>
             </div>
-          </div>
           ) : null}
           <Outlet />
         </main>
