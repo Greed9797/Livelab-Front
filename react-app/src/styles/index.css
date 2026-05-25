@@ -191,13 +191,17 @@ button:disabled {
 
 .design-input {
   background: var(--bg-input);
-  border: 1px solid transparent;
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   color: var(--text-primary);
   -webkit-text-fill-color: var(--text-primary);
   caret-color: var(--primary);
   outline: none;
   transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.design-input:hover {
+  border-color: color-mix(in srgb, var(--border-strong) 72%, var(--primary));
 }
 
 .design-input::placeholder {

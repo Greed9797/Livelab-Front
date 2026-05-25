@@ -8,10 +8,8 @@ import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
 import { getAgenda, getCabines, getComissoesApresentadoras, getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney } from '../utils/format'
+import { getSaoPauloDateInput, getSaoPauloDayAgendaParams } from '../utils/sao-paulo-date'
 import type { JsonRecord } from '../types/models'
-
-const today = new Date().toISOString().slice(0, 10)
-
 
 function fmtCompact(v: number): string {
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`
@@ -192,7 +190,18 @@ function AgendaCard({ agenda }: { agenda: JsonRecord[] }) {
 }
 
 /* ── Ranking apresentadoras ── */
+export function getPresenterRankingName(row: JsonRecord): string {
+  return asString(row.nome ?? row.apresentadora_nome ?? row.apresentador_nome, '—')
+}
+
+export function getPresenterRankingProgress(gmv: number, maxGmv: number): number {
+  if (maxGmv <= 0 || gmv <= 0) return 0
+  return Math.min(100, Math.max(0, (gmv / maxGmv) * 100))
+}
+
 function RankingApresentadorasCard({ data }: { data: JsonRecord[] }) {
+  const maxGmv = data.reduce((max, row) => Math.max(max, asNumber(row.gmv ?? row.gmv_total)), 0)
+
   return (
     <div
       className="flex flex-col rounded-xl overflow-hidden"
@@ -242,8 +251,8 @@ function RankingApresentadorasCard({ data }: { data: JsonRecord[] }) {
               const lives = asNumber(row.lives ?? row.total_lives)
               const gmvPerLive = lives > 0 ? gmv / lives : 0
               const comissao = asNumber(row.comissao_apresentadora ?? row.comissao)
-              const metaPct = asNumber(row.pct_meta ?? row.percentual_meta)
-              const nome = asString(row.nome)
+              const progress = getPresenterRankingProgress(gmv, maxGmv)
+              const nome = getPresenterRankingName(row)
               const posEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`
               return (
                 <tr
@@ -269,22 +278,20 @@ function RankingApresentadorasCard({ data }: { data: JsonRecord[] }) {
                         <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
                           {nome}
                         </div>
-                        {metaPct > 0 && (
-                          <div className="mt-0.5 flex items-center gap-1.5">
-                            <div className="h-1 w-16 overflow-hidden rounded-full" style={{ background: 'var(--bg-elev-3)' }}>
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${Math.min(metaPct, 100)}%`,
-                                  background: metaPct >= 100 ? 'var(--success)' : 'var(--primary)',
-                                }}
-                              />
-                            </div>
-                            <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
-                              {metaPct.toFixed(0)}%
-                            </span>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <div className="h-1.5 w-24 overflow-hidden rounded-full" style={{ background: 'var(--bg-elev-3)' }}>
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${progress}%`,
+                                background: 'linear-gradient(90deg, var(--primary), oklch(0.74 0.14 55))',
+                              }}
+                            />
                           </div>
-                        )}
+                          <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                            {progress.toFixed(0)}%
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -358,6 +365,8 @@ function AlertsStrip({ raw }: { raw: JsonRecord }) {
 
 /* ── Main page ── */
 export function DashboardPage() {
+  const today = getSaoPauloDateInput()
+  const agendaTodayParams = getSaoPauloDayAgendaParams(today)
   const homeQuery = useQuery({
     queryKey: ['home-dashboard'],
     queryFn: getHomeDashboard,
@@ -365,7 +374,7 @@ export function DashboardPage() {
   })
   const agendaQuery = useQuery({
     queryKey: ['agenda-today', today],
-    queryFn: () => getAgenda({ data: today }),
+    queryFn: () => getAgenda(agendaTodayParams),
     refetchInterval: 60_000,
   })
   const cabinesQuery = useQuery({
@@ -445,7 +454,7 @@ export function DashboardPage() {
               </span>
             </div>
           </div>
-          <CabinesGantt agenda={agenda} cabines={cabines} />
+          <CabinesGantt agenda={agenda} cabines={cabines} date={today} />
         </div>
 
         <AoVivoPanel liveCabines={liveCabines} />

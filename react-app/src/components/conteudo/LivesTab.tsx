@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Calendar,
   ChevronDown,
@@ -25,6 +26,7 @@ import type { UseMutationResult } from '@tanstack/react-query'
 const COLS = '80px minmax(180px,1.4fr) 90px 110px 115px 100px minmax(115px,1fr) 90px 76px 76px'
 // Reference max duration (8 h) for the duration bar width
 const MAX_DUR_MINS = 480
+const ACTION_MENU_WIDTH = 168
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -307,18 +309,25 @@ export function LivesTab({
 }: LivesTabProps) {
   const [search, setSearch] = useState('')
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
-  const [kebabOpenId, setKebabOpenId] = useState<string | null>(null)
+  const [kebabMenu, setKebabMenu] = useState<{ liveId: string; live: JsonRecord; top: number; left: number } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
+  const kebabOpenId = kebabMenu?.liveId ?? null
 
   // Close overlay menus on outside click
   useEffect(() => {
     const close = () => {
-      setKebabOpenId(null)
+      setKebabMenu(null)
       setExportOpen(false)
     }
     document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
+    window.addEventListener('resize', close)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      document.removeEventListener('click', close)
+      window.removeEventListener('resize', close)
+      window.removeEventListener('scroll', close, true)
+    }
   }, [])
 
   // `/` keyboard shortcut → focus search
@@ -357,6 +366,24 @@ export function LivesTab({
       else next.add(key)
       return next
     })
+  }
+
+  function toggleKebabMenu(event: React.MouseEvent<HTMLButtonElement>, liveId: string, live: JsonRecord) {
+    event.stopPropagation()
+
+    if (kebabOpenId === liveId) {
+      setKebabMenu(null)
+      return
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect()
+    const left = Math.min(
+      Math.max(8, rect.right - ACTION_MENU_WIDTH),
+      window.innerWidth - ACTION_MENU_WIDTH - 8,
+    )
+    const top = Math.min(rect.bottom + 6, window.innerHeight - 112)
+    setKebabMenu({ liveId, live, top: Math.max(8, top), left })
+    setExportOpen(false)
   }
 
   // ── common button styles ──────────────────────────────────────────────
@@ -1140,54 +1167,10 @@ export function LivesTab({
                                 color: 'var(--text-muted)',
                                 cursor: 'pointer',
                               }}
-                              onClick={() =>
-                                setKebabOpenId(isKebabOpen ? null : liveId)
-                              }
+                              onClick={(event) => toggleKebabMenu(event, liveId, live)}
                             >
                               <MoreHorizontal style={{ width: 13, height: 13 }} />
                             </button>
-                            {isKebabOpen && (
-                              <div
-                                style={{
-                                  position: 'absolute',
-                                  right: 0,
-                                  top: 34,
-                                  minWidth: 160,
-                                  background: 'var(--bg-elev-2)',
-                                  border: '1px solid var(--border-strong)',
-                                  borderRadius: 10,
-                                  boxShadow: 'var(--shadow-card-lg)',
-                                  padding: 5,
-                                  zIndex: 10,
-                                }}
-                              >
-                                <MenuBtn
-                                  icon={<Edit2 style={{ width: 13, height: 13 }} />}
-                                  label="Editar"
-                                  onClick={() => {
-                                    setKebabOpenId(null)
-                                    onOpenEditLive(live)
-                                  }}
-                                />
-                                <hr
-                                  style={{
-                                    border: 'none',
-                                    height: 1,
-                                    background: 'var(--border)',
-                                    margin: '4px 2px',
-                                  }}
-                                />
-                                <MenuBtn
-                                  icon={<Trash2 style={{ width: 13, height: 13 }} />}
-                                  label="Excluir"
-                                  danger
-                                  onClick={() => {
-                                    setKebabOpenId(null)
-                                    onDeleteLive(live)
-                                  }}
-                                />
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -1219,6 +1202,53 @@ export function LivesTab({
           </span>
         </div>
       </div>
+
+      {typeof document !== 'undefined' && kebabMenu ? createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: kebabMenu.top,
+            left: kebabMenu.left,
+            minWidth: ACTION_MENU_WIDTH,
+            background: 'var(--bg-elev-2)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 10,
+            boxShadow: 'var(--shadow-card-lg)',
+            padding: 5,
+            zIndex: 70,
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <MenuBtn
+            icon={<Edit2 style={{ width: 13, height: 13 }} />}
+            label="Editar"
+            onClick={() => {
+              const live = kebabMenu.live
+              setKebabMenu(null)
+              onOpenEditLive(live)
+            }}
+          />
+          <hr
+            style={{
+              border: 'none',
+              height: 1,
+              background: 'var(--border)',
+              margin: '4px 2px',
+            }}
+          />
+          <MenuBtn
+            icon={<Trash2 style={{ width: 13, height: 13 }} />}
+            label="Excluir"
+            danger
+            onClick={() => {
+              const live = kebabMenu.live
+              setKebabMenu(null)
+              onDeleteLive(live)
+            }}
+          />
+        </div>,
+        document.body,
+      ) : null}
 
       {/* ── Detail Modal ── */}
       <Modal

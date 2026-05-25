@@ -1,5 +1,6 @@
 import type { Cabine, JsonRecord } from '../../types/models'
 import { asNumber, asString } from '../../utils/format'
+import { isSameSaoPauloDate } from '../../utils/sao-paulo-date'
 
 const START_H = 7
 const END_H = 23
@@ -73,9 +74,10 @@ function nowHour(): number {
 interface CabinesGanttProps {
   agenda: JsonRecord[]
   cabines: Cabine[]
+  date?: string
 }
 
-export function CabinesGantt({ agenda, cabines }: CabinesGanttProps) {
+export function CabinesGantt({ agenda, cabines, date }: CabinesGanttProps) {
   const now = nowHour()
 
   const laneMap = new Map<string, Lane>()
@@ -94,6 +96,9 @@ export function CabinesGantt({ agenda, cabines }: CabinesGanttProps) {
 
   // add blocks from agenda
   for (const ev of agenda) {
+    const eventStart = asString(ev.data_inicio, '')
+    if (date && eventStart && !isSameSaoPauloDate(eventStart, date)) continue
+
     const num = asNumber(ev.cabine_numero ?? ev.numero)
     const cabineId = asString(ev.cabine_id)
     const key = num > 0 ? `C-${String(num).padStart(2, '0')}` : cabineId
@@ -105,7 +110,7 @@ export function CabinesGantt({ agenda, cabines }: CabinesGanttProps) {
     const lane = laneMap.get(key)
     if (!lane) continue
 
-    const start = parseHour(asString(ev.data_inicio ?? ev.hora_inicio, ''))
+    const start = parseHour(asString(eventStart || ev.hora_inicio, ''))
     const end = parseHour(asString(ev.data_fim ?? ev.hora_fim, ''))
     const status = asString(ev.status, 'agendado')
     const clienteNome = asString(ev.cliente_nome ?? ev.marca_nome ?? ev.titulo, '')
