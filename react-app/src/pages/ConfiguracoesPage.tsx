@@ -7,7 +7,8 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { getClienteMeta, getClientePerfil, getConfiguracoes, getMetaUnidade, getRankingPublicoConfig, saveMetaUnidade, trocarSenha, updateClienteMeta, updateClienteTiktok, updateConfiguracoes, updateRankingPublicoConfig } from '../services/domain'
+import { getClienteMeta, getClientePerfil, getConfiguracoes, getMetaUnidade, getMetasApresentadoras, getMetaSupervisor, getRankingPublicoConfig, trocarSenha, updateClienteMeta, updateClienteTiktok, updateConfiguracoes, updateRankingPublicoConfig, upsertMetaApresentadora, upsertMetaSupervisor } from '../services/domain'
+import { useToast } from '../components/ui/Toast'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, currentPeriod, formatMoney, periodLabel } from '../utils/format'
 import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
@@ -20,6 +21,7 @@ type SettingsTab = 'unidade' | 'usuarios' | 'apresentadoras' | 'metas' | 'comiss
 const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'apresentadoras', 'metas', 'comissoes-livelab', 'ranking', 'aparencia', 'integracoes', 'seguranca']
 
 export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boolean }) {
+  const toast = useToast()
   const client = useQueryClient()
   const [params, setParams] = useSearchParams()
   const query = useQuery({ queryKey: QK.configuracoes(clienteMode), queryFn: getConfiguracoes, enabled: !clienteMode })
@@ -51,26 +53,65 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     mutationFn: updateRankingPublicoConfig,
     onSuccess: () => client.invalidateQueries({ queryKey: QK.configuracoeRankingPublico }),
   })
-  const [metaAnoMes, setMetaAnoMes] = useState(new Date().toISOString().slice(0, 7))
+  const [metaAnoMes] = useState(new Date().toISOString().slice(0, 7))
   const metaUnidadeQuery = useQuery({
     queryKey: QK.metaUnidade(metaAnoMes),
     queryFn: () => getMetaUnidade(metaAnoMes),
     enabled: !clienteMode,
   })
-  const [metaUnidadeForm, setMetaUnidadeForm] = useState({
-    meta_gmv: '',
-    m1_teto: '',
-    m1_pct: '',
-    m2_teto: '',
-    m2_pct: '',
-    m3_teto: '',
-    m3_pct: '',
-    m4_pct: '',
+
+  // ── Metas apresentadoras + supervisor ──────────────────────────────────────
+  const [metasMes, setMetasMes] = useState(new Date().toISOString().slice(0, 7))
+  const metasApresentadorasQuery = useQuery({
+    queryKey: QK.metasApresentadoras(metasMes),
+    queryFn: () => getMetasApresentadoras(metasMes),
+    enabled: !clienteMode && settingsTab === 'metas',
   })
-  const metaUnidadeMutation = useMutation({
-    mutationFn: saveMetaUnidade,
-    onSuccess: () => client.invalidateQueries({ queryKey: QK.metaUnidade() }),
+  const metasSupervisorQuery = useQuery({
+    queryKey: QK.metasSupervisor(metasMes),
+    queryFn: () => getMetaSupervisor(metasMes),
+    enabled: !clienteMode && settingsTab === 'metas',
   })
+  const [metasSupervisorInput, setMetasSupervisorInput] = useState('')
+  const [metasApresentadorasInputs, setMetasApresentadorasInputs] = useState<Record<string, string>>({})
+
+  const supervisorMutation = useMutation({
+    mutationFn: ({ gmv_meta_total }: { gmv_meta_total: number }) =>
+      upsertMetaSupervisor(metasMes, { gmv_meta_total, calculado_automaticamente: false }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: QK.metasSupervisor(metasMes) })
+      toast.push('Meta do supervisor salva.', 'success')
+    },
+    onError: (err: unknown) => toast.push(extractErrorMessage(err), 'error'),
+  })
+
+  const apresentadoraMutation = useMutation({
+    mutationFn: ({ id, gmv_meta }: { id: string; gmv_meta: number }) =>
+      upsertMetaApresentadora(id, metasMes, { gmv_meta }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: QK.metasApresentadoras(metasMes) })
+      toast.push('Meta salva.', 'success')
+    },
+    onError: (err: unknown) => toast.push(extractErrorMessage(err), 'error'),
+  })
+
+  const saveAllApresentadorasMutation = useMutation({
+    mutationFn: async () => {
+      const entries = Object.entries(metasApresentadorasInputs)
+      for (const [id, raw] of entries) {
+        const val = parseBRMoneyToDecimal(raw)
+        if (!isNaN(val)) {
+          await upsertMetaApresentadora(id, metasMes, { gmv_meta: val })
+        }
+      }
+    },
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: QK.metasApresentadoras(metasMes) })
+      toast.push('Todas as metas salvas.', 'success')
+    },
+    onError: (err: unknown) => toast.push(extractErrorMessage(err), 'error'),
+  })
+
   const tiktokMutation = useMutation({
     mutationFn: updateClienteTiktok,
     onSuccess: () => {
@@ -113,19 +154,21 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   }, [metaQuery.data])
 
   useEffect(() => {
-    if (!metaUnidadeQuery.data) return
-    const d = metaUnidadeQuery.data
-    setMetaUnidadeForm({
-      meta_gmv: formatBRLWithoutSymbol(d.meta_gmv ?? 0),
-      m1_teto: formatBRLWithoutSymbol(d.m1_teto ?? 600000),
-      m1_pct: String(asNumber(d.m1_pct, 0.25) * 100),
-      m2_teto: formatBRLWithoutSymbol(d.m2_teto ?? 1200000),
-      m2_pct: String(asNumber(d.m2_pct, 0.35) * 100),
-      m3_teto: formatBRLWithoutSymbol(d.m3_teto ?? 2000000),
-      m3_pct: String(asNumber(d.m3_pct, 0.65) * 100),
-      m4_pct: String(asNumber(d.m4_pct, 1.00) * 100),
-    })
-  }, [metaUnidadeQuery.data])
+    if (!metasSupervisorQuery.data) return
+    setMetasSupervisorInput(formatBRLWithoutSymbol(metasSupervisorQuery.data.meta_gmv ?? 0))
+  }, [metasSupervisorQuery.data])
+
+  useEffect(() => {
+    if (!metasApresentadorasQuery.data) return
+    const inputs: Record<string, string> = {}
+    for (const row of metasApresentadorasQuery.data) {
+      inputs[String(row.apresentadora_id)] = formatBRLWithoutSymbol(row.meta_gmv ?? 0)
+    }
+    setMetasApresentadorasInputs(inputs)
+  }, [metasApresentadorasQuery.data])
+
+  // metaUnidadeQuery kept for possible future use (meta_unidade tab)
+  void metaUnidadeQuery
 
   if (clienteMode) {
     if (perfilQuery.isLoading || metaQuery.isLoading) return <LoadingState />
@@ -305,87 +348,169 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
       </div>
 
       {settingsTab === 'metas' ? (
-        <Card>
-          <CardHeader>
-            <p className="text-sm font-bold text-ink">Metas da unidade</p>
-            <p className="mt-1 text-xs text-ink-muted">Configure a meta de GMV mensal e os tiers de comissão para o período selecionado.</p>
-          </CardHeader>
-          <CardBody>
-            {metaUnidadeQuery.isLoading ? <LoadingState label="Carregando metas" /> : null}
-            {metaUnidadeQuery.isError ? <ErrorState message={extractErrorMessage(metaUnidadeQuery.error)} onRetry={() => void metaUnidadeQuery.refetch()} /> : null}
-            {!metaUnidadeQuery.isLoading && !metaUnidadeQuery.isError ? (
-              <form
-                className="grid gap-4 md:grid-cols-2"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  metaUnidadeMutation.mutate({
-                    ano_mes: metaAnoMes,
-                    meta_gmv: parseBRMoneyToDecimal(metaUnidadeForm.meta_gmv),
-                    m1_teto: parseBRMoneyToDecimal(metaUnidadeForm.m1_teto),
-                    m1_pct: parseFloat(metaUnidadeForm.m1_pct) / 100,
-                    m2_teto: parseBRMoneyToDecimal(metaUnidadeForm.m2_teto),
-                    m2_pct: parseFloat(metaUnidadeForm.m2_pct) / 100,
-                    m3_teto: parseBRMoneyToDecimal(metaUnidadeForm.m3_teto),
-                    m3_pct: parseFloat(metaUnidadeForm.m3_pct) / 100,
-                    m4_pct: parseFloat(metaUnidadeForm.m4_pct) / 100,
-                  })
-                }}
-              >
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-semibold text-ink">Mês de referência</span>
-                  <input
-                    type="month"
-                    className="design-input mt-2 h-11 w-full px-4"
-                    value={metaAnoMes}
-                    onChange={(event) => setMetaAnoMes(event.target.value)}
-                  />
-                </label>
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-semibold text-ink">Meta de GMV</span>
-                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.meta_gmv} onChange={(raw) => setMetaUnidadeForm((c) => ({ ...c, meta_gmv: raw }))} />
-                </label>
-                <div className="md:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted mb-3">Tiers de comissão</p>
+        <div className="space-y-6">
+          {/* Seletor de mês */}
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-semibold text-ink" htmlFor="metas-mes-input">Mês de referência</label>
+            <input
+              id="metas-mes-input"
+              type="month"
+              className="design-input h-10 px-4 text-sm"
+              value={metasMes}
+              onChange={(event) => setMetasMes(event.target.value)}
+            />
+          </div>
+
+          {/* Card: Meta supervisor */}
+          <Card>
+            <CardHeader>
+              <p className="text-sm font-bold text-ink">Meta do supervisor</p>
+              <p className="mt-1 text-xs text-ink-muted">Meta consolidada de GMV para a unidade no mês selecionado.</p>
+            </CardHeader>
+            <CardBody>
+              {metasSupervisorQuery.isLoading ? <LoadingState label="Carregando…" /> : null}
+              {metasSupervisorQuery.isError ? <ErrorState message={extractErrorMessage(metasSupervisorQuery.error)} onRetry={() => void metasSupervisorQuery.refetch()} /> : null}
+              {metasSupervisorQuery.data ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-line bg-surface-muted p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">GMV Realizado</p>
+                      <p className="num mt-2 text-xl font-bold text-ink">{formatMoney(asNumber(metasSupervisorQuery.data.gmv_realizado, 0))}</p>
+                    </div>
+                    <div className="rounded-2xl border border-line bg-surface-muted p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">Meta atual</p>
+                      <p className="num mt-2 text-xl font-bold text-ink">{formatMoney(asNumber(metasSupervisorQuery.data.meta_gmv, 0))}</p>
+                    </div>
+                  </div>
+                  {(() => {
+                    const supMeta = asNumber(metasSupervisorQuery.data.meta_gmv, 0)
+                    const supReal = asNumber(metasSupervisorQuery.data.gmv_realizado, 0)
+                    const pct = supMeta > 0
+                      ? Math.min(100, (supReal / supMeta) * 100)
+                      : 0
+                    return (
+                      <div>
+                        <div className="mb-1 flex justify-between text-xs font-medium text-ink-muted">
+                          <span>Progresso</span>
+                          <span>{pct.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
+                          <div
+                            className="h-2 rounded-full bg-brand transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })()}
+                  <form
+                    className="flex flex-col gap-3 sm:flex-row sm:items-end"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      supervisorMutation.mutate({ gmv_meta_total: parseBRMoneyToDecimal(metasSupervisorInput) })
+                    }}
+                  >
+                    <label className="block flex-1">
+                      <span className="text-sm font-semibold text-ink">Nova meta GMV</span>
+                      <MoneyInput
+                        className="design-input mt-2 h-11 w-full px-4"
+                        value={metasSupervisorInput}
+                        onChange={(raw) => setMetasSupervisorInput(raw)}
+                      />
+                    </label>
+                    <Button type="submit" icon={BarChart2} isLoading={supervisorMutation.isPending}>
+                      Salvar
+                    </Button>
+                  </form>
                 </div>
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">M1 — Teto</span>
-                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m1_teto} onChange={(raw) => setMetaUnidadeForm((c) => ({ ...c, m1_teto: raw }))} />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">M1 — Percentual (%)</span>
-                  <input type="number" step="0.01" min="0" max="100" className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m1_pct} onChange={(event) => setMetaUnidadeForm((c) => ({ ...c, m1_pct: event.target.value }))} />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">M2 — Teto</span>
-                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m2_teto} onChange={(raw) => setMetaUnidadeForm((c) => ({ ...c, m2_teto: raw }))} />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">M2 — Percentual (%)</span>
-                  <input type="number" step="0.01" min="0" max="100" className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m2_pct} onChange={(event) => setMetaUnidadeForm((c) => ({ ...c, m2_pct: event.target.value }))} />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">M3 — Teto</span>
-                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m3_teto} onChange={(raw) => setMetaUnidadeForm((c) => ({ ...c, m3_teto: raw }))} />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-semibold text-ink">M3 — Percentual (%)</span>
-                  <input type="number" step="0.01" min="0" max="100" className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m3_pct} onChange={(event) => setMetaUnidadeForm((c) => ({ ...c, m3_pct: event.target.value }))} />
-                </label>
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-semibold text-ink">M4 — Percentual acima do teto M3 (%)</span>
-                  <input type="number" step="0.01" min="0" max="100" className="design-input mt-2 h-11 w-full px-4" value={metaUnidadeForm.m4_pct} onChange={(event) => setMetaUnidadeForm((c) => ({ ...c, m4_pct: event.target.value }))} />
-                </label>
-                {metaUnidadeMutation.isError ? <p className="md:col-span-2 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(metaUnidadeMutation.error)}</p> : null}
-                {metaUnidadeMutation.isSuccess ? <p className="md:col-span-2 rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Metas salvas.</p> : null}
-                <div className="md:col-span-2">
-                  <Button type="submit" icon={BarChart2} isLoading={metaUnidadeMutation.isPending}>
-                    Salvar metas
-                  </Button>
+              ) : null}
+            </CardBody>
+          </Card>
+
+          {/* Card: Metas individuais apresentadoras */}
+          <Card>
+            <CardHeader>
+              <p className="text-sm font-bold text-ink">Metas individuais por apresentadora</p>
+              <p className="mt-1 text-xs text-ink-muted">Defina a meta de GMV de cada apresentadora ativa para o mês.</p>
+            </CardHeader>
+            <CardBody>
+              {metasApresentadorasQuery.isLoading ? <LoadingState label="Carregando apresentadoras…" /> : null}
+              {metasApresentadorasQuery.isError ? <ErrorState message={extractErrorMessage(metasApresentadorasQuery.error)} onRetry={() => void metasApresentadorasQuery.refetch()} /> : null}
+              {metasApresentadorasQuery.data && metasApresentadorasQuery.data.length === 0 ? (
+                <p className="text-sm text-ink-muted">Nenhuma apresentadora ativa encontrada.</p>
+              ) : null}
+              {metasApresentadorasQuery.data && metasApresentadorasQuery.data.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-line">
+                          <th className="pb-2 text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">Nome</th>
+                          <th className="pb-2 text-right text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">GMV Realizado</th>
+                          <th className="pb-2 text-right text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">% Atingido</th>
+                          <th className="pb-2 pl-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">Meta GMV</th>
+                          <th className="pb-2 text-right text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted" />
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-line">
+                        {metasApresentadorasQuery.data.map((row) => {
+                          const id = String(row.apresentadora_id)
+                          const metaVal = parseBRMoneyToDecimal(metasApresentadorasInputs[id] ?? '0')
+                          const gmvReal = asNumber(row.gmv_realizado, 0)
+                          const pct = metaVal > 0 ? Math.min(999, (gmvReal / metaVal) * 100) : 0
+                          return (
+                            <tr key={id} className="align-middle">
+                              <td className="py-3 font-medium text-ink">{asString(row.nome, '—')}</td>
+                              <td className="py-3 text-right num text-ink">{formatMoney(gmvReal)}</td>
+                              <td className="py-3 text-right">
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className={`text-xs font-bold ${pct >= 100 ? 'text-[var(--success)]' : 'text-ink-muted'}`}>{pct.toFixed(1)}%</span>
+                                  <div className="h-1.5 w-20 overflow-hidden rounded-full bg-surface-muted">
+                                    <div
+                                      className={`h-1.5 rounded-full transition-all ${pct >= 100 ? 'bg-[var(--success)]' : 'bg-brand'}`}
+                                      style={{ width: `${Math.min(100, pct)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 pl-4">
+                                <MoneyInput
+                                  className="design-input h-9 w-36 px-3 text-sm"
+                                  value={metasApresentadorasInputs[id] ?? ''}
+                                  onChange={(raw) => setMetasApresentadorasInputs((current) => ({ ...current, [id]: raw }))}
+                                />
+                              </td>
+                              <td className="py-3 text-right">
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  isLoading={apresentadoraMutation.isPending && apresentadoraMutation.variables?.id === id}
+                                  onClick={() => apresentadoraMutation.mutate({ id, gmv_meta: parseBRMoneyToDecimal(metasApresentadorasInputs[id] ?? '0') })}
+                                >
+                                  Salvar
+                                </Button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      icon={BarChart2}
+                      isLoading={saveAllApresentadorasMutation.isPending}
+                      onClick={() => saveAllApresentadorasMutation.mutate()}
+                    >
+                      Salvar todas
+                    </Button>
+                  </div>
                 </div>
-              </form>
-            ) : null}
-          </CardBody>
-        </Card>
+              ) : null}
+            </CardBody>
+          </Card>
+        </div>
       ) : null}
 
       {settingsTab === 'aparencia' ? (
