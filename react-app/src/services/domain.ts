@@ -264,17 +264,13 @@ export function deleteApresentadoraFaixaComissao(id: string, faixaId: string) {
   return apiDelete(`/apresentadoras/${id}/faixas-comissao/${faixaId}`)
 }
 
-// Faixas de comissão da apresentadora (alias endpoints)
-export function getFaixasApresentadora(id: string) {
-  return apiGet<JsonRecord[]>(`/apresentadoras/${id}/faixas`)
-}
-
-export function createFaixaApresentadora(id: string, payload: JsonRecord) {
-  return apiPost<JsonRecord>(`/apresentadoras/${id}/faixas`, payload)
-}
-
-export function deleteFaixaApresentadora(id: string, faixaId: string) {
-  return apiDelete(`/apresentadoras/${id}/faixas/${faixaId}`)
+export function getAuditLog(params: { entity_type?: string; entity_id?: string; action?: string; limit?: number } = {}) {
+  return apiGet<{ itens: JsonRecord[]; total: number; pagina: number; por_pagina: number }>('/audit-log', {
+    ...(params.entity_type ? { entity_type: params.entity_type } : {}),
+    ...(params.entity_id ? { entity_id: params.entity_id } : {}),
+    ...(params.action ? { action: params.action } : {}),
+    por_pagina: params.limit ?? 50,
+  })
 }
 
 export function getContratos(params: Record<string, unknown> = {}) {

@@ -41,6 +41,7 @@ import { UsuarioForm, type CreateFormState } from '../components/configuracoes/U
 import { UsuarioPapelSelect } from '../components/configuracoes/UsuarioPapelSelect'
 import { ApresentadoraRemuneracao } from '../components/configuracoes/ApresentadoraRemuneracao'
 import { ApresentadoraFaixas } from '../components/configuracoes/ApresentadoraFaixas'
+import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -116,6 +117,7 @@ export function SettingsUsuariosPanel() {
   const [searchTerm, setSearchTerm] = useState('')
   const [papelFilter, setPapelFilter] = useState('all')
   const [ativoFilter, setAtivoFilter] = useState('true')
+  const [auditUserId, setAuditUserId] = useState<string | null>(null)
 
   const usuarios = useQuery({ queryKey: QK.usuarios, queryFn: getUsuarios })
   const clientes = useQuery({ queryKey: QK.clientes(), queryFn: getClientes })
@@ -460,6 +462,15 @@ export function SettingsUsuariosPanel() {
           <>
             <Button type="submit" form="usuario-edit-form" icon={CheckCircle2} isLoading={editMutation.isPending}>Salvar usuário</Button>
             {editingUser ? <Button type="button" variant="danger" icon={Trash2} isLoading={deleteMutation.isPending || deletePresenterMutation.isPending} onClick={() => onDeleteUser(editingUser)}>Excluir</Button> : null}
+            {editingUser ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setAuditUserId(asString(editingPresenterId || editingUser.id, ''))}
+              >
+                Histórico
+              </Button>
+            ) : null}
             <Button type="button" variant="secondary" onClick={() => setEditingUser(null)}>Cancelar</Button>
           </>
         )}
@@ -528,6 +539,15 @@ export function SettingsUsuariosPanel() {
           {editMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(editMutation.error)}</p> : null}
         </form>
       </Modal>
+
+      {/* ---- Audit history modal ---- */}
+      <HistoricoAuditModal
+        open={Boolean(auditUserId)}
+        onClose={() => setAuditUserId(null)}
+        entityType="apresentadora"
+        entityId={auditUserId ?? ''}
+        titulo="Histórico de alterações — apresentadora"
+      />
     </div>
   )
 }

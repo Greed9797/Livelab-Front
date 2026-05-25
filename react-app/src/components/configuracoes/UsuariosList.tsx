@@ -13,8 +13,9 @@ import clsx from 'clsx'
 import { Button } from '../ui/Button'
 import { Badge, statusTone } from '../ui/Badge'
 import { DataTable } from '../ui/DataTable'
+import { FaixaBadge } from '../comissao/FaixaBadge'
 import { extractErrorMessage } from '../../services/api'
-import { asNumber, asString, formatMoney } from '../../utils/format'
+import { asNumber, asArray, asString, formatMoney } from '../../utils/format'
 import { isPresenterRole } from '../../utils/presenters'
 import type { JsonRecord } from '../../types/models'
 
@@ -114,9 +115,13 @@ interface Props {
   data: JsonRecord[]
   actions: RowActions
   mutations: MutationState
+  /** Map from apresentadora_id → faixas array, used to render FaixaBadge per presenter row. */
+  faixasPorApresentadora?: Record<string, JsonRecord[]>
+  /** GMV mensal por apresentadora_id, used together with faixasPorApresentadora. */
+  gmvMesPorApresentadora?: Record<string, number>
 }
 
-export function UsuariosList({ data, actions, mutations }: Props) {
+export function UsuariosList({ data, actions, mutations, faixasPorApresentadora = {}, gmvMesPorApresentadora = {} }: Props) {
   const anyWriteError =
     mutations.updateError ||
     mutations.deleteError ||
@@ -172,12 +177,20 @@ export function UsuariosList({ data, actions, mutations }: Props) {
             render: (item) => {
               const presenter = isPresenterUser(item) || isPresenterProfile(item)
               if (!presenter) return <span className="text-ink-muted">—</span>
+              const apresentadoraId = asString(item.apresentadora_id ?? item.id, '')
+              const faixas = asArray<JsonRecord>(faixasPorApresentadora[apresentadoraId])
+              const gmvMes = gmvMesPorApresentadora[apresentadoraId] ?? 0
               return (
                 <div className="space-y-1 text-right">
                   <p className="num font-bold text-ink">{formatMoney(item.fixo_mensal ?? item.fixo)}</p>
                   <p className="text-xs text-ink-muted">
                     base {asNumber(item.comissao_live_pct ?? item.comissao_pct).toLocaleString('pt-BR')}% · meta {formatMoney(item.meta_diaria_gmv)}
                   </p>
+                  {faixas.length > 0 ? (
+                    <div className="flex justify-end">
+                      <FaixaBadge gmvMes={gmvMes} faixas={faixas} />
+                    </div>
+                  ) : null}
                 </div>
               )
             },

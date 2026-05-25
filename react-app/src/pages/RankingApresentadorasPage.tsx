@@ -4,9 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { FaixaBadge } from '../components/comissao/FaixaBadge'
 import { getRankingApresentadoras } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asNumber, asString, formatMoney, formatPercent } from '../utils/format'
+import { asNumber, asArray, asString, formatMoney, formatPercent } from '../utils/format'
 import type { JsonRecord } from '../types/models'
 
 function currentMes() {
@@ -109,7 +110,10 @@ export function RankingApresentadorasPage() {
                     {pos}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-ink">{asString(item.nome)}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-bold text-ink">{asString(item.nome)}</p>
+                      <FaixaBadge gmvMes={gmv} faixas={asArray<JsonRecord>(item.faixas)} />
+                    </div>
                     <p className="mt-0.5 text-xs text-ink-muted">
                       {asNumber(item.total_lives)} live{asNumber(item.total_lives) !== 1 ? 's' : ''} · GMV {formatMoney(gmv)}
                     </p>

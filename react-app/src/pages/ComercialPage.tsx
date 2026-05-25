@@ -10,6 +10,7 @@ import { LoadingState, ErrorState } from '../components/ui/States'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ImagePicker } from '../components/ui/ImagePicker'
+import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
 import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
@@ -51,6 +52,7 @@ export function ComercialPage() {
   const [afiliadoForm, setAfiliadoForm] = useState(emptyAfiliadoForm)
   const [selectedAtivo, setSelectedAtivo] = useState<JsonRecord | null>(null)
   const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', logo_url: '' })
+  const [auditMarcaId, setAuditMarcaId] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const summaryQuery = useQuery({ queryKey: QK.crmSummary, queryFn: getCrmSummary })
@@ -603,6 +605,15 @@ export function ComercialPage() {
                   <Button type="button" variant="secondary" onClick={() => toggleAtivoStatus()} disabled={ativoUpdateMutation.isPending}>
                     {['ativo', 'ativa'].includes(ativoForm.status) ? 'Inativar' : 'Reativar'}
                   </Button>
+                  {selectedAtivoKind === 'marca' && selectedAtivoId ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setAuditMarcaId(selectedAtivoId)}
+                    >
+                      Histórico
+                    </Button>
+                  ) : null}
                   <Button type="button" variant="ghost" icon={Trash2} onClick={deleteAtivo} disabled={ativoDeleteMutation.isPending}>
                     Excluir
                   </Button>
@@ -646,6 +657,15 @@ export function ComercialPage() {
           ) : null}
         </div>
       </Modal>
+
+      {/* ---- Audit history modal — marca ---- */}
+      <HistoricoAuditModal
+        open={Boolean(auditMarcaId)}
+        onClose={() => setAuditMarcaId(null)}
+        entityType="marca"
+        entityId={auditMarcaId ?? ''}
+        titulo="Histórico de alterações — marca/afiliado"
+      />
     </div>
   )
 }
