@@ -15,6 +15,8 @@ export const QK = {
   comissoesApresentadoras: ['comissoes-apresentadoras'] as const,
   comissoesMarcas: ['comissoes-marcas'] as const,
   comissoesPendentes: ['comissoes-pendentes'] as const,
+  comissoesDaLive: (liveId: string) => ['comissoes-da-live', liveId] as const,
+  comissoesPorLive: (mes: string) => ['comissoes-por-live', mes] as const,
   clientes: (scope?: string) => (scope ? ['clientes', scope] : ['clientes']) as readonly string[],
   marcas: (scope?: string) => (scope ? ['marcas', scope] : ['marcas']) as readonly string[],
   apresentadoras: (scope?: string) => (scope ? ['apresentadoras', scope] : ['apresentadoras']) as readonly string[],
@@ -67,6 +69,10 @@ export const QK = {
   historicoGmv: (liveId: string) => ['historico-gmv', liveId] as const,
   metaUnidade: (anoMes?: string) =>
     anoMes ? ['meta-unidade', anoMes] as const : ['meta-unidade'] as const,
+  metasApresentadoras: (mes?: string) =>
+    mes ? ['metas-apresentadoras', mes] as const : ['metas-apresentadoras'] as const,
+  metasSupervisor: (mes?: string) =>
+    mes ? ['metas-supervisor', mes] as const : ['metas-supervisor'] as const,
   analyticsDashboard: (period?: { mes: number; ano: number }) =>
     period ? ['analytics-dashboard', period] as const : ['analytics-dashboard'] as const,
 }

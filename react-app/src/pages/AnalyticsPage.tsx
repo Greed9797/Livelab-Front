@@ -8,7 +8,7 @@ import { BarPanel, LinePanel } from '../components/charts/Charts'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
-import { getAnalyticsDashboard } from '../services/domain'
+import { getAnalyticsDashboard, getComissoesPorLive } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, currentPeriod, formatMoney, getRecord } from '../utils/format'
 import { historyPoints, metric, moneyMetric } from './page-helpers'
@@ -23,13 +23,38 @@ function periodToMesAno(period: { mes: number; ano: number }) {
 
 export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const [period, setPeriod] = useState(currentPeriod())
-  const query = useQuery({ queryKey: QK.analyticsDashboard(period), queryFn: () => getAnalyticsDashboard({ mesAno: periodToMesAno(period) }) })
+  const mes = periodToMesAno(period)
+  const query = useQuery({ queryKey: QK.analyticsDashboard(period), queryFn: () => getAnalyticsDashboard({ mesAno: mes }) })
+  const comissoesQuery = useQuery({ queryKey: QK.comissoesPorLive(mes), queryFn: () => getComissoesPorLive({ mes }) })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
   const raw = query.data ?? {}
   const kpis = getRecord(raw.kpis)
+
+  // Comissões do mês — agrupamento por apresentadora e por marca (Livelab = franquia + franqueadora)
+  const comissoesRows = asArray<JsonRecord>(comissoesQuery.data)
+  const comissoesPorApresentadora = Object.values(
+    comissoesRows.reduce<Record<string, { apresentadora_nome: string; total: number }>>((acc, row) => {
+      const nome = asString(row.apresentadora_nome, 'Sem apresentadora')
+      const prev = acc[nome] ?? { apresentadora_nome: nome, total: 0 }
+      return { ...acc, [nome]: { ...prev, total: prev.total + asNumber(row.comissao_apresentadora) } }
+    }, {}),
+  )
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5)
+
+  const comissoesPorMarca = Object.values(
+    comissoesRows.reduce<Record<string, { marca_nome: string; total: number }>>((acc, row) => {
+      const nome = asString(row.marca_nome, 'Sem marca')
+      const comissaoLivelab = asNumber(row.comissao_franquia) + asNumber(row.comissao_franqueadora)
+      const prev = acc[nome] ?? { marca_nome: nome, total: 0 }
+      return { ...acc, [nome]: { ...prev, total: prev.total + comissaoLivelab } }
+    }, {}),
+  )
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5)
   const totalLives = asNumber(kpis.total_lives ?? raw.total_lives)
   const totalVideos = asNumber(kpis.total_videos ?? raw.total_videos)
   const totalConteudos = asNumber(kpis.total_conteudos ?? totalLives + totalVideos)
@@ -111,6 +136,48 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
                 { key: 'total_videos', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.total_videos).toLocaleString('pt-BR') },
               ]}
             />
+          </CardBody>
+        </Card>
+      </section>
+      <section className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões do mês — por apresentadora</p>
+          </CardHeader>
+          <CardBody>
+            {comissoesQuery.isLoading ? (
+              <p className="py-4 text-center text-sm text-muted">Carregando...</p>
+            ) : comissoesPorApresentadora.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted">Nenhuma comissão registrada no período.</p>
+            ) : (
+              <DataTable<{ apresentadora_nome: string; total: number }>
+                data={comissoesPorApresentadora}
+                columns={[
+                  { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => item.apresentadora_nome },
+                  { key: 'total', header: 'Total comissão', align: 'right', render: (item) => formatMoney(item.total) },
+                ]}
+              />
+            )}
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader>
+            <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões do mês — Livelab por marca</p>
+          </CardHeader>
+          <CardBody>
+            {comissoesQuery.isLoading ? (
+              <p className="py-4 text-center text-sm text-muted">Carregando...</p>
+            ) : comissoesPorMarca.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted">Nenhuma comissão registrada no período.</p>
+            ) : (
+              <DataTable<{ marca_nome: string; total: number }>
+                data={comissoesPorMarca}
+                columns={[
+                  { key: 'marca_nome', header: 'Marca', render: (item) => item.marca_nome },
+                  { key: 'total', header: 'Comissão Livelab', align: 'right', render: (item) => formatMoney(item.total) },
+                ]}
+              />
+            )}
           </CardBody>
         </Card>
       </section>

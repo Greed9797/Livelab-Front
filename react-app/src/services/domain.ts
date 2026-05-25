@@ -496,6 +496,14 @@ export function reprovarComissao(id: string, motivo: string) {
   return apiPatch<JsonRecord>(`/comissoes/${id}/reprovar`, { motivo })
 }
 
+export function getComissoesDaLive(liveId: string) {
+  return apiGet<JsonRecord>(`/lives/${liveId}/comissoes`)
+}
+
+export function getComissoesPorLive(params: { mes: string }) {
+  return apiGet<JsonRecord[]>('/comissoes/por-live', params)
+}
+
 export function getFinanceiroFranqueadora(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/financeiro/franqueadora', filters)
 }

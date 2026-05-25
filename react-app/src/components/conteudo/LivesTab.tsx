@@ -22,7 +22,7 @@ import type { JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
 
 // Grid template shared between header + every row
-const COLS = '80px minmax(180px,1.4fr) 90px 110px 115px minmax(115px,1fr) 90px 76px 76px'
+const COLS = '80px minmax(180px,1.4fr) 90px 110px 115px 100px minmax(115px,1fr) 90px 76px 76px'
 // Reference max duration (8 h) for the duration bar width
 const MAX_DUR_MINS = 480
 
@@ -631,6 +631,7 @@ export function LivesTab({
           <div>Cabine</div>
           <div>Duração</div>
           <div style={{ textAlign: 'right', paddingRight: 14 }}>GMV</div>
+          <div style={{ textAlign: 'right', paddingRight: 8 }}>Comissão</div>
           <div>Apresentadora</div>
           <div>Status</div>
           <div>Tipo</div>
@@ -990,6 +991,38 @@ export function LivesTab({
                             <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>—</span>
                           )}
                         </div>
+
+                        {/* Comissão apresentadora */}
+                        {(() => {
+                          const comissao = asNumber(live.comissao_apresentadora)
+                          const pct = asNumber(live.pct_apresentadora)
+                          return (
+                            <div
+                              title={pct > 0 ? `Pct aplicado: ${pct.toFixed(2)}%` : 'Comissão não calculada'}
+                              style={{
+                                textAlign: 'right',
+                                paddingRight: 8,
+                                fontVariantNumeric: 'tabular-nums',
+                                whiteSpace: 'nowrap',
+                                cursor: 'default',
+                              }}
+                            >
+                              {comissao > 0 ? (
+                                <span
+                                  style={{
+                                    fontSize: 12,
+                                    fontWeight: 500,
+                                    color: 'var(--success)',
+                                  }}
+                                >
+                                  {formatMoney(comissao)}
+                                </span>
+                              ) : (
+                                <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>—</span>
+                              )}
+                            </div>
+                          )
+                        })()}
 
                         {/* Apresentadora */}
                         <div
