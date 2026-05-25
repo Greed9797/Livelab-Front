@@ -1,6 +1,6 @@
-import { AtSign, BarChart2, KeyRound, Lock, Moon, Plug, Save, Sun, Target, Trophy, Users } from 'lucide-react'
+import { AtSign, BarChart2, CircleDollarSign, KeyRound, Lock, Moon, Plug, Save, Sun, Target, Trophy, Users } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
@@ -16,8 +16,8 @@ import { SettingsUsuariosPanel } from './SettingsUsuariosPanel'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
-type SettingsTab = 'unidade' | 'usuarios' | 'ranking' | 'metas' | 'aparencia' | 'integracoes' | 'seguranca'
-const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'ranking', 'metas', 'aparencia', 'integracoes', 'seguranca']
+type SettingsTab = 'unidade' | 'usuarios' | 'apresentadoras' | 'metas' | 'comissoes-livelab' | 'ranking' | 'aparencia' | 'integracoes' | 'seguranca'
+const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'apresentadoras', 'metas', 'comissoes-livelab', 'ranking', 'aparencia', 'integracoes', 'seguranca']
 
 export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boolean }) {
   const client = useQueryClient()
@@ -284,8 +284,10 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
         {[
           ['unidade', Save, 'Unidade'],
           ['usuarios', Users, 'Usuários e equipe'],
-          ['ranking', Trophy, 'Ranking público'],
+          ['apresentadoras', Users, 'Apresentadoras'],
           ['metas', BarChart2, 'Metas'],
+          ['comissoes-livelab', CircleDollarSign, 'Comissões Livelab'],
+          ['ranking', Trophy, 'Ranking público'],
           ['aparencia', Sun, 'Aparência'],
           ['integracoes', Plug, 'Integrações'],
           ['seguranca', Lock, 'Segurança'],
@@ -412,6 +414,35 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
       ) : null}
 
       {settingsTab === 'usuarios' ? <SettingsUsuariosPanel /> : null}
+
+      {settingsTab === 'apresentadoras' ? (
+        // Reaproveita SettingsUsuariosPanel — fonte única de edição de fixo +
+        // escada de comissão da apresentadora. A aba "Usuários e equipe" já
+        // permite o mesmo; esta aba é o atalho focado em apresentadoras.
+        <SettingsUsuariosPanel />
+      ) : null}
+
+      {settingsTab === 'comissoes-livelab' ? (
+        <Card>
+          <CardHeader>
+            <p className="text-base font-bold text-ink">Comissões Livelab</p>
+            <p className="mt-1 text-xs text-ink-muted">% de comissão da franquia/franqueadora é configurado por marca em Comercial.</p>
+          </CardHeader>
+          <CardBody className="space-y-3">
+            <p className="text-sm text-ink">
+              Cada marca tem <strong>% de comissão da franquia</strong>, <strong>% da franqueadora</strong> e <strong>valor fixo mínimo</strong>.
+              A comissão da apresentadora segue a escada por GMV mensal (definida em <em>Apresentadoras</em>) e não muda por marca.
+            </p>
+            <Link
+              className="inline-flex h-11 items-center justify-center rounded-full bg-brand px-5 text-sm font-bold text-white hover:bg-brand-hover"
+              to="/comercial?tab=ativos"
+            >
+              Editar marcas em Comercial
+            </Link>
+            <p className="text-xs text-ink-muted">Toda edição é registrada no audit log da marca.</p>
+          </CardBody>
+        </Card>
+      ) : null}
 
       {settingsTab === 'ranking' ? (
         <Card>

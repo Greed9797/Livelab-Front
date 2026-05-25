@@ -50,7 +50,7 @@ export function ComercialPage() {
   const [clienteForm, setClienteForm] = useState(emptyClienteForm)
   const [afiliadoForm, setAfiliadoForm] = useState(emptyAfiliadoForm)
   const [selectedAtivo, setSelectedAtivo] = useState<JsonRecord | null>(null)
-  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', logo_url: '' })
+  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', logo_url: '' })
   const queryClient = useQueryClient()
 
   const summaryQuery = useQuery({ queryKey: QK.crmSummary, queryFn: getCrmSummary })
@@ -237,6 +237,8 @@ export function ComercialPage() {
       email: asString(item.email, ''),
       celular: asString(item.celular ?? item.whatsapp, ''),
       comissao_franquia_pct: asString(item.comissao_franquia_pct ?? 0, '0'),
+      comissao_franqueadora_pct: asString(item.comissao_franqueadora_pct ?? 0, '0'),
+      valor_fixo_minimo: asString(item.valor_fixo_minimo ?? 0, '0'),
       logo_url: asString(item.logo_url, ''),
     })
   }
@@ -289,6 +291,8 @@ export function ComercialPage() {
           nome: ativoForm.nome,
           status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
           comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
+          comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
+          valor_fixo_minimo: Number(ativoForm.valor_fixo_minimo || 0),
           logo_url: ativoForm.logo_url || null,
         }
     ativoUpdateMutation.mutate({ id, kind, payload })
@@ -578,8 +582,19 @@ export function ComercialPage() {
                 ) : (
                   <>
                     <label className="block">
-                      <span className="text-sm font-semibold text-ink">Comissão LiveLab (%)</span>
+                      <span className="text-sm font-semibold text-ink">Comissão Franquia (%)</span>
                       <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
+                      <span className="mt-1 text-[11px] text-ink-muted">% sobre GMV mensal da marca destinado à franquia.</span>
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-semibold text-ink">Comissão Franqueadora (%)</span>
+                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franqueadora_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franqueadora_pct: event.target.value }))} />
+                      <span className="mt-1 text-[11px] text-ink-muted">% destinado à Livelab/franqueadora.</span>
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-semibold text-ink">Valor fixo mínimo (R$)</span>
+                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={ativoForm.valor_fixo_minimo} onChange={(event) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: event.target.value }))} />
+                      <span className="mt-1 text-[11px] text-ink-muted">Piso da comissão: aplica se gmv × pct ficar abaixo deste valor.</span>
                     </label>
                   </>
                 )}

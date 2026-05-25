@@ -11,10 +11,6 @@ import {
   Presentation,
   Settings,
   Store,
-  Target,
-  Trophy,
-  TrendingUp,
-  Users,
   Workflow,
 } from 'lucide-react'
 import type { OfficialRole, Role, User } from '../types/models'
@@ -161,26 +157,28 @@ export function needsClientOnboarding(user: User | null): boolean {
   return user?.papel === 'cliente_parceiro' && user.onboarding_completed === false
 }
 
+// Menu lateral — decisão 2026-05-25 (Lucas):
+// 6 itens fixos pra unidade: Home, Comercial, Conteúdo, Financeiro, Base, Configurações.
+// Apresentadoras/Metas/Ranking-apresentadoras NÃO viram itens próprios — vivem
+// dentro de Configurações (Apresentadoras, Metas) ou acessadas via Home (Ranking).
+// Master continua com seus próprios atalhos. Cliente tem o painel separado dele.
 export const menuItems: MenuItem[] = [
   { label: 'Home', path: '/', icon: Home, roles: internalRoles },
   { label: 'Master', path: '/master', icon: LayoutDashboard, roles: masterRoles },
   { label: 'Unidades', path: '/master/unidades', icon: Building2, roles: masterRoles },
   { label: 'Consolidado', path: '/master/consolidado', icon: ChartNoAxesCombined, roles: masterRoles },
-  { label: 'Comercial', path: '/comercial', icon: Workflow, roles: [...masterRoles, ...commercialRoles] },
   { label: 'Franqueados', path: '/master/franqueados', icon: Store, roles: ['franqueador_master'] },
+  { label: 'Comercial', path: '/comercial', icon: Workflow, roles: [...masterRoles, ...commercialRoles] },
+  { label: 'Conteúdo', path: '/conteudo', icon: Presentation, roles: cabineRoles },
+  { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
+  { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora', 'cliente_parceiro'] },
+  { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'franqueado'] },
+  // Cliente parceiro tem menu próprio.
   { label: 'Cliente', path: '/cliente', icon: Gauge, roles: clienteRoles },
   { label: 'Lives', path: '/cliente/lives', icon: MonitorPlay, roles: clienteRoles },
   { label: 'Agenda', path: '/cliente/agenda', icon: CalendarClock, roles: clienteRoles },
   { label: 'Financeiro', path: '/financeiro?tab=boletos', icon: CircleDollarSign, roles: clienteRoles },
   { label: 'Configurações', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles },
-  { label: 'Conteúdo', path: '/conteudo', icon: Presentation, roles: cabineRoles },
-  { label: 'Apresentadoras', path: '/apresentadoras', icon: Users, roles: opsRoles },
-  { label: 'Metas', path: '/metas', icon: Target, roles: opsRoles },
-  { label: 'Ranking', path: '/ranking/apresentadoras', icon: TrendingUp, roles: opsRoles },
-  { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
-  { label: 'Ranking', path: '/ranking-apresentadoras', icon: Trophy, roles: ['franqueador_master', 'franqueado'] },
-  { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora', 'cliente_parceiro'] },
-  { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'franqueado'] },
 ]
 
 export function menuForUser(user: User | null): MenuItem[] {

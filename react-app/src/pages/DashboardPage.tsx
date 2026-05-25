@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { KpiStrip } from '../components/dashboard/KpiStrip'
 import { GmvHeroCard } from '../components/dashboard/GmvHeroCard'
@@ -201,9 +202,17 @@ function RankingApresentadorasCard({ data }: { data: JsonRecord[] }) {
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
           Ranking de apresentadoras
         </h3>
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          {data.length} cadastradas
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {data.length} cadastradas
+          </span>
+          <Link
+            className="text-xs font-semibold text-brand hover:underline"
+            to="/ranking-apresentadoras"
+          >
+            Ver ranking completo →
+          </Link>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
