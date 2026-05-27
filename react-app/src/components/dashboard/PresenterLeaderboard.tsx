@@ -331,7 +331,8 @@ function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; i
 
       <div className="text-left md:text-right">
         <p className="num text-lg font-black text-[var(--success)]">{row.commission > 0 ? formatMoney(row.commission, true) : '—'}</p>
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">Comissão</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">Total mês</p>
+        <p className="text-[9px] text-ink-muted/70">fixo + variável</p>
       </div>
     </div>
   )
