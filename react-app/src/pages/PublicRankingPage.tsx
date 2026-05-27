@@ -4,6 +4,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { RankingPodium } from '../components/dashboard/RankingPodium'
+import { PresenterLeaderboard } from '../components/dashboard/PresenterLeaderboard'
 import { getPublicRanking, getPublicRankingApresentadoras } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, formatPercent } from '../utils/format'
@@ -75,28 +76,18 @@ export function PublicRankingPage() {
         </Card>
 
         {unidadeId ? (
-          <Card>
-            <CardHeader>
-              <p className="text-base font-bold text-ink">Ranking de apresentadoras{apresentadorasQuery.data?.unidade ? ` · ${asString(apresentadorasQuery.data.unidade)}` : ''}</p>
-              <p className="mt-1 text-xs text-ink-muted">Top apresentadoras da unidade no mês.</p>
-            </CardHeader>
-            <CardBody>
-              {apresentadorasQuery.isLoading ? (
-                <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Carregando…</p>
-              ) : apresentadorasQuery.isError ? (
-                <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Ranking de apresentadoras indisponível para esta unidade.</p>
-              ) : (
-                <RankingPodium
-                  data={apresentadoras}
-                  subject="apresentadora"
-                  valueKey="total_recebido"
-                  valueLabel="Total recebido"
-                  metaKey="lives"
-                  metaLabel="Lives"
-                />
-              )}
-            </CardBody>
-          </Card>
+          apresentadorasQuery.isLoading ? (
+            <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Carregando ranking de apresentadoras…</p>
+          ) : apresentadorasQuery.isError ? (
+            <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Ranking de apresentadoras indisponível para esta unidade.</p>
+          ) : (
+            <PresenterLeaderboard
+              rows={apresentadoras}
+              title={`Ranking de apresentadoras${apresentadorasQuery.data?.unidade ? ` · ${asString(apresentadorasQuery.data.unidade)}` : ''}`}
+              subtitle="Progresso vs. líder do mês"
+              limit={6}
+            />
+          )
         ) : null}
       </div>
     </main>
