@@ -1,4 +1,4 @@
-import { Clock, CircleDollarSign, Film, Radio, ReceiptText, ShoppingBag } from 'lucide-react'
+import { Clock, CircleDollarSign, Download, Film, Radio, ReceiptText, ShoppingBag } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -8,11 +8,20 @@ import { BarPanel, LinePanel } from '../components/charts/Charts'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
-import { getAnalyticsDashboard, getComissoesPorLive } from '../services/domain'
+import { Button } from '../components/ui/Button'
+import {
+  exportarComissoesCSV,
+  getAnalyticsDashboard,
+  getApresentadoras,
+  getComissoesApresentadoras,
+  getComissoesMarcas,
+  getMarcas,
+} from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, currentPeriod, formatMoney, getRecord } from '../utils/format'
 import { historyPoints, metric, moneyMetric } from './page-helpers'
 import { QK } from '../services/query-keys'
+import { useToast } from '../components/ui/Toast'
 import type { JsonRecord } from '../types/models'
 
 const icons = [CircleDollarSign, ShoppingBag, Radio, Film, Clock, ReceiptText]
@@ -22,10 +31,28 @@ function periodToMesAno(period: { mes: number; ano: number }) {
 }
 
 export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
+  const toast = useToast()
   const [period, setPeriod] = useState(currentPeriod())
+  const [marcaId, setMarcaId] = useState<string>('')
+  const [apresentadoraId, setApresentadoraId] = useState<string>('')
+  const [exporting, setExporting] = useState(false)
+
   const mes = periodToMesAno(period)
+  const filtros = { mes, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }
+
   const query = useQuery({ queryKey: QK.analyticsDashboard(period), queryFn: () => getAnalyticsDashboard({ mesAno: mes }) })
-  const comissoesQuery = useQuery({ queryKey: QK.comissoesPorLive(mes), queryFn: () => getComissoesPorLive({ mes }) })
+
+  const comissoesApresentadorasQ = useQuery({
+    queryKey: QK.comissoesApresentadorasBy(mes, marcaId, apresentadoraId),
+    queryFn: () => getComissoesApresentadoras(filtros),
+  })
+  const comissoesMarcasQ = useQuery({
+    queryKey: QK.comissoesMarcasBy(mes, marcaId, apresentadoraId),
+    queryFn: () => getComissoesMarcas(filtros),
+  })
+
+  const marcasOpts = useQuery({ queryKey: QK.marcas('analytics-filter'), queryFn: () => getMarcas({ status: 'ativa' }) })
+  const apresentadorasOpts = useQuery({ queryKey: QK.apresentadoras('analytics-filter'), queryFn: () => getApresentadoras() })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
@@ -33,33 +60,21 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const raw = query.data ?? {}
   const kpis = getRecord(raw.kpis)
 
-  // Comissões do mês — agrupamento por apresentadora e por marca (Livelab = franquia + franqueadora)
-  const comissoesRows = asArray<JsonRecord>(comissoesQuery.data)
-  const comissoesPorApresentadora = Object.values(
-    comissoesRows.reduce<Record<string, { apresentadora_nome: string; total: number }>>((acc, row) => {
-      const nome = asString(row.apresentadora_nome, 'Sem apresentadora')
-      const prev = acc[nome] ?? { apresentadora_nome: nome, total: 0 }
-      return { ...acc, [nome]: { ...prev, total: prev.total + asNumber(row.comissao_apresentadora) } }
-    }, {}),
-  )
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5)
+  const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
+  const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
 
-  const comissoesPorMarca = Object.values(
-    comissoesRows.reduce<Record<string, { marca_nome: string; total: number }>>((acc, row) => {
-      const nome = asString(row.marca_nome, 'Sem marca')
-      const comissaoLivelab = asNumber(row.comissao_franquia) + asNumber(row.comissao_franqueadora)
-      const prev = acc[nome] ?? { marca_nome: nome, total: 0 }
-      return { ...acc, [nome]: { ...prev, total: prev.total + comissaoLivelab } }
-    }, {}),
-  )
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5)
+  const totalGMVApresentadoras = apresentadorasRows.reduce((sum, r) => sum + asNumber(r.gmv_total), 0)
+  const totalComissaoApresentadoras = apresentadorasRows.reduce((sum, r) => sum + asNumber(r.comissao_apresentadora), 0)
+  const totalGMVMarcas = marcasRows.reduce((sum, r) => sum + asNumber(r.gmv_total), 0)
+  const totalComissaoFranquia = marcasRows.reduce((sum, r) => sum + asNumber(r.comissao_franquia), 0)
+  const totalComissaoFranqueadora = marcasRows.reduce((sum, r) => sum + asNumber(r.comissao_franqueadora), 0)
+
   const totalLives = asNumber(kpis.total_lives ?? raw.total_lives)
   const totalVideos = asNumber(kpis.total_videos ?? raw.total_videos)
   const totalConteudos = asNumber(kpis.total_conteudos ?? totalLives + totalVideos)
   const rankingApresentadoras = asArray<JsonRecord>(raw.ranking_apresentadoras ?? raw.ranking_apresentadores)
   const rankingMarcas = asArray<JsonRecord>(raw.ranking_marcas)
+
   const metrics = [
     moneyMetric('GMV atribuído', kpis.gmv_total ?? raw.gmv_total ?? raw.gmv_mes, 'lives + vídeos', 'brand'),
     metric('Pedidos', asNumber(kpis.pedidos_total ?? raw.pedidos_total ?? kpis.total_vendas).toLocaleString('pt-BR'), 'pedidos atribuídos', 'success'),
@@ -69,12 +84,67 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     metric('Ticket médio', formatMoney(kpis.ticket_medio ?? raw.ticket_medio), 'GMV / pedidos', 'success'),
   ]
 
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const blob = await exportarComissoesCSV(filtros)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `comissoes-${mes}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.push('Relatório CSV gerado', 'success')
+    } catch (err) {
+      toast.push(extractErrorMessage(err), 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const filtrosBar = (
+    <div className="flex flex-wrap items-end gap-3">
+      <label className="flex flex-col gap-1">
+        <span className="text-[11px] font-bold uppercase tracking-wide text-ink-muted">Marca</span>
+        <select
+          className="design-input h-10 min-w-[180px] px-3 text-sm"
+          value={marcaId}
+          onChange={(e) => setMarcaId(e.target.value)}
+        >
+          <option value="">Todas as marcas</option>
+          {asArray<JsonRecord>(marcasOpts.data).map((m) => (
+            <option key={asString(m.id)} value={asString(m.id)}>{asString(m.nome, 'Sem nome')}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-[11px] font-bold uppercase tracking-wide text-ink-muted">Apresentadora</span>
+        <select
+          className="design-input h-10 min-w-[180px] px-3 text-sm"
+          value={apresentadoraId}
+          onChange={(e) => setApresentadoraId(e.target.value)}
+        >
+          <option value="">Todas as apresentadoras</option>
+          {asArray<JsonRecord>(apresentadorasOpts.data).map((a) => (
+            <option key={asString(a.id)} value={asString(a.id)}>{asString(a.nome, 'Sem nome')}</option>
+          ))}
+        </select>
+      </label>
+      <PeriodControl period={period} onChange={setPeriod} />
+      <Button type="button" icon={Download} variant="secondary" onClick={handleExport} isLoading={exporting}>
+        Exportar CSV
+      </Button>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       {embedded ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-base font-bold text-ink">Analytics</p>
-          <PeriodControl period={period} onChange={setPeriod} />
+          {filtrosBar}
         </div>
       ) : (
         <PageHeader
@@ -82,7 +152,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
           accent="Dashboard"
           title="de métricas"
           subtitle="GMV, horas, lives e desempenho por período."
-          actions={<PeriodControl period={period} onChange={setPeriod} />}
+          actions={filtrosBar}
         />
       )}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -142,41 +212,59 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
       <section className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões do mês — por apresentadora</p>
+            <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões — por apresentadora</p>
+            <p className="mt-1 text-xs text-ink-muted">Filtra por marca / apresentadora / mês. Use Exportar CSV pra gerar relatório.</p>
           </CardHeader>
           <CardBody>
-            {comissoesQuery.isLoading ? (
+            {comissoesApresentadorasQ.isLoading ? (
               <p className="py-4 text-center text-sm text-muted">Carregando...</p>
-            ) : comissoesPorApresentadora.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted">Nenhuma comissão registrada no período.</p>
+            ) : apresentadorasRows.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted">Nenhuma comissão no período/filtros.</p>
             ) : (
-              <DataTable<{ apresentadora_nome: string; total: number }>
-                data={comissoesPorApresentadora}
-                columns={[
-                  { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => item.apresentadora_nome },
-                  { key: 'total', header: 'Total comissão', align: 'right', render: (item) => formatMoney(item.total) },
-                ]}
-              />
+              <>
+                <DataTable<JsonRecord>
+                  data={apresentadorasRows}
+                  columns={[
+                    { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, 'Sem apresentadora') },
+                    { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total) },
+                    { key: 'pedidos_total', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos_total).toLocaleString('pt-BR') },
+                    { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => formatMoney(item.comissao_apresentadora) },
+                  ]}
+                />
+                <div className="mt-3 flex justify-between border-t border-line pt-3 text-sm font-bold text-ink">
+                  <span>Total ({apresentadorasRows.length})</span>
+                  <span>GMV {formatMoney(totalGMVApresentadoras)} · Comissão {formatMoney(totalComissaoApresentadoras)}</span>
+                </div>
+              </>
             )}
           </CardBody>
         </Card>
         <Card>
           <CardHeader>
-            <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões do mês — Livelab por marca</p>
+            <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões — por marca (Livelab)</p>
+            <p className="mt-1 text-xs text-ink-muted">Franquia + franqueadora. Filtra por marca / apresentadora / mês.</p>
           </CardHeader>
           <CardBody>
-            {comissoesQuery.isLoading ? (
+            {comissoesMarcasQ.isLoading ? (
               <p className="py-4 text-center text-sm text-muted">Carregando...</p>
-            ) : comissoesPorMarca.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted">Nenhuma comissão registrada no período.</p>
+            ) : marcasRows.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted">Nenhuma comissão no período/filtros.</p>
             ) : (
-              <DataTable<{ marca_nome: string; total: number }>
-                data={comissoesPorMarca}
-                columns={[
-                  { key: 'marca_nome', header: 'Marca', render: (item) => item.marca_nome },
-                  { key: 'total', header: 'Comissão Livelab', align: 'right', render: (item) => formatMoney(item.total) },
-                ]}
-              />
+              <>
+                <DataTable<JsonRecord>
+                  data={marcasRows}
+                  columns={[
+                    { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome, 'Sem marca') },
+                    { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total) },
+                    { key: 'comissao_franquia', header: 'Franquia', align: 'right', render: (item) => formatMoney(item.comissao_franquia) },
+                    { key: 'comissao_franqueadora', header: 'Franqueadora', align: 'right', render: (item) => formatMoney(item.comissao_franqueadora) },
+                  ]}
+                />
+                <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-line pt-3 text-sm font-bold text-ink">
+                  <span>Total ({marcasRows.length})</span>
+                  <span>GMV {formatMoney(totalGMVMarcas)} · Franquia {formatMoney(totalComissaoFranquia)} · Franqueadora {formatMoney(totalComissaoFranqueadora)}</span>
+                </div>
+              </>
             )}
           </CardBody>
         </Card>

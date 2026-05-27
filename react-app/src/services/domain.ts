@@ -1,5 +1,5 @@
 import type { Cabine, JsonRecord, Lead, LiveAtual, Period, Solicitacao } from '../types/models'
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut, apiUpload } from './api'
+import { api, apiDelete, apiGet, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
 
 export function getHomeDashboard() {
@@ -502,6 +502,11 @@ export function getComissoesDaLive(liveId: string) {
 
 export function getComissoesPorLive(params: { mes: string }) {
   return apiGet<JsonRecord[]>('/comissoes/por-live', params)
+}
+
+export async function exportarComissoesCSV(params: Record<string, unknown> = {}): Promise<Blob> {
+  const response = await api.get<Blob>('/comissoes/export-csv', { params, responseType: 'blob' })
+  return response.data
 }
 
 export function getFinanceiroFranqueadora(filters: Record<string, unknown> = {}) {

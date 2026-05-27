@@ -13,7 +13,11 @@ export const QK = {
     mes ? ['ranking-marcas', mes] as const : ['ranking-marcas'] as const,
   comissoesResumo: ['comissoes-resumo'] as const,
   comissoesApresentadoras: ['comissoes-apresentadoras'] as const,
+  comissoesApresentadorasBy: (mes: string, marcaId?: string, apresentadoraId?: string) =>
+    ['comissoes-apresentadoras', mes, marcaId ?? '', apresentadoraId ?? ''] as const,
   comissoesMarcas: ['comissoes-marcas'] as const,
+  comissoesMarcasBy: (mes: string, marcaId?: string, apresentadoraId?: string) =>
+    ['comissoes-marcas', mes, marcaId ?? '', apresentadoraId ?? ''] as const,
   comissoesPendentes: ['comissoes-pendentes'] as const,
   comissoesDaLive: (liveId: string) => ['comissoes-da-live', liveId] as const,
   comissoesPorLive: (mes: string) => ['comissoes-por-live', mes] as const,
