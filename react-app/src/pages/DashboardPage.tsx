@@ -5,9 +5,10 @@ import { KpiStrip } from '../components/dashboard/KpiStrip'
 import { GmvHeroCard } from '../components/dashboard/GmvHeroCard'
 import { CabinesGantt } from '../components/dashboard/CabinesGantt'
 import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
+import { PresenterLeaderboard } from '../components/dashboard/PresenterLeaderboard'
 import { getAgenda, getCabines, getComissoesApresentadoras, getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asArray, asNumber, asString, formatMoney } from '../utils/format'
+import { asArray, asNumber, asString } from '../utils/format'
 import { getSaoPauloDateInput, getSaoPauloDayAgendaParams } from '../utils/sao-paulo-date'
 import type { JsonRecord } from '../types/models'
 
@@ -189,134 +190,6 @@ function AgendaCard({ agenda }: { agenda: JsonRecord[] }) {
   )
 }
 
-/* ── Ranking apresentadoras ── */
-export function getPresenterRankingName(row: JsonRecord): string {
-  return asString(row.nome ?? row.apresentadora_nome ?? row.apresentador_nome, '—')
-}
-
-export function getPresenterRankingProgress(gmv: number, maxGmv: number): number {
-  if (maxGmv <= 0 || gmv <= 0) return 0
-  return Math.min(100, Math.max(0, (gmv / maxGmv) * 100))
-}
-
-function RankingApresentadorasCard({ data }: { data: JsonRecord[] }) {
-  const maxGmv = data.reduce((max, row) => Math.max(max, asNumber(row.gmv ?? row.gmv_total)), 0)
-
-  return (
-    <div
-      className="flex flex-col rounded-xl overflow-hidden"
-      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
-    >
-      <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border)' }}>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Ranking de apresentadoras
-        </h3>
-        <div className="flex items-center gap-3">
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {data.length} cadastradas
-          </span>
-          <Link
-            className="text-xs font-semibold text-brand hover:underline"
-            to="/ranking-apresentadoras"
-          >
-            Ver ranking completo →
-          </Link>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {['#', 'Apresentadora', 'GMV', 'Lives', 'GMV / live', 'Comissão'].map((h, i) => (
-                <th
-                  key={h}
-                  className={`px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide ${i > 1 ? 'text-right' : 'text-left'}`}
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Sem dados no período
-                </td>
-              </tr>
-            )}
-            {data.map((row, i) => {
-              const gmv = asNumber(row.gmv ?? row.gmv_total)
-              const lives = asNumber(row.lives ?? row.total_lives)
-              const gmvPerLive = lives > 0 ? gmv / lives : 0
-              const comissao = asNumber(row.comissao_apresentadora ?? row.comissao)
-              const progress = getPresenterRankingProgress(gmv, maxGmv)
-              const nome = getPresenterRankingName(row)
-              const posEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`
-              return (
-                <tr
-                  key={row.id as string ?? i}
-                  style={{ borderBottom: '1px solid var(--hairline)' }}
-                  className="transition-colors hover:bg-[var(--bg-elev-2)]"
-                >
-                  <td className="px-4 py-3 text-[12px] font-mono w-10" style={{ color: 'var(--text-muted)' }}>
-                    {posEmoji}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
-                        style={{
-                          background: 'linear-gradient(160deg, var(--primary), oklch(0.60 0.19 40))',
-                          color: '#1a1208',
-                        }}
-                      >
-                        {nome.split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]).join('').toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                          {nome}
-                        </div>
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <div className="h-1.5 w-24 overflow-hidden rounded-full" style={{ background: 'var(--bg-elev-3)' }}>
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${progress}%`,
-                                background: 'linear-gradient(90deg, var(--primary), oklch(0.74 0.14 55))',
-                              }}
-                            />
-                          </div>
-                          <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
-                            {progress.toFixed(0)}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-[13px]" style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
-                    {formatMoney(gmv)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-[13px]" style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
-                    {lives.toLocaleString('pt-BR')}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-[13px]" style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
-                    {gmvPerLive > 0 ? formatMoney(gmvPerLive) : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-[13px]" style={{ color: comissao > 0 ? 'var(--success)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                    {comissao > 0 ? formatMoney(comissao) : '—'}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
 /* ── Alerts strip ── */
 function AlertsStrip({ raw }: { raw: JsonRecord }) {
   const alertas = (raw.alertas ?? {}) as JsonRecord
@@ -399,7 +272,7 @@ export function DashboardPage() {
   const raw = (homeQuery.data ?? {}) as JsonRecord
   const agenda = asArray<JsonRecord>(agendaQuery.data)
   const cabines = cabinesQuery.data ?? []
-  const rankingApresentadoras = asArray<JsonRecord>(rankingQuery.data)
+  const rankingApresentadoras = asArray<JsonRecord>(raw.ranking_apresentadoras_mes ?? rankingQuery.data)
 
   const liveCabines = cabines.filter(
     (c) => asString(c.status, '').includes('ao_vivo') || asString(c.status, '') === 'live'
@@ -461,7 +334,17 @@ export function DashboardPage() {
       </div>
 
       {/* Ranking apresentadoras */}
-      <RankingApresentadorasCard data={rankingApresentadoras} />
+      <PresenterLeaderboard
+        rows={rankingApresentadoras}
+        title="Ranking de apresentadoras"
+        subtitle="Progresso vs. líder do mês"
+        limit={6}
+        action={
+          <Link className="text-xs font-semibold text-brand hover:underline" to="/ranking-apresentadoras">
+            Ver ranking completo →
+          </Link>
+        }
+      />
     </div>
   )
 }

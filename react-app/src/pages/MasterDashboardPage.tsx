@@ -26,6 +26,7 @@ export function MasterDashboardPage() {
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
   const data = normalizeMaster(query.data ?? {})
+  const bioTotal = asNumber(data.bioTotals.total)
 
   return (
     <div className="space-y-6">
@@ -48,7 +49,7 @@ export function MasterDashboardPage() {
         <BarPanel title="Crescimento por unidade" data={data.growth} />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+      <section className="grid gap-4 xl:grid-cols-[1fr_0.9fr_0.9fr]">
         <Card>
           <CardHeader>
             <p className="text-sm font-bold text-ink">Pipeline do CRM</p>
@@ -62,6 +63,33 @@ export function MasterDashboardPage() {
                 { key: 'valor', header: 'Valor', align: 'right', render: (item) => formatMoney(item.valor ?? item.value) },
               ]}
             />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div>
+              <p className="text-sm font-bold text-ink">Entradas da Bio</p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {bioTotal.toLocaleString('pt-BR')} leads captados pelo webhook
+              </p>
+            </div>
+          </CardHeader>
+          <CardBody className="space-y-3">
+            {data.bioPorPersona.map((item) => (
+              <div key={asString(item.persona ?? item.origem)} className="rounded-2xl border border-line bg-surface-muted p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-ink">{asString(item.label ?? item.persona)}</p>
+                  <Badge tone="brand">{asNumber(item.total).toLocaleString('pt-BR')}</Badge>
+                </div>
+                <p className="mt-2 text-xs font-semibold text-ink-muted">{formatMoney(item.valor)}</p>
+              </div>
+            ))}
+            {!data.bioPorPersona.length ? (
+              <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">
+                Nenhuma entrada Bio no escopo atual.
+              </p>
+            ) : null}
           </CardBody>
         </Card>
 

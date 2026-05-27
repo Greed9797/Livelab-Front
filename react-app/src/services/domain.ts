@@ -30,6 +30,10 @@ export function getMasterConsolidated(period: Period, status = 'all') {
   return apiGet<JsonRecord>('/master/consolidado', { periodo: periodToParam(period), status })
 }
 
+export function getMasterCrm(period?: Period) {
+  return apiGet<JsonRecord>('/master/crm', period ? { periodo: periodToParam(period) } : undefined)
+}
+
 export function getCrmSummary() {
   return apiGet<JsonRecord>('/crm/summary')
 }

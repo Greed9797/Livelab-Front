@@ -1,15 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { getPresenterRankingName, getPresenterRankingProgress } from './DashboardPage'
+import {
+  getPresenterLeaderboardName,
+  getPresenterLeaderboardProgress,
+} from '../components/dashboard/PresenterLeaderboard'
+import { normalizeMaster } from './page-helpers'
 
 describe('Dashboard presenter ranking UI helpers', () => {
   it('uses backend presenter name aliases when nome is not present', () => {
-    expect(getPresenterRankingName({ apresentadora_nome: 'Edja' })).toBe('Edja')
-    expect(getPresenterRankingName({ apresentador_nome: 'Julia Florio' })).toBe('Julia Florio')
+    expect(getPresenterLeaderboardName({ apresentadora_nome: 'Edja' })).toBe('Edja')
+    expect(getPresenterLeaderboardName({ apresentador_nome: 'Julia Florio' })).toBe('Julia Florio')
   })
 
   it('calculates progress relative to the top presenter GMV', () => {
-    expect(getPresenterRankingProgress(3384, 3384)).toBe(100)
-    expect(getPresenterRankingProgress(1692, 3384)).toBe(50)
-    expect(getPresenterRankingProgress(0, 3384)).toBe(0)
+    expect(getPresenterLeaderboardProgress(3384, 3384)).toBe(100)
+    expect(getPresenterLeaderboardProgress(1692, 3384)).toBe(50)
+    expect(getPresenterLeaderboardProgress(0, 3384)).toBe(0)
+  })
+
+  it('normalizes master Bio webhook totals for dashboard surfaces', () => {
+    const data = normalizeMaster({
+      crm_pipeline: [{ stage: 'Lead captado', count: 2 }],
+      bio_totals: { total: 7, clientes: 3, franqueados: 2, apresentadores: 2, valor_total: 15000 },
+      bio_por_persona: [{ persona: 'cliente', label: 'Clientes Bio', total: 3, valor: 9000 }],
+    })
+
+    expect(data.pipeline).toHaveLength(1)
+    expect(data.bioTotals.total).toBe(7)
+    expect(data.bioPorPersona[0].label).toBe('Clientes Bio')
   })
 })

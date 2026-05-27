@@ -54,6 +54,7 @@ export const QK = {
     period ? ['master-units', period, status] as const : ['master-units'] as const,
   masterConsolidated: (period?: { mes: number; ano: number }) =>
     period ? ['master-consolidated', period] as const : ['master-consolidated'] as const,
+  masterCrm: ['master-crm'] as const,
   configuracoes: (clienteMode?: boolean) =>
     clienteMode !== undefined ? ['configuracoes', clienteMode] as const : ['configuracoes'] as const,
   configuracoeRankingPublico: ['configuracoes-ranking-publico'] as const,

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateVideo } from './domain'
+import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, getMasterCrm, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateVideo } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -63,6 +63,14 @@ describe('domain live operations', () => {
     await getLead('lead-1')
 
     expect(apiGet).toHaveBeenCalledWith('/leads/lead-1')
+  })
+
+  it('loads master CRM totals from the master endpoint', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ bio_totals: { total: 3 } })
+
+    await getMasterCrm()
+
+    expect(apiGet).toHaveBeenCalledWith('/master/crm', undefined)
   })
 
   it('loads a selected live by id from the canonical lives endpoint', async () => {

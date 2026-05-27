@@ -1,4 +1,4 @@
-import { AtSign, BarChart2, CircleDollarSign, KeyRound, Lock, Moon, Plug, Save, Sun, Target, Trophy, Users } from 'lucide-react'
+import { AtSign, BarChart2, CircleDollarSign, Copy, ExternalLink, KeyRound, Lock, Moon, Plug, Save, Sun, Target, Trophy, Users } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -14,6 +14,7 @@ import { asNumber, asString, currentPeriod, formatMoney, periodLabel } from '../
 import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
 import { useThemeStore } from '../stores/theme-store'
 import { SettingsUsuariosPanel } from './SettingsUsuariosPanel'
+import { useCurrentUser } from '../stores/auth-store'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
@@ -23,6 +24,10 @@ const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'apresentadoras', 'm
 export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boolean }) {
   const toast = useToast()
   const client = useQueryClient()
+  const currentUser = useCurrentUser()
+  const publicRankingUrl = currentUser?.tenant_id
+    ? `${window.location.origin}/ranking?unidade=${currentUser.tenant_id}`
+    : `${window.location.origin}/ranking`
   const [params, setParams] = useSearchParams()
   const query = useQuery({ queryKey: QK.configuracoes(clienteMode), queryFn: getConfiguracoes, enabled: !clienteMode })
   const rankingQuery = useQuery({ queryKey: QK.configuracoeRankingPublico, queryFn: getRankingPublicoConfig, enabled: !clienteMode })
@@ -614,6 +619,44 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
                 </label>
                 {rankingMutation.isError ? <p className="md:col-span-2 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(rankingMutation.error)}</p> : null}
                 {rankingMutation.isSuccess ? <p className="md:col-span-2 rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Ranking público atualizado.</p> : null}
+                <div className="md:col-span-2 rounded-2xl border border-line bg-surface-muted p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Link público desta unidade</p>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      readOnly
+                      value={publicRankingUrl}
+                      onFocus={(event) => event.currentTarget.select()}
+                      className="design-input h-10 w-full px-3 text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        icon={Copy}
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(publicRankingUrl)
+                            toast.push('Link copiado para a área de transferência', 'success')
+                          } catch {
+                            toast.push('Não foi possível copiar o link', 'error')
+                          }
+                        }}
+                      >
+                        Copiar
+                      </Button>
+                      <a
+                        href={publicRankingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-10 items-center gap-2 rounded-full bg-[var(--primary)] px-4 text-sm font-bold text-white transition hover:opacity-90"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Abrir
+                      </a>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[11px] text-ink-muted">Compartilhe este link com a equipe ou exiba em TV. Sem login.</p>
+                </div>
                 <div className="md:col-span-2">
                   <Button type="submit" icon={Trophy} isLoading={rankingMutation.isPending}>
                     Salvar ranking público

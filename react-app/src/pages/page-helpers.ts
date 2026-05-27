@@ -72,6 +72,7 @@ export function normalizeHome(raw: JsonRecord) {
 
 export function normalizeMaster(raw: JsonRecord) {
   const cards = getRecord(raw.cards)
+  const bioTotals = getRecord(raw.bio_totals)
   return {
     metrics: [
       moneyMetric('GMV da rede', cards.gmv_rede ?? raw.gmv_rede ?? raw.gmv_total, 'rede consolidada', 'brand'),
@@ -83,7 +84,11 @@ export function normalizeMaster(raw: JsonRecord) {
     growth: historyPoints(raw.unitGrowth ?? raw.crescimento_unidades, ['tenant_nome', 'nome', 'label'], ['growth', 'crescimento', 'gmv']),
     ranking: asArray<JsonRecord>(raw.revenueRanking ?? raw.ranking ?? raw.ranking_receita),
     alerts: asArray<JsonRecord>(raw.alerts ?? raw.alertas),
-    pipeline: asArray<JsonRecord>(raw.crmPipeline ?? raw.pipeline),
+    pipeline: asArray<JsonRecord>(raw.crmPipeline ?? raw.crm_pipeline ?? raw.pipeline),
+    crmSummary: getRecord(raw.crm_summary),
+    crmTotals: getRecord(raw.crm_totals),
+    bioTotals,
+    bioPorPersona: asArray<JsonRecord>(raw.bio_por_persona),
   }
 }
 

@@ -11,7 +11,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ImagePicker } from '../components/ui/ImagePicker'
 import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
-import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
+import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, getMasterCrm, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
 import { getBrandImage } from '../utils/favicon'
@@ -19,6 +19,7 @@ import { downloadCsv } from '../utils/exportCsv'
 import { metric, moneyMetric, percentMetric } from './page-helpers'
 import { CrmPage } from './CrmPage'
 import { QK } from '../services/query-keys'
+import { useCurrentUser } from '../stores/auth-store'
 import type { JsonRecord } from '../types/models'
 
 type ComercialTab = 'dashboard' | 'crm' | 'ativos'
@@ -54,8 +55,13 @@ export function ComercialPage() {
   const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', logo_url: '' })
   const [auditMarcaId, setAuditMarcaId] = useState<string | null>(null)
   const queryClient = useQueryClient()
+  const user = useCurrentUser()
+  const isMasterUser = user?.papel === 'franqueador_master'
 
-  const summaryQuery = useQuery({ queryKey: QK.crmSummary, queryFn: getCrmSummary })
+  const summaryQuery = useQuery({
+    queryKey: isMasterUser ? QK.masterCrm : QK.crmSummary,
+    queryFn: isMasterUser ? () => getMasterCrm() : getCrmSummary,
+  })
   const leadsQuery = useQuery({ queryKey: QK.leads, queryFn: getLeads })
   const clientesQuery = useQuery({ queryKey: QK.clientes(), queryFn: getClientes })
   const marcasQuery = useQuery({ queryKey: QK.marcas('ativas'), queryFn: () => getMarcas({ status: 'ativa' }) })
@@ -134,16 +140,23 @@ export function ComercialPage() {
   const error = summaryQuery.error ?? leadsQuery.error ?? clientesQuery.error ?? marcasQuery.error
   const summary = getRecord(summaryQuery.data?.summary)
   const totals = getRecord(summaryQuery.data?.totals)
+  const bioTotals = getRecord(summaryQuery.data?.bio_totals)
+  const bioPorPersona = asArray<JsonRecord>(summaryQuery.data?.bio_por_persona)
   const leads = leadsQuery.data ?? []
   const clientes = clientesQuery.data ?? []
   const marcas = marcasQuery.data ?? []
-  const ganhos = asNumber(summary.ganhos ?? totals.ganhos)
-  const taxaConversao = leads.length ? (ganhos / leads.length) * 100 : 0
+  const crmLeadTotal = asNumber(totals.leads_total ?? summary.total_leads ?? leads.length)
+  const ganhos = asNumber(summary.ganhos ?? totals.ganhos ?? totals.ganhos_30d)
+  const taxaConversao = crmLeadTotal ? (ganhos / crmLeadTotal) * 100 : 0
   const metrics = [
-    metric('Leads abertos', leads.filter((lead) => !['ganho', 'perdido'].includes(asString((lead as unknown as JsonRecord).crm_etapa))).length, 'pipeline ativo', 'neutral'),
-    moneyMetric('Valor em negociação', summary.valor_estimado ?? totals.valor_pipeline ?? totals.valor_estimado, 'pipeline aberto', 'brand'),
+    metric('Leads abertos', isMasterUser ? crmLeadTotal : leads.filter((lead) => !['ganho', 'perdido'].includes(asString((lead as unknown as JsonRecord).crm_etapa))).length, isMasterUser ? 'rede master' : 'pipeline ativo', 'neutral'),
+    moneyMetric('Valor em negociação', summary.valor_estimado ?? totals.valor_pipeline ?? totals.valor_estimado ?? totals.valor_total, isMasterUser ? 'rede master' : 'pipeline aberto', 'brand'),
     metric('Ganhos no mês', ganhos, 'clientes convertidos', 'success'),
     percentMetric('Conversão', taxaConversao, 'ganhos sobre leads', 'info'),
+    ...(isMasterUser ? [
+      metric('Leads Bio', asNumber(bioTotals.total).toLocaleString('pt-BR'), `${asNumber(bioTotals.clientes).toLocaleString('pt-BR')} clientes · ${asNumber(bioTotals.franqueados).toLocaleString('pt-BR')} franquias · ${asNumber(bioTotals.apresentadores).toLocaleString('pt-BR')} creators`, 'brand' as const),
+      moneyMetric('Potencial Bio', bioTotals.valor_total, 'payloads recebidos da página Bio', 'info' as const),
+    ] : []),
     metric('Clientes ativos', clientes.length, 'carteira da unidade', 'success'),
     metric('Afiliados ativos', marcas.filter((item) => asString(item.tipo) === 'afiliada').length, 'marcas afiliadas', 'brand'),
   ]
@@ -367,22 +380,41 @@ export function ComercialPage() {
             </Card>
             <Card>
               <CardHeader>
-                <p className="text-base font-bold text-ink">Leads parados</p>
+                <p className="text-base font-bold text-ink">{isMasterUser ? 'Entradas da Bio' : 'Leads parados'}</p>
               </CardHeader>
               <CardBody className="space-y-3">
-                {leads
-                  .filter((lead) => {
-                    const record = lead as unknown as JsonRecord
-                    const updated = new Date(asString(record.atualizado_em ?? record.criado_em, ''))
-                    return !Number.isNaN(updated.getTime()) && Date.now() - updated.getTime() > 7 * 24 * 60 * 60 * 1000
-                  })
-                  .slice(0, 5)
-                  .map((lead) => (
-                    <div key={lead.id} className="flex items-center justify-between rounded-2xl border border-line bg-surface-muted p-3">
-                      <span className="text-sm font-semibold text-ink">{asString(lead.nome ?? lead.nome_cliente ?? lead.cliente_nome)}</span>
-                      <Badge tone="warning">{asString((lead as unknown as JsonRecord).crm_etapa, 'lead_novo')}</Badge>
-                    </div>
-                  ))}
+                {isMasterUser ? (
+                  <>
+                    {bioPorPersona.map((item) => (
+                      <div key={asString(item.persona ?? item.origem)} className="rounded-2xl border border-line bg-surface-muted p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-semibold text-ink">{asString(item.label ?? item.persona)}</span>
+                          <Badge tone="brand">{asNumber(item.total).toLocaleString('pt-BR')}</Badge>
+                        </div>
+                        <p className="mt-2 text-xs text-ink-muted">{formatMoney(item.valor)} em potencial informado</p>
+                      </div>
+                    ))}
+                    {!bioPorPersona.length ? (
+                      <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">
+                        Nenhum lead Bio encontrado no escopo master.
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  leads
+                    .filter((lead) => {
+                      const record = lead as unknown as JsonRecord
+                      const updated = new Date(asString(record.atualizado_em ?? record.criado_em, ''))
+                      return !Number.isNaN(updated.getTime()) && Date.now() - updated.getTime() > 7 * 24 * 60 * 60 * 1000
+                    })
+                    .slice(0, 5)
+                    .map((lead) => (
+                      <div key={lead.id} className="flex items-center justify-between rounded-2xl border border-line bg-surface-muted p-3">
+                        <span className="text-sm font-semibold text-ink">{asString(lead.nome ?? lead.nome_cliente ?? lead.cliente_nome)}</span>
+                        <Badge tone="warning">{asString((lead as unknown as JsonRecord).crm_etapa, 'lead_novo')}</Badge>
+                      </div>
+                    ))
+                )}
               </CardBody>
             </Card>
           </section>
