@@ -104,7 +104,10 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
-  const filtrosBar = (
+  // Filtros marca/apresentadora afetam APENAS as tabelas de Comissões
+  // e o export CSV — KPIs/rankings do topo seguem o mês inteiro.
+  const hasFilter = Boolean(marcaId || apresentadoraId)
+  const comissoesFiltrosBar = (
     <div className="flex flex-wrap items-end gap-3">
       <label className="flex flex-col gap-1">
         <span className="text-[11px] font-bold uppercase tracking-wide text-ink-muted">Marca</span>
@@ -132,10 +135,25 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
           ))}
         </select>
       </label>
-      <PeriodControl period={period} onChange={setPeriod} />
+      {hasFilter ? (
+        <button
+          type="button"
+          className="h-10 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted"
+          onClick={() => { setMarcaId(''); setApresentadoraId('') }}
+        >
+          Limpar filtros
+        </button>
+      ) : null}
       <Button type="button" icon={Download} variant="secondary" onClick={handleExport} isLoading={exporting}>
         Exportar CSV
       </Button>
+    </div>
+  )
+
+  // Topo (KPIs/gráficos/rankings) usa só período.
+  const periodoBar = (
+    <div className="flex flex-wrap items-end gap-3">
+      <PeriodControl period={period} onChange={setPeriod} />
     </div>
   )
 
@@ -144,7 +162,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
       {embedded ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-base font-bold text-ink">Analytics</p>
-          {filtrosBar}
+          {periodoBar}
         </div>
       ) : (
         <PageHeader
@@ -152,7 +170,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
           accent="Dashboard"
           title="de métricas"
           subtitle="GMV, horas, lives e desempenho por período."
-          actions={filtrosBar}
+          actions={periodoBar}
         />
       )}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -209,17 +227,26 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
           </CardBody>
         </Card>
       </section>
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-4">
+          <div>
+            <p className="text-base font-bold text-ink">Relatório de comissionamento</p>
+            <p className="mt-1 text-xs text-ink-muted">Filtros aplicam apenas às tabelas abaixo e ao CSV. KPIs e rankings do topo seguem o mês inteiro.</p>
+          </div>
+          {comissoesFiltrosBar}
+        </div>
       <section className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões — por apresentadora</p>
-            <p className="mt-1 text-xs text-ink-muted">Filtra por marca / apresentadora / mês. Use Exportar CSV pra gerar relatório.</p>
+            <p className="mt-1 text-xs text-ink-muted">GMV + comissão da apresentadora no período/filtros.</p>
           </CardHeader>
           <CardBody>
             {comissoesApresentadorasQ.isLoading ? (
               <p className="py-4 text-center text-sm text-muted">Carregando...</p>
             ) : apresentadorasRows.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted">Nenhuma comissão no período/filtros.</p>
+              <p className="py-4 text-center text-sm text-muted">{hasFilter ? 'Sem vendas para esta combinação de filtros no período. Tente limpar um dos filtros.' : 'Nenhuma comissão registrada no período.'}</p>
             ) : (
               <>
                 <DataTable<JsonRecord>
@@ -248,7 +275,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
             {comissoesMarcasQ.isLoading ? (
               <p className="py-4 text-center text-sm text-muted">Carregando...</p>
             ) : marcasRows.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted">Nenhuma comissão no período/filtros.</p>
+              <p className="py-4 text-center text-sm text-muted">{hasFilter ? 'Sem vendas para esta combinação de filtros no período. Tente limpar um dos filtros.' : 'Nenhuma comissão registrada no período.'}</p>
             ) : (
               <>
                 <DataTable<JsonRecord>
@@ -268,6 +295,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
             )}
           </CardBody>
         </Card>
+      </section>
       </section>
     </div>
   )
