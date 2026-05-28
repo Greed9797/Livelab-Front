@@ -40,7 +40,9 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             react: ['react', 'react-dom', 'react-router-dom'],
             query: ['@tanstack/react-query', 'zustand', 'axios'],
-            charts: ['recharts'],
+            // recharts removido — quando importado via React.lazy, Rollup
+            // cria chunk dinâmico que NÃO vai no <head> preload. Páginas
+            // sem gráfico não pagam o custo.
             icons: ['lucide-react'],
           },
         },
