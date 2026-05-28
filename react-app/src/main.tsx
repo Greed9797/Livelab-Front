@@ -14,8 +14,12 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 30_000,
-      refetchOnWindowFocus: true,
+      // Lucas: app lento (10s/page). Cache mais agressivo reduz refetches
+      // sem comprometer real-time (queries críticas usam refetchInterval).
+      staleTime: 5 * 60_000,        // 30s → 5min
+      gcTime: 10 * 60_000,          // cache em memória 10min após unmount
+      refetchOnWindowFocus: false,  // trocar tab não dispara N requests
+      refetchOnReconnect: 'always', // mantém comportamento em reconexão
     },
   },
 })

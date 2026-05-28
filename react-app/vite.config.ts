@@ -27,7 +27,14 @@ export default defineConfig(({ mode }) => {
       __APP_VERSION__: JSON.stringify(appVersion),
     },
     plugins: [react(), tailwindcss(), versionJsonPlugin],
+    esbuild: {
+      // Remove console.log + debugger no build de produção pra reduzir bundle.
+      drop: mode === 'production' ? ['console', 'debugger'] : [],
+    },
     build: {
+      target: 'es2020',
+      cssCodeSplit: true,
+      chunkSizeWarningLimit: 600,
       rollupOptions: {
         output: {
           manualChunks: {

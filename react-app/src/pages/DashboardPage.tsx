@@ -240,25 +240,27 @@ function AlertsStrip({ raw }: { raw: JsonRecord }) {
 export function DashboardPage() {
   const today = getSaoPauloDateInput()
   const agendaTodayParams = getSaoPauloDayAgendaParams(today)
+  // Intervalos calibrados pra reduzir requests background sem perder
+  // real-time onde importa (cabines/home têm cards AO VIVO).
   const homeQuery = useQuery({
     queryKey: ['home-dashboard'],
     queryFn: getHomeDashboard,
-    refetchInterval: 30_000,
+    refetchInterval: 30_000, // mantém — KPIs ao vivo
   })
   const agendaQuery = useQuery({
     queryKey: ['agenda-today', today],
     queryFn: () => getAgenda(agendaTodayParams),
-    refetchInterval: 60_000,
+    refetchInterval: 120_000, // 60s → 2min (agenda muda raro)
   })
   const cabinesQuery = useQuery({
     queryKey: ['cabines'],
     queryFn: getCabines,
-    refetchInterval: 30_000,
+    refetchInterval: 30_000, // mantém — viewers/GMV ao vivo
   })
   const rankingQuery = useQuery({
     queryKey: ['comissoes-apresentadoras'],
     queryFn: () => getComissoesApresentadoras(),
-    refetchInterval: 60_000,
+    refetchInterval: 300_000, // 60s → 5min (ranking mensal)
   })
 
   if (homeQuery.isLoading) return <LoadingState />
