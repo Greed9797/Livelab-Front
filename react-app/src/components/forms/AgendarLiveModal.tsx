@@ -1,5 +1,5 @@
 import { CheckCircle2, PlayCircle, Plus, Trash2 } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { PresenterSelect } from './PresenterSelect'
@@ -206,8 +206,22 @@ export function AgendarLiveModal({
   })).filter((option) => option.value), [cabines])
   const editingEventId = mode === 'edit' ? asString(event?.id, '') : ''
 
+  // useRef rastreia se form já foi inicializado pra esta abertura do modal.
+  // Antes: useEffect com deps [accountOptions, cabineOptions, ...] resetava
+  // form sempre que React Query refetchOnWindowFocus disparava (iOS clock
+  // picker dispara focus). Resultado: horário escolhido voltava pra 09:00/10:00.
+  // Agora: form só inicializa quando open vira true; deps subsequentes não
+  // tocam form, só atualizam lookups (efeito separado abaixo).
+  const initializedRef = useRef(false)
+
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      initializedRef.current = false
+      return
+    }
+    if (initializedRef.current) return
+    initializedRef.current = true
+
     if (mode === 'edit' && event) {
       const marcaId = asString(event.marca_id, '')
       const marca = marcas.find((item) => asString(item.id, '') === marcaId)
@@ -248,7 +262,15 @@ export function AgendarLiveModal({
     setForm(nextForm)
     setAccountLookup('')
     setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
-  }, [accountOptions, cabineOptions, defaultCabineId, defaultDate, event, marcas, mode, open])
+    // Deps mínimas — accountOptions/cabineOptions removidas pra estabilizar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  // Atualiza apenas o LABEL dos selects quando listas mudam (form preservado).
+  useEffect(() => {
+    if (!open) return
+    setCabineLookup((current) => current || optionLabel(cabineOptions, form.cabine_id))
+  }, [cabineOptions, open, form.cabine_id])
 
   useEffect(() => {
     if (!open || (!form.cabine_id && !form.apresentadora_id) || !form.data || !form.hora_inicio || !form.hora_fim) {
