@@ -247,6 +247,18 @@ export function CabineDetailPanel({
                     {asNumber(liveAtualData.comments_count ?? liveAtualData.manual_comments).toLocaleString('pt-BR')}
                   </p>
                 </div>
+                <div className="rounded-xl bg-surface p-2">
+                  <p className="text-[10px] text-ink-muted">Shares</p>
+                  <p className="num font-bold text-ink">
+                    {asNumber(liveAtualData.shares_count ?? liveAtualData.manual_shares).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-surface p-2">
+                  <p className="text-[10px] text-ink-muted">Diamantes</p>
+                  <p className="num font-bold text-ink">
+                    {asNumber(liveAtualData.gifts_diamonds ?? liveAtualData.manual_diamonds).toLocaleString('pt-BR')}
+                  </p>
+                </div>
               </div>
 
               <div className="mt-3 rounded-xl border border-line bg-surface p-3">
