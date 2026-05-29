@@ -80,4 +80,6 @@ export const QK = {
     mes ? ['metas-supervisor', mes] as const : ['metas-supervisor'] as const,
   analyticsDashboard: (period?: { mes: number; ano: number }) =>
     period ? ['analytics-dashboard', period] as const : ['analytics-dashboard'] as const,
+  funilAnalytics: (mesAno: string, groupBy: 'marca' | 'apresentadora') =>
+    ['funil-analytics', mesAno, groupBy] as const,
 }

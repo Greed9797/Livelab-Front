@@ -9,6 +9,7 @@ import { ErrorState, LoadingState } from '../components/ui/States'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { Button } from '../components/ui/Button'
+import { FunilAnalyticsSection } from '../components/analytics/FunilAnalyticsSection'
 import {
   exportarComissoesCSV,
   getAnalyticsDashboard,
@@ -227,6 +228,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
           </CardBody>
         </Card>
       </section>
+
+      <FunilAnalyticsSection mesAno={mes} />
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-4">

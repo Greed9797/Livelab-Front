@@ -420,6 +420,10 @@ export function getAnalyticsDashboard(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/analytics/dashboard', filters)
 }
 
+export function getFunilAnalytics(mesAno: string, groupBy: 'marca' | 'apresentadora') {
+  return apiGet<JsonRecord[]>('/analytics/funil', { mesAno, groupBy })
+}
+
 export function getFinanceiroResumo(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/financeiro/resumo', filters)
 }
