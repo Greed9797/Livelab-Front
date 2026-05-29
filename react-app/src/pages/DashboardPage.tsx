@@ -6,11 +6,11 @@ import { GmvHeroCard } from '../components/dashboard/GmvHeroCard'
 import { CabinesGantt } from '../components/dashboard/CabinesGantt'
 import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
 import { PresenterLeaderboard } from '../components/dashboard/PresenterLeaderboard'
-import { getAgenda, getCabines, getComissoesApresentadoras, getHomeDashboard } from '../services/domain'
+import { getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString } from '../utils/format'
-import { getSaoPauloDateInput, getSaoPauloDayAgendaParams } from '../utils/sao-paulo-date'
-import type { JsonRecord } from '../types/models'
+import { getSaoPauloDateInput } from '../utils/sao-paulo-date'
+import type { Cabine, JsonRecord } from '../types/models'
 
 function fmtCompact(v: number): string {
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`
@@ -239,28 +239,14 @@ function AlertsStrip({ raw }: { raw: JsonRecord }) {
 /* ── Main page ── */
 export function DashboardPage() {
   const today = getSaoPauloDateInput()
-  const agendaTodayParams = getSaoPauloDayAgendaParams(today)
   // Intervalos calibrados pra reduzir requests background sem perder
-  // real-time onde importa (cabines/home têm cards AO VIVO).
+  // real-time onde importa. A home já traz cabines, agenda e ranking inicial.
   const homeQuery = useQuery({
     queryKey: ['home-dashboard'],
     queryFn: getHomeDashboard,
+    staleTime: 30_000,
     refetchInterval: 30_000, // mantém — KPIs ao vivo
-  })
-  const agendaQuery = useQuery({
-    queryKey: ['agenda-today', today],
-    queryFn: () => getAgenda(agendaTodayParams),
-    refetchInterval: 120_000, // 60s → 2min (agenda muda raro)
-  })
-  const cabinesQuery = useQuery({
-    queryKey: ['cabines'],
-    queryFn: getCabines,
-    refetchInterval: 60_000, // Gantt: 60s adequado para atualizações de escala
-  })
-  const rankingQuery = useQuery({
-    queryKey: ['comissoes-apresentadoras'],
-    queryFn: () => getComissoesApresentadoras(),
-    refetchInterval: 300_000, // 60s → 5min (ranking mensal)
+    refetchIntervalInBackground: false,
   })
 
   if (homeQuery.isLoading) return <LoadingState />
@@ -272,9 +258,9 @@ export function DashboardPage() {
   )
 
   const raw = (homeQuery.data ?? {}) as JsonRecord
-  const agenda = asArray<JsonRecord>(agendaQuery.data)
-  const cabines = cabinesQuery.data ?? []
-  const rankingApresentadoras = asArray<JsonRecord>(raw.ranking_apresentadoras_mes ?? rankingQuery.data)
+  const agenda = asArray<JsonRecord>(raw.agenda_hoje ?? raw.proximas_lives_dia)
+  const cabines = asArray<Cabine>(raw.cabines)
+  const rankingApresentadoras = asArray<JsonRecord>(raw.ranking_apresentadoras_mes)
 
   const liveCabines = cabines.filter(
     (c) => asString(c.status, '').includes('ao_vivo') || asString(c.status, '') === 'live'

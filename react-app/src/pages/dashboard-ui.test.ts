@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   getPresenterLeaderboardName,
@@ -27,5 +28,16 @@ describe('Dashboard presenter ranking UI helpers', () => {
     expect(data.pipeline).toHaveLength(1)
     expect(data.bioTotals.total).toBe(7)
     expect(data.bioPorPersona[0].label).toBe('Clientes Bio')
+  })
+
+  it('keeps the initial dashboard load on the home payload only', () => {
+    const source = readFileSync(new URL('./DashboardPage.tsx', import.meta.url), 'utf8')
+
+    expect(source).toContain('getHomeDashboard')
+    expect(source).toContain('raw.cabines')
+    expect(source).toContain('raw.agenda_hoje')
+    expect(source).not.toContain('getCabines')
+    expect(source).not.toContain('getAgenda')
+    expect(source).not.toContain('getComissoesApresentadoras')
   })
 })
