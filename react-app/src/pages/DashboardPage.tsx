@@ -255,7 +255,7 @@ export function DashboardPage() {
   const cabinesQuery = useQuery({
     queryKey: ['cabines'],
     queryFn: getCabines,
-    refetchInterval: 30_000, // mantém — viewers/GMV ao vivo
+    refetchInterval: 60_000, // Gantt: 60s adequado para atualizações de escala
   })
   const rankingQuery = useQuery({
     queryKey: ['comissoes-apresentadoras'],

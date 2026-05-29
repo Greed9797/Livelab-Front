@@ -88,7 +88,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     queryFn: getCabines,
     refetchInterval: () => (document.hidden ? false : 30_000),
     refetchIntervalInBackground: false,
-    staleTime: 15_000,
+    staleTime: 60_000,
   })
   const clientesQuery = useQuery({
     queryKey: ['clientes', 'live-start'],
