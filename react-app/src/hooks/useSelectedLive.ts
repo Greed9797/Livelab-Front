@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { LiveAtual } from '../types/models'
 import { getLiveAtualDaCabine, getLivePorId } from '../services/domain'
 
@@ -20,12 +20,21 @@ export function useSelectedLive({ liveId, cabineId, autoRefreshMs = 0 }: UseSele
   const [live, setLive] = useState<LiveAtual | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Token de requisição: descarta respostas stale (race) e setState pós-unmount.
+  const reqRef = useRef(0)
+
+  useEffect(() => {
+    return () => {
+      reqRef.current++
+    }
+  }, [])
 
   const fetchLive = useCallback(async () => {
     if (!liveId && !cabineId) {
       setLive(null)
       return
     }
+    const myReq = ++reqRef.current
     setLoading(true)
     setError(null)
     try {
@@ -35,13 +44,15 @@ export function useSelectedLive({ liveId, cabineId, autoRefreshMs = 0 }: UseSele
       } else if (cabineId) {
         result = await getLiveAtualDaCabine(cabineId)
       }
+      if (myReq !== reqRef.current) return
       setLive(result)
     } catch (err: unknown) {
+      if (myReq !== reqRef.current) return
       const msg = err instanceof Error ? err.message : 'Erro ao carregar live'
       setError(msg)
       setLive(null)
     } finally {
-      setLoading(false)
+      if (myReq === reqRef.current) setLoading(false)
     }
   }, [liveId, cabineId])
 

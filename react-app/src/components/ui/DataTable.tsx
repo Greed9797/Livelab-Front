@@ -5,9 +5,11 @@ import { EmptyState } from './States'
 export function DataTable<T extends object>({
   columns,
   data,
+  rowKey,
 }: {
   columns: TableColumn<T>[]
   data: T[]
+  rowKey?: (item: T, index: number) => string | number
 }) {
   if (data.length === 0) return <EmptyState />
 
@@ -32,7 +34,7 @@ export function DataTable<T extends object>({
         </thead>
         <tbody className="divide-y divide-line">
           {data.map((item, index) => (
-            <tr key={index} className="transition hover:bg-surface-muted/70">
+            <tr key={rowKey ? rowKey(item, index) : index} className="transition hover:bg-surface-muted/70">
               {columns.map((column) => (
                 <td
                   key={String(column.key)}

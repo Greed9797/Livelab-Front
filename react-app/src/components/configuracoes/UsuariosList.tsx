@@ -38,6 +38,10 @@ function isPresenterUser(item: JsonRecord | null | undefined) {
   return isPresenterRole(item?.papel) || item?.pode_apresentar_live === true
 }
 
+function isPresenterMissingProfile(item: JsonRecord | null | undefined) {
+  return isPresenterRole(item?.papel) && !asString(item?.apresentadora_id, '') && !isPresenterProfile(item)
+}
+
 function initialsFor(item: JsonRecord) {
   const source = asString(item.nome ?? item.email, '')
   const parts = source.split(/\s+/).filter(Boolean)
@@ -155,7 +159,12 @@ export function UsuariosList({ data, actions, mutations, faixasPorApresentadora 
                       <Mail className="h-3.5 w-3.5 shrink-0" />
                       {asString(item.email)}
                     </p>
-                    {profileOnly ? <Badge className="mt-2" tone="warning">sem acesso</Badge> : null}
+                    {profileOnly || isPresenterMissingProfile(item) ? (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {profileOnly ? <Badge tone="warning">sem acesso</Badge> : null}
+                        {isPresenterMissingProfile(item) ? <Badge tone="danger">perfil operacional pendente</Badge> : null}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               )

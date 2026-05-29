@@ -218,17 +218,18 @@ export function SettingsUsuariosPanel() {
       if (presenterPapel) {
         presenterPayload.nome = ef.nome
         presenterPayload.ativo = ef.ativo
-        if (ef.fixo !== '') presenterPayload.fixo = asNumber(ef.fixo)
-        if (ef.comissao_pct !== '') presenterPayload.comissao_pct = asNumber(ef.comissao_pct)
-        if (ef.meta_diaria_gmv !== '') presenterPayload.meta_diaria_gmv = asNumber(ef.meta_diaria_gmv)
+        if (ef.fixo !== '') presenterPayload.fixo = parseBRMoneyToDecimal(ef.fixo)
+        if (ef.comissao_pct !== '') presenterPayload.comissao_pct = Number(ef.comissao_pct || 0)
+        if (ef.meta_diaria_gmv !== '') presenterPayload.meta_diaria_gmv = parseBRMoneyToDecimal(ef.meta_diaria_gmv)
         presenterPayload.foto_url = ef.foto_url || null
       }
       if (isPresenterProfile(user)) return updateApresentadora(presenterIdResolved, presenterPayload)
-      const updatedUser = await updateUsuario(asString(user.id, ''), { nome: ef.nome, papel: ef.papel, ativo: ef.ativo })
-      if (presenterPapel && presenterIdResolved && Object.keys(presenterPayload).length > 0) {
-        await updateApresentadora(presenterIdResolved, presenterPayload)
-      }
-      return updatedUser
+      return updateUsuario(asString(user.id, ''), {
+        nome: ef.nome,
+        papel: ef.papel,
+        ativo: ef.ativo,
+        ...(presenterPapel ? presenterPayload : {}),
+      })
     },
     onSuccess: () => {
       setEditingUser(null); setEditForm(emptyEditForm)

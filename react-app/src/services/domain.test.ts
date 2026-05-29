@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, getMasterCrm, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateVideo } from './domain'
+import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, getMasterCrm, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -152,6 +152,30 @@ describe('domain live operations', () => {
     await deleteUsuario('user-1')
 
     expect(apiDelete).toHaveBeenCalledWith('/usuarios/user-1')
+  })
+
+  it('updates users with presenter profile fields through the usuarios endpoint', async () => {
+    vi.mocked(apiPatch).mockResolvedValue({ id: 'user-1', apresentadora_id: 'ap-1' })
+
+    await updateUsuario('user-1', {
+      nome: 'Yasmin',
+      papel: 'apresentadora',
+      ativo: true,
+      fixo: 2700,
+      comissao_pct: 1.5,
+      meta_diaria_gmv: 9000,
+      foto_url: 'https://cdn.example.com/yasmin.jpg',
+    })
+
+    expect(apiPatch).toHaveBeenCalledWith('/usuarios/user-1', {
+      nome: 'Yasmin',
+      papel: 'apresentadora',
+      ativo: true,
+      fixo: 2700,
+      comissao_pct: 1.5,
+      meta_diaria_gmv: 9000,
+      foto_url: 'https://cdn.example.com/yasmin.jpg',
+    })
   })
 
   it('updates and deletes presenter profiles through apresentadoras endpoints', async () => {

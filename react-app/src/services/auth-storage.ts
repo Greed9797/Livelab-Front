@@ -14,7 +14,9 @@ import type { Session, User } from '../types/models'
 // Mitigações atuais (não eliminam o risco, apenas reduzem):
 //   1. Access token de curta duração (15min via JWT_EXPIRES_IN).
 //   2. token_version no banco invalida tokens comprometidos via /redefinir-senha.
-//   3. CSP habilitado (helmet) bloqueia scripts inline não autorizados.
+//   3. (PENDENTE) O SPA ainda NÃO possui CSP próprio. O helmet protege apenas as
+//      respostas da API backend — não o HTML servido pela Vercel. Adicionar CSP
+//      via headers no vercel.json está pendente (reduz superfície de XSS).
 //
 // TODO (melhoria de segurança futura): migrar para httpOnly cookie com refresh
 // rotation gerenciado pelo backend, eliminando exposição via localStorage.

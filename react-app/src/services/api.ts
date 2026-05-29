@@ -98,15 +98,19 @@ api.interceptors.response.use(
 
 export function extractErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    const status = error.response?.status ?? 0
+    // 401/5xx/rede: mensagem genérica primeiro — nunca repassar texto bruto do
+    // servidor para o usuário em erros internos (evita vazar detalhe interno).
+    if (status === 401) return 'Sessão expirada. Faça login novamente.'
+    if (status >= 500) return 'O servidor está indisponível no momento.'
+    if (error.code === 'ECONNABORTED') return 'Tempo limite excedido ao comunicar com o servidor.'
+    if (error.message === 'Network Error') return 'Não foi possível conectar ao servidor.'
+    // 4xx: repassa a mensagem de validação do backend (útil ao usuário).
     const data = error.response?.data
     if (data && typeof data === 'object') {
       const maybe = (data as Record<string, unknown>).error ?? (data as Record<string, unknown>).message
       if (typeof maybe === 'string' && maybe.trim()) return maybe
     }
-    if (error.response?.status === 401) return 'Sessão expirada. Faça login novamente.'
-    if ((error.response?.status ?? 0) >= 500) return 'O servidor está indisponível no momento.'
-    if (error.code === 'ECONNABORTED') return 'Tempo limite excedido ao comunicar com o servidor.'
-    if (error.message === 'Network Error') return 'Não foi possível conectar ao servidor.'
   }
   if (error instanceof Error && error.message) return error.message
   return 'Não foi possível concluir a operação agora.'

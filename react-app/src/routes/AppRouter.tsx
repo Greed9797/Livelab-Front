@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { ErrorBoundary } from '../components/ui/ErrorBoundary'
 import { Shell } from '../components/layout/Shell'
 import { cabineRoles, clienteRoles, commercialRoles, financeRoles, internalRoles, masterRoles, opsRoles } from '../utils/access'
 import { ProtectedRoute } from './ProtectedRoute'
@@ -37,6 +38,7 @@ const PageFallback = () => (
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <ErrorBoundary>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
@@ -120,6 +122,7 @@ export function AppRouter() {
           </Route>
         </Route>
       </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }
