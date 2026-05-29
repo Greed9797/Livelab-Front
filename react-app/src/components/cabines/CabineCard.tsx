@@ -12,6 +12,8 @@ function fmtDuration(min: number): string {
   return h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, '0') + 'min' : ''}` : `${m}min`
 }
 
+const MAX_LIVE_DURATION_MIN = 24 * 60
+
 interface CabineCardProps {
   cabine: Cabine
   isActive: boolean
@@ -54,6 +56,7 @@ export function CabineCard({
     iniciado && !Number.isNaN(iniciado.getTime())
       ? Math.floor((Date.now() - iniciado.getTime()) / 60000)
       : 0
+  const duracaoValida = duracaoMin > 0 && duracaoMin <= MAX_LIVE_DURATION_MIN
 
   return (
     <article
@@ -150,7 +153,7 @@ export function CabineCard({
                 </span>
                 {' · em transmissão'}
               </span>
-              {duracaoMin > 0 && (
+              {duracaoValida && (
                 <span className="ml-auto shrink-0 font-mono text-[11px] text-[var(--text-muted)]">
                   há {fmtDuration(duracaoMin)}
                 </span>
@@ -197,7 +200,7 @@ export function CabineCard({
               ))}
             </span>
             <span className="text-[var(--text-secondary)]">Transmissão ativa</span>
-            {duracaoMin > 0 && (
+            {duracaoValida && (
               <span className="ml-auto font-mono text-[11px] text-[var(--text-muted)]">
                 REC {String(Math.floor(duracaoMin / 60)).padStart(2, '0')}:{String(duracaoMin % 60).padStart(2, '0')}:00
               </span>
