@@ -1,0 +1,38 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [migration/react-vercel, stabilization/core-restructure, codex/blumenau-operational-fase1]
+  pull_request:
+    branches: [migration/react-vercel, codex/blumenau-operational-fase1]
+
+jobs:
+  build:
+    name: Typecheck + Test + Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: react-app/package-lock.json
+
+      - name: Install dependencies
+        run: cd react-app && npm ci
+
+      - name: Type check
+        run: cd react-app && npx tsc -b --noEmit
+
+      - name: Run unit tests
+        run: cd react-app && npx vitest run
+
+      - name: Build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: cd react-app && npm run build

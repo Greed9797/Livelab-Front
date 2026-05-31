@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# Disallow auth flows que envolvem tokens — não devem ser indexados
+Disallow: /redefinir-senha
+Disallow: /aceitar-convite
+Disallow: /recuperar-senha
+
+# Disallow áreas autenticadas (não fazem sentido sem sessão)
+Disallow: /master/
+Disallow: /cliente/
+Disallow: /admin/
+
+Sitemap: https://app.grupolivelab.com.br/sitemap.xml

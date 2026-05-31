@@ -1,0 +1,45 @@
+name: liveshop_saas
+description: SaaS de gestão para franquias de estúdios de liveshop
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_map: ^6.1.0
+  fl_chart: ^0.68.0
+  latlong2: ^0.9.0
+  flutter_riverpod: ^2.5.1
+  signature: ^5.4.0
+  dio: ^5.4.3
+  flutter_secure_storage: ^9.2.2
+  url_launcher: ^6.3.0
+  google_fonts: ^6.2.1
+  intl: ^0.19.0
+  flutter_svg: ^2.0.10
+  shimmer: ^3.0.0
+  phosphor_flutter: ^2.1.0
+  web: ^1.1.1
+  animations: ^2.0.11
+  image_picker: ^1.2.1
+  flutter_markdown: ^0.7.4+3
+  youtube_player_iframe: ^5.2.0
+  webview_flutter: ^4.10.0
+  markdown: ^7.2.2
+  sentry_flutter: ^8.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/logo.png
+    - assets/images/favicon.png
+    - assets/images/livelab_wordmark.png
