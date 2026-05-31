@@ -25,6 +25,34 @@ export function historyPoints(raw: unknown, labelKeys = ['label', 'mes', 'period
   })
 }
 
+function formatShortDay(value: unknown) {
+  const raw = asString(value, '')
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (match) return `${match[3]}/${match[2]}`
+  return raw || '—'
+}
+
+export function topDailyPoints(
+  raw: unknown,
+  valueKeys: string[],
+  labelKeys = ['dia', 'data', 'label'],
+  limit = 10,
+): ChartPoint[] {
+  return asArray<JsonRecord>(raw)
+    .map((item, index) => {
+      const labelValue = labelKeys.map((key) => item[key]).find((value) => value !== undefined)
+      const value = valueKeys.map((key) => item[key]).find((candidate) => candidate !== undefined)
+      return {
+        label: formatShortDay(labelValue ?? `${index + 1}`),
+        value: asNumber(value),
+        secondary: asNumber(item.total_lives ?? item.lives ?? item.horas_live),
+      }
+    })
+    .filter((point) => point.value > 0)
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
+    .slice(0, limit)
+}
+
 export function normalizeHome(raw: JsonRecord) {
   const resumo = raw.resumo_mes ? getRecord(raw.resumo_mes) : raw
   const cabines = asArray<JsonRecord>(raw.cabines)
@@ -35,7 +63,10 @@ export function normalizeHome(raw: JsonRecord) {
   const gmvMes = raw.gmv_total_mes ?? resumo.gmv_total_mes ?? 0
   const gmvLivesMes = raw.gmv_lives_mes ?? resumo.gmv_lives_mes ?? 0
   const gmvVideosMes = raw.gmv_videos_mes ?? resumo.gmv_videos_mes ?? 0
-  const ticketMedio = raw.ticket_medio_live_mes ?? (livesMes > 0 ? asNumber(gmvLivesMes) / livesMes : 0)
+  const horasLive = asNumber(raw.horas_live ?? raw.horas_live_mes ?? resumo.horas_live ?? resumo.horas_live_mes)
+  const gmvPorLive = asNumber(raw.gmv_por_live ?? raw.gmv_por_live_mes) || (livesMes > 0 ? asNumber(gmvLivesMes) / livesMes : 0)
+  const gmvPorHora = asNumber(raw.gmv_por_hora ?? raw.gmv_por_hora_mes ?? raw.gmv_hora) || (horasLive > 0 ? asNumber(gmvLivesMes) / horasLive : 0)
+  const ticketMedio = raw.ticket_medio_live_mes ?? gmvPorLive
   const liveNow = asArray<JsonRecord>(raw.live_now ?? raw.lives_acontecendo_agora ?? liveCabines)
   const agendaHoje = asArray<JsonRecord>(raw.agenda_hoje ?? raw.agendaHoje)
 
@@ -47,12 +78,17 @@ export function normalizeHome(raw: JsonRecord) {
       livesMes,
       videosMes,
       ticketMedio,
+      gmvPorLive,
+      gmvPorHora,
+      horasLive,
       variacaoMesAnterior: raw.variacao_gmv_mes_anterior_pct ?? raw.gmv_crescimento_pct ?? 0,
       comparacaoLabel: raw.comparacao_label ?? raw.gmv_comparacao_label,
     },
     metrics: [
       metric('Agenda de hoje', agendaHoje.length, undefined, 'info'),
       metric('Lives realizadas', livesMes.toLocaleString('pt-BR'), 'mês atual', 'brand'),
+      moneyMetric('GMV / live', gmvPorLive, 'média do mês', 'brand'),
+      moneyMetric('GMV / hora', gmvPorHora, `${horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}h em live`, 'success'),
       metric('Vídeos gravados', videosMes.toLocaleString('pt-BR'), 'mês atual', 'info'),
       metric('Cabines em live', `${asNumber(raw.lives_ativas_agora ?? ocupacao.ao_vivo ?? liveNow.length)} / ${asNumber(ocupacao.operacionais ?? cabines.length)}`, `${asNumber(ocupacao.operacionais ?? cabines.length)} operacionais`, 'neutral'),
     ],

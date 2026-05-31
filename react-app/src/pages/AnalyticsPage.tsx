@@ -15,6 +15,7 @@ import { AnalyticsImportSection } from '../components/analytics/AnalyticsImportS
 import {
   exportarComissoesCSV,
   getAnalyticsDashboard,
+  getDailyAnalytics,
   getApresentadoras,
   getComissoesApresentadoras,
   getComissoesMarcas,
@@ -22,7 +23,7 @@ import {
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, currentPeriod, formatMoney, getRecord } from '../utils/format'
-import { historyPoints, metric, moneyMetric } from './page-helpers'
+import { historyPoints, metric, moneyMetric, topDailyPoints } from './page-helpers'
 import { QK } from '../services/query-keys'
 import { useToast } from '../components/ui/Toast'
 import type { JsonRecord } from '../types/models'
@@ -39,11 +40,18 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const [marcaId, setMarcaId] = useState<string>('')
   const [apresentadoraId, setApresentadoraId] = useState<string>('')
   const [exporting, setExporting] = useState(false)
+  const [chartMode, setChartMode] = useState<'mensal' | 'diario'>('mensal')
 
   const mes = periodToMesAno(period)
   const filtros = { mes, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }
 
   const query = useQuery({ queryKey: QK.analyticsDashboard(period), queryFn: () => getAnalyticsDashboard({ mesAno: mes }) })
+  const dailyQuery = useQuery({
+    queryKey: QK.dailyAnalytics(mes),
+    queryFn: () => getDailyAnalytics({ mesAno: mes }),
+    enabled: chartMode === 'diario',
+    staleTime: 5 * 60_000,
+  })
 
   const comissoesApresentadorasQ = useQuery({
     queryKey: QK.comissoesApresentadorasBy(mes, marcaId, apresentadoraId),
@@ -62,6 +70,12 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
   const raw = query.data ?? {}
   const kpis = getRecord(raw.kpis)
+  const dailyRows = asArray<JsonRecord>(dailyQuery.data?.rows)
+  const dailyGmvPoints = topDailyPoints(dailyRows, ['gmv_total', 'gmv_lives', 'gmv'])
+  const dailyPedidosPoints = topDailyPoints(dailyRows, ['pedidos', 'total_pedidos', 'orders'])
+  const dailySubtitle = dailyQuery.isLoading
+    ? 'Carregando melhores dias do mês selecionado...'
+    : 'Top 10 dias do mês selecionado, ordenado do maior para o menor.'
 
   const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
   const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
@@ -181,9 +195,49 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
           <MetricCard key={item.label} metric={item} icon={icons[index]} />
         ))}
       </section>
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/60 p-3">
+          <div>
+            <p className="text-sm font-bold text-ink">Comparativo principal</p>
+            <p className="text-xs text-ink-muted">
+              {chartMode === 'mensal'
+                ? 'Evolução mensal consolidada de GMV e pedidos.'
+                : 'Ranking dos melhores dias do mês selecionado em GMV e pedidos.'}
+            </p>
+          </div>
+          <div className="flex rounded-full border border-line bg-surface p-1">
+            {(['mensal', 'diario'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  chartMode === mode
+                    ? 'bg-brand text-white shadow-[0_8px_24px_rgba(255,90,31,0.28)]'
+                    : 'text-ink-muted hover:bg-surface-muted hover:text-ink'
+                }`}
+                onClick={() => setChartMode(mode)}
+              >
+                {mode === 'mensal' ? 'Mensal' : 'Diário'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {chartMode === 'mensal' ? (
+            <>
+              <LinePanel title="GMV mensal" data={historyPoints(raw.gmv_mensal ?? raw.faturamento_mensal ?? raw.history)} />
+              <BarPanel title="Pedidos mensais" data={historyPoints(raw.pedidos_mensal ?? raw.vendas_mensal, ['mes', 'label'], ['pedidos', 'total_vendas', 'value'])} />
+            </>
+          ) : (
+            <>
+              <BarPanel title="GMV diário" subtitle={dailySubtitle} data={dailyGmvPoints} />
+              <BarPanel title="Pedidos diários" subtitle={dailySubtitle} data={dailyPedidosPoints} />
+            </>
+          )}
+        </div>
+      </section>
+
       <section className="grid gap-4 xl:grid-cols-2">
-        <LinePanel title="GMV mensal" data={historyPoints(raw.gmv_mensal ?? raw.faturamento_mensal ?? raw.history)} />
-        <BarPanel title="Pedidos mensais" data={historyPoints(raw.pedidos_mensal ?? raw.vendas_mensal, ['mes', 'label'], ['pedidos', 'total_vendas', 'value'])} />
         <BarPanel title="Horas de live" data={historyPoints(raw.horas_live_por_dia ?? raw.horas_por_dia, ['dia', 'label'], ['horas', 'value'])} />
         <BarPanel
           title="Conteúdos no período"
