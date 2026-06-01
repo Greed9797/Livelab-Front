@@ -47,12 +47,23 @@ export function DailyAnalyticsSection({ mesAno }: Props) {
   const rows = asArray<JsonRecord>(query.data?.rows)
   const rowsWithData = rows.filter((row) => (
     asNumber(row.gmv_total) > 0 ||
+    asNumber(row.pedidos) > 0 ||
     asNumber(row.total_lives) > 0 ||
     asNumber(row.total_videos) > 0 ||
     asNumber(row.horas_live) > 0
   ))
-  const visibleRows = rowsWithData.length > 0 ? rows : []
+  const visibleRows = rowsWithData
   const hasFilter = Boolean(marcaId || apresentadoraId)
+  const selectedMarcaLabel = useMemo(() => {
+    if (!marcaId) return 'Todas'
+    const marca = asArray<JsonRecord>(marcasQuery.data).find((item) => asString(item.id) === marcaId)
+    return asString(marca?.nome, 'Selecionada')
+  }, [marcaId, marcasQuery.data])
+  const selectedApresentadoraLabel = useMemo(() => {
+    if (!apresentadoraId) return 'Todas'
+    const apresentadora = asArray<JsonRecord>(apresentadorasQuery.data).find((item) => asString(item.id) === apresentadoraId)
+    return asString(apresentadora?.nome, 'Selecionada')
+  }, [apresentadoraId, apresentadorasQuery.data])
 
   return (
     <Card>
@@ -132,14 +143,26 @@ export function DailyAnalyticsSection({ mesAno }: Props) {
             {hasFilter ? 'Sem dados para esta combinação no período.' : 'Nenhum dado diário no período.'}
           </p>
         ) : (
-          <DailyTable rows={visibleRows} />
+          <DailyTable
+            rows={visibleRows}
+            marcaLabel={selectedMarcaLabel}
+            apresentadoraLabel={selectedApresentadoraLabel}
+          />
         )}
       </CardBody>
     </Card>
   )
 }
 
-function DailyTable({ rows }: { rows: JsonRecord[] }) {
+function DailyTable({
+  rows,
+  marcaLabel,
+  apresentadoraLabel,
+}: {
+  rows: JsonRecord[]
+  marcaLabel: string
+  apresentadoraLabel: string
+}) {
   const totals = {
     gmvTotal: sum(rows, 'gmv_total'),
     gmvLives: sum(rows, 'gmv_lives'),
@@ -152,10 +175,12 @@ function DailyTable({ rows }: { rows: JsonRecord[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[980px] text-sm">
+      <table className="w-full min-w-[1120px] text-sm">
         <thead>
           <tr className="border-b border-line text-left text-[11px] font-bold uppercase tracking-wide text-ink-muted">
             <th className="pb-2 pr-4">Dia</th>
+            <th className="pb-2 pr-4">Marca</th>
+            <th className="pb-2 pr-4">Apresentadora</th>
             <th className="pb-2 pr-4 text-right">GMV total</th>
             <th className="pb-2 pr-4 text-right">GMV live</th>
             <th className="pb-2 pr-4 text-right">GMV vídeo</th>
@@ -172,6 +197,8 @@ function DailyTable({ rows }: { rows: JsonRecord[] }) {
           {rows.map((row) => (
             <tr key={asString(row.dia)} className="border-b border-line/50 hover:bg-surface-muted/50">
               <td className="py-2.5 pr-4 font-semibold text-ink">{formatDay(row.dia)}</td>
+              <td className="py-2.5 pr-4 text-ink-muted">{marcaLabel}</td>
+              <td className="py-2.5 pr-4 text-ink-muted">{apresentadoraLabel}</td>
               <td className="py-2.5 pr-4 text-right font-bold tabular-nums text-ink">{formatMoney(row.gmv_total)}</td>
               <td className="py-2.5 pr-4 text-right tabular-nums text-ink-muted">{formatMoney(row.gmv_lives)}</td>
               <td className="py-2.5 pr-4 text-right tabular-nums text-ink-muted">{formatMoney(row.gmv_videos)}</td>
@@ -188,6 +215,8 @@ function DailyTable({ rows }: { rows: JsonRecord[] }) {
         <tfoot>
           <tr className="border-t border-line bg-surface-muted text-sm font-bold text-ink">
             <td className="py-3 pr-4">Total</td>
+            <td className="py-3 pr-4 text-ink-muted">—</td>
+            <td className="py-3 pr-4 text-ink-muted">—</td>
             <td className="py-3 pr-4 text-right tabular-nums">{formatMoney(totals.gmvTotal)}</td>
             <td className="py-3 pr-4 text-right tabular-nums">{formatMoney(totals.gmvLives)}</td>
             <td className="py-3 pr-4 text-right tabular-nums">{formatMoney(totals.gmvVideos)}</td>
