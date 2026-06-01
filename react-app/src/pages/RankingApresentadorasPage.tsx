@@ -1,6 +1,6 @@
 import { Crown, DollarSign, TrendingUp } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody } from '../components/ui/Card'
@@ -19,6 +19,22 @@ function currentMes() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
+
+function prevMes(mes: string): string {
+  const [y, m] = mes.split('-').map(Number)
+  const d = new Date(y, m - 1, 1)
+  d.setMonth(d.getMonth() - 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+// Quantos meses 'mes' está atrás do mês corrente (guarda do auto-fallback).
+function mesesAtras(mes: string): number {
+  const [cy, cm] = currentMes().split('-').map(Number)
+  const [y, m] = mes.split('-').map(Number)
+  return (cy - y) * 12 + (cm - m)
+}
+
+const MAX_FALLBACK_MESES = 11
 
 function getGmv(row: JsonRecord): number {
   return rankingGmv(row)
@@ -68,11 +84,23 @@ function SummaryCard({
 
 export function RankingApresentadorasPage() {
   const [mes, setMes] = useState(currentMes())
+  // true assim que o usuário escolhe um mês manualmente — desliga o auto-fallback.
+  const [mesEscolhido, setMesEscolhido] = useState(false)
 
   const query = useQuery({
     queryKey: ['ranking-apresentadoras', mes],
     queryFn: () => getRankingApresentadoras({ mes }),
   })
+
+  // Abre no último mês com dados (espelha Home/Analytics): se o mês atual vier
+  // vazio e o usuário ainda não escolheu, recua um mês até achar registros.
+  useEffect(() => {
+    if (mesEscolhido || query.isLoading || query.isError) return
+    const vazio = (query.data ?? []).length === 0
+    if (vazio && mesesAtras(mes) < MAX_FALLBACK_MESES) {
+      setMes((m) => prevMes(m))
+    }
+  }, [query.data, query.isLoading, query.isError, mesEscolhido, mes])
 
   if (query.isLoading) return <LoadingState label="Carregando ranking..." />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
@@ -97,7 +125,10 @@ export function RankingApresentadorasPage() {
               type="month"
               className="design-input h-10 px-3 text-sm"
               value={mes}
-              onChange={(event) => setMes(event.target.value)}
+              onChange={(event) => {
+                setMesEscolhido(true)
+                setMes(event.target.value)
+              }}
             />
           </div>
         }
