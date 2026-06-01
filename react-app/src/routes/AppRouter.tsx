@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ErrorBoundary } from '../components/ui/ErrorBoundary'
 import { Shell } from '../components/layout/Shell'
-import { cabineRoles, clienteRoles, commercialRoles, financeRoles, internalRoles, masterRoles, opsRoles } from '../utils/access'
+import { allRoles, cabineRoles, clienteRoles, commercialRoles, financeRoles, internalRoles, masterRoles, opsRoles } from '../utils/access'
 import { ProtectedRoute } from './ProtectedRoute'
 import { LoginPage } from '../pages/LoginPage'
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage'
@@ -25,6 +25,7 @@ const MetasPage = lazy(() => import('../pages/MetasPage').then(m => ({ default: 
 const RankingApresentadorasPage = lazy(() => import('../pages/RankingApresentadorasPage').then(m => ({ default: m.RankingApresentadorasPage })))
 const RankingMarcasPage = lazy(() => import('../pages/RankingMarcasPage').then(m => ({ default: m.RankingMarcasPage })))
 const ConfiguracoesPage = lazy(() => import('../pages/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
+const MinhaContaPage = lazy(() => import('../pages/MinhaContaPage').then(m => ({ default: m.MinhaContaPage })))
 const KnowledgePage = lazy(() => import('../pages/KnowledgePage').then(m => ({ default: m.KnowledgePage })))
 const OnboardingPage = lazy(() => import('../pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 
@@ -114,6 +115,10 @@ export function AppRouter() {
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'admin_master', 'franqueado', 'gerente']} />}>
               <Route path="/configuracoes" element={<Suspense fallback={<PageFallback />}><ConfiguracoesPage /></Suspense>} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={allRoles} />}>
+              <Route path="/conta" element={<Suspense fallback={<PageFallback />}><MinhaContaPage /></Suspense>} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={[...masterRoles, ...internalRoles, 'apresentador', 'apresentadora']} />}>

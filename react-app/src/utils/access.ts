@@ -5,6 +5,7 @@ import {
   CircleDollarSign,
   Gauge,
   Home,
+  KeyRound,
   LayoutDashboard,
   MonitorPlay,
   Presentation,
@@ -95,6 +96,17 @@ export const cabineRoles: Role[] = [
 
 export const clienteRoles: Role[] = ['cliente_parceiro']
 
+// Todos os papéis autenticados — para recursos self-service (ex: trocar senha).
+export const allRoles: Role[] = Array.from(new Set<Role>([
+  ...masterRoles,
+  ...internalRoles,
+  ...commercialRoles,
+  ...financeRoles,
+  ...opsRoles,
+  ...cabineRoles,
+  ...clienteRoles,
+]))
+
 export function normalizeRole(role: Role): OfficialRole {
   switch (role) {
     // Master role mapping
@@ -174,6 +186,7 @@ export const menuItems: MenuItem[] = [
   { label: 'Ranking', path: '/ranking/apresentadoras', icon: Trophy, roles: opsRoles },
   { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'franqueado'] },
   // Cliente parceiro: escopo mínimo para go-live (Home + Lives + Configurações).
+  { label: 'Minha conta', path: '/conta', icon: KeyRound, roles: allRoles },
   { label: 'Cliente', path: '/cliente', icon: Gauge, roles: clienteRoles },
   { label: 'Lives', path: '/cliente/lives', icon: MonitorPlay, roles: clienteRoles },
   { label: 'Configurações', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles },
