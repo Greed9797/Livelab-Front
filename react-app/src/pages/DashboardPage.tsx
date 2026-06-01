@@ -267,6 +267,7 @@ export function DashboardPage() {
         rows={rankingApresentadoras}
         title="Ranking de apresentadoras"
         subtitle="Progresso vs. líder do mês"
+        variant="full"
         limit={6}
         action={
           <Link className="text-xs font-semibold text-brand hover:underline" to="/ranking-apresentadoras">
