@@ -8,6 +8,7 @@ import { ErrorState, LoadingState } from '../components/ui/States'
 import {
   PresenterLeaderboard,
   getPresenterLeaderboardName,
+  isRealPresenter,
 } from '../components/dashboard/PresenterLeaderboard'
 import { getRankingApresentadoras } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -96,7 +97,7 @@ export function RankingApresentadorasPage() {
   // vazio e o usuário ainda não escolheu, recua um mês até achar registros.
   useEffect(() => {
     if (mesEscolhido || query.isLoading || query.isError) return
-    const vazio = (query.data ?? []).length === 0
+    const vazio = (query.data ?? []).filter(isRealPresenter).length === 0
     if (vazio && mesesAtras(mes) < MAX_FALLBACK_MESES) {
       setMes((m) => prevMes(m))
     }
@@ -105,7 +106,7 @@ export function RankingApresentadorasPage() {
   if (query.isLoading) return <LoadingState label="Carregando ranking..." />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
-  const ranking = query.data ?? []
+  const ranking = (query.data ?? []).filter(isRealPresenter)
   const leader = ranking[0] as JsonRecord | undefined
   const totalGmv = ranking.reduce((sum, row) => sum + getGmv(row), 0)
   const totalCommission = ranking.reduce((sum, row) => sum + getCommission(row), 0)

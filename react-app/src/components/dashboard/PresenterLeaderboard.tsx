@@ -103,8 +103,18 @@ function buildBadges(row: JsonRecord, index: number): PresenterRow['badges'] {
   return badges.slice(0, 3)
 }
 
+// GMV nao atribuido a uma apresentadora real (label "Sem apresentadora" do
+// backend) nao deve figurar no ranking. Exportado para somas/lider coerentes.
+export function isRealPresenter(row: JsonRecord): boolean {
+  const name = rankingName(row, 'apresentadora')
+  if (/sem\s+apresentad/i.test(name)) return false
+  const id = rankingId(row, 'apresentadora')
+  return Boolean(id) || (name !== '' && name !== '—')
+}
+
 function normalizeRows(rows: JsonRecord[], limit?: number): PresenterRow[] {
-  const visibleRows = typeof limit === 'number' ? rows.slice(0, limit) : rows
+  const realRows = rows.filter(isRealPresenter)
+  const visibleRows = typeof limit === 'number' ? realRows.slice(0, limit) : realRows
   const maxGmv = visibleRows.reduce((max, row) => Math.max(max, rankingGmv(row)), 0)
 
   return visibleRows.map((row, index) => {
