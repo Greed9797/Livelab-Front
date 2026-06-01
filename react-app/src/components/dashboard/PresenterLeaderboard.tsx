@@ -259,9 +259,73 @@ function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; i
   const tone = positionTone(index)
   const showMeta = row.lives > 0 || row.pedidos > 0
   const gmvPerLive = row.lives > 0 ? row.gmv / row.lives : 0
-  const gridClass = variant === 'full'
-    ? 'md:grid-cols-[44px_minmax(230px,1.2fr)_minmax(220px,1fr)_110px_120px]'
-    : 'md:grid-cols-[38px_minmax(210px,1.2fr)_minmax(180px,0.8fr)_110px]'
+
+  // Compact (sidebar ~340px): empilha vertical para não estourar a coluna.
+  if (variant === 'compact') {
+    return (
+      <div
+        className="flex flex-col gap-3 px-4 py-4"
+        style={{
+          borderTop: index === 0 ? 'none' : '1px solid var(--divider)',
+          background: tone.row,
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="serif w-6 shrink-0 text-center text-3xl leading-none"
+            style={{ background: tone.number, WebkitBackgroundClip: 'text', color: 'transparent' }}
+          >
+            {index + 1}
+          </div>
+          <Avatar row={row} index={index} />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="truncate text-sm font-extrabold tracking-[-0.01em] text-ink">{row.name}</p>
+              {row.cabine ? (
+                <span className="shrink-0 rounded-md border border-line bg-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-ink-muted">
+                  {row.cabine}
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {row.badges.map((badge) => <Badge key={badge.label} badge={badge} />)}
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="num text-sm font-black leading-tight text-[var(--success)]">
+              {row.commission > 0 ? formatMoney(row.commission, true) : '—'}
+            </p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-ink-muted">comissão</p>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="num text-lg font-black tracking-[-0.02em] text-ink">{formatMoney(row.gmv, true)}</p>
+            <p className="shrink-0 text-[11px] font-semibold text-ink-muted">{row.progress.toFixed(0)}% do líder</p>
+          </div>
+          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-muted">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${row.progress}%`,
+                background: index === 0
+                  ? 'linear-gradient(90deg, var(--primary), oklch(0.82 0.12 70))'
+                  : 'linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 42%, var(--text-muted)))',
+              }}
+            />
+          </div>
+          {gmvPerLive > 0 ? (
+            <p className="mt-1 text-[10px] font-medium text-ink-muted">
+              {formatMoney(gmvPerLive, true)}/live · {row.lives} live{row.lives !== 1 ? 's' : ''}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+
+  const gridClass = 'md:grid-cols-[44px_minmax(230px,1.2fr)_minmax(220px,1fr)_110px_120px]'
 
   return (
     <div
@@ -370,19 +434,15 @@ export function PresenterLeaderboard({
 
       {presenters.length > 0 ? (
         <div>
-          <div
-            className={`hidden px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted md:grid ${
-              variant === 'full'
-                ? 'grid-cols-[44px_minmax(230px,1.2fr)_minmax(220px,1fr)_110px_120px]'
-                : 'grid-cols-[38px_minmax(210px,1.2fr)_minmax(180px,0.8fr)_110px]'
-            } gap-4`}
-          >
-            <span>RK</span>
-            <span>Apresentadora</span>
-            <span>GMV · progresso vs líder</span>
-            {variant === 'full' ? <span>Pulso</span> : null}
-            <span className="text-right">Comissão</span>
-          </div>
+          {variant === 'full' ? (
+            <div className="hidden gap-4 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted md:grid grid-cols-[44px_minmax(230px,1.2fr)_minmax(220px,1fr)_110px_120px]">
+              <span>RK</span>
+              <span>Apresentadora</span>
+              <span>GMV · progresso vs líder</span>
+              <span>Pulso</span>
+              <span className="text-right">Comissão</span>
+            </div>
+          ) : null}
           {presenters.map((row, index) => (
             <PresenterLeaderboardRow key={row.key} row={row} index={index} variant={variant} />
           ))}
