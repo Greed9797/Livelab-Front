@@ -4,7 +4,6 @@ import {
   KeyRound,
   LogOut,
   Mail,
-  MailPlus,
   Shield,
   Trash2,
   type LucideIcon,
@@ -244,12 +243,6 @@ export function UsuariosList({ data, actions, mutations, faixasPorApresentadora 
                     label="Resetar senha"
                     disabled={presenterOnly || mutations.resetPending}
                     onClick={() => actions.onResetSenha(id)}
-                  />
-                  <IconActionButton
-                    icon={MailPlus}
-                    label="Reenviar convite"
-                    disabled={presenterOnly || mutations.resendPending}
-                    onClick={() => actions.onResendConvite(id)}
                   />
                   <IconActionButton
                     icon={LogOut}

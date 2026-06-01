@@ -321,7 +321,7 @@ export function SettingsUsuariosPanel() {
       ...(isPresenterRole(form.papel) && form.comissao_pct !== '' ? { comissao_pct: Number(form.comissao_pct || 0) } : {}),
       ...(isPresenterRole(form.papel) && form.meta_diaria_gmv !== '' ? { meta_diaria_gmv: parseBRMoneyToDecimal(form.meta_diaria_gmv) } : {}),
       ...(isPresenterRole(form.papel) && form.foto_url ? { foto_url: form.foto_url } : {}),
-      ...(form.senha_temporaria ? { senha_temporaria: form.senha_temporaria } : {}),
+      senha_temporaria: form.senha_temporaria,
     })
   }
 
@@ -428,12 +428,12 @@ export function SettingsUsuariosPanel() {
       <Modal
         open={isCreateOpen}
         title="Novo acesso"
-        subtitle="Cadastro único para equipe, apresentadoras e clientes parceiros."
+        subtitle="Cadastro único para equipe, apresentadoras e clientes parceiros. Defina uma senha temporária — o usuário poderá trocá-la depois."
         size="lg"
         onClose={() => setCreateOpen(false)}
         footer={(
           <>
-            <Button type="submit" form="usuario-create-form" icon={UserPlus} isLoading={inviteMutation.isPending}>Enviar convite</Button>
+            <Button type="submit" form="usuario-create-form" icon={UserPlus} isLoading={inviteMutation.isPending}>Criar usuário</Button>
             <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>Cancelar</Button>
           </>
         )}

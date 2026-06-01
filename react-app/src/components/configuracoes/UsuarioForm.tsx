@@ -86,8 +86,14 @@ export function UsuarioForm({
             className="design-input mt-2 h-11 w-full px-4"
             value={form.senha_temporaria}
             onChange={(e) => onFieldChange('senha_temporaria', e.target.value)}
-            placeholder="Opcional"
+            placeholder="Mín. 8 caracteres, com letra e número"
+            autoComplete="new-password"
+            minLength={8}
+            required
           />
+          <span className="mt-1 block text-xs text-ink-muted">
+            O usuário entra com esta senha e pode trocá-la depois em Configurações → Segurança.
+          </span>
         </label>
       </div>
 
