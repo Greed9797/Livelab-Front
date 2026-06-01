@@ -54,16 +54,6 @@ export function DailyAnalyticsSection({ mesAno }: Props) {
   ))
   const visibleRows = rowsWithData
   const hasFilter = Boolean(marcaId || apresentadoraId)
-  const selectedMarcaLabel = useMemo(() => {
-    if (!marcaId) return 'Todas'
-    const marca = asArray<JsonRecord>(marcasQuery.data).find((item) => asString(item.id) === marcaId)
-    return asString(marca?.nome, 'Selecionada')
-  }, [marcaId, marcasQuery.data])
-  const selectedApresentadoraLabel = useMemo(() => {
-    if (!apresentadoraId) return 'Todas'
-    const apresentadora = asArray<JsonRecord>(apresentadorasQuery.data).find((item) => asString(item.id) === apresentadoraId)
-    return asString(apresentadora?.nome, 'Selecionada')
-  }, [apresentadoraId, apresentadorasQuery.data])
 
   return (
     <Card>
@@ -143,26 +133,14 @@ export function DailyAnalyticsSection({ mesAno }: Props) {
             {hasFilter ? 'Sem dados para esta combinação no período.' : 'Nenhum dado diário no período.'}
           </p>
         ) : (
-          <DailyTable
-            rows={visibleRows}
-            marcaLabel={selectedMarcaLabel}
-            apresentadoraLabel={selectedApresentadoraLabel}
-          />
+          <DailyTable rows={visibleRows} />
         )}
       </CardBody>
     </Card>
   )
 }
 
-function DailyTable({
-  rows,
-  marcaLabel,
-  apresentadoraLabel,
-}: {
-  rows: JsonRecord[]
-  marcaLabel: string
-  apresentadoraLabel: string
-}) {
+function DailyTable({ rows }: { rows: JsonRecord[] }) {
   const totals = {
     gmvTotal: sum(rows, 'gmv_total'),
     gmvLives: sum(rows, 'gmv_lives'),
@@ -197,8 +175,8 @@ function DailyTable({
           {rows.map((row) => (
             <tr key={asString(row.dia)} className="border-b border-line/50 hover:bg-surface-muted/50">
               <td className="py-2.5 pr-4 font-semibold text-ink">{formatDay(row.dia)}</td>
-              <td className="py-2.5 pr-4 text-ink-muted">{marcaLabel}</td>
-              <td className="py-2.5 pr-4 text-ink-muted">{apresentadoraLabel}</td>
+              <td className="py-2.5 pr-4 text-ink-muted">{asString(row.marca_nome, 'Sem marca')}</td>
+              <td className="py-2.5 pr-4 text-ink-muted">{asString(row.apresentadora_nome, 'Sem apresentadora')}</td>
               <td className="py-2.5 pr-4 text-right font-bold tabular-nums text-ink">{formatMoney(row.gmv_total)}</td>
               <td className="py-2.5 pr-4 text-right tabular-nums text-ink-muted">{formatMoney(row.gmv_lives)}</td>
               <td className="py-2.5 pr-4 text-right tabular-nums text-ink-muted">{formatMoney(row.gmv_videos)}</td>
