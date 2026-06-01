@@ -1,0 +1,391 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #ff5a1f;
+  --color-brand-hover: #e64a0f;
+  --color-brand-soft: var(--primary-soft);
+  --color-canvas: var(--bg-base);
+  --color-surface: var(--bg-elev-1);
+  --color-surface-muted: var(--bg-elev-3);
+  --color-ink: var(--text-primary);
+  --color-ink-muted: var(--text-muted);
+  --color-line: var(--border);
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+:root {
+  color-scheme: light;
+  --bg-base: #f8f2ec;
+  --bg-elev-1: #ffffff;
+  --bg-elev-2: #ffffff;
+  --bg-elev-3: #fdf7f2;
+  --bg-input: #f0e8df;
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-muted: #8a8a8a;
+  --text-faint: #b8b0a8;
+  --primary: #ff5a1f;
+  --primary-hover: #e64a0f;
+  --primary-soft: rgba(255, 90, 31, 0.12);
+  --primary-softer: rgba(255, 90, 31, 0.06);
+  --primary-glow: 0 0 0 1px rgba(255, 90, 31, 0.2), 0 8px 20px -6px rgba(255, 90, 31, 0.3);
+  --success: #1fa968;
+  --success-soft: rgba(31, 169, 104, 0.12);
+  --warning: #e08a0b;
+  --warning-soft: rgba(224, 138, 11, 0.12);
+  --danger: #e04b3c;
+  --danger-soft: rgba(224, 75, 60, 0.12);
+  --info: #2c7ad6;
+  --info-soft: rgba(44, 122, 214, 0.12);
+  --border: rgba(26, 26, 26, 0.08);
+  --border-strong: rgba(26, 26, 26, 0.14);
+  --hairline: rgba(26, 26, 26, 0.05);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(23, 10, 4, 0.05);
+  --shadow-card-lg: 0 16px 40px rgba(23, 10, 4, 0.08);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  /* warm off-black — direção C fintech premium */
+  --bg-base: oklch(0.155 0.006 60);
+  --bg-elev-1: oklch(0.185 0.006 60);
+  --bg-elev-2: oklch(0.205 0.006 60);
+  --bg-elev-3: oklch(0.235 0.006 60);
+  --bg-input: oklch(0.185 0.006 60);
+  --text-primary: oklch(0.97 0.004 60);
+  --text-secondary: oklch(0.78 0.005 60);
+  --text-muted: oklch(0.58 0.005 60);
+  --text-faint: oklch(0.42 0.005 60);
+  --primary: oklch(0.74 0.17 50);
+  --primary-hover: oklch(0.78 0.15 50);
+  --primary-soft: oklch(0.74 0.17 50 / 0.14);
+  --primary-softer: oklch(0.74 0.17 50 / 0.07);
+  --primary-glow: 0 0 0 1px oklch(0.74 0.17 50 / 0.3), 0 8px 24px -6px oklch(0.74 0.17 50 / 0.4);
+  --success: oklch(0.78 0.14 155);
+  --success-soft: oklch(0.78 0.14 155 / 0.16);
+  --warning: oklch(0.80 0.14 80);
+  --warning-soft: oklch(0.80 0.14 80 / 0.14);
+  --danger: oklch(0.66 0.22 25);
+  --danger-soft: oklch(0.66 0.22 25 / 0.18);
+  --info: oklch(0.74 0.11 235);
+  --info-soft: oklch(0.74 0.11 235 / 0.16);
+  --border: oklch(0.30 0.006 60);
+  --border-strong: oklch(0.40 0.006 60);
+  --hairline: oklch(0.25 0.006 60);
+  --divider: oklch(0.25 0.006 60);
+  --shadow-card: 0 1px 0 oklch(1 0 0 / 0.03) inset, 0 8px 24px oklch(0 0 0 / 0.3);
+  --shadow-card-lg: 0 24px 54px oklch(0 0 0 / 0.36);
+  /* live-state accent */
+  --live: oklch(0.66 0.22 25);
+  --live-soft: oklch(0.66 0.22 25 / 0.18);
+}
+
+:root,
+[data-theme="light"],
+[data-theme="dark"] {
+  --color-brand: var(--primary);
+  --color-brand-hover: var(--primary-hover);
+  --color-brand-soft: var(--primary-soft);
+  --color-canvas: var(--bg-base);
+  --color-surface: var(--bg-elev-1);
+  --color-surface-muted: var(--bg-elev-3);
+  --color-ink: var(--text-primary);
+  --color-ink-muted: var(--text-muted);
+  --color-line: var(--border);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255, 90, 31, 0.1), transparent 70%),
+    var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.serif {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "ss01";
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-primary) 22%, transparent);
+}
+
+.livelab-shell {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 70%),
+    var(--bg-base);
+}
+
+.design-card {
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.design-panel {
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+.brand-hero {
+  background: linear-gradient(135deg, var(--primary), #ff8a3c);
+  color: #fff;
+}
+
+.brand-soft-panel {
+  background: linear-gradient(135deg, var(--primary-softer), var(--bg-elev-1));
+}
+
+.design-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  color: var(--text-primary);
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--primary);
+  outline: none;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.design-input:hover {
+  border-color: color-mix(in srgb, var(--border-strong) 72%, var(--primary));
+}
+
+.design-input::placeholder {
+  color: var(--text-muted);
+  -webkit-text-fill-color: var(--text-muted);
+  opacity: 1;
+}
+
+.design-input:focus {
+  background: var(--bg-elev-1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.settings-users-panel .design-input {
+  background: color-mix(in srgb, var(--bg-elev-3) 82%, var(--bg-elev-2));
+  border-color: var(--border-strong);
+}
+
+.settings-users-panel .design-input:focus {
+  background: var(--bg-elev-2);
+  border-color: var(--primary);
+}
+
+/* Autofill (iOS/Android Safari + Chrome) força cor própria e deixava texto invisível.
+   Cobre tanto .design-input quanto inputs internos (ex: campo de senha que usa
+   bg-transparent dentro de um wrapper .design-input). */
+.design-input:-webkit-autofill,
+.design-input:-webkit-autofill:hover,
+.design-input:-webkit-autofill:focus,
+.design-input:-webkit-autofill:active,
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Garante texto visível em qualquer input/textarea (mobile webkit às vezes
+   zera a cor herdada). */
+input,
+textarea {
+  -webkit-text-fill-color: currentColor;
+  caret-color: var(--primary);
+}
+
+.design-soft-grid {
+  background-image:
+    linear-gradient(var(--hairline) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.onboarding-shell {
+  background:
+    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--primary) 15%, transparent) 0%, var(--bg-base) 55%, var(--bg-base) 100%);
+  background-attachment: fixed;
+}
+
+.onboarding-save-dot {
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 45%, transparent);
+  animation: onboarding-pulse 2s ease-out infinite;
+}
+
+.onboarding-success-icon::after {
+  animation: onboarding-spin 16s linear infinite;
+  border: 2px dashed color-mix(in srgb, var(--success) 35%, transparent);
+  border-radius: 999px;
+  content: "";
+  inset: -10px;
+  position: absolute;
+}
+
+@keyframes onboarding-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes onboarding-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Cabines page — live card glow & wave animations ── */
+@keyframes cabine-live-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent),
+      0 24px 60px -28px color-mix(in srgb, var(--primary) 50%, transparent),
+      0 0 50px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent),
+      0 28px 80px -28px color-mix(in srgb, var(--primary) 70%, transparent),
+      0 0 72px color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+}
+@keyframes cabine-wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50%       { transform: scaleY(1); }
+}
+@keyframes cabine-ping {
+  0%        { transform: scale(1); opacity: 0.55; }
+  80%, 100% { transform: scale(2.5); opacity: 0; }
+}
+
+.cabine-card-live {
+  animation: cabine-live-pulse 3.6s ease-in-out infinite;
+}
+.cabine-card-live:hover { transform: translateY(-1px); }
+
+.cabine-card-avail {
+  opacity: 0.75;
+  filter: saturate(0.6);
+  transition: opacity 0.25s, filter 0.25s, transform 0.25s, border-color 0.25s;
+}
+.cabine-card-avail:hover {
+  opacity: 1;
+  filter: saturate(1);
+  transform: translateY(-1px);
+}
+
+.cabine-wave-bar {
+  display: block;
+  width: 2px;
+  background: var(--primary);
+  border-radius: 1px;
+  animation: cabine-wave 1s ease-in-out infinite;
+}
+
+.cabine-live-ping {
+  position: relative;
+}
+.cabine-live-ping::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.45;
+  animation: cabine-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Conic border sheen — spinning gradient on the card edge */
+@property --cabine-ang {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes cabine-spin-ang { to { --cabine-ang: 360deg; } }
+
+.cabine-card-live {
+  isolation: isolate;
+}
+.cabine-card-live::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--cabine-ang),
+    transparent 0deg,
+    color-mix(in srgb, var(--primary) 70%, transparent) 40deg,
+    transparent 100deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.9;
+  animation: cabine-spin-ang 6s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}

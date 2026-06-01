@@ -1,0 +1,159 @@
+<h2>Módulo 4 — Análise de Crédito (Backoffice)</h2>
+<p class="subtitle">Tela "Aprovações" no menu lateral. Acesso restrito ao papel <strong>franqueador_master</strong>.</p>
+
+<div class="section">
+  <h3>Mockup — Lista de Solicitações</h3>
+  <p class="subtitle">Baseado na referência EMIVE. Adaptado para LiveShop Orange/Dark Navy.</p>
+
+  <div class="mockup">
+    <div class="mockup-header">📋 Análise de Crédito — Backoffice</div>
+    <div class="mockup-body" style="background:#F5F6FA;padding:16px;display:flex;flex-direction:column;gap:12px;font-family:sans-serif;">
+
+      <!-- Tabs de status -->
+      <div style="display:flex;gap:8px;margin-bottom:4px;">
+        <span style="background:#1A1A2E;color:#fff;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;">Todos (3)</span>
+        <span style="background:#F1C40F20;color:#c9a400;border:1px solid #F1C40F;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;">Em Análise (2)</span>
+        <span style="background:#E74C3C20;color:#E74C3C;border:1px solid #E74C3C;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;">Restrição (1)</span>
+        <span style="background:#2ECC7120;color:#2ECC71;border:1px solid #2ECC71;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;">Aprovados</span>
+      </div>
+
+      <!-- Card 1 — Em análise -->
+      <div style="background:white;border-radius:10px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div>
+              <div style="font-weight:700;font-size:14px;">MARIA SILVA MODA LTDA</div>
+              <div style="font-size:11px;color:#999;">CNPJ 12.345.678/0001-99 · Nicho: Moda</div>
+            </div>
+            <span style="background:#F1C40F20;color:#c9a400;border:1px solid #F1C40F40;border-radius:12px;padding:2px 10px;font-size:10px;font-weight:700;">🟡 EM ANÁLISE</span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button style="width:36px;height:36px;border-radius:50%;background:#2ECC7115;border:2px solid #2ECC71;color:#2ECC71;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✓</button>
+            <button style="width:36px;height:36px;border-radius:50%;background:#E74C3C15;border:2px solid #E74C3C;color:#E74C3C;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+          <div style="background:#F5F6FA;border-radius:6px;padding:8px;">
+            <div style="font-size:9px;color:#999;font-weight:700;">VALOR FIXO</div>
+            <div style="font-size:14px;font-weight:700;color:#1A1A2E;">R$ 2.990</div>
+            <div style="font-size:9px;color:#999;">mensalidade</div>
+          </div>
+          <div style="background:#F5F6FA;border-radius:6px;padding:8px;">
+            <div style="font-size:9px;color:#999;font-weight:700;">COMISSÃO</div>
+            <div style="font-size:14px;font-weight:700;color:#1A1A2E;">5%</div>
+            <div style="font-size:9px;color:#999;">sobre vendas</div>
+          </div>
+          <div style="background:#F5F6FA;border-radius:6px;padding:8px;">
+            <div style="font-size:9px;color:#999;font-weight:700;">FAT. ANUAL</div>
+            <div style="font-size:14px;font-weight:700;color:#1A1A2E;">R$ 180k</div>
+            <div style="font-size:9px;color:#999;">declarado</div>
+          </div>
+          <div style="background:#FF8A3015;border-radius:6px;padding:8px;border:1px solid #FF8A3040;">
+            <div style="font-size:9px;color:#FF8A30;font-weight:700;">SCORE INTERNO</div>
+            <div style="font-size:14px;font-weight:700;color:#FF8A30;">70/100</div>
+            <div style="font-size:9px;color:#FF8A30;">Auditoria Comercial</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2 — Restrição -->
+      <div style="background:white;border-radius:10px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,0.08);border-left:4px solid #E74C3C;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div>
+              <div style="font-weight:700;font-size:14px;">JOAO CARLOS EPP</div>
+              <div style="font-size:11px;color:#999;">CNPJ 98.765.432/0001-11 · Nicho: Eletrônicos</div>
+            </div>
+            <span style="background:#E74C3C20;color:#E74C3C;border:1px solid #E74C3C40;border-radius:12px;padding:2px 10px;font-size:10px;font-weight:700;">🔴 RESTRIÇÃO</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button style="background:#FF8A30;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;">Assumir Risco</button>
+            <button style="width:36px;height:36px;border-radius:50%;background:#E74C3C15;border:2px solid #E74C3C;color:#E74C3C;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;">🗑</button>
+          </div>
+        </div>
+        <div style="background:#E74C3C10;border-radius:6px;padding:8px;font-size:11px;color:#E74C3C;font-weight:600;margin-bottom:10px;">
+          ⚠️ Score abaixo do mínimo (38/100) · CNPJ não informado · Faturamento abaixo de R$ 50k
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+          <div style="background:#F5F6FA;border-radius:6px;padding:8px;">
+            <div style="font-size:9px;color:#999;font-weight:700;">VALOR FIXO</div>
+            <div style="font-size:14px;font-weight:700;color:#1A1A2E;">R$ 2.990</div>
+          </div>
+          <div style="background:#F5F6FA;border-radius:6px;padding:8px;">
+            <div style="font-size:9px;color:#999;font-weight:700;">COMISSÃO</div>
+            <div style="font-size:14px;font-weight:700;color:#1A1A2E;">5%</div>
+          </div>
+          <div style="background:#F5F6FA;border-radius:6px;padding:8px;">
+            <div style="font-size:9px;color:#999;font-weight:700;">FAT. ANUAL</div>
+            <div style="font-size:14px;font-weight:700;color:#E74C3C;">R$ 30k</div>
+          </div>
+          <div style="background:#E74C3C15;border-radius:6px;padding:8px;">
+            <div style="font-size:9px;color:#E74C3C;font-weight:700;">SCORE INTERNO</div>
+            <div style="font-size:14px;font-weight:700;color:#E74C3C;">38/100</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Regras de Negócio</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
+
+    <div style="background:#2ECC7110;border:1px solid #2ECC7140;border-radius:8px;padding:14px;">
+      <div style="color:#2ECC71;font-weight:700;font-size:12px;margin-bottom:8px;">✅ AUTO-APROVAÇÃO (Anti-Dopamina)</div>
+      <ul style="font-size:11px;color:#333;margin:0;padding-left:16px;line-height:1.8;">
+        <li>Score ≥ 60 → aprovado automático em 5min</li>
+        <li>Status: ativo · Pin: 🟢 · Dashboard atualiza</li>
+        <li>Franqueado vê roleta girar sem esperar</li>
+      </ul>
+    </div>
+
+    <div style="background:#E74C3C10;border:1px solid #E74C3C40;border-radius:8px;padding:14px;">
+      <div style="color:#E74C3C;font-weight:700;font-size:12px;margin-bottom:8px;">❌ CAMINHO CRÍTICO</div>
+      <ul style="font-size:11px;color:#333;margin:0;padding-left:16px;line-height:1.8;">
+        <li>Score &lt; 60 → backoffice analisa manualmente</li>
+        <li>"Assumir Risco" → modal com checkbox obrigatório</li>
+        <li>BD: is_risco_franqueado = true</li>
+        <li>"Arquivar" → status cancelado · pin 🩶 cinza</li>
+      </ul>
+    </div>
+
+    <div style="background:#F1C40F10;border:1px solid #F1C40F40;border-radius:8px;padding:14px;">
+      <div style="color:#c9a400;font-weight:700;font-size:12px;margin-bottom:8px;">🔄 BATCH AO APROVAR</div>
+      <ul style="font-size:11px;color:#333;margin:0;padding-left:16px;line-height:1.8;">
+        <li>contrato.status → ativo</li>
+        <li>cliente.status → ativo (pin 🟢)</li>
+        <li>Dashboard polling 15s detecta → roleta gira</li>
+      </ul>
+    </div>
+
+    <div style="background:#3498DB10;border:1px solid #3498DB40;border-radius:8px;padding:14px;">
+      <div style="color:#3498DB;font-weight:700;font-size:12px;margin-bottom:8px;">🔑 CONTROLE DE ACESSO</div>
+      <ul style="font-size:11px;color:#333;margin:0;padding-left:16px;line-height:1.8;">
+        <li>Botões ✓ ✕ só aparecem para papel: franqueador_master</li>
+        <li>Franqueado vê a tela mas sem ações de aprovação</li>
+        <li>Rota: /analise-credito (nova) no menu lateral</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <h3>Migrations Adicionais</h3>
+  <code style="display:block;background:#1A1A2E;color:#FF8A30;padding:12px;border-radius:8px;font-size:11px;line-height:1.8;">
+    -- Tabela contratos (adicionar)
+    ALTER TABLE contratos ADD COLUMN is_risco_franqueado BOOLEAN DEFAULT false;
+    ALTER TABLE contratos ADD COLUMN arquivado_em TIMESTAMPTZ;
+    ALTER TABLE contratos ADD COLUMN arquivado_motivo TEXT;
+    ALTER TABLE contratos ADD COLUMN risco_assumido_em TIMESTAMPTZ;
+
+    -- Status do contrato (ampliar)
+    -- 'rascunho' | 'em_analise' | 'ativo' | 'cancelado' | 'arquivado'
+  </code>
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Esse design está correto? Confirme no terminal ou ajuste o que precisar.</p>

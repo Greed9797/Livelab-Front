@@ -1,0 +1,159 @@
+<h2>Design dos 3 Épicos — LiveShop CRM</h2>
+<p class="subtitle">Decisões consolidadas. Clique em cada seção para aprovar.</p>
+
+<div class="options" data-multiselect>
+
+  <!-- ÉPICO 1 -->
+  <div class="option" data-choice="epico1" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>🗺️ CRM Geográfico</h3>
+
+      <div style="display:flex;gap:24px;margin-top:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <p class="label">Stack</p>
+          <p>flutter_map + OpenStreetMap (já instalado, zero custo)</p>
+          <p class="label" style="margin-top:8px;">Filtros</p>
+          <p>Mapa full-screen. Botão <strong>"⚙️ Filtros"</strong> no canto abre <strong>BottomSheet</strong> com checkboxes multiselect por cor/status. Legenda fixa (card flutuante canto inferior direito).</p>
+          <p class="label" style="margin-top:8px;">Geocoding</p>
+          <p>CEP → lat/lng via <strong>Nominatim (OSM)</strong> — gratuito, sem API key. Chamada feita no backend no POST /clientes. Lat/lng salvo no banco uma única vez.</p>
+        </div>
+
+        <div style="flex:1;min-width:200px;">
+          <div style="background:#1A1A2E;border-radius:10px;padding:14px;color:#fff;font-family:sans-serif;font-size:11px;">
+            <div style="color:#7C8DB5;font-size:9px;font-weight:700;letter-spacing:1px;margin-bottom:8px;">PINS DO MAPA</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border-radius:50%;background:#3498DB;display:inline-block;"></span> Negociação (Prospect)</div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border-radius:50%;background:#F1C40F;display:inline-block;"></span> Contrato Enviado</div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border-radius:50%;background:#2ECC71;display:inline-block;"></span> Ativo (gera faturamento)</div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border-radius:50%;background:#E74C3C;display:inline-block;"></span> Inadimplente</div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border-radius:50%;background:#8E44AD;display:inline-block;"></span> Recomendação</div>
+            </div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid #252542;color:#7C8DB5;font-size:9px;">
+              Clientes sem CEP → view lista (tab toggle no header)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <p class="label">Migrations necessárias</p>
+        <code style="background:#f5f6fa;padding:4px 8px;border-radius:4px;font-size:11px;">ALTER TABLE clientes ADD COLUMN cep VARCHAR(9), logradouro TEXT, cidade TEXT, estado CHAR(2), siga TEXT;</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉPICO 2 -->
+  <div class="option" data-choice="epico2" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>📋 Onboarding do Lead (Formulário)</h3>
+
+      <div style="display:flex;gap:24px;margin-top:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <p class="label">Steps do formulário</p>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+            <div style="background:#FF8A3015;border:1px solid #FF8A3040;border-radius:6px;padding:8px 10px;font-size:11px;">
+              <strong>Step 1</strong> — Dados pessoais<br>
+              <span style="color:#666;">Nome*, Celular*, Email, CPF</span>
+            </div>
+            <div style="background:#FF8A3015;border:1px solid #FF8A3040;border-radius:6px;padding:8px 10px;font-size:11px;">
+              <strong>Step 2</strong> — Dados comerciais<br>
+              <span style="color:#666;">CNPJ, Razão Social, Fat. Anual, Nicho, Siga (TikTok/Insta)</span>
+            </div>
+            <div style="background:#FF8A3015;border:1px solid #FF8A3040;border-radius:6px;padding:8px 10px;font-size:11px;">
+              <strong>Step 3</strong> — Localização<br>
+              <span style="color:#666;">CEP* → autocomplete cidade/estado → geocoding automático</span>
+            </div>
+            <div style="background:#FF8A3015;border:1px solid #FF8A3040;border-radius:6px;padding:8px 10px;font-size:11px;">
+              <strong>Step 4</strong> — Qualificação<br>
+              <span style="color:#666;">"Já vende no TikTok Live?" (Sim/Não) + Revisão dos dados</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1;min-width:200px;">
+          <p class="label">Fluxo pós-salvar</p>
+          <div style="font-family:sans-serif;font-size:11px;margin-top:4px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+              <span style="background:#FF8A30;color:white;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;">SALVAR</span>
+              <span>→</span>
+              <span>POST /clientes (com geocoding)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+              <span>↓</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+              <span style="background:#2ECC71;color:white;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;">AUTO</span>
+              <span>→</span>
+              <span>Navega para ContratoScreen</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="background:#7C8DB5;color:white;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;">RASCUNHO</span>
+              <span>→</span>
+              <span>Salva e volta ao mapa</span>
+            </div>
+          </div>
+
+          <p class="label" style="margin-top:12px;">Backend — proxy CEP</p>
+          <code style="background:#f5f6fa;padding:4px 8px;border-radius:4px;font-size:10px;display:block;">GET /v1/cep/:cep → ViaCEP + Nominatim</code>
+          <p style="font-size:10px;color:#666;margin-top:4px;">ViaCEP retorna endereço · Nominatim converte para lat/lng · Tudo salvo em uma chamada só</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉPICO 3 -->
+  <div class="option" data-choice="epico3" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>✍️ Motor de Contratos (Fase 1)</h3>
+
+      <div style="display:flex;gap:24px;margin-top:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <p class="label">PDF dinâmico</p>
+          <p style="font-size:11px;margin-top:4px;"><strong>Backend</strong> com <code style="background:#f5f6fa;padding:1px 4px;border-radius:3px;">pdf-lib</code> (Node.js, ~2MB). Template base em <code>.pdf</code> com campos marcados. POST /contratos/:id/gerar-pdf preenche e retorna URL do arquivo.</p>
+
+          <p class="label" style="margin-top:10px;">Assinatura (Fase 1)</p>
+          <div style="background:#1A1A2E;border-radius:8px;padding:10px;color:#fff;font-size:10px;margin-top:4px;">
+            <div>📱 <strong>Flutter signature package</strong></div>
+            <div style="color:#7C8DB5;margin-top:4px;">• Área ampla (landscape no mobile)</div>
+            <div style="color:#7C8DB5;">• Checkbox obrigatório: "Li e aceito os termos"</div>
+            <div style="color:#7C8DB5;">• Captura: IP + timestamp no backend</div>
+            <div style="color:#7C8DB5;">• Tudo impresso no rodapé do PDF</div>
+          </div>
+
+          <p class="label" style="margin-top:10px;">Slot Fase 2 (ZapSign)</p>
+          <code style="background:#f5f6fa;padding:4px 8px;border-radius:4px;font-size:10px;display:block;">signature_type: 'pad' | 'zapsign'<br>external_signature_id: NULL (por ora)</code>
+        </div>
+
+        <div style="flex:1;min-width:200px;">
+          <p class="label">Fluxo do contrato</p>
+          <div style="display:flex;flex-direction:column;gap:4px;font-size:10px;margin-top:4px;">
+            <div style="background:#3498DB15;border-left:3px solid #3498DB;padding:6px 8px;border-radius:0 4px 4px 0;">
+              <strong>1.</strong> Template preenchido com dados do cliente
+            </div>
+            <div style="background:#F1C40F15;border-left:3px solid #F1C40F;padding:6px 8px;border-radius:0 4px 4px 0;">
+              <strong>2a.</strong> "Assinar Agora" → pad na tela → salva PNG da assinatura
+            </div>
+            <div style="background:#F1C40F15;border-left:3px solid #F1C40F;padding:6px 8px;border-radius:0 4px 4px 0;">
+              <strong>2b.</strong> "Enviar por WhatsApp" → link do PDF → pin vira 🟡
+            </div>
+            <div style="background:#8E44AD15;border-left:3px solid #8E44AD;padding:6px 8px;border-radius:0 4px 4px 0;">
+              <strong>3.</strong> Backend gera PDF final com assinatura + rodapé jurídico
+            </div>
+            <div style="background:#2ECC7115;border-left:3px solid #2ECC71;padding:6px 8px;border-radius:0 4px 4px 0;">
+              <strong>4.</strong> Status → em_análise → AnaliseFinanceiraScreen
+            </div>
+          </div>
+
+          <p class="label" style="margin-top:10px;">Migrations adicionais</p>
+          <code style="background:#f5f6fa;padding:4px 8px;border-radius:4px;font-size:10px;display:block;">contratos: +signature_type, +external_signature_id,<br>+signature_image_url, +signed_ip, +accepted_terms_at</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:20px;">Clique nos épicos que aprova e confirme no terminal. Ajuste o que precisar.</p>

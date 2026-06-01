@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#E8673C">
+
+  <!-- SEO primary -->
+  <title>LiveShop SaaS — Gestão de franquias TikTok Live</title>
+  <meta name="description" content="Plataforma multi-tenant para gestão de estúdios Live Shop. Cabines, lives TikTok, métricas em tempo real, CRM, financeiro e operação completa.">
+  <meta name="keywords" content="tiktok live, live shop, franquia, gestão, saas, brasil, livelab, estúdio live, métricas live commerce">
+  <meta name="author" content="Grupo Livelab">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://app.grupolivelab.com.br">
+
+  <!-- OpenGraph (Facebook, LinkedIn, WhatsApp) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="LiveShop SaaS — Gestão Live Shop TikTok">
+  <meta property="og:description" content="Plataforma multi-tenant para gestão de franquias de Live Shop. Cabines, lives TikTok, métricas em tempo real.">
+  <meta property="og:image" content="https://app.grupolivelab.com.br/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://app.grupolivelab.com.br">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="LiveShop SaaS">
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="LiveShop SaaS — Gestão Live Shop TikTok">
+  <meta name="twitter:description" content="Plataforma multi-tenant para gestão de franquias Live Shop. Cabines, lives, métricas em tempo real.">
+  <meta name="twitter:image" content="https://app.grupolivelab.com.br/og-image.png">
+
+  <!-- Defesa em camadas: CSP em meta tag espelha header do firebase.json
+       (caso assets sirvam fora do Firebase Hosting, headers podem não chegar).
+       NOTA: frame-ancestors não é suportado em meta tags (só em headers HTTP).
+       O header correto está em firebase.json via X-Frame-Options: DENY. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://liveshop-saas-api-production.up.railway.app https://www.gstatic.com https://fonts.gstatic.com; worker-src 'self' blob:; manifest-src 'self'">
+
+  <!-- Performance: preconnect to canvaskit CDN + Google Fonts (reduz handshake TLS) -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.gstatic.com">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Livelab">
+  <link rel="apple-touch-icon" href="favicon.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Structured data: Organization (Schema.org) — externalizado para inline.js (CSP compliance) -->
+  <!-- Flutter Web config — externalizado para inline.js (CSP compliance) -->
+  <script src="inline.js"></script>
+</head>
+<body>
+  <!-- Pre-render fallback: bots e crawlers leem este conteúdo quando JS desabilitado -->
+  <noscript>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 60px auto; padding: 0 24px; color: #1a1a1a;">
+      <h1 style="font-size: 32px; margin-bottom: 16px;">LiveShop SaaS</h1>
+      <p style="font-size: 18px; line-height: 1.6; color: #444;">
+        Plataforma multi-tenant para gestão de franquias de estúdios de Live Shop TikTok.
+        Gerencie cabines, lives, métricas em tempo real, CRM e financeiro em um só lugar.
+      </p>
+      <p style="font-size: 16px; line-height: 1.6; color: #666; margin-top: 24px;">
+        Esta aplicação requer JavaScript habilitado. Por favor, ative o JavaScript no seu navegador para continuar.
+      </p>
+      <p style="margin-top: 32px;">
+        <a href="https://livelab.com.br" style="color: #E8673C; text-decoration: none; font-weight: 600;">Saiba mais sobre o Grupo Livelab &rarr;</a>
+      </p>
+    </div>
+  </noscript>
+
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

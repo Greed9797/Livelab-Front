@@ -1,0 +1,109 @@
+<h2>Épico 1 — Painel de Filtros do Mapa</h2>
+<p class="subtitle">Como os filtros de status devem aparecer na tela do mapa?</p>
+
+<div class="cards">
+
+  <!-- Opção A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="display:flex;height:200px;background:#f5f6fa;border-radius:8px;overflow:hidden;font-family:sans-serif;">
+        <!-- Sidebar esquerda -->
+        <div style="width:140px;background:#1A1A2E;padding:12px;display:flex;flex-direction:column;gap:10px;">
+          <div style="color:#7C8DB5;font-size:9px;font-weight:700;letter-spacing:1px;margin-bottom:4px;">FILTRAR POR</div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <div style="width:12px;height:12px;border-radius:3px;background:#3498DB;"></div>
+            <span style="color:#fff;font-size:11px;">Negociação</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <div style="width:12px;height:12px;border-radius:3px;background:#F1C40F;"></div>
+            <span style="color:#fff;font-size:11px;">Enviado</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <div style="width:12px;height:12px;border-radius:3px;background:#2ECC71;"></div>
+            <span style="color:#fff;font-size:11px;">Ativo</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <div style="width:12px;height:12px;border-radius:3px;background:#E74C3C;"></div>
+            <span style="color:#fff;font-size:11px;">Inadimplente</span>
+          </label>
+          <div style="margin-top:auto;border-top:1px solid #252542;padding-top:8px;">
+            <div style="color:#7C8DB5;font-size:9px;">4 clientes</div>
+          </div>
+        </div>
+        <!-- Mapa -->
+        <div style="flex:1;background:#e8eaf0;position:relative;display:flex;align-items:center;justify-content:center;">
+          <div style="color:#aaa;font-size:11px;">🗺️ Mapa</div>
+          <!-- Pins simulados -->
+          <div style="position:absolute;top:40px;left:60px;font-size:18px;">📍</div>
+          <div style="position:absolute;top:80px;left:100px;font-size:18px;color:#2ECC71;">📍</div>
+          <div style="position:absolute;top:120px;left:40px;font-size:18px;color:#E74C3C;">📍</div>
+          <div style="position:absolute;top:60px;left:140px;font-size:18px;color:#F1C40F;">📍</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Sidebar permanente</h3>
+      <p>Painel lateral escuro fixo com checkboxes coloridos. Estilo iPad, sempre visível. Consistente com o menu lateral do app.</p>
+    </div>
+  </div>
+
+  <!-- Opção B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="display:flex;flex-direction:column;height:200px;background:#f5f6fa;border-radius:8px;overflow:hidden;font-family:sans-serif;">
+        <!-- Top bar com chips -->
+        <div style="background:white;padding:10px 12px;display:flex;gap:8px;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,0.1);">
+          <span style="font-size:9px;color:#999;font-weight:700;letter-spacing:1px;">STATUS:</span>
+          <span style="background:#1A1A2E;color:#fff;border-radius:12px;padding:3px 10px;font-size:10px;">Todos</span>
+          <span style="background:#3498DB20;color:#3498DB;border-radius:12px;padding:3px 10px;font-size:10px;border:1px solid #3498DB;">🔵 Negociação</span>
+          <span style="background:#2ECC7120;color:#2ECC71;border-radius:12px;padding:3px 10px;font-size:10px;border:1px solid #2ECC71;">🟢 Ativo</span>
+          <span style="background:#E74C3C20;color:#E74C3C;border-radius:12px;padding:3px 10px;font-size:10px;border:1px solid #E74C3C;">🔴 Inadim.</span>
+        </div>
+        <!-- Mapa -->
+        <div style="flex:1;background:#e8eaf0;position:relative;display:flex;align-items:center;justify-content:center;">
+          <div style="color:#aaa;font-size:11px;">🗺️ Mapa em tela cheia</div>
+          <div style="position:absolute;top:30px;left:80px;font-size:18px;">📍</div>
+          <div style="position:absolute;top:70px;left:140px;font-size:18px;color:#2ECC71;">📍</div>
+          <div style="position:absolute;top:100px;left:60px;font-size:18px;color:#E74C3C;">📍</div>
+          <div style="position:absolute;top:50px;left:200px;font-size:18px;color:#F1C40F;">📍</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Chips horizontais no topo</h3>
+      <p>Filtros como chips coloridos acima do mapa. Mapa ocupa mais espaço. Seleção única por vez (não multiselect).</p>
+    </div>
+  </div>
+
+  <!-- Opção C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="display:flex;flex-direction:column;height:200px;background:#f5f6fa;border-radius:8px;overflow:hidden;font-family:sans-serif;">
+        <!-- Mapa em tela cheia -->
+        <div style="flex:1;background:#e8eaf0;position:relative;">
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#aaa;font-size:11px;">🗺️ Mapa em tela cheia</div>
+          <div style="position:absolute;top:30px;left:80px;font-size:18px;">📍</div>
+          <div style="position:absolute;top:70px;left:140px;font-size:18px;color:#2ECC71;">📍</div>
+          <div style="position:absolute;top:100px;left:60px;font-size:18px;color:#E74C3C;">📍</div>
+          <!-- Botão flutuante -->
+          <div style="position:absolute;top:12px;right:12px;background:white;border-radius:8px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.15);font-size:11px;font-weight:600;cursor:pointer;">⚙️ Filtros</div>
+          <!-- Legenda flutuante -->
+          <div style="position:absolute;bottom:12px;right:12px;background:white;border-radius:8px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size:9px;color:#999;margin-bottom:4px;font-weight:700;">LEGENDA</div>
+            <div style="font-size:10px;">🔵 Negociação</div>
+            <div style="font-size:10px;">🟡 Enviado</div>
+            <div style="font-size:10px;">🟢 Ativo</div>
+            <div style="font-size:10px;">🔴 Inadimplente</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Mapa full + filtro em overlay</h3>
+      <p>Mapa ocupa 100% da tela. Botão "Filtros" abre bottom sheet com checkboxes. Legenda fixa no canto. Máximo espaço para os pins.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Clique para selecionar e responda no terminal.</p>
