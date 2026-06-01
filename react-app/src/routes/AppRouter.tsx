@@ -16,7 +16,6 @@ const MasterConsolidatedPage = lazy(() => import('../pages/MasterConsolidatedPag
 const ComercialPage = lazy(() => import('../pages/ComercialPage').then(m => ({ default: m.ComercialPage })))
 const ClienteDashboardPage = lazy(() => import('../pages/ClienteDashboardPage').then(m => ({ default: m.ClienteDashboardPage })))
 const ClienteLivesPage = lazy(() => import('../pages/ClienteLivesPage').then(m => ({ default: m.ClienteLivesPage })))
-const ClienteAgendaPage = lazy(() => import('../pages/ClienteAgendaPage').then(m => ({ default: m.ClienteAgendaPage })))
 const ConteudoPage = lazy(() => import('../pages/ConteudoPage').then(m => ({ default: m.ConteudoPage })))
 const FinanceiroPage = lazy(() => import('../pages/FinanceiroPage').then(m => ({ default: m.FinanceiroPage })))
 const ComissoesConfigPage = lazy(() => import('../pages/ComissoesConfigPage').then(m => ({ default: m.ComissoesConfigPage })))
@@ -71,7 +70,7 @@ export function AppRouter() {
               <Route path="/cliente" element={<Suspense fallback={<PageFallback />}><ClienteDashboardPage /></Suspense>} />
               <Route path="/cliente/dashboard" element={<Navigate to="/cliente" replace />} />
               <Route path="/cliente/lives" element={<Suspense fallback={<PageFallback />}><ClienteLivesPage /></Suspense>} />
-              <Route path="/cliente/agenda" element={<Suspense fallback={<PageFallback />}><ClienteAgendaPage /></Suspense>} />
+              <Route path="/cliente/agenda" element={<Navigate to="/cliente" replace />} />
               <Route path="/cliente/configuracoes" element={<Suspense fallback={<PageFallback />}><ConfiguracoesPage clienteMode /></Suspense>} />
             </Route>
 
@@ -94,11 +93,11 @@ export function AppRouter() {
               <Route path="/analytics-dashboard" element={<Navigate to="/conteudo?tab=analytics" replace />} />
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={[...financeRoles, 'cliente_parceiro']} />}>
+            <Route element={<ProtectedRoute allowedRoles={financeRoles} />}>
               <Route path="/financeiro" element={<Suspense fallback={<PageFallback />}><FinanceiroPage /></Suspense>} />
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={[...financeRoles, 'cliente_parceiro']} />}>
+            <Route element={<ProtectedRoute allowedRoles={financeRoles} />}>
               <Route path="/boletos" element={<Navigate to="/financeiro?tab=boletos" replace />} />
             </Route>
 
@@ -117,7 +116,9 @@ export function AppRouter() {
               <Route path="/configuracoes" element={<Suspense fallback={<PageFallback />}><ConfiguracoesPage /></Suspense>} />
             </Route>
 
-            <Route path="/conhecimento" element={<Suspense fallback={<PageFallback />}><KnowledgePage /></Suspense>} />
+            <Route element={<ProtectedRoute allowedRoles={[...masterRoles, ...internalRoles, 'apresentador', 'apresentadora']} />}>
+              <Route path="/conhecimento" element={<Suspense fallback={<PageFallback />}><KnowledgePage /></Suspense>} />
+            </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Route>

@@ -18,6 +18,10 @@ import type { JsonRecord } from '../types/models'
 
 const icons = [CircleDollarSign, WalletCards, MonitorPlay, TrendingUp, Clock, Target]
 
+function officialLiveGmv(item: JsonRecord) {
+  return item.gmv ?? item.ads_gmv ?? item.manual_gmv ?? item.fat_gerado
+}
+
 export function ClienteDashboardPage() {
   const [period, setPeriod] = useState(currentPeriod())
   const query = useQuery({ queryKey: QK.clienteDashboard(period), queryFn: () => getClienteDashboard(period), refetchInterval: 30_000 })
@@ -57,7 +61,7 @@ export function ClienteDashboardPage() {
               </div>
               <div className="rounded-2xl bg-surface p-3 shadow-[var(--shadow-card)]">
                 <p className="text-xs text-ink-muted">Pedidos</p>
-                <p className="font-bold text-ink">{asNumber(liveAtiva.total_orders).toLocaleString('pt-BR')}</p>
+                <p className="font-bold text-ink">{asNumber(liveAtiva.pedidos ?? liveAtiva.total_orders).toLocaleString('pt-BR')}</p>
               </div>
             </div>
           </CardBody>
@@ -101,8 +105,8 @@ export function ClienteDashboardPage() {
             <DataTable<JsonRecord>
               data={data.lives}
               columns={[
-                { key: 'data', header: 'Data', render: (item) => asString(item.data ?? item.iniciada_em) },
-                { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv ?? item.fat_gerado) },
+                { key: 'data', header: 'Data', render: (item) => asString(item.data ?? item.iniciado_em ?? item.iniciada_em) },
+                { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(officialLiveGmv(item)) },
                 { key: 'roas', header: 'ROAS', align: 'right', render: (item) => asNumber(item.roas).toFixed(2) },
                 { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, ''))}>{asString(item.status)}</Badge> },
               ]}

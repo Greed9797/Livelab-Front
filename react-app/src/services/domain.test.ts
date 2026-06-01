@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, getMasterCrm, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
+import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, getMasterCrm, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -87,6 +87,14 @@ describe('domain live operations', () => {
     await getLives({ status: 'encerrada' })
 
     expect(apiGet).toHaveBeenCalledWith('/lives', { status: 'encerrada' })
+  })
+
+  it('loads daily analytics with filters', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ rows: [] })
+
+    await getDailyAnalytics({ mesAno: '2026-05', marca_id: 'marca-1', apresentadora_id: 'ap-1' })
+
+    expect(apiGet).toHaveBeenCalledWith('/analytics/diario', { mesAno: '2026-05', marca_id: 'marca-1', apresentadora_id: 'ap-1' })
   })
 
   it('loads TikTok connector status for the selected live', async () => {

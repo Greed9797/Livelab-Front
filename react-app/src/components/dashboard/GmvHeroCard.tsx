@@ -16,9 +16,9 @@ function fmtCompact(v: number): string {
 }
 
 export function GmvHeroCard({ raw }: GmvHeroCardProps) {
-  const gmvMes = asNumber(raw.gmv_lives_mes ?? raw.gmv_mes ?? raw.fat_bruto)
+  const gmvMes = asNumber(raw.gmv_total_mes ?? raw.gmv_mes ?? raw.gmv_lives_mes ?? raw.fat_bruto)
   const gmvPrev = asNumber(raw.gmv_mes_prev ?? raw.gmv_prev)
-  const metaMes = asNumber(raw.meta_mes)
+  const metaMes = asNumber(raw.meta_mes ?? raw.meta_gmv)
   const ritmo = asNumber(raw.ritmo_projetado)
   const diaUtil = asNumber(raw.dia_util ?? raw.dia_util_atual)
   const diasUteis = asNumber(raw.dias_uteis_total ?? raw.dias_uteis ?? 22)

@@ -1,4 +1,4 @@
-import { AtSign, BarChart2, CircleDollarSign, Copy, ExternalLink, KeyRound, Lock, Moon, Plug, Save, Sun, Target, Trophy, Users } from 'lucide-react'
+import { BarChart2, CircleDollarSign, Copy, ExternalLink, KeyRound, Lock, Moon, Plug, Save, Sun, Trophy, Users } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -7,7 +7,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { getClienteMeta, getClientePerfil, getConfiguracoes, getMetaUnidade, getMetasApresentadoras, getMetaSupervisor, getRankingPublicoConfig, trocarSenha, updateClienteMeta, updateClienteTiktok, updateConfiguracoes, updateRankingPublicoConfig, upsertMetaApresentadora, upsertMetaSupervisor } from '../services/domain'
+import { getClienteMeta, getClientePerfil, getConfiguracoes, getMetaUnidade, getMetasApresentadoras, getMetaSupervisor, getRankingPublicoConfig, trocarSenha, updateConfiguracoes, updateRankingPublicoConfig, upsertMetaApresentadora, upsertMetaSupervisor } from '../services/domain'
 import { useToast } from '../components/ui/Toast'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, currentPeriod, formatMoney, periodLabel } from '../utils/format'
@@ -18,8 +18,8 @@ import { useCurrentUser } from '../stores/auth-store'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
-type SettingsTab = 'unidade' | 'usuarios' | 'apresentadoras' | 'metas' | 'comissoes-livelab' | 'ranking' | 'aparencia' | 'integracoes' | 'seguranca'
-const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'apresentadoras', 'metas', 'comissoes-livelab', 'ranking', 'aparencia', 'integracoes', 'seguranca']
+type SettingsTab = 'unidade' | 'usuarios' | 'metas' | 'comissoes-livelab' | 'ranking' | 'aparencia' | 'integracoes' | 'seguranca'
+const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'metas', 'comissoes-livelab', 'ranking', 'aparencia', 'integracoes', 'seguranca']
 
 export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boolean }) {
   const toast = useToast()
@@ -43,10 +43,9 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     uf: '',
     meta_gmv: '',
   })
-  const [tiktok, setTiktok] = useState('')
-  const [metaGmv, setMetaGmv] = useState('')
   const [senha, setSenha] = useState({ senha_atual: '', nova_senha: '' })
-  const requestedTab = params.get('tab') as SettingsTab | null
+  const requestedTabRaw = params.get('tab')
+  const requestedTab = (requestedTabRaw === 'apresentadoras' ? 'usuarios' : requestedTabRaw) as SettingsTab | null
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(requestedTab && settingsTabs.includes(requestedTab) ? requestedTab : 'unidade')
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
@@ -117,18 +116,6 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     onError: (err: unknown) => toast.push(extractErrorMessage(err), 'error'),
   })
 
-  const tiktokMutation = useMutation({
-    mutationFn: updateClienteTiktok,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: QK.clientePerfil })
-    },
-  })
-  const metaMutation = useMutation({
-    mutationFn: updateClienteMeta,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: QK.clienteMeta() })
-    },
-  })
   const senhaMutation = useMutation({
     mutationFn: trocarSenha,
     onSuccess: () => setSenha({ senha_atual: '', nova_senha: '' }),
@@ -149,14 +136,6 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
       meta_gmv: rankingQuery.data.meta_gmv == null ? '' : formatBRLWithoutSymbol(rankingQuery.data.meta_gmv),
     })
   }, [rankingQuery.data])
-
-  useEffect(() => {
-    if (perfilQuery.data) setTiktok(asString(perfilQuery.data.tiktok_username, ''))
-  }, [perfilQuery.data])
-
-  useEffect(() => {
-    if (metaQuery.data) setMetaGmv(formatBRLWithoutSymbol(metaQuery.data.meta_gmv))
-  }, [metaQuery.data])
 
   useEffect(() => {
     if (!metasSupervisorQuery.data) return
@@ -181,21 +160,6 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     if (metaQuery.isError) return <ErrorState message={extractErrorMessage(metaQuery.error)} onRetry={() => void metaQuery.refetch()} />
 
     const perfil = perfilQuery.data ?? {}
-
-    function onTiktokSubmit(event: FormEvent<HTMLFormElement>) {
-      event.preventDefault()
-      tiktokMutation.mutate(tiktok || null)
-    }
-
-    function onMetaSubmit(event: FormEvent<HTMLFormElement>) {
-      event.preventDefault()
-      metaMutation.mutate({ ano: period.ano, mes: period.mes, meta_gmv: parseBRMoneyToDecimal(metaGmv) })
-    }
-
-    function onSenhaSubmit(event: FormEvent<HTMLFormElement>) {
-      event.preventDefault()
-      senhaMutation.mutate(senha)
-    }
 
     return (
       <div className="space-y-6">
@@ -230,60 +194,16 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
             <Card>
               <CardHeader>
                 <p className="text-base font-bold text-ink">Meta do mês</p>
-                <p className="mt-1 text-xs text-ink-muted">{periodLabel(period)}</p>
+                <p className="mt-1 text-xs text-ink-muted">{periodLabel(period)} · somente visualização</p>
               </CardHeader>
               <CardBody>
-                <form className="space-y-4" onSubmit={onMetaSubmit}>
-                  <div className="rounded-2xl bg-brand-soft p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-brand">Meta atual</p>
-                    <p className="num mt-2 text-2xl font-bold text-ink">{formatMoney(metaQuery.data?.meta_gmv)}</p>
-                  </div>
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Nova meta GMV</span>
-                    <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={metaGmv} onChange={(raw) => setMetaGmv(raw)} />
-                  </label>
-                  {metaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(metaMutation.error)}</p> : null}
-                  {metaMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Meta atualizada.</p> : null}
-                  <Button type="submit" icon={Target} isLoading={metaMutation.isPending}>
-                    Salvar meta
-                  </Button>
-                </form>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <p className="text-base font-bold text-ink">TikTok</p>
-              </CardHeader>
-              <CardBody>
-                <form className="space-y-4" onSubmit={onTiktokSubmit}>
-                  <label className="block">
-                    <span className="text-sm font-semibold text-ink">Username</span>
-                    <input className="design-input mt-2 h-11 w-full px-4" value={tiktok} onChange={(event) => setTiktok(event.target.value.replace(/@/g, ''))} placeholder="sua_marca" />
-                  </label>
-                  {tiktokMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(tiktokMutation.error)}</p> : null}
-                  {tiktokMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">TikTok atualizado.</p> : null}
-                  <Button type="submit" icon={AtSign} isLoading={tiktokMutation.isPending}>
-                    Salvar TikTok
-                  </Button>
-                </form>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <p className="text-base font-bold text-ink">Senha</p>
-              </CardHeader>
-              <CardBody>
-                <form className="space-y-4" onSubmit={onSenhaSubmit}>
-                  <input className="design-input h-11 w-full px-4" type="password" autoComplete="current-password" placeholder="Senha atual" value={senha.senha_atual} onChange={(event) => setSenha((current) => ({ ...current, senha_atual: event.target.value }))} required />
-                  <input className="design-input h-11 w-full px-4" type="password" autoComplete="new-password" placeholder="Nova senha" value={senha.nova_senha} onChange={(event) => setSenha((current) => ({ ...current, nova_senha: event.target.value }))} required />
-                  {senhaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(senhaMutation.error)}</p> : null}
-                  {senhaMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Senha alterada.</p> : null}
-                  <Button type="submit" icon={KeyRound} isLoading={senhaMutation.isPending}>
-                    Trocar senha
-                  </Button>
-                </form>
+                <div className="rounded-2xl bg-brand-soft p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-brand">Meta atual</p>
+                  <p className="num mt-2 text-2xl font-bold text-ink">{formatMoney(metaQuery.data?.meta_gmv)}</p>
+                </div>
+                <p className="mt-3 rounded-2xl border border-line bg-surface-muted px-4 py-3 text-sm text-ink-muted">
+                  A meta é definida pela unidade. Nesta fase o cliente apenas acompanha o valor.
+                </p>
               </CardBody>
             </Card>
           </div>
@@ -316,11 +236,12 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     })
   }
 
-  function switchSettingsTab(next: SettingsTab) {
-    setSettingsTab(next)
+  function switchSettingsTab(next: SettingsTab | 'apresentadoras') {
+    const resolved = next === 'apresentadoras' ? 'usuarios' : next
+    setSettingsTab(resolved)
     const nextParams = new URLSearchParams(params)
-    if (next === 'unidade') nextParams.delete('tab')
-    else nextParams.set('tab', next)
+    if (resolved === 'unidade') nextParams.delete('tab')
+    else nextParams.set('tab', resolved)
     setParams(nextParams, { replace: true })
   }
 
@@ -332,7 +253,6 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
         {[
           ['unidade', Save, 'Unidade'],
           ['usuarios', Users, 'Usuários e equipe'],
-          ['apresentadoras', Users, 'Apresentadoras'],
           ['metas', BarChart2, 'Metas'],
           ['comissoes-livelab', CircleDollarSign, 'Comissões Livelab'],
           ['ranking', Trophy, 'Ranking público'],
@@ -544,13 +464,6 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
       ) : null}
 
       {settingsTab === 'usuarios' ? <SettingsUsuariosPanel /> : null}
-
-      {settingsTab === 'apresentadoras' ? (
-        // Reaproveita SettingsUsuariosPanel — fonte única de edição de fixo +
-        // escada de comissão da apresentadora. A aba "Usuários e equipe" já
-        // permite o mesmo; esta aba é o atalho focado em apresentadoras.
-        <SettingsUsuariosPanel />
-      ) : null}
 
       {settingsTab === 'comissoes-livelab' ? (
         <Card>

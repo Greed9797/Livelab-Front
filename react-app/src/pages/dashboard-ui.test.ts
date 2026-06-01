@@ -49,4 +49,14 @@ describe('Dashboard presenter ranking UI helpers', () => {
     expect(heroSource).toContain('raw.gmv_total_mes ?? raw.gmv_mes ?? raw.gmv_lives_mes')
     expect(heroSource).toContain('raw.meta_mes ?? raw.meta_gmv')
   })
+
+  it('keeps analytics rankings on the same source as commission tables', () => {
+    const source = readFileSync(new URL('./AnalyticsPage.tsx', import.meta.url), 'utf8')
+
+    expect(source).toContain('const rankingApresentadoras = apresentadorasRows')
+    expect(source).toContain('const rankingMarcas = marcasRows')
+    expect(source).toContain('Rankings, tabelas abaixo e CSV usam a mesma fonte')
+    expect(source).not.toContain('raw.ranking_apresentadoras')
+    expect(source).not.toContain('raw.ranking_marcas')
+  })
 })

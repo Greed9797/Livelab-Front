@@ -424,6 +424,18 @@ export function getFunilAnalytics(mesAno: string, groupBy: 'marca' | 'apresentad
   return apiGet<JsonRecord[]>('/analytics/funil', { mesAno, groupBy })
 }
 
+export function getDailyAnalytics(filters: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>('/analytics/diario', filters)
+}
+
+export function previewAnalyticsImport(file: File) {
+  return apiUpload<JsonRecord>('/analytics/imports/preview', file)
+}
+
+export function applyAnalyticsImport(batchId: string) {
+  return apiPost<JsonRecord>(`/analytics/imports/${batchId}/apply`, {})
+}
+
 export function getFinanceiroResumo(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/financeiro/resumo', filters)
 }

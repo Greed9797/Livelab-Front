@@ -17,6 +17,10 @@ import type { JsonRecord } from '../types/models'
 
 const icons = [MonitorPlay, Clock, WalletCards, TrendingUp]
 
+function officialLiveGmv(item: JsonRecord) {
+  return item.gmv ?? item.ads_gmv ?? item.manual_gmv ?? item.fat_gerado
+}
+
 export function ClienteLivesPage() {
   const [period, setPeriod] = useState(currentPeriod())
   const query = useQuery({ queryKey: QK.clienteLives(period), queryFn: () => getClienteLives(period) })
@@ -59,8 +63,8 @@ export function ClienteLivesPage() {
             data={lives}
             columns={[
               { key: 'titulo', header: 'Live', render: (item) => asString(item.titulo ?? item.nome ?? item.id, 'Live') },
-              { key: 'data', header: 'Data', render: (item) => asString(item.data ?? item.iniciada_em ?? item.encerrada_em) },
-              { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv ?? item.fat_gerado) },
+              { key: 'data', header: 'Data', render: (item) => asString(item.data ?? item.iniciado_em ?? item.encerrado_em ?? item.iniciada_em ?? item.encerrada_em) },
+              { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(officialLiveGmv(item)) },
               { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos ?? item.total_orders ?? item.qtd_pedidos).toLocaleString('pt-BR') },
               { key: 'roas', header: 'ROAS', align: 'right', render: (item) => asNumber(item.roas).toFixed(2) },
               { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, ''))}>{asString(item.status)}</Badge> },

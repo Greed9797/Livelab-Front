@@ -50,6 +50,10 @@ interface CabineDetailPanelProps {
   onGmvModal: (liveId: string) => void
 }
 
+function officialLiveGmv(live: JsonRecord) {
+  return live.gmv ?? live.ads_gmv ?? live.manual_gmv ?? live.fat_gerado
+}
+
 export function CabineDetailPanel({
   cabine,
   liveAtualData,
@@ -226,7 +230,7 @@ export function CabineDetailPanel({
                 <div className="rounded-xl bg-surface p-2">
                   <p className="text-[10px] text-ink-muted">GMV</p>
                   <p className="num font-bold text-brand">
-                    {formatMoney(liveAtualData.gmv_atual ?? liveAtualData.manual_gmv ?? liveAtualData.fat_gerado)}
+	                    {formatMoney(liveAtualData.gmv_atual ?? officialLiveGmv(liveAtualData))}
                   </p>
                 </div>
                 <div className="rounded-xl bg-surface p-2">
@@ -330,7 +334,7 @@ export function CabineDetailPanel({
                           {asString(live.cliente_nome, 'Cliente')}
                         </p>
                         <p className="mt-1 text-[11px] text-ink-muted">
-                          {formatDate(asString(live.iniciado_em, ''))} · {formatMoney(live.fat_gerado)}
+	                          {formatDate(asString(live.iniciado_em, ''))} · {formatMoney(officialLiveGmv(live))}
                         </p>
                       </div>
                       <Button

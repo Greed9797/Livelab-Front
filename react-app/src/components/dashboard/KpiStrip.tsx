@@ -83,17 +83,17 @@ interface KpiStripProps {
 }
 
 export function KpiStrip({ raw }: KpiStripProps) {
-  const gmvMes = asNumber(raw.gmv_lives_mes ?? raw.gmv_mes ?? raw.fat_bruto)
+  const gmvMes = asNumber(raw.gmv_total_mes ?? raw.gmv_mes ?? raw.gmv_lives_mes ?? raw.fat_bruto)
   const gmvPrev = asNumber(raw.gmv_mes_prev ?? raw.gmv_prev)
   const livesMes = asNumber(raw.lives_mes ?? raw.total_lives)
   const livesPrev = asNumber(raw.lives_prev)
-  const horasLive = asNumber(raw.horas_live)
+  const horasLive = asNumber(raw.horas_live ?? raw.horas_live_mes)
   const horasPrev = asNumber(raw.horas_prev)
   const videosMes = asNumber(raw.videos_mes ?? raw.total_videos)
   const videosPrev = asNumber(raw.videos_prev)
-  const gmvPorLive = asNumber(raw.gmv_por_live)
+  const gmvPorLive = asNumber(raw.gmv_por_live ?? raw.gmv_por_live_mes) || (livesMes > 0 ? gmvMes / livesMes : 0)
   const gmvPorLivePrev = asNumber(raw.gmv_por_live_prev)
-  const gmvPorHora = asNumber(raw.gmv_por_hora)
+  const gmvPorHora = asNumber(raw.gmv_por_hora ?? raw.gmv_por_hora_mes ?? raw.gmv_hora) || (horasLive > 0 ? gmvMes / horasLive : 0)
   const gmvPorHoraPrev = asNumber(raw.gmv_por_hora_prev)
 
   const gmvSpark = (raw.gmv_year as number[] | undefined)

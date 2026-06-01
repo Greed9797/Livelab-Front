@@ -268,7 +268,7 @@ export function CabinesPage({ title = 'Cabines', embedded = false }: { title?: s
     if (!liveId) return
     setEndLiveData(live)
     setEndForm({
-      fat_gerado: String(asNumber(live.gmv_atual ?? live.manual_gmv ?? live.fat_gerado) || ''),
+	      fat_gerado: String(asNumber(live.gmv_atual ?? live.gmv ?? live.ads_gmv ?? live.manual_gmv ?? live.fat_gerado) || ''),
       qtd_pedidos: String(asNumber(live.total_orders ?? live.final_orders_count ?? live.qtd_pedidos) || ''),
       manual_views: String(asNumber(live.total_viewers ?? live.viewer_count ?? live.manual_views) || ''),
       manual_likes: String(asNumber(live.likes_count ?? live.manual_likes) || ''),

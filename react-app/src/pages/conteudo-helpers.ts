@@ -20,13 +20,93 @@ export function publicationStatusTone(value: unknown): BadgeTone {
   return 'neutral'
 }
 
-function localMinutes(value: unknown) {
+const SAO_PAULO_TZ = 'America/Sao_Paulo'
+
+function parseBareLocalDateTime(value: string) {
+  const hasExplicitZone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(value)
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s](\d{2}):(\d{2}))?/)
+  if (!match || hasExplicitZone) return null
+  return {
+    date: match[1],
+    minutes: (Number(match[2] ?? 0) * 60) + Number(match[3] ?? 0),
+  }
+}
+
+export function saoPauloDateTimeParts(value: unknown) {
   if (typeof value !== 'string') return null
-  // Extract HH:MM from the local portion of the ISO string (before any tz offset/Z)
-  // so the result is timezone-independent and matches what the user scheduled.
-  const m = value.match(/T(\d{2}):(\d{2})/)
-  if (!m) return null
-  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10)
+  const bare = parseBareLocalDateTime(value)
+  if (bare) return bare
+  const date = new Date(value)
+  if (!Number.isNaN(date.getTime())) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: SAO_PAULO_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date)
+    const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+    const year = byType.year
+    const month = byType.month
+    const day = byType.day
+    const hour = Number(byType.hour)
+    const minute = Number(byType.minute)
+    if (year && month && day && Number.isFinite(hour) && Number.isFinite(minute)) {
+      return {
+        date: `${year}-${month}-${day}`,
+        minutes: (hour % 24) * 60 + minute,
+      }
+    }
+  }
+
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})?(?:T|\b)(\d{2}):(\d{2})/)
+  if (!match) return null
+  return {
+    date: match[1] ?? '',
+    minutes: parseInt(match[2], 10) * 60 + parseInt(match[3], 10),
+  }
+}
+
+export function formatSaoPauloTime(value: unknown) {
+  const parts = saoPauloDateTimeParts(value)
+  if (!parts) return '—'
+  const hour = Math.floor(parts.minutes / 60)
+  const minute = parts.minutes % 60
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+function compareDateKey(a: string, b: string) {
+  if (!a || !b || a === b) return 0
+  return a < b ? -1 : 1
+}
+
+function eventBoundsInDate(event: JsonRecord, selectedDate?: string) {
+  const startParts = saoPauloDateTimeParts(event.data_inicio)
+  const endParts = saoPauloDateTimeParts(event.data_fim)
+  const fallbackStart = startParts?.minutes ?? 0
+  const fallbackEnd = endParts?.minutes ?? fallbackStart + 60
+  if (!selectedDate) {
+    return {
+      start: fallbackStart,
+      end: fallbackEnd > fallbackStart ? fallbackEnd : fallbackStart + 60,
+    }
+  }
+
+  const startDateCmp = compareDateKey(startParts?.date ?? selectedDate, selectedDate)
+  const endDateCmp = compareDateKey(endParts?.date ?? selectedDate, selectedDate)
+  const start = startDateCmp < 0 ? 0 : startDateCmp > 0 ? 1440 : fallbackStart
+  const end = endDateCmp > 0 ? 1440 : endDateCmp < 0 ? 0 : fallbackEnd
+  return { start, end }
+}
+
+export function eventIntersectsSaoPauloDate(event: JsonRecord, selectedDate: string) {
+  const startParts = saoPauloDateTimeParts(event.data_inicio)
+  const endParts = saoPauloDateTimeParts(event.data_fim)
+  if (!startParts || !endParts) return false
+  const bounds = eventBoundsInDate(event, selectedDate)
+  return bounds.start < 1440 && bounds.end > 0
 }
 
 /**
@@ -34,14 +114,13 @@ function localMinutes(value: unknown) {
  * Eventos que se sobrepõem no tempo recebem index distinto e compartilham o total
  * de lanes do grupo, evitando empilhamento visual.
  */
-export function assignAgendaLanes(events: JsonRecord[]): Map<string, { index: number; total: number }> {
+export function assignAgendaLanes(events: JsonRecord[], selectedDate?: string): Map<string, { index: number; total: number }> {
   const result = new Map<string, { index: number; total: number }>()
   const items = events
-    .map((e) => ({
-      id: asString(e.id),
-      start: localMinutes(e.data_inicio) ?? 0,
-      end: localMinutes(e.data_fim) ?? (localMinutes(e.data_inicio) ?? 0) + 60,
-    }))
+    .map((e) => {
+      const bounds = eventBoundsInDate(e, selectedDate)
+      return { id: asString(e.id), start: bounds.start, end: Math.max(bounds.end, bounds.start + 15) }
+    })
     .sort((a, b) => a.start - b.start || a.end - b.end)
 
   // Agrupa eventos que se sobrepõem em cadeia (cluster).
@@ -74,12 +153,13 @@ export function assignAgendaLanes(events: JsonRecord[]): Map<string, { index: nu
 
 export function getAgendaEventLayout(
   event: JsonRecord,
-  config: { startHour: number; endHour: number; rowHeight: number },
+  config: { startHour: number; endHour: number; rowHeight: number; date?: string },
 ) {
   const startLimit = config.startHour * 60
   const endLimit = config.endHour * 60
-  const start = localMinutes(event.data_inicio) ?? startLimit
-  const end = localMinutes(event.data_fim) ?? start + 60
+  const bounds = eventBoundsInDate(event, config.date)
+  const start = bounds.start ?? startLimit
+  const end = bounds.end ?? start + 60
   const clampedStart = Math.max(startLimit, Math.min(start, endLimit))
   const clampedEnd = Math.max(clampedStart + 15, Math.min(end, endLimit))
   return {

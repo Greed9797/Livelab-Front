@@ -154,9 +154,9 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
       hora_inicio: toTimeInput(live.iniciado_em),
       hora_fim: toTimeInput(live.encerrado_em ?? live.previsto_fim),
       previsto_fim: toDatetimeLocal(live.previsto_fim),
-      fat_gerado: asString(live.fat_gerado, ''),
+      fat_gerado: asString(live.gmv ?? live.ads_gmv ?? live.manual_gmv ?? live.fat_gerado, ''),
       manual_gmv: asString(live.manual_gmv, ''),
-      qtd_pedidos: asString(live.qtd_pedidos ?? live.final_orders_count, ''),
+      qtd_pedidos: asString(live.manual_orders ?? live.qtd_pedidos ?? live.final_orders_count, ''),
       manual_orders: asString(live.manual_orders, ''),
       manual_views: asString(live.manual_views, ''),
       manual_likes: asString(live.manual_likes, ''),
@@ -367,7 +367,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
           <h3 className="text-sm font-bold text-ink">Financeiro</h3>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="text-xs text-ink-muted">GMV total (fat_gerado)</span>
+	              <span className="text-xs text-ink-muted">GMV faturado</span>
               <MoneyInput value={form.fat_gerado} onChange={(v) => setField('fat_gerado', v)} />
             </label>
             <label className="block">

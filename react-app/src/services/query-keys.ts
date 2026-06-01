@@ -82,4 +82,7 @@ export const QK = {
     period ? ['analytics-dashboard', period] as const : ['analytics-dashboard'] as const,
   funilAnalytics: (mesAno: string, groupBy: 'marca' | 'apresentadora') =>
     ['funil-analytics', mesAno, groupBy] as const,
+  dailyAnalytics: (mesAno: string, marcaId?: string, apresentadoraId?: string) =>
+    ['daily-analytics', mesAno, marcaId ?? '', apresentadoraId ?? ''] as const,
+  analyticsImportPreview: ['analytics-import-preview'] as const,
 }

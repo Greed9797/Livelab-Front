@@ -5,19 +5,17 @@ import { Badge, statusTone } from '../ui/Badge'
 import { DataTable } from '../ui/DataTable'
 import { TikTokLiveButton } from '../ui/TikTokLiveButton'
 import { AgendarLiveModal, type AgendarLiveModalMode } from '../forms/AgendarLiveModal'
-import { assignAgendaLanes, getAgendaEventLayout } from '../../pages/conteudo-helpers'
+import {
+  assignAgendaLanes,
+  eventIntersectsSaoPauloDate,
+  formatSaoPauloTime,
+  getAgendaEventLayout,
+} from '../../pages/conteudo-helpers'
 import { asString, formatDate } from '../../utils/format'
 import { isSyntheticLiveEvent } from '../../pages/ConteudoPage'
 import { getBrandImage } from '../../utils/favicon'
 import type { Cabine, JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
-
-// Re-export local helpers so they can be reused
-function formatTime(value: unknown) {
-  const date = typeof value === 'string' ? new Date(value) : null
-  if (!date || Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date)
-}
 
 function typeLabel(tipo: unknown) {
   const value = asString(tipo, '')
@@ -39,16 +37,6 @@ function isPastRegisterable(event: JsonRecord) {
 
 function isLiveOnAir(item: JsonRecord) {
   return ['ao_vivo', 'em_andamento'].includes(asString(item.status, ''))
-}
-
-function eventIntersectsLocalDate(event: JsonRecord, date: string) {
-  const start = typeof event.data_inicio === 'string' ? new Date(event.data_inicio) : null
-  const end = typeof event.data_fim === 'string' ? new Date(event.data_fim) : null
-  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false
-  const dayStart = new Date(`${date}T00:00:00`)
-  const dayEnd = new Date(dayStart)
-  dayEnd.setDate(dayStart.getDate() + 1)
-  return start < dayEnd && end > dayStart
 }
 
 export interface AgendaTabProps {
@@ -174,16 +162,16 @@ export function AgendaTab({
                     ))}
                   </div>
                   {activeCabines.map((cabine) => {
-                    const rawEvents = agendaRows.filter(
-                      (event) =>
-                        asString(event.cabine_id) === cabine.id &&
-                        eventIntersectsLocalDate(event, agendaDate),
-                    )
-                    const events = Array.from(
-                      new Map(rawEvents.map((e) => [asString(e.id), e])).values(),
-                    )
-                    const lanes = assignAgendaLanes(events)
-                    return (
+	                    const rawEvents = agendaRows.filter(
+	                      (event) =>
+	                        asString(event.cabine_id) === cabine.id &&
+	                        eventIntersectsSaoPauloDate(event, agendaDate),
+	                    )
+	                    const events = Array.from(
+	                      new Map(rawEvents.map((e) => [asString(e.id), e])).values(),
+	                    )
+	                    const lanes = assignAgendaLanes(events, agendaDate)
+	                    return (
                       <div key={cabine.id as string} className="relative border-r border-line">
                         {HOURS.map((hour, index) => (
                           <div
@@ -192,12 +180,13 @@ export function AgendaTab({
                             style={{ top: `${index * 72}px` }}
                           />
                         ))}
-                        {events.map((event) => {
-                          const layout = getAgendaEventLayout(event, {
-                            startHour: HOURS[0],
-                            endHour: HOURS[HOURS.length - 1] + 1,
-                            rowHeight: 72,
-                          })
+	                        {events.map((event) => {
+	                          const layout = getAgendaEventLayout(event, {
+	                            startHour: HOURS[0],
+	                            endHour: HOURS[HOURS.length - 1] + 1,
+	                            rowHeight: 72,
+	                            date: agendaDate,
+	                          })
                           const canRegister = isPastRegisterable(event)
                           const lane = lanes.get(asString(event.id)) ?? { index: 0, total: 1 }
                           const widthPct = 100 / lane.total
@@ -225,10 +214,10 @@ export function AgendaTab({
                                   <TikTokLiveButton username={event.tiktok_username} compact />
                                 </div>
                               ) : null}
-                              <p className="font-bold text-brand">
-                                {typeLabel(event.tipo)} · {formatTime(event.data_inicio)}-
-                                {formatTime(event.data_fim)}
-                              </p>
+	                              <p className="font-bold text-brand">
+	                                {typeLabel(event.tipo)} · {formatSaoPauloTime(event.data_inicio)}-
+	                                {formatSaoPauloTime(event.data_fim)}
+	                              </p>
                               <div className="mt-1 flex items-center gap-2">
                                 {(() => {
                                   const img = getBrandImage({
@@ -284,10 +273,10 @@ export function AgendaTab({
               data={agendaRows}
               columns={[
                 {
-                  key: 'data_inicio',
-                  header: 'Horário',
-                  render: (item) =>
-                    `${formatDate(asString(item.data_inicio, ''))} ${formatTime(item.data_inicio)}`,
+	                  key: 'data_inicio',
+	                  header: 'Horário',
+	                  render: (item) =>
+	                    `${formatDate(asString(item.data_inicio, ''))} ${formatSaoPauloTime(item.data_inicio)}`,
                 },
                 {
                   key: 'cabine_numero',

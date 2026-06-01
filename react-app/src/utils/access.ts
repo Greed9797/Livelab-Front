@@ -1,7 +1,6 @@
 import {
   BookOpen,
   Building2,
-  CalendarClock,
   ChartNoAxesCombined,
   CircleDollarSign,
   Gauge,
@@ -11,6 +10,7 @@ import {
   Presentation,
   Settings,
   Store,
+  Trophy,
   Workflow,
 } from 'lucide-react'
 import type { OfficialRole, Role, User } from '../types/models'
@@ -158,9 +158,8 @@ export function needsClientOnboarding(user: User | null): boolean {
 }
 
 // Menu lateral — decisão 2026-05-25 (Lucas):
-// 6 itens fixos pra unidade: Home, Comercial, Conteúdo, Financeiro, Base, Configurações.
-// Apresentadoras/Metas/Ranking-apresentadoras NÃO viram itens próprios — vivem
-// dentro de Configurações (Apresentadoras, Metas) ou acessadas via Home (Ranking).
+// Unidade: Home, Comercial, Conteúdo, Financeiro, Base, Ranking e Configurações.
+// Ranking virou atalho próprio por decisão do handoff operacional do PDF.
 // Master continua com seus próprios atalhos. Cliente tem o painel separado dele.
 export const menuItems: MenuItem[] = [
   { label: 'Home', path: '/', icon: Home, roles: internalRoles },
@@ -171,13 +170,12 @@ export const menuItems: MenuItem[] = [
   { label: 'Comercial', path: '/comercial', icon: Workflow, roles: [...masterRoles, ...commercialRoles] },
   { label: 'Conteúdo', path: '/conteudo', icon: Presentation, roles: cabineRoles },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
-  { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora', 'cliente_parceiro'] },
+  { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora'] },
+  { label: 'Ranking', path: '/ranking/apresentadoras', icon: Trophy, roles: opsRoles },
   { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'franqueado'] },
-  // Cliente parceiro tem menu próprio.
+  // Cliente parceiro: escopo mínimo para go-live (Home + Lives + Configurações).
   { label: 'Cliente', path: '/cliente', icon: Gauge, roles: clienteRoles },
   { label: 'Lives', path: '/cliente/lives', icon: MonitorPlay, roles: clienteRoles },
-  { label: 'Agenda', path: '/cliente/agenda', icon: CalendarClock, roles: clienteRoles },
-  { label: 'Financeiro', path: '/financeiro?tab=boletos', icon: CircleDollarSign, roles: clienteRoles },
   { label: 'Configurações', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles },
 ]
 

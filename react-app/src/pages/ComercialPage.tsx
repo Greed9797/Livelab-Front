@@ -33,6 +33,8 @@ const emptyClienteForm = {
   nicho: '',
   tiktok_username: '',
   logo_url: '',
+  criar_acesso: false,
+  senha_temporaria: '',
 }
 
 const emptyAfiliadoForm = {
@@ -43,6 +45,10 @@ const emptyAfiliadoForm = {
   tiktok_username: '',
   logo_url: '',
   observacoes: '',
+}
+
+function officialOperationalGmv(item: JsonRecord) {
+  return item.gmv_mes ?? item.gmv ?? item.ads_gmv ?? item.manual_gmv ?? item.fat_anual
 }
 
 export function ComercialPage() {
@@ -81,6 +87,7 @@ export function ComercialPage() {
       setClienteForm(emptyClienteForm)
       setShowClienteForm(false)
       void queryClient.invalidateQueries({ queryKey: QK.clientes() })
+      void queryClient.invalidateQueries({ queryKey: QK.usuarios })
       void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
       void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
     },
@@ -198,7 +205,7 @@ export function ComercialPage() {
         ...existing,
         logo_url: existing.logo_url || item.logo_url,
         site: existing.site || item.site,
-        gmv_mes: asNumber(existing.gmv_mes ?? existing.fat_anual) + asNumber(item.gmv_mes ?? item.fat_anual),
+        gmv_mes: asNumber(officialOperationalGmv(existing)) + asNumber(officialOperationalGmv(item)),
         lives_mes: asNumber(existing.lives_mes ?? existing.total_lives) + asNumber(item.lives_mes ?? item.total_lives),
         videos_mes: asNumber(existing.videos_mes ?? existing.quantidade_videos) + asNumber(item.videos_mes ?? item.quantidade_videos),
         duplicado_count: asNumber(existing.duplicado_count, 1) + 1,
@@ -216,7 +223,7 @@ export function ComercialPage() {
     void marcasQuery.refetch()
   }} />
 
-  function setClienteField(key: keyof typeof emptyClienteForm, value: string) {
+  function setClienteField(key: keyof typeof emptyClienteForm, value: string | boolean) {
     setClienteForm((current) => ({ ...current, [key]: value }))
   }
 
@@ -230,7 +237,7 @@ export function ComercialPage() {
       { key: 'nome', header: 'nome' },
       { key: 'marca_principal', header: 'marca_principal' },
       { key: 'status', header: 'status' },
-      { key: 'gmv_mes', header: 'gmv_mes', value: (row) => row.gmv_mes ?? row.fat_anual ?? 0 },
+      { key: 'gmv_mes', header: 'gmv_mes', value: (row) => officialOperationalGmv(row) ?? 0 },
       { key: 'lives_mes', header: 'lives_mes', value: (row) => row.lives_mes ?? row.total_lives ?? 0 },
       { key: 'videos_mes', header: 'videos_mes', value: (row) => row.videos_mes ?? row.quantidade_videos ?? 0 },
       {
@@ -269,6 +276,12 @@ export function ComercialPage() {
       nicho: clienteForm.nicho || undefined,
       tiktok_username: clienteForm.tiktok_username || undefined,
       logo_url: clienteForm.logo_url || undefined,
+      criar_acesso: clienteForm.criar_acesso,
+      ...(clienteForm.criar_acesso ? {
+        acesso_nome: clienteForm.responsavel || clienteForm.nome,
+        acesso_email: clienteForm.email,
+        senha_temporaria: clienteForm.senha_temporaria,
+      } : {}),
     })
   }
 
@@ -465,7 +478,15 @@ export function ComercialPage() {
                   },
                   { key: 'marca_principal', header: 'Marca principal', render: (item) => asString(item.marca_principal) },
                   { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, 'ativa'))}>{asString(item.status, 'ativa')}</Badge> },
-                  { key: 'gmv_mes', header: 'GMV mês', align: 'right', render: (item) => formatMoney(item.gmv_mes ?? item.fat_anual) },
+                  {
+                    key: 'acesso',
+                    header: 'Acesso',
+                    render: (item) => {
+                      if (!asString(item.user_id, '')) return <Badge tone="neutral">Sem acesso</Badge>
+                      return <Badge tone={item.acesso_ativo === false ? 'warning' : 'success'}>{asString(item.acesso_email, 'Cliente')}</Badge>
+                    },
+                  },
+                  { key: 'gmv_mes', header: 'GMV mês', align: 'right', render: (item) => formatMoney(officialOperationalGmv(item)) },
                   { key: 'lives_mes', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives_mes ?? item.total_lives).toLocaleString('pt-BR') },
                   { key: 'videos_mes', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.videos_mes ?? item.quantidade_videos).toLocaleString('pt-BR') },
                   {
@@ -510,6 +531,46 @@ export function ComercialPage() {
           <input className="design-input h-11 px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="Nicho" value={clienteForm.nicho} onChange={(event) => setClienteField('nicho', event.target.value)} />
           <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value.replace(/@/g, ''))} />
+          <section className="space-y-3 rounded-2xl border border-line bg-surface-muted p-4 md:col-span-2">
+            <label className="flex items-start gap-3">
+              <input
+                className="mt-1 h-4 w-4 accent-brand"
+                type="checkbox"
+                checked={clienteForm.criar_acesso}
+                onChange={(event) => setClienteField('criar_acesso', event.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-bold text-ink">Criar acesso do cliente agora</span>
+                <span className="mt-1 block text-xs text-ink-muted">Cria um usuário com papel Cliente vinculado a este cadastro e liberado somente para o painel do cliente.</span>
+              </span>
+            </label>
+            {clienteForm.criar_acesso ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">E-mail de acesso</span>
+                  <input
+                    className="design-input mt-2 h-11 w-full px-4"
+                    placeholder="cliente@empresa.com"
+                    type="email"
+                    value={clienteForm.email}
+                    onChange={(event) => setClienteField('email', event.target.value)}
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-ink">Senha temporária</span>
+                  <input
+                    className="design-input mt-2 h-11 w-full px-4"
+                    value={clienteForm.senha_temporaria}
+                    onChange={(event) => setClienteField('senha_temporaria', event.target.value)}
+                    minLength={6}
+                    placeholder="mínimo 6 caracteres"
+                    required
+                  />
+                </label>
+              </div>
+            ) : null}
+          </section>
           <div className="md:col-span-2">
             <ImagePicker
               label="Imagem do cliente"
@@ -665,7 +726,7 @@ export function ComercialPage() {
                         { key: 'iniciado_em', header: 'Data', render: (item) => asString(item.iniciado_em).slice(0, 10) },
                         { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome ?? getRecord(ativoDetailQuery.data?.marca).nome ?? getRecord(ativoDetailQuery.data?.cliente).nome) },
                         { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, '—') },
-                        { key: 'fat_gerado', header: 'GMV', align: 'right', render: (item) => formatMoney(item.fat_gerado) },
+                        { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(officialOperationalGmv(item)) },
                       ]}
                     />
                   </CardBody>

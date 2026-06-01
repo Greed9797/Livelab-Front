@@ -53,6 +53,31 @@ export function topDailyPoints(
     .slice(0, limit)
 }
 
+export function analyticsDailyChartRows(raw: JsonRecord, endpointRows: JsonRecord[]) {
+  const dashboardDailyGmvRows = asArray<JsonRecord>(raw.gmv_diario ?? raw.horas_live_por_dia ?? raw.horas_por_dia)
+  const dashboardDailyPedidosRows = asArray<JsonRecord>(raw.pedidos_diario ?? raw.horas_live_por_dia ?? raw.horas_por_dia)
+  const hasEndpointGmv = endpointRows.some((row) => asNumber(row.gmv_total ?? row.gmv_lives ?? row.gmv) > 0)
+  const hasEndpointPedidos = endpointRows.some((row) => asNumber(row.pedidos ?? row.total_pedidos ?? row.orders) > 0)
+
+  return {
+    gmvRows: hasEndpointGmv ? endpointRows : dashboardDailyGmvRows,
+    pedidosRows: hasEndpointPedidos ? endpointRows : dashboardDailyPedidosRows,
+    hasDashboardRows: dashboardDailyGmvRows.length > 0 || dashboardDailyPedidosRows.length > 0,
+  }
+}
+
+export function latestPeriodWithData(raw: JsonRecord) {
+  const rows = historyPoints(raw.gmv_mensal ?? raw.faturamento_mensal ?? raw.history)
+  for (let index = rows.length - 1; index >= 0; index--) {
+    const row = rows[index]
+    if (asNumber(row.value) <= 0) continue
+    const match = asString(row.label, '').match(/^(\d{4})-(\d{2})/)
+    if (!match) continue
+    return { ano: Number(match[1]), mes: Number(match[2]) }
+  }
+  return null
+}
+
 export function normalizeHome(raw: JsonRecord) {
   const resumo = raw.resumo_mes ? getRecord(raw.resumo_mes) : raw
   const cabines = asArray<JsonRecord>(raw.cabines)
@@ -100,7 +125,7 @@ export function normalizeHome(raw: JsonRecord) {
     },
     ranking: asArray<JsonRecord>(raw.ranking_marcas_mes),
     rankingMarcasMes: asArray<JsonRecord>(raw.ranking_marcas_mes),
-    rankingApresentadoras: asArray<JsonRecord>(raw.ranking_apresentadoras_mes ?? raw.ranking_apresentadoras),
+    rankingApresentadoras: asArray<JsonRecord>(raw.ranking_apresentadoras_mes),
     upcoming: asArray<JsonRecord>(raw.proximas_lives_dia ?? raw.proximas_lives),
     agendaHoje,
   }
@@ -138,10 +163,14 @@ export function normalizeCliente(raw: JsonRecord) {
       metric('Horas de live', asNumber(raw.horas_live ?? raw.horas_live_mes).toFixed(1), 'consumo do pacote', 'neutral'),
       percentMetric('Meta GMV', raw.pct_meta ?? raw.percentual_meta, asString(raw.status_meta, 'ritmo do mês'), 'warning'),
     ],
-    history: historyPoints(raw.historico_mensal ?? raw.history ?? raw.evolucao_mensal),
+    history: historyPoints(
+      raw.series_mensais ?? raw.historico_mensal ?? raw.history ?? raw.evolucao_mensal,
+      ['label', 'mes', 'periodo', 'data', 'dia'],
+      ['gmv_total', 'gmv', 'valor', 'total', 'receita'],
+    ),
     upcoming: asArray<JsonRecord>(raw.proximas_lives),
     liveAtiva: getRecord(raw.live_ativa),
     lives: asArray<JsonRecord>(raw.lives),
-    topHorarios: asArray<JsonRecord>(raw.top_horarios ?? raw.melhores_horarios),
+    topHorarios: asArray<JsonRecord>(raw.top_horarios ?? raw.melhores_horarios ?? raw.melhores_horarios_venda),
   }
 }

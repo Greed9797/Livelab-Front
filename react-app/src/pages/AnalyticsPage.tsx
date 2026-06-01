@@ -1,5 +1,5 @@
 import { Clock, CircleDollarSign, Download, Film, Radio, ReceiptText, ShoppingBag } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { PeriodControl } from '../components/forms/PeriodControl'
@@ -22,8 +22,8 @@ import {
   getMarcas,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asArray, asNumber, asString, currentPeriod, formatMoney, getRecord } from '../utils/format'
-import { historyPoints, metric, moneyMetric, topDailyPoints } from './page-helpers'
+import { asArray, asNumber, asString, currentPeriod, formatMoney, getRecord, unwrapList } from '../utils/format'
+import { analyticsDailyChartRows, historyPoints, latestPeriodWithData, metric, moneyMetric, topDailyPoints } from './page-helpers'
 import { QK } from '../services/query-keys'
 import { useToast } from '../components/ui/Toast'
 import type { JsonRecord } from '../types/models'
@@ -41,6 +41,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const [apresentadoraId, setApresentadoraId] = useState<string>('')
   const [exporting, setExporting] = useState(false)
   const [chartMode, setChartMode] = useState<'mensal' | 'diario'>('mensal')
+  const [periodAutoAdjusted, setPeriodAutoAdjusted] = useState(false)
 
   const mes = periodToMesAno(period)
   const filtros = { mes, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }
@@ -64,33 +65,48 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
   const marcasOpts = useQuery({ queryKey: QK.marcas('analytics-filter'), queryFn: () => getMarcas({ status: 'ativa' }) })
   const apresentadorasOpts = useQuery({ queryKey: QK.apresentadoras('analytics-filter'), queryFn: () => getApresentadoras() })
+  const raw = query.data ?? {}
+  const latestDataPeriod = latestPeriodWithData(raw)
+
+  useEffect(() => {
+    if (!query.isSuccess || periodAutoAdjusted || !latestDataPeriod) return
+    if (latestDataPeriod.ano === period.ano && latestDataPeriod.mes === period.mes) return
+    const kpis = getRecord(raw.kpis)
+    const hasCurrentData =
+      asNumber(kpis.gmv_total ?? raw.gmv_total ?? raw.gmv_mes) > 0 ||
+      asNumber(kpis.total_lives ?? raw.total_lives) > 0 ||
+      asNumber(kpis.pedidos_total ?? raw.pedidos_total) > 0
+    if (hasCurrentData) return
+    setPeriodAutoAdjusted(true)
+    setPeriod(latestDataPeriod)
+  }, [latestDataPeriod?.ano, latestDataPeriod?.mes, period.ano, period.mes, periodAutoAdjusted, query.isSuccess, raw])
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
-  const raw = query.data ?? {}
   const kpis = getRecord(raw.kpis)
-  const dailyRows = asArray<JsonRecord>(dailyQuery.data?.rows)
-  const dailyGmvPoints = topDailyPoints(dailyRows, ['gmv_total', 'gmv_lives', 'gmv'])
-  const dailyPedidosPoints = topDailyPoints(dailyRows, ['pedidos', 'total_pedidos', 'orders'])
-  const dailySubtitle = dailyQuery.isLoading
+  const endpointDailyRows = unwrapList<JsonRecord>(dailyQuery.data)
+  const { gmvRows: dailyGmvRows, pedidosRows: dailyPedidosRows, hasDashboardRows } = analyticsDailyChartRows(raw, endpointDailyRows)
+  const dailyGmvPoints = topDailyPoints(dailyGmvRows, ['gmv_total', 'gmv_lives', 'gmv'])
+  const dailyPedidosPoints = topDailyPoints(dailyPedidosRows, ['pedidos', 'total_pedidos', 'orders'])
+  const dailySubtitle = dailyQuery.isLoading && !hasDashboardRows
     ? 'Carregando melhores dias do mês selecionado...'
     : 'Top 10 dias do mês selecionado, ordenado do maior para o menor.'
 
   const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
   const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
 
-  const totalGMVApresentadoras = apresentadorasRows.reduce((sum, r) => sum + asNumber(r.gmv_total), 0)
+  const totalGMVApresentadoras = apresentadorasRows.reduce((sum, r) => sum + asNumber(r.gmv_total ?? r.gmv), 0)
   const totalComissaoApresentadoras = apresentadorasRows.reduce((sum, r) => sum + asNumber(r.comissao_apresentadora), 0)
-  const totalGMVMarcas = marcasRows.reduce((sum, r) => sum + asNumber(r.gmv_total), 0)
+  const totalGMVMarcas = marcasRows.reduce((sum, r) => sum + asNumber(r.gmv_total ?? r.gmv), 0)
   const totalComissaoFranquia = marcasRows.reduce((sum, r) => sum + asNumber(r.comissao_franquia), 0)
   const totalComissaoFranqueadora = marcasRows.reduce((sum, r) => sum + asNumber(r.comissao_franqueadora), 0)
 
   const totalLives = asNumber(kpis.total_lives ?? raw.total_lives)
   const totalVideos = asNumber(kpis.total_videos ?? raw.total_videos)
   const totalConteudos = asNumber(kpis.total_conteudos ?? totalLives + totalVideos)
-  const rankingApresentadoras = asArray<JsonRecord>(raw.ranking_apresentadoras ?? raw.ranking_apresentadores)
-  const rankingMarcas = asArray<JsonRecord>(raw.ranking_marcas)
+  const rankingApresentadoras = apresentadorasRows
+  const rankingMarcas = marcasRows
 
   const metrics = [
     moneyMetric('GMV atribuído', kpis.gmv_total ?? raw.gmv_total ?? raw.gmv_mes, 'lives + vídeos', 'brand'),
@@ -256,35 +272,49 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         <Card>
           <CardHeader>
             <p className="text-base font-bold tracking-[-0.01em] text-ink">Ranking de apresentadoras</p>
+            <p className="mt-1 text-xs text-ink-muted">Mesma fonte do relatório de comissão abaixo.</p>
           </CardHeader>
           <CardBody>
-            <DataTable<JsonRecord>
-              data={rankingApresentadoras}
-              columns={[
-                { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome ?? item.apresentador_nome, 'Sem apresentadora') },
-                { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total) },
-                { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos).toLocaleString('pt-BR') },
-                { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives).toLocaleString('pt-BR') },
-                { key: 'total_videos', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.total_videos).toLocaleString('pt-BR') },
-              ]}
-            />
+            {comissoesApresentadorasQ.isLoading ? (
+              <p className="py-4 text-center text-sm text-muted">Carregando...</p>
+            ) : comissoesApresentadorasQ.isError ? (
+              <p className="py-4 text-center text-sm text-danger">Erro ao carregar ranking.</p>
+            ) : (
+              <DataTable<JsonRecord>
+                data={rankingApresentadoras}
+                columns={[
+                  { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome ?? item.apresentador_nome, 'Sem apresentadora') },
+                  { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
+                  { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos ?? item.pedidos_total).toLocaleString('pt-BR') },
+                  { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
+                  { key: 'total_videos', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.total_videos).toLocaleString('pt-BR') },
+                ]}
+              />
+            )}
           </CardBody>
         </Card>
         <Card>
           <CardHeader>
             <p className="text-base font-bold tracking-[-0.01em] text-ink">Ranking de marcas</p>
+            <p className="mt-1 text-xs text-ink-muted">Mesma fonte do relatório de comissão abaixo.</p>
           </CardHeader>
           <CardBody>
-            <DataTable<JsonRecord>
-              data={rankingMarcas}
-              columns={[
-                { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome ?? item.nome, 'Marca') },
-                { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total) },
-                { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos).toLocaleString('pt-BR') },
-                { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives).toLocaleString('pt-BR') },
-                { key: 'total_videos', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.total_videos).toLocaleString('pt-BR') },
-              ]}
-            />
+            {comissoesMarcasQ.isLoading ? (
+              <p className="py-4 text-center text-sm text-muted">Carregando...</p>
+            ) : comissoesMarcasQ.isError ? (
+              <p className="py-4 text-center text-sm text-danger">Erro ao carregar ranking.</p>
+            ) : (
+              <DataTable<JsonRecord>
+                data={rankingMarcas}
+                columns={[
+                  { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome ?? item.nome, 'Marca') },
+                  { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
+                  { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos ?? item.pedidos_total).toLocaleString('pt-BR') },
+                  { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
+                  { key: 'total_videos', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.total_videos).toLocaleString('pt-BR') },
+                ]}
+              />
+            )}
           </CardBody>
         </Card>
       </section>
@@ -295,7 +325,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-4">
           <div>
             <p className="text-base font-bold text-ink">Relatório de comissionamento</p>
-            <p className="mt-1 text-xs text-ink-muted">Filtros aplicam apenas às tabelas abaixo e ao CSV. KPIs e rankings do topo seguem o mês inteiro.</p>
+            <p className="mt-1 text-xs text-ink-muted">Rankings, tabelas abaixo e CSV usam a mesma fonte e os mesmos filtros.</p>
           </div>
           {comissoesFiltrosBar}
         </div>
@@ -316,8 +346,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
                   data={apresentadorasRows}
                   columns={[
                     { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, 'Sem apresentadora') },
-                    { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total) },
-                    { key: 'pedidos_total', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos_total).toLocaleString('pt-BR') },
+                    { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
+                    { key: 'pedidos_total', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos_total ?? item.pedidos).toLocaleString('pt-BR') },
                     { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => formatMoney(item.comissao_apresentadora) },
                   ]}
                 />
@@ -345,7 +375,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
                   data={marcasRows}
                   columns={[
                     { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome, 'Sem marca') },
-                    { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total) },
+                    { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
                     { key: 'comissao_franquia', header: 'Franquia', align: 'right', render: (item) => formatMoney(item.comissao_franquia) },
                     { key: 'comissao_franqueadora', header: 'Franqueadora', align: 'right', render: (item) => formatMoney(item.comissao_franqueadora) },
                   ]}

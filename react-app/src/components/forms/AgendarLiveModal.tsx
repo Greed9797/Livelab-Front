@@ -7,6 +7,7 @@ import { useToast } from '../ui/Toast'
 import { extractErrorMessage } from '../../services/api'
 import { getAgendaConflitos } from '../../services/domain'
 import { asNumber, asString } from '../../utils/format'
+import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import type { Cabine, JsonRecord } from '../../types/models'
 
 export type AgendarLiveModalMode = 'create' | 'edit' | 'now'
@@ -36,6 +37,15 @@ type LookupOption = {
   label: string
 }
 
+type AccountComboboxProps = {
+  value: string
+  options: LookupOption[]
+  required?: boolean
+  invalid?: boolean
+  onChange: (value: string) => void
+  onSelect: (option: LookupOption) => void
+}
+
 type AvailabilityState = {
   status: 'idle' | 'checking' | 'available' | 'conflict' | 'error'
   message: string
@@ -62,7 +72,7 @@ const emptyForm: AgendaForm = {
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  return getSaoPauloDateInput()
 }
 
 function dateWithHourOffset(hours: number) {
@@ -72,7 +82,7 @@ function dateWithHourOffset(hours: number) {
 }
 
 function makeDateTime(date: string, time: string) {
-  return new Date(`${date}T${time}:00`).toISOString()
+  return `${date}T${time}:00-03:00`
 }
 
 function toDateInput(value: unknown) {
@@ -118,6 +128,14 @@ function optionLabel(options: LookupOption[], value: string) {
   return options.find((option) => option.value === value)?.label ?? ''
 }
 
+function filterOptions(options: LookupOption[], query: string) {
+  const normalized = query.trim().toLocaleLowerCase('pt-BR')
+  if (!normalized) return options.slice(0, 8)
+  return options
+    .filter((option) => option.label.toLocaleLowerCase('pt-BR').includes(normalized))
+    .slice(0, 8)
+}
+
 function selectedWeekdays(value: string) {
   return value
     .split(',')
@@ -144,6 +162,54 @@ function recurrencePayload(form: AgendaForm): JsonRecord | null {
     ...(form.recorrencia_ate ? { ate: form.recorrencia_ate } : {}),
     ...(form.recorrencia_total_ocorrencias ? { total_ocorrencias: asNumber(form.recorrencia_total_ocorrencias) } : {}),
   }
+}
+
+function AccountCombobox({ value, options, required, invalid, onChange, onSelect }: AccountComboboxProps) {
+  const [open, setOpen] = useState(false)
+  const filtered = filterOptions(options, value)
+
+  return (
+    <div className="relative">
+      <input
+        className={`design-input mt-2 h-11 w-full px-4 ${invalid ? 'border-[var(--danger)]' : ''}`}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value)
+          setOpen(true)
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        placeholder="Buscar marca ou cliente"
+        required={required}
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+      />
+      {open ? (
+        <div className="absolute z-50 mt-2 max-h-64 w-full overflow-y-auto rounded-2xl border border-line bg-surface p-1 shadow-[var(--shadow-card)]">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-ink-muted">Nenhuma marca ou cliente encontrado.</div>
+          ) : filtered.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-ink transition hover:bg-surface-muted"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onSelect(option)
+                setOpen(false)
+              }}
+            >
+              <span className="truncate">{option.label}</span>
+              <span className="ml-2 shrink-0 text-[10px] uppercase tracking-wide text-ink-muted">
+                {option.value.startsWith('marca:') ? 'marca' : 'cliente'}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 export function AgendarLiveModal({
@@ -366,9 +432,12 @@ export function AgendarLiveModal({
 
   function onAccountLookupChange(value: string) {
     setAccountLookup(value)
-    const option = findLookupOption(accountOptions, value)
-    if (option) setAccount(option.value)
-    else if (!value.trim()) setAccount('')
+    if (!value.trim()) setAccount('')
+  }
+
+  function onAccountOptionSelect(option: LookupOption) {
+    setAccountLookup(option.label)
+    setAccount(option.value)
   }
 
   function onCabineLookupChange(value: string) {
@@ -449,6 +518,8 @@ export function AgendarLiveModal({
   const title = mode === 'edit' ? 'Editar agendamento' : mode === 'now' ? 'Iniciar live agora' : 'Agendar'
   const submitLabel = mode === 'edit' ? 'Salvar agendamento' : mode === 'now' ? 'Iniciar live' : 'Agendar'
   const SubmitIcon = mode === 'now' ? PlayCircle : mode === 'edit' ? CheckCircle2 : Plus
+  const accountRequired = form.tipo !== 'bloqueio_manutencao' && (mode !== 'now' || form.live_tipo !== 'teste')
+  const accountInvalid = accountRequired && accountLookup.trim().length > 0 && !form.marca_id && !form.cliente_id
 
   return (
     <Modal open={open} title={title} subtitle="Reserva de cabine com recorrência opcional." size="lg" onClose={onClose}>
@@ -501,17 +572,19 @@ export function AgendarLiveModal({
         {form.tipo !== 'bloqueio_manutencao' ? (
           <label className="block">
             <span className="text-sm font-semibold text-ink">Marca/cliente</span>
-            <input
-              className="design-input mt-2 h-11 w-full px-4"
-              list="agenda-account-options"
+            <AccountCombobox
               value={accountLookup}
-              onChange={(item) => onAccountLookupChange(item.target.value)}
-              placeholder="Buscar marca ou cliente"
-              required={mode !== 'now' || form.live_tipo !== 'teste'}
+              options={accountOptions}
+              required={accountRequired}
+              invalid={accountInvalid}
+              onChange={onAccountLookupChange}
+              onSelect={onAccountOptionSelect}
             />
-            <datalist id="agenda-account-options">
-              {accountOptions.map((option) => <option key={option.value} value={option.label} />)}
-            </datalist>
+            {accountInvalid ? (
+              <span className="mt-1 block text-xs font-semibold text-[var(--danger)]">
+                Escolha uma opção da lista para vincular a live corretamente.
+              </span>
+            ) : null}
           </label>
         ) : null}
         <PresenterSelect

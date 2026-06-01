@@ -85,7 +85,7 @@ export function ClienteAgendaPage() {
     })
   }
 
-  const minhasReservas = reservas.filter((item) => asString(item.status, '').toLowerCase() !== 'recusada')
+  const minhasReservas = reservas.filter((item) => !['recusada', 'cancelado'].includes(asString(item.status, '').toLowerCase()))
   const meusSlots = slots.filter((item) => item.is_mine)
   const ocupados = slots.filter((item) => !item.is_mine)
 

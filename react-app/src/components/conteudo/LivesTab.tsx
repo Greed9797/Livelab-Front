@@ -30,6 +30,10 @@ const ACTION_MENU_WIDTH = 168
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
+function officialLiveGmv(live: JsonRecord) {
+  return live.gmv ?? live.ads_gmv ?? live.manual_gmv ?? live.fat_gerado
+}
+
 function fmtTime(value: unknown): string {
   const d = typeof value === 'string' ? new Date(value) : null
   if (!d || Number.isNaN(d.getTime())) return '—'
@@ -98,8 +102,8 @@ function buildReport(live: JsonRecord): string {
       : `⏰ Horário: ${fmtTime(live.iniciado_em)}`,
     duracao !== '—' ? `⏱️ Duração: ${duracao}` : null,
     '',
-    `💰 GMV: ${formatMoney(live.fat_gerado ?? live.manual_gmv)}`,
-    `🛒 Pedidos: ${asNumber(live.final_orders_count ?? live.manual_orders).toLocaleString('pt-BR')}`,
+    `💰 GMV: ${formatMoney(officialLiveGmv(live))}`,
+    `🛒 Pedidos: ${asNumber(live.manual_orders ?? live.final_orders_count).toLocaleString('pt-BR')}`,
   ]
   return lines.filter(Boolean).join('\n')
 }
@@ -134,7 +138,7 @@ function doExportCSV(lives: JsonRecord[]) {
         asString(l.apresentadora_nome ?? l.apresentador_nome),
         publicationStatusLabel(l.status_publicacao),
         asString(l.origem_dados, 'manual'),
-        asNumber(l.fat_gerado ?? l.manual_gmv)
+        asNumber(officialLiveGmv(l))
           .toFixed(2)
           .replace('.', ','),
       ])
@@ -684,7 +688,7 @@ export function LivesTab({
             const h = Math.floor(totalMins / 60)
             const m = totalMins % 60
             const totalGmv = group.lives.reduce(
-              (s, l) => s + asNumber(l.fat_gerado ?? l.manual_gmv),
+              (s, l) => s + asNumber(officialLiveGmv(l)),
               0,
             )
             const publicadas = group.lives.filter((l) => {
@@ -825,7 +829,7 @@ export function LivesTab({
                       live.apresentadora_nome ?? live.apresentador_nome,
                     )
                     const clientName = asString(live.marca_nome ?? live.cliente_nome)
-                    const gmv = asNumber(live.fat_gerado ?? live.manual_gmv)
+	                    const gmv = asNumber(officialLiveGmv(live))
                     const isKebabOpen = kebabOpenId === liveId
                     const isEvenRow = rowIdx % 2 === 1
 
@@ -1280,11 +1284,11 @@ export function LivesTab({
                       '—',
                     ),
                   ],
-                  ['GMV', formatMoney(selectedLiveRecord.fat_gerado ?? selectedLiveRecord.manual_gmv)],
+	                  ['GMV', formatMoney(officialLiveGmv(selectedLiveRecord))],
                   [
                     'Pedidos',
                     asNumber(
-                      selectedLiveRecord.final_orders_count ?? selectedLiveRecord.manual_orders,
+                      selectedLiveRecord.manual_orders ?? selectedLiveRecord.final_orders_count,
                     ).toLocaleString('pt-BR'),
                   ],
                   ['Publicação', publicationStatusLabel(selectedLiveRecord.status_publicacao)],

@@ -12,12 +12,6 @@ import { asArray, asNumber, asString } from '../utils/format'
 import { getSaoPauloDateInput } from '../utils/sao-paulo-date'
 import type { Cabine, JsonRecord } from '../types/models'
 
-function fmtCompact(v: number): string {
-  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`
-  if (v >= 1_000) return `R$ ${(v / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`
-  return `R$ ${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
-}
-
 /* ── Page header ── */
 function PageHead({ liveCount }: { liveCount: number }) {
   return (
@@ -43,68 +37,6 @@ function PageHead({ liveCount }: { liveCount: number }) {
           {liveCount} {liveCount === 1 ? 'live' : 'lives'} ao vivo agora
         </span>
       )}
-    </div>
-  )
-}
-
-/* ── Ranking nacional ── */
-function RankingNacionalCard({ ranking }: { ranking: JsonRecord[] }) {
-  return (
-    <div
-      className="flex flex-col rounded-xl overflow-hidden"
-      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
-    >
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Ranking nacional
-        </h3>
-        <a href="#" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
-          Ver rede →
-        </a>
-      </div>
-      <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1 } as React.CSSProperties}>
-        {ranking.length === 0 && (
-          <p className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>—</p>
-        )}
-        {ranking.slice(0, 8).map((r, i) => {
-          const isSelf = Boolean(r.self ?? r.is_self ?? r.tenant_id === 'self')
-          const pos = asNumber(r.rk ?? r.posicao ?? i + 1)
-          const nome = asString(r.nome ?? r.tenant_nome ?? r.cliente_nome)
-          const gmv = asNumber(r.gmv ?? r.valor)
-          const d = asNumber(r.d ?? r.delta ?? r.variacao)
-          return (
-            <div
-              key={i}
-              className="flex items-center gap-2 px-4 py-2 text-sm"
-              style={{
-                background: isSelf ? 'var(--primary-softer)' : 'transparent',
-                borderLeft: isSelf ? '2px solid var(--primary)' : '2px solid transparent',
-              }}
-            >
-              <span
-                className="w-7 shrink-0 text-[11px] font-mono font-medium"
-                style={{ color: isSelf ? 'var(--primary)' : 'var(--text-muted)' }}
-              >
-                #{String(pos).padStart(2, '0')}
-              </span>
-              <span className="min-w-0 flex-1 truncate font-medium" style={{ color: 'var(--text-primary)' }}>
-                {nome}
-              </span>
-              <span className="shrink-0 font-mono text-[12px]" style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
-                {fmtCompact(gmv)}
-              </span>
-              {d !== 0 && (
-                <span
-                  className="shrink-0 text-[11px] font-mono"
-                  style={{ color: d >= 0 ? 'var(--success)' : 'var(--danger)' }}
-                >
-                  {d >= 0 ? '+' : ''}{d.toFixed(1)}%
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
     </div>
   )
 }
@@ -265,7 +197,6 @@ export function DashboardPage() {
   const liveCabines = cabines.filter(
     (c) => asString(c.status, '').includes('ao_vivo') || asString(c.status, '') === 'live'
   )
-  const rankingNacional = asArray<JsonRecord>(raw.ranking ?? raw.ranking_clientes ?? raw.top_clientes)
 
   return (
     <div className="flex flex-col gap-5">
@@ -285,7 +216,17 @@ export function DashboardPage() {
       <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 340px' }}>
         <GmvHeroCard raw={raw} />
         <div className="flex flex-col gap-4">
-          <RankingNacionalCard ranking={rankingNacional} />
+          <PresenterLeaderboard
+            rows={rankingApresentadoras}
+            title="Pódio de apresentadoras"
+            subtitle="Top 3 do mês · GMV e comissão"
+            limit={3}
+            action={
+              <Link className="text-xs font-semibold text-brand hover:underline" to="/ranking/apresentadoras">
+                Ver ranking →
+              </Link>
+            }
+          />
           <AgendaCard agenda={agenda} />
         </div>
       </div>
