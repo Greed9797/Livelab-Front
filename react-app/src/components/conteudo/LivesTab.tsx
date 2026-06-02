@@ -28,6 +28,32 @@ const COLS = '80px minmax(180px,1.4fr) 90px 110px 115px 100px minmax(115px,1fr) 
 const MAX_DUR_MINS = 480
 const ACTION_MENU_WIDTH = 168
 
+type DateRange = 'todos' | 'hoje' | '7d' | '30d' | 'mes'
+
+const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
+  { value: 'todos', label: 'Qualquer data' },
+  { value: 'hoje', label: 'Hoje' },
+  { value: '7d', label: 'Últimos 7 dias' },
+  { value: '30d', label: 'Últimos 30 dias' },
+  { value: 'mes', label: 'Este mês' },
+]
+
+function liveInDateRange(live: JsonRecord, range: DateRange): boolean {
+  if (range === 'todos') return true
+  const t = live.iniciado_em ? new Date(live.iniciado_em as string).getTime() : NaN
+  if (Number.isNaN(t)) return false
+  const now = new Date()
+  if (range === 'hoje') {
+    const start = new Date(now)
+    start.setHours(0, 0, 0, 0)
+    return t >= start.getTime()
+  }
+  if (range === 'mes') {
+    return t >= new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+  }
+  return t >= now.getTime() - (range === '7d' ? 7 : 30) * 86400000
+}
+
 // ─── helpers ───────────────────────────────────────────────────────────────
 
 function officialLiveGmv(live: JsonRecord) {
@@ -315,6 +341,10 @@ export function LivesTab({
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
   const [kebabMenu, setKebabMenu] = useState<{ liveId: string; live: JsonRecord; top: number; left: number } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [dateRange, setDateRange] = useState<DateRange>('todos')
+  const [marcaFilter, setMarcaFilter] = useState('')
+  const [apresentadoraFilter, setApresentadoraFilter] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const kebabOpenId = kebabMenu?.liveId ?? null
 
@@ -323,6 +353,7 @@ export function LivesTab({
     const close = () => {
       setKebabMenu(null)
       setExportOpen(false)
+      setFiltersOpen(false)
     }
     document.addEventListener('click', close)
     window.addEventListener('resize', close)
@@ -348,17 +379,45 @@ export function LivesTab({
   }, [])
 
   const filteredLives = useMemo(() => {
-    if (!search.trim()) return livesData
-    const q = search.toLowerCase()
+    const q = search.trim().toLowerCase()
     return livesData.filter((live) => {
-      const client = asString(live.marca_nome ?? live.cliente_nome).toLowerCase()
-      const cabine = asString(live.cabine_numero).toLowerCase()
-      const presenter = asString(
-        live.apresentadora_nome ?? live.apresentador_nome,
-      ).toLowerCase()
-      return client.includes(q) || cabine.includes(q) || presenter.includes(q)
+      if (q) {
+        const client = asString(live.marca_nome ?? live.cliente_nome).toLowerCase()
+        const cabine = asString(live.cabine_numero).toLowerCase()
+        const presenter = asString(live.apresentadora_nome ?? live.apresentador_nome).toLowerCase()
+        if (!(client.includes(q) || cabine.includes(q) || presenter.includes(q))) return false
+      }
+      if (!liveInDateRange(live, dateRange)) return false
+      if (marcaFilter && asString(live.marca_nome ?? live.cliente_nome) !== marcaFilter) return false
+      if (apresentadoraFilter && asString(live.apresentadora_nome ?? live.apresentador_nome) !== apresentadoraFilter) return false
+      return true
     })
-  }, [livesData, search])
+  }, [livesData, search, dateRange, marcaFilter, apresentadoraFilter])
+
+  // Opções de filtro derivadas das lives carregadas (filtro client-side).
+  const marcaOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const live of livesData) {
+      const name = asString(live.marca_nome ?? live.cliente_nome).trim()
+      if (name) set.add(name)
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [livesData])
+  const apresentadoraOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const live of livesData) {
+      const name = asString(live.apresentadora_nome ?? live.apresentador_nome).trim()
+      if (name) set.add(name)
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [livesData])
+  const activeFilterCount = (dateRange !== 'todos' ? 1 : 0) + (marcaFilter ? 1 : 0) + (apresentadoraFilter ? 1 : 0)
+  const hasAnyFilter = Boolean(search.trim()) || activeFilterCount > 0
+  function clearFilters() {
+    setDateRange('todos')
+    setMarcaFilter('')
+    setApresentadoraFilter('')
+  }
 
   const dayGroups = useMemo(() => groupByDay(filteredLives), [filteredLives])
   const totalCount = filteredLives.length
@@ -527,25 +586,64 @@ export function LivesTab({
           )}
         </div>
 
-        {/* date range button */}
-        <button
-          type="button"
-          style={tbtn}
-        >
-          <Calendar style={{ width: 14, height: 14 }} />
-          <b style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Últimos 7 dias</b>
-          <ChevronDown style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />
-        </button>
+        {/* date range select */}
+        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+          <Calendar style={{ position: 'absolute', left: 11, width: 14, height: 14, color: 'var(--text-muted)', pointerEvents: 'none' }} />
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value as DateRange)}
+            aria-label="Filtrar por período"
+            style={{ ...tbtn, paddingLeft: 32, paddingRight: 28, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', color: dateRange === 'todos' ? 'var(--text-primary)' : 'var(--primary)', borderColor: dateRange === 'todos' ? 'var(--border)' : 'var(--primary)' }}
+          >
+            {DATE_RANGE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <ChevronDown style={{ position: 'absolute', right: 9, width: 14, height: 14, color: 'var(--text-muted)', pointerEvents: 'none' }} />
+        </div>
 
-        {/* filters button */}
-        <button
-          type="button"
-          style={tbtn}
-        >
-          <Filter style={{ width: 14, height: 14 }} />
-          Filtros
-          <ChevronDown style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />
-        </button>
+        {/* filters popover (marca / apresentadora) */}
+        <div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            style={{ ...tbtn, ...(activeFilterCount > 0 ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : null) }}
+            onClick={() => { setFiltersOpen((v) => !v); setExportOpen(false) }}
+          >
+            <Filter style={{ width: 14, height: 14 }} />
+            Filtros
+            {activeFilterCount > 0 ? (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, background: 'var(--primary)', color: '#fff', borderRadius: 999, padding: '1px 6px', lineHeight: 1.5 }}>{activeFilterCount}</span>
+            ) : null}
+            <ChevronDown style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />
+          </button>
+          {filtersOpen ? (
+            <div style={{ ...menuPopover, right: 'auto', left: 0, minWidth: 250, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px' }}>
+                <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Marca / cliente</span>
+                <select value={marcaFilter} onChange={(e) => setMarcaFilter(e.target.value)} style={{ ...tbtn, width: '100%', justifyContent: 'flex-start' }}>
+                  <option value="">Todas as marcas</option>
+                  {marcaOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px' }}>
+                <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Apresentadora</span>
+                <select value={apresentadoraFilter} onChange={(e) => setApresentadoraFilter(e.target.value)} style={{ ...tbtn, width: '100%', justifyContent: 'flex-start' }}>
+                  <option value="">Todas as apresentadoras</option>
+                  {apresentadoraOptions.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </label>
+              {activeFilterCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => { clearFilters(); setFiltersOpen(false) }}
+                  style={{ ...tbtn, justifyContent: 'center', color: 'var(--text-muted)' }}
+                >
+                  Limpar filtros
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
 
         {/* divider */}
         <div
@@ -679,7 +777,7 @@ export function LivesTab({
               fontSize: 13,
             }}
           >
-            Nenhuma live encontrada{search ? ' para esse filtro' : ''}.
+            Nenhuma live encontrada{hasAnyFilter ? ' para esses filtros' : ''}.
           </div>
         ) : (
           dayGroups.map((group) => {
@@ -1202,7 +1300,7 @@ export function LivesTab({
         >
           <span>
             {totalCount} live{totalCount !== 1 ? 's' : ''}
-            {search ? ` · filtrado de ${livesData.length}` : ''}
+            {hasAnyFilter ? ` · filtrado de ${livesData.length}` : ''}
           </span>
         </div>
       </div>
