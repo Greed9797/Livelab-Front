@@ -9,7 +9,7 @@ import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
 import { AgendaTab } from '../components/conteudo/AgendaTab'
-import { LivesTab } from '../components/conteudo/LivesTab'
+import { LivesTab, dateRangeToWindow, type DateRange } from '../components/conteudo/LivesTab'
 import { VideosTab, emptyVideo, type VideoForm } from '../components/conteudo/VideosTab'
 import {
   createAgendaEvento,
@@ -25,6 +25,7 @@ import {
   getClientes,
   getLivePorId,
   getLives,
+  getLivesDuplicatas,
   getMarcas,
   getVideos,
   updateAgendaEvento,
@@ -145,13 +146,25 @@ export function ConteudoPage() {
   const [liveModalMode, setLiveModalMode] = useState<'detail' | null>(null)
   const [selectedLiveRecord, setSelectedLiveRecord] = useState<JsonRecord | null>(null)
   const [reportCopied, setReportCopied] = useState(false)
+  const [livesDateRange, setLivesDateRange] = useState<DateRange>('todos')
+  const [livesMarcaId, setLivesMarcaId] = useState('')
+  const [livesApresentadoraId, setLivesApresentadoraId] = useState('')
   const client = useQueryClient()
 
   const range = dayRange(agendaDate, agendaView === 'semana' ? 7 : 1)
   const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }) })
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
-  const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada' }) })
-  const livesAll = useQuery({ queryKey: ['lives'], queryFn: () => getLives() })
+  const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada', limit: 200 }) })
+  // Lista da aba "Lives realizadas" — filtrada server-side (separada da query `lives`
+  // acima, que segue completa para alimentar a Agenda e o lookup por ?live=).
+  const livesWindow = dateRangeToWindow(livesDateRange)
+  const livesList = useQuery({
+    queryKey: ['lives', 'list', livesDateRange, livesMarcaId, livesApresentadoraId],
+    queryFn: () => getLives({ status: 'encerrada', limit: 200, ...livesWindow, marca_id: livesMarcaId || undefined, apresentadora_id: livesApresentadoraId || undefined }),
+    enabled: tab === 'lives',
+    placeholderData: (prev) => prev,
+  })
+  const duplicatas = useQuery({ queryKey: ['lives-duplicatas'], queryFn: getLivesDuplicatas, enabled: tab === 'lives', staleTime: 5 * 60_000 })
   const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos() })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
@@ -161,7 +174,7 @@ export function ConteudoPage() {
     ;[
       ['agenda'], ['cabines'], ['lives'], ['home-dashboard'], ['ranking-apresentadoras'],
       ['comissoes-resumo'], ['comissoes-apresentadoras'], ['comissoes-marcas'],
-      ['comissoes-pendentes'], ['public-ranking'],
+      ['comissoes-pendentes'], ['public-ranking'], ['lives-duplicatas'],
     ].forEach((queryKey) => void client.invalidateQueries({ queryKey }))
   }
 
@@ -200,10 +213,10 @@ export function ConteudoPage() {
     setLiveModalMode('detail')
   }, [liveModalMode, metricsModalMode, selectedLive])
 
-  const isLoading = agenda.isLoading || cabines.isLoading || lives.isLoading || livesAll.isLoading || videos.isLoading || marcas.isLoading || clientes.isLoading || apresentadoras.isLoading
-  const error = agenda.error ?? cabines.error ?? lives.error ?? livesAll.error ?? videos.error ?? marcas.error ?? clientes.error ?? apresentadoras.error
+  const isLoading = agenda.isLoading || cabines.isLoading || lives.isLoading || videos.isLoading || marcas.isLoading || clientes.isLoading || apresentadoras.isLoading
+  const error = agenda.error ?? cabines.error ?? lives.error ?? videos.error ?? marcas.error ?? clientes.error ?? apresentadoras.error
   if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => { void agenda.refetch(); void cabines.refetch(); void lives.refetch(); void livesAll.refetch(); void videos.refetch(); void marcas.refetch(); void clientes.refetch(); void apresentadoras.refetch() }} />
+  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => { void agenda.refetch(); void cabines.refetch(); void lives.refetch(); void videos.refetch(); void marcas.refetch(); void clientes.refetch(); void apresentadoras.refetch() }} />
 
   const cabineRows = cabines.data ?? []
   const activeCabines = cabineRows.filter((c) => (c as unknown as JsonRecord).ativo !== false && asString(c.status, '') !== 'inativa')
@@ -211,6 +224,17 @@ export function ConteudoPage() {
   const marcaRows = marcas.data ?? []
   const clienteRows = clientes.data ?? []
   const apresentadoraRows = apresentadoras.data ?? []
+  const dupClusters = Array.isArray((duplicatas.data as JsonRecord | undefined)?.clusters)
+    ? ((duplicatas.data as JsonRecord).clusters as JsonRecord[])
+    : []
+  const duplicateLiveIds = Array.from(new Set(
+    dupClusters.flatMap((cluster) => {
+      const lives = Array.isArray((cluster as JsonRecord).lives) ? ((cluster as JsonRecord).lives as JsonRecord[]) : []
+      return lives.map((live) => asString(live.id, '')).filter(Boolean)
+    }),
+  ))
+  const marcaFilterOptions = marcaRows.map((m) => ({ id: asString(m.id, ''), nome: asString(m.nome, 'Sem nome') })).filter((m) => m.id)
+  const apresentadoraFilterOptions = apresentadoraRows.map((a) => ({ id: asString(a.id, ''), nome: asString(a.nome, 'Sem nome') })).filter((a) => a.id)
 
   function switchTab(next: ConteudoTab) {
     setTab(next)
@@ -334,7 +358,16 @@ export function ConteudoPage() {
 
       {tab === 'lives' ? (
         <LivesTab
-          livesData={lives.data ?? []}
+          livesData={livesList.data ?? []}
+          dateRange={livesDateRange}
+          onDateRangeChange={setLivesDateRange}
+          marcaFilterId={livesMarcaId}
+          apresentadoraFilterId={livesApresentadoraId}
+          onMarcaFilterChange={setLivesMarcaId}
+          onApresentadoraFilterChange={setLivesApresentadoraId}
+          marcaFilterOptions={marcaFilterOptions}
+          apresentadoraFilterOptions={apresentadoraFilterOptions}
+          onClearFilters={() => { setLivesDateRange('todos'); setLivesMarcaId(''); setLivesApresentadoraId('') }}
           liveModalMode={liveModalMode}
           selectedLiveRecord={selectedLiveRecord}
           reportCopied={reportCopied}
@@ -352,6 +385,9 @@ export function ConteudoPage() {
             const nextParams = new URLSearchParams(params); nextParams.delete('live'); setParams(nextParams, { replace: true })
           }}
           onCopyLiveReport={(text) => void navigator.clipboard.writeText(text).then(() => { setReportCopied(true); setTimeout(() => setReportCopied(false), 2000) })}
+          onInlineSaveLive={(id, payload) => updateLiveMutation.mutateAsync({ id, payload })}
+          duplicateLiveIds={duplicateLiveIds}
+          duplicateClusterCount={dupClusters.length}
         />
       ) : null}
 

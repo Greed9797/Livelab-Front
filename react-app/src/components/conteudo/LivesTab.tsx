@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Calendar,
+  Check,
   ChevronDown,
   ChevronRight,
   Download,
@@ -13,20 +14,51 @@ import {
   Printer,
   Search,
   Trash2,
+  X,
 } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatDate, formatMoney } from '../../utils/format'
+import { parseBRMoneyToDecimal } from '../../utils/money'
 import { extractErrorMessage } from '../../services/api'
 import type { JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
 
 // Grid template shared between header + every row
-const COLS = '80px minmax(180px,1.4fr) 90px 110px 115px 100px minmax(115px,1fr) 90px 76px 76px'
+const COLS = '80px minmax(180px,1.4fr) 90px 110px 115px 80px 100px minmax(115px,1fr) 90px 76px 76px'
 // Reference max duration (8 h) for the duration bar width
 const MAX_DUR_MINS = 480
 const ACTION_MENU_WIDTH = 168
+
+export type DateRange = 'todos' | 'hoje' | '7d' | '30d' | 'mes'
+
+export interface LiveFilterOption {
+  id: string
+  nome: string
+}
+
+const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
+  { value: 'todos', label: 'Qualquer data' },
+  { value: 'hoje', label: 'Hoje' },
+  { value: '7d', label: 'Últimos 7 dias' },
+  { value: '30d', label: 'Últimos 30 dias' },
+  { value: 'mes', label: 'Este mês' },
+]
+
+// Converte o preset de período em janela de datas (YYYY-MM-DD) para o servidor.
+export function dateRangeToWindow(range: DateRange): { data_inicio?: string; data_fim?: string } {
+  if (range === 'todos') return {}
+  const now = new Date()
+  const toISO = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const fim = toISO(now)
+  if (range === 'hoje') return { data_inicio: fim, data_fim: fim }
+  if (range === 'mes') return { data_inicio: toISO(new Date(now.getFullYear(), now.getMonth(), 1)), data_fim: fim }
+  const start = new Date(now)
+  start.setDate(now.getDate() - (range === '7d' ? 6 : 29))
+  return { data_inicio: toISO(start), data_fim: fim }
+}
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -280,6 +312,379 @@ function MenuBtn({
   )
 }
 
+// Célula de GMV editável inline (somente para lives em rascunho).
+// Reusa updateLive (PATCH parcial) via onSave; grava fat_gerado + manual_gmv.
+function InlineGmvCell({
+  gmv,
+  editable,
+  onSave,
+}: {
+  gmv: number
+  editable: boolean
+  onSave: (payload: JsonRecord) => Promise<unknown>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
+
+  function begin() {
+    setValue(gmv > 0 ? String(gmv).replace('.', ',') : '')
+    setError(false)
+    setEditing(true)
+  }
+  function cancel() {
+    setEditing(false)
+    setError(false)
+  }
+  async function commit() {
+    const decimal = parseBRMoneyToDecimal(value)
+    if (!Number.isFinite(decimal) || decimal < 0) {
+      setError(true)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave({ fat_gerado: decimal, manual_gmv: decimal })
+      setEditing(false)
+    } catch {
+      setError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const iconBtn = (color: string): React.CSSProperties => ({
+    width: 24,
+    height: 24,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 6,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elev-2)',
+    color,
+    cursor: 'pointer',
+    flexShrink: 0,
+  })
+
+  if (editing) {
+    return (
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, paddingRight: 6 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void commit()
+            } else if (e.key === 'Escape') {
+              cancel()
+            }
+          }}
+          placeholder="0,00"
+          inputMode="decimal"
+          disabled={saving}
+          style={{
+            width: 86,
+            textAlign: 'right',
+            padding: '4px 6px',
+            borderRadius: 6,
+            border: `1px solid ${error ? 'var(--danger)' : 'var(--primary)'}`,
+            background: 'var(--bg-input)',
+            color: 'var(--text-primary)',
+            fontSize: 12.5,
+            fontFamily: 'inherit',
+            fontVariantNumeric: 'tabular-nums',
+            outline: 'none',
+          }}
+        />
+        <button type="button" title="Salvar GMV" onClick={() => void commit()} disabled={saving} style={iconBtn('var(--success)')}>
+          <Check style={{ width: 13, height: 13 }} />
+        </button>
+        <button type="button" title="Cancelar" onClick={cancel} disabled={saving} style={iconBtn('var(--text-muted)')}>
+          <X style={{ width: 13, height: 13 }} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 6,
+        paddingRight: editable ? 6 : 14,
+        fontVariantNumeric: 'tabular-nums',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {gmv > 0 ? (
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)', letterSpacing: -0.005 }}>{formatMoney(gmv)}</span>
+      ) : (
+        <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>—</span>
+      )}
+      {editable ? (
+        <button
+          type="button"
+          title="Editar GMV (rascunho)"
+          onClick={(e) => {
+            e.stopPropagation()
+            begin()
+          }}
+          style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+        >
+          <Edit2 style={{ width: 12, height: 12 }} />
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+// Célula de Pedidos editável inline (rascunho). Grava qtd_pedidos + manual_orders.
+function InlinePedidosCell({
+  pedidos,
+  editable,
+  onSave,
+}: {
+  pedidos: number
+  editable: boolean
+  onSave: (payload: JsonRecord) => Promise<unknown>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
+
+  function begin() {
+    setValue(pedidos > 0 ? String(pedidos) : '')
+    setError(false)
+    setEditing(true)
+  }
+  function cancel() {
+    setEditing(false)
+    setError(false)
+  }
+  async function commit() {
+    const n = Math.trunc(Number(value.replace(/[^\d]/g, '')))
+    if (!Number.isFinite(n) || n < 0) {
+      setError(true)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave({ qtd_pedidos: n, manual_orders: n })
+      setEditing(false)
+    } catch {
+      setError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const iconBtn = (color: string): React.CSSProperties => ({
+    width: 24,
+    height: 24,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 6,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elev-2)',
+    color,
+    cursor: 'pointer',
+    flexShrink: 0,
+  })
+
+  if (editing) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }} onClick={(e) => e.stopPropagation()}>
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void commit()
+            } else if (e.key === 'Escape') {
+              cancel()
+            }
+          }}
+          placeholder="0"
+          inputMode="numeric"
+          disabled={saving}
+          style={{
+            width: 56,
+            textAlign: 'right',
+            padding: '4px 6px',
+            borderRadius: 6,
+            border: `1px solid ${error ? 'var(--danger)' : 'var(--primary)'}`,
+            background: 'var(--bg-input)',
+            color: 'var(--text-primary)',
+            fontSize: 12.5,
+            fontFamily: 'inherit',
+            fontVariantNumeric: 'tabular-nums',
+            outline: 'none',
+          }}
+        />
+        <button type="button" title="Salvar pedidos" onClick={() => void commit()} disabled={saving} style={iconBtn('var(--success)')}>
+          <Check style={{ width: 13, height: 13 }} />
+        </button>
+        <button type="button" title="Cancelar" onClick={cancel} disabled={saving} style={iconBtn('var(--text-muted)')}>
+          <X style={{ width: 13, height: 13 }} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+      {pedidos > 0 ? (
+        <span style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>{pedidos.toLocaleString('pt-BR')}</span>
+      ) : (
+        <span style={{ color: 'var(--text-faint)', fontSize: 12.5 }}>—</span>
+      )}
+      {editable ? (
+        <button
+          type="button"
+          title="Editar pedidos (rascunho)"
+          onClick={(e) => {
+            e.stopPropagation()
+            begin()
+          }}
+          style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+        >
+          <Edit2 style={{ width: 12, height: 12 }} />
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+// Célula de Apresentadora editável inline (rascunho). Grava apresentador_id (= apresentadoras.id).
+function InlineApresentadoraCell({
+  name,
+  editable,
+  options,
+  onSave,
+}: {
+  name: string
+  editable: boolean
+  options: LiveFilterOption[]
+  onSave: (payload: JsonRecord) => Promise<unknown>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  function begin() {
+    const match = options.find((o) => o.nome === name)
+    setValue(match?.id ?? '')
+    setEditing(true)
+  }
+  function cancel() {
+    setEditing(false)
+  }
+  async function commit() {
+    setSaving(true)
+    try {
+      await onSave({ apresentador_id: value || null })
+      setEditing(false)
+    } catch {
+      /* mantém em edição em caso de erro */
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const iconBtn = (color: string): React.CSSProperties => ({
+    width: 24,
+    height: 24,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 6,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elev-2)',
+    color,
+    cursor: 'pointer',
+    flexShrink: 0,
+  })
+
+  if (editing) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
+        <select
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') cancel()
+          }}
+          disabled={saving}
+          style={{ flex: 1, minWidth: 0, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--primary)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'inherit', outline: 'none' }}
+        >
+          <option value="">— sem apresentadora —</option>
+          {options.map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
+        </select>
+        <button type="button" title="Salvar apresentadora" onClick={() => void commit()} disabled={saving} style={iconBtn('var(--success)')}>
+          <Check style={{ width: 13, height: 13 }} />
+        </button>
+        <button type="button" title="Cancelar" onClick={cancel} disabled={saving} style={iconBtn('var(--text-muted)')}>
+          <X style={{ width: 13, height: 13 }} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)', fontSize: 12.5, minWidth: 0 }}>
+      {name ? (
+        <>
+          <span
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: '50%',
+              flexShrink: 0,
+              background: 'linear-gradient(135deg, var(--primary-soft), var(--primary-softer))',
+              color: 'var(--primary)',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+              border: '1px solid var(--primary-soft)',
+            }}
+          >
+            {getInitials(name)}
+          </span>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+        </>
+      ) : (
+        <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: 12 }}>Sem apresentadora</span>
+      )}
+      {editable ? (
+        <button
+          type="button"
+          title="Editar apresentadora (rascunho)"
+          onClick={(e) => {
+            e.stopPropagation()
+            begin()
+          }}
+          style={{ marginLeft: 'auto', width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}
+        >
+          <Edit2 style={{ width: 12, height: 12 }} />
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 // ─── types ─────────────────────────────────────────────────────────────────
 
 export interface LivesTabProps {
@@ -294,6 +699,18 @@ export interface LivesTabProps {
   onDeleteLive: (live: JsonRecord) => void
   onCloseLiveModal: () => void
   onCopyLiveReport: (text: string) => void
+  onInlineSaveLive?: (liveId: string, payload: JsonRecord) => Promise<unknown>
+  duplicateLiveIds?: string[]
+  duplicateClusterCount?: number
+  dateRange: DateRange
+  onDateRangeChange: (range: DateRange) => void
+  marcaFilterId: string
+  apresentadoraFilterId: string
+  onMarcaFilterChange: (id: string) => void
+  onApresentadoraFilterChange: (id: string) => void
+  marcaFilterOptions: LiveFilterOption[]
+  apresentadoraFilterOptions: LiveFilterOption[]
+  onClearFilters: () => void
 }
 
 // ─── main component ────────────────────────────────────────────────────────
@@ -310,12 +727,35 @@ export function LivesTab({
   onDeleteLive,
   onCloseLiveModal,
   onCopyLiveReport,
+  onInlineSaveLive,
+  duplicateLiveIds,
+  duplicateClusterCount = 0,
+  dateRange,
+  onDateRangeChange,
+  marcaFilterId,
+  apresentadoraFilterId,
+  onMarcaFilterChange,
+  onApresentadoraFilterChange,
+  marcaFilterOptions,
+  apresentadoraFilterOptions,
+  onClearFilters,
 }: LivesTabProps) {
   const [search, setSearch] = useState('')
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
   const [kebabMenu, setKebabMenu] = useState<{ liveId: string; live: JsonRecord; top: number; left: number } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
+  const duplicateIdSet = useMemo(() => new Set(duplicateLiveIds ?? []), [duplicateLiveIds])
+  // Filtros de data/marca/apresentadora são controlados pelo ConteudoPage (server-side).
+  const setDateRange = onDateRangeChange
+  const marcaFilter = marcaFilterId
+  const apresentadoraFilter = apresentadoraFilterId
+  const setMarcaFilter = onMarcaFilterChange
+  const setApresentadoraFilter = onApresentadoraFilterChange
+  const marcaOptions = marcaFilterOptions
+  const apresentadoraOptions = apresentadoraFilterOptions
   const kebabOpenId = kebabMenu?.liveId ?? null
 
   // Close overlay menus on outside click
@@ -323,6 +763,7 @@ export function LivesTab({
     const close = () => {
       setKebabMenu(null)
       setExportOpen(false)
+      setFiltersOpen(false)
     }
     document.addEventListener('click', close)
     window.addEventListener('resize', close)
@@ -347,18 +788,24 @@ export function LivesTab({
     return () => document.removeEventListener('keydown', handle)
   }, [])
 
+  // Data/marca/apresentadora já vêm filtrados do servidor; aqui só busca textual + duplicatas.
   const filteredLives = useMemo(() => {
-    if (!search.trim()) return livesData
-    const q = search.toLowerCase()
+    const q = search.trim().toLowerCase()
     return livesData.filter((live) => {
-      const client = asString(live.marca_nome ?? live.cliente_nome).toLowerCase()
-      const cabine = asString(live.cabine_numero).toLowerCase()
-      const presenter = asString(
-        live.apresentadora_nome ?? live.apresentador_nome,
-      ).toLowerCase()
-      return client.includes(q) || cabine.includes(q) || presenter.includes(q)
+      if (showDuplicatesOnly && duplicateIdSet.size > 0 && !duplicateIdSet.has(asString(live.id))) return false
+      if (q) {
+        const client = asString(live.marca_nome ?? live.cliente_nome).toLowerCase()
+        const cabine = asString(live.cabine_numero).toLowerCase()
+        const presenter = asString(live.apresentadora_nome ?? live.apresentador_nome).toLowerCase()
+        if (!(client.includes(q) || cabine.includes(q) || presenter.includes(q))) return false
+      }
+      return true
     })
-  }, [livesData, search])
+  }, [livesData, search, showDuplicatesOnly, duplicateIdSet])
+
+  const activeFilterCount = (dateRange !== 'todos' ? 1 : 0) + (marcaFilter ? 1 : 0) + (apresentadoraFilter ? 1 : 0)
+  const hasAnyFilter = Boolean(search.trim()) || activeFilterCount > 0 || showDuplicatesOnly
+  const clearFilters = onClearFilters
 
   const dayGroups = useMemo(() => groupByDay(filteredLives), [filteredLives])
   const totalCount = filteredLives.length
@@ -422,6 +869,37 @@ export function LivesTab({
 
   return (
     <section className="space-y-3">
+      {/* ── Banner de possíveis duplicatas ── */}
+      {duplicateClusterCount > 0 ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+            padding: '10px 14px',
+            borderRadius: 12,
+            border: '1px solid var(--warning-soft)',
+            background: 'var(--warning-soft)',
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--warning)' }}>
+            ⚠ {duplicateClusterCount}{' '}
+            {duplicateClusterCount === 1 ? 'grupo de possível duplicata' : 'grupos de possíveis duplicatas'}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            Mesma cabine com horário sobreposto, ou mesma marca + apresentadora no mesmo dia.
+          </span>
+          <button
+            type="button"
+            style={{ ...tbtn, marginLeft: 'auto' }}
+            onClick={() => setShowDuplicatesOnly((v) => !v)}
+          >
+            {showDuplicatesOnly ? 'Mostrar todas' : 'Revisar duplicatas'}
+          </button>
+        </div>
+      ) : null}
+
       {/* ── Toolbar ── */}
       <div
         style={{
@@ -527,25 +1005,64 @@ export function LivesTab({
           )}
         </div>
 
-        {/* date range button */}
-        <button
-          type="button"
-          style={tbtn}
-        >
-          <Calendar style={{ width: 14, height: 14 }} />
-          <b style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Últimos 7 dias</b>
-          <ChevronDown style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />
-        </button>
+        {/* date range select */}
+        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+          <Calendar style={{ position: 'absolute', left: 11, width: 14, height: 14, color: 'var(--text-muted)', pointerEvents: 'none' }} />
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value as DateRange)}
+            aria-label="Filtrar por período"
+            style={{ ...tbtn, paddingLeft: 32, paddingRight: 28, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', color: dateRange === 'todos' ? 'var(--text-primary)' : 'var(--primary)', borderColor: dateRange === 'todos' ? 'var(--border)' : 'var(--primary)' }}
+          >
+            {DATE_RANGE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <ChevronDown style={{ position: 'absolute', right: 9, width: 14, height: 14, color: 'var(--text-muted)', pointerEvents: 'none' }} />
+        </div>
 
-        {/* filters button */}
-        <button
-          type="button"
-          style={tbtn}
-        >
-          <Filter style={{ width: 14, height: 14 }} />
-          Filtros
-          <ChevronDown style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />
-        </button>
+        {/* filters popover (marca / apresentadora) */}
+        <div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            style={{ ...tbtn, ...(activeFilterCount > 0 ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : null) }}
+            onClick={() => { setFiltersOpen((v) => !v); setExportOpen(false) }}
+          >
+            <Filter style={{ width: 14, height: 14 }} />
+            Filtros
+            {activeFilterCount > 0 ? (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, background: 'var(--primary)', color: '#fff', borderRadius: 999, padding: '1px 6px', lineHeight: 1.5 }}>{activeFilterCount}</span>
+            ) : null}
+            <ChevronDown style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />
+          </button>
+          {filtersOpen ? (
+            <div style={{ ...menuPopover, right: 'auto', left: 0, minWidth: 250, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px' }}>
+                <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Marca / cliente</span>
+                <select value={marcaFilter} onChange={(e) => setMarcaFilter(e.target.value)} style={{ ...tbtn, width: '100%', justifyContent: 'flex-start' }}>
+                  <option value="">Todas as marcas</option>
+                  {marcaOptions.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                </select>
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px' }}>
+                <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Apresentadora</span>
+                <select value={apresentadoraFilter} onChange={(e) => setApresentadoraFilter(e.target.value)} style={{ ...tbtn, width: '100%', justifyContent: 'flex-start' }}>
+                  <option value="">Todas as apresentadoras</option>
+                  {apresentadoraOptions.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                </select>
+              </label>
+              {activeFilterCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => { clearFilters(); setFiltersOpen(false) }}
+                  style={{ ...tbtn, justifyContent: 'center', color: 'var(--text-muted)' }}
+                >
+                  Limpar filtros
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
 
         {/* divider */}
         <div
@@ -662,6 +1179,7 @@ export function LivesTab({
           <div>Cabine</div>
           <div>Duração</div>
           <div style={{ textAlign: 'right', paddingRight: 14 }}>GMV</div>
+          <div style={{ textAlign: 'right', paddingRight: 10 }}>Pedidos</div>
           <div style={{ textAlign: 'right', paddingRight: 8 }}>Comissão</div>
           <div>Apresentadora</div>
           <div>Status</div>
@@ -679,7 +1197,7 @@ export function LivesTab({
               fontSize: 13,
             }}
           >
-            Nenhuma live encontrada{search ? ' para esse filtro' : ''}.
+            Nenhuma live encontrada{hasAnyFilter ? ' para esses filtros' : ''}.
           </div>
         ) : (
           dayGroups.map((group) => {
@@ -929,6 +1447,27 @@ export function LivesTab({
                           >
                             ID #{String(liveId).padStart(4, '0')}
                           </span>
+                          {duplicateIdSet.has(liveId) ? (
+                            <span
+                              style={{
+                                marginTop: 2,
+                                alignSelf: 'flex-start',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '1px 6px',
+                                borderRadius: 5,
+                                fontSize: 9.5,
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.06em',
+                                border: '1px solid var(--warning-soft)',
+                                background: 'var(--warning-soft)',
+                                color: 'var(--warning)',
+                              }}
+                            >
+                              Possível duplicata
+                            </span>
+                          ) : null}
                         </div>
 
                         {/* Cabine */}
@@ -998,30 +1537,19 @@ export function LivesTab({
                           </div>
                         </div>
 
-                        {/* GMV */}
-                        <div
-                          style={{
-                            textAlign: 'right',
-                            paddingRight: 14,
-                            fontVariantNumeric: 'tabular-nums',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {gmv > 0 ? (
-                            <span
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: 'var(--primary)',
-                                letterSpacing: -0.005,
-                              }}
-                            >
-                              {formatMoney(gmv)}
-                            </span>
-                          ) : (
-                            <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>—</span>
-                          )}
-                        </div>
+                        {/* GMV — editável inline quando rascunho */}
+                        <InlineGmvCell
+                          gmv={gmv}
+                          editable={Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
+                          onSave={(payload) => onInlineSaveLive!(liveId, payload)}
+                        />
+
+                        {/* Pedidos — editável inline quando rascunho */}
+                        <InlinePedidosCell
+                          pedidos={asNumber(live.manual_orders ?? live.final_orders_count)}
+                          editable={Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
+                          onSave={(payload) => onInlineSaveLive!(liveId, payload)}
+                        />
 
                         {/* Comissão apresentadora */}
                         {(() => {
@@ -1055,60 +1583,13 @@ export function LivesTab({
                           )
                         })()}
 
-                        {/* Apresentadora */}
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            color: 'var(--text-primary)',
-                            fontSize: 12.5,
-                            minWidth: 0,
-                          }}
-                        >
-                          {presenterName ? (
-                            <>
-                              <span
-                                style={{
-                                  width: 22,
-                                  height: 22,
-                                  borderRadius: '50%',
-                                  flexShrink: 0,
-                                  background:
-                                    'linear-gradient(135deg, var(--primary-soft), var(--primary-softer))',
-                                  color: 'var(--primary)',
-                                  display: 'grid',
-                                  placeItems: 'center',
-                                  fontSize: 9,
-                                  fontWeight: 700,
-                                  letterSpacing: '0.02em',
-                                  border: '1px solid var(--primary-soft)',
-                                }}
-                              >
-                                {getInitials(presenterName)}
-                              </span>
-                              <span
-                                style={{
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
-                              >
-                                {presenterName}
-                              </span>
-                            </>
-                          ) : (
-                            <span
-                              style={{
-                                color: 'var(--text-muted)',
-                                fontStyle: 'italic',
-                                fontSize: 12,
-                              }}
-                            >
-                              Sem apresentadora
-                            </span>
-                          )}
-                        </div>
+                        {/* Apresentadora — editável inline quando rascunho */}
+                        <InlineApresentadoraCell
+                          name={presenterName}
+                          editable={Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
+                          options={apresentadoraFilterOptions}
+                          onSave={(payload) => onInlineSaveLive!(liveId, payload)}
+                        />
 
                         {/* Status */}
                         <div>
@@ -1202,7 +1683,7 @@ export function LivesTab({
         >
           <span>
             {totalCount} live{totalCount !== 1 ? 's' : ''}
-            {search ? ` · filtrado de ${livesData.length}` : ''}
+            {hasAnyFilter ? ` · filtrado de ${livesData.length}` : ''}
           </span>
         </div>
       </div>

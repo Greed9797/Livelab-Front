@@ -358,6 +358,10 @@ export function getLives(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/lives', params)
 }
 
+export function getLivesDuplicatas() {
+  return apiGet<JsonRecord>('/lives/duplicatas')
+}
+
 export async function getLiveAtualDaCabine(cabineId: string): Promise<LiveAtual | null> {
   const res = await apiGet<JsonRecord>(`/cabines/${cabineId}/live-atual`)
   if (!res.live_ativa) return null
@@ -420,8 +424,8 @@ export function getAnalyticsDashboard(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/analytics/dashboard', filters)
 }
 
-export function getFunilAnalytics(mesAno: string, groupBy: 'marca' | 'apresentadora') {
-  return apiGet<JsonRecord[]>('/analytics/funil', { mesAno, groupBy })
+export function getFunilAnalytics(filters: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>('/analytics/funil', filters)
 }
 
 export function getDailyAnalytics(filters: Record<string, unknown> = {}) {

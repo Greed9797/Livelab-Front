@@ -6,6 +6,7 @@ export const QK = {
     params ? ['agenda', params] as const : ['agenda'] as const,
   lives: ['lives'] as const,
   livesByStatus: (status: string) => ['lives', status] as const,
+  livesDuplicatas: ['lives-duplicatas'] as const,
   homeDashboard: ['home-dashboard'] as const,
   rankingApresentadoras: (mes?: number) =>
     mes ? ['ranking-apresentadoras', mes] as const : ['ranking-apresentadoras'] as const,
@@ -80,8 +81,8 @@ export const QK = {
     mes ? ['metas-supervisor', mes] as const : ['metas-supervisor'] as const,
   analyticsDashboard: (period?: { mes: number; ano: number }) =>
     period ? ['analytics-dashboard', period] as const : ['analytics-dashboard'] as const,
-  funilAnalytics: (mesAno: string, groupBy: 'marca' | 'apresentadora') =>
-    ['funil-analytics', mesAno, groupBy] as const,
+  funilAnalytics: (mesAno: string, marcaId?: string, apresentadoraId?: string) =>
+    ['funil-analytics', mesAno, marcaId ?? '', apresentadoraId ?? ''] as const,
   dailyAnalytics: (mesAno: string, marcaId?: string, apresentadoraId?: string) =>
     ['daily-analytics', mesAno, marcaId ?? '', apresentadoraId ?? ''] as const,
   analyticsImportPreview: ['analytics-import-preview'] as const,
