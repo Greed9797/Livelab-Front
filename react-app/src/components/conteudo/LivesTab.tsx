@@ -31,7 +31,12 @@ const COLS = '80px minmax(180px,1.4fr) 90px 110px 115px 100px minmax(115px,1fr) 
 const MAX_DUR_MINS = 480
 const ACTION_MENU_WIDTH = 168
 
-type DateRange = 'todos' | 'hoje' | '7d' | '30d' | 'mes'
+export type DateRange = 'todos' | 'hoje' | '7d' | '30d' | 'mes'
+
+export interface LiveFilterOption {
+  id: string
+  nome: string
+}
 
 const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: 'todos', label: 'Qualquer data' },
@@ -41,20 +46,18 @@ const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: 'mes', label: 'Este mês' },
 ]
 
-function liveInDateRange(live: JsonRecord, range: DateRange): boolean {
-  if (range === 'todos') return true
-  const t = live.iniciado_em ? new Date(live.iniciado_em as string).getTime() : NaN
-  if (Number.isNaN(t)) return false
+// Converte o preset de período em janela de datas (YYYY-MM-DD) para o servidor.
+export function dateRangeToWindow(range: DateRange): { data_inicio?: string; data_fim?: string } {
+  if (range === 'todos') return {}
   const now = new Date()
-  if (range === 'hoje') {
-    const start = new Date(now)
-    start.setHours(0, 0, 0, 0)
-    return t >= start.getTime()
-  }
-  if (range === 'mes') {
-    return t >= new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-  }
-  return t >= now.getTime() - (range === '7d' ? 7 : 30) * 86400000
+  const toISO = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const fim = toISO(now)
+  if (range === 'hoje') return { data_inicio: fim, data_fim: fim }
+  if (range === 'mes') return { data_inicio: toISO(new Date(now.getFullYear(), now.getMonth(), 1)), data_fim: fim }
+  const start = new Date(now)
+  start.setDate(now.getDate() - (range === '7d' ? 6 : 29))
+  return { data_inicio: toISO(start), data_fim: fim }
 }
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -460,6 +463,15 @@ export interface LivesTabProps {
   onInlineSaveLive?: (liveId: string, payload: JsonRecord) => Promise<unknown>
   duplicateLiveIds?: string[]
   duplicateClusterCount?: number
+  dateRange: DateRange
+  onDateRangeChange: (range: DateRange) => void
+  marcaFilterId: string
+  apresentadoraFilterId: string
+  onMarcaFilterChange: (id: string) => void
+  onApresentadoraFilterChange: (id: string) => void
+  marcaFilterOptions: LiveFilterOption[]
+  apresentadoraFilterOptions: LiveFilterOption[]
+  onClearFilters: () => void
 }
 
 // ─── main component ────────────────────────────────────────────────────────
@@ -479,18 +491,32 @@ export function LivesTab({
   onInlineSaveLive,
   duplicateLiveIds,
   duplicateClusterCount = 0,
+  dateRange,
+  onDateRangeChange,
+  marcaFilterId,
+  apresentadoraFilterId,
+  onMarcaFilterChange,
+  onApresentadoraFilterChange,
+  marcaFilterOptions,
+  apresentadoraFilterOptions,
+  onClearFilters,
 }: LivesTabProps) {
   const [search, setSearch] = useState('')
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
   const [kebabMenu, setKebabMenu] = useState<{ liveId: string; live: JsonRecord; top: number; left: number } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
-  const [dateRange, setDateRange] = useState<DateRange>('todos')
-  const [marcaFilter, setMarcaFilter] = useState('')
-  const [apresentadoraFilter, setApresentadoraFilter] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const duplicateIdSet = useMemo(() => new Set(duplicateLiveIds ?? []), [duplicateLiveIds])
+  // Filtros de data/marca/apresentadora são controlados pelo ConteudoPage (server-side).
+  const setDateRange = onDateRangeChange
+  const marcaFilter = marcaFilterId
+  const apresentadoraFilter = apresentadoraFilterId
+  const setMarcaFilter = onMarcaFilterChange
+  const setApresentadoraFilter = onApresentadoraFilterChange
+  const marcaOptions = marcaFilterOptions
+  const apresentadoraOptions = apresentadoraFilterOptions
   const kebabOpenId = kebabMenu?.liveId ?? null
 
   // Close overlay menus on outside click
@@ -523,6 +549,7 @@ export function LivesTab({
     return () => document.removeEventListener('keydown', handle)
   }, [])
 
+  // Data/marca/apresentadora já vêm filtrados do servidor; aqui só busca textual + duplicatas.
   const filteredLives = useMemo(() => {
     const q = search.trim().toLowerCase()
     return livesData.filter((live) => {
@@ -533,37 +560,13 @@ export function LivesTab({
         const presenter = asString(live.apresentadora_nome ?? live.apresentador_nome).toLowerCase()
         if (!(client.includes(q) || cabine.includes(q) || presenter.includes(q))) return false
       }
-      if (!liveInDateRange(live, dateRange)) return false
-      if (marcaFilter && asString(live.marca_nome ?? live.cliente_nome) !== marcaFilter) return false
-      if (apresentadoraFilter && asString(live.apresentadora_nome ?? live.apresentador_nome) !== apresentadoraFilter) return false
       return true
     })
-  }, [livesData, search, dateRange, marcaFilter, apresentadoraFilter, showDuplicatesOnly, duplicateIdSet])
+  }, [livesData, search, showDuplicatesOnly, duplicateIdSet])
 
-  // Opções de filtro derivadas das lives carregadas (filtro client-side).
-  const marcaOptions = useMemo(() => {
-    const set = new Set<string>()
-    for (const live of livesData) {
-      const name = asString(live.marca_nome ?? live.cliente_nome).trim()
-      if (name) set.add(name)
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-  }, [livesData])
-  const apresentadoraOptions = useMemo(() => {
-    const set = new Set<string>()
-    for (const live of livesData) {
-      const name = asString(live.apresentadora_nome ?? live.apresentador_nome).trim()
-      if (name) set.add(name)
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-  }, [livesData])
   const activeFilterCount = (dateRange !== 'todos' ? 1 : 0) + (marcaFilter ? 1 : 0) + (apresentadoraFilter ? 1 : 0)
   const hasAnyFilter = Boolean(search.trim()) || activeFilterCount > 0 || showDuplicatesOnly
-  function clearFilters() {
-    setDateRange('todos')
-    setMarcaFilter('')
-    setApresentadoraFilter('')
-  }
+  const clearFilters = onClearFilters
 
   const dayGroups = useMemo(() => groupByDay(filteredLives), [filteredLives])
   const totalCount = filteredLives.length
@@ -799,14 +802,14 @@ export function LivesTab({
                 <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Marca / cliente</span>
                 <select value={marcaFilter} onChange={(e) => setMarcaFilter(e.target.value)} style={{ ...tbtn, width: '100%', justifyContent: 'flex-start' }}>
                   <option value="">Todas as marcas</option>
-                  {marcaOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+                  {marcaOptions.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
                 </select>
               </label>
               <label style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px' }}>
                 <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Apresentadora</span>
                 <select value={apresentadoraFilter} onChange={(e) => setApresentadoraFilter(e.target.value)} style={{ ...tbtn, width: '100%', justifyContent: 'flex-start' }}>
                   <option value="">Todas as apresentadoras</option>
-                  {apresentadoraOptions.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {apresentadoraOptions.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
                 </select>
               </label>
               {activeFilterCount > 0 ? (

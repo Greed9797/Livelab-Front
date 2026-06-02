@@ -9,7 +9,7 @@ import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
 import { AgendaTab } from '../components/conteudo/AgendaTab'
-import { LivesTab } from '../components/conteudo/LivesTab'
+import { LivesTab, dateRangeToWindow, type DateRange } from '../components/conteudo/LivesTab'
 import { VideosTab, emptyVideo, type VideoForm } from '../components/conteudo/VideosTab'
 import {
   createAgendaEvento,
@@ -146,12 +146,24 @@ export function ConteudoPage() {
   const [liveModalMode, setLiveModalMode] = useState<'detail' | null>(null)
   const [selectedLiveRecord, setSelectedLiveRecord] = useState<JsonRecord | null>(null)
   const [reportCopied, setReportCopied] = useState(false)
+  const [livesDateRange, setLivesDateRange] = useState<DateRange>('todos')
+  const [livesMarcaId, setLivesMarcaId] = useState('')
+  const [livesApresentadoraId, setLivesApresentadoraId] = useState('')
   const client = useQueryClient()
 
   const range = dayRange(agendaDate, agendaView === 'semana' ? 7 : 1)
   const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }) })
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
   const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada', limit: 200 }) })
+  // Lista da aba "Lives realizadas" — filtrada server-side (separada da query `lives`
+  // acima, que segue completa para alimentar a Agenda e o lookup por ?live=).
+  const livesWindow = dateRangeToWindow(livesDateRange)
+  const livesList = useQuery({
+    queryKey: ['lives', 'list', livesDateRange, livesMarcaId, livesApresentadoraId],
+    queryFn: () => getLives({ status: 'encerrada', limit: 200, ...livesWindow, marca_id: livesMarcaId || undefined, apresentadora_id: livesApresentadoraId || undefined }),
+    enabled: tab === 'lives',
+    placeholderData: (prev) => prev,
+  })
   const duplicatas = useQuery({ queryKey: ['lives-duplicatas'], queryFn: getLivesDuplicatas, enabled: tab === 'lives', staleTime: 5 * 60_000 })
   const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos() })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
@@ -221,6 +233,8 @@ export function ConteudoPage() {
       return lives.map((live) => asString(live.id, '')).filter(Boolean)
     }),
   ))
+  const marcaFilterOptions = marcaRows.map((m) => ({ id: asString(m.id, ''), nome: asString(m.nome, 'Sem nome') })).filter((m) => m.id)
+  const apresentadoraFilterOptions = apresentadoraRows.map((a) => ({ id: asString(a.id, ''), nome: asString(a.nome, 'Sem nome') })).filter((a) => a.id)
 
   function switchTab(next: ConteudoTab) {
     setTab(next)
@@ -344,7 +358,16 @@ export function ConteudoPage() {
 
       {tab === 'lives' ? (
         <LivesTab
-          livesData={lives.data ?? []}
+          livesData={livesList.data ?? []}
+          dateRange={livesDateRange}
+          onDateRangeChange={setLivesDateRange}
+          marcaFilterId={livesMarcaId}
+          apresentadoraFilterId={livesApresentadoraId}
+          onMarcaFilterChange={setLivesMarcaId}
+          onApresentadoraFilterChange={setLivesApresentadoraId}
+          marcaFilterOptions={marcaFilterOptions}
+          apresentadoraFilterOptions={apresentadoraFilterOptions}
+          onClearFilters={() => { setLivesDateRange('todos'); setLivesMarcaId(''); setLivesApresentadoraId('') }}
           liveModalMode={liveModalMode}
           selectedLiveRecord={selectedLiveRecord}
           reportCopied={reportCopied}
