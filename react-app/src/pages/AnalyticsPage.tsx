@@ -270,7 +270,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-4">
           <div>
             <p className="text-base font-bold text-ink">Desempenho e comissionamento por entidade</p>
-            <p className="mt-1 text-xs text-ink-muted">GMV, pedidos, lives e comissão por apresentadora e por marca. O filtro e o CSV abaixo afetam só esta seção.</p>
+            <p className="mt-1 text-xs text-ink-muted">GMV, GMV/hora de live, pedidos, lives e comissão por apresentadora e por marca. O filtro e o CSV abaixo afetam só esta seção.</p>
           </div>
           {comissoesFiltrosBar}
         </div>
@@ -292,6 +292,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
                   columns={[
                     { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, 'Sem apresentadora') },
                     { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
+                    { key: 'gmv_por_hora', header: 'GMV/h', align: 'right', render: (item) => formatMoney(item.gmv_por_hora) },
                     { key: 'pedidos_total', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos_total ?? item.pedidos).toLocaleString('pt-BR') },
                     { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
                     { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => formatMoney(item.comissao_apresentadora) },
@@ -322,6 +323,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
                   columns={[
                     { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome, 'Sem marca') },
                     { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
+                    { key: 'gmv_por_hora', header: 'GMV/h', align: 'right', render: (item) => formatMoney(item.gmv_por_hora) },
                     { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos ?? item.pedidos_total).toLocaleString('pt-BR') },
                     { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
                     { key: 'comissao_franquia', header: 'Franquia', align: 'right', render: (item) => formatMoney(item.comissao_franquia) },
