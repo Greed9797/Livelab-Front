@@ -50,12 +50,18 @@ describe('Dashboard presenter ranking UI helpers', () => {
     expect(heroSource).toContain('raw.meta_mes ?? raw.meta_gmv')
   })
 
-  it('keeps analytics rankings on the same source as commission tables', () => {
+  it('consolidates analytics per-entity view on the commission source (no duplicate rankings)', () => {
     const source = readFileSync(new URL('./AnalyticsPage.tsx', import.meta.url), 'utf8')
 
-    expect(source).toContain('const rankingApresentadoras = apresentadorasRows')
-    expect(source).toContain('const rankingMarcas = marcasRows')
-    expect(source).toContain('Rankings, tabelas abaixo e CSV usam a mesma fonte')
+    // Per-entity tables come from the commission endpoints (single source of truth)
+    expect(source).toContain('getComissoesApresentadoras')
+    expect(source).toContain('getComissoesMarcas')
+    // The duplicated top "ranking" cards/aliases were removed (D+G refactor)
+    expect(source).not.toContain('const rankingApresentadoras = apresentadorasRows')
+    expect(source).not.toContain('const rankingMarcas = marcasRows')
+    // The redundant per-day aggregate table was removed from Analytics
+    expect(source).not.toContain('DailyAnalyticsSection')
+    // KPIs are not derived from the dashboard ranking arrays here
     expect(source).not.toContain('raw.ranking_apresentadoras')
     expect(source).not.toContain('raw.ranking_marcas')
   })

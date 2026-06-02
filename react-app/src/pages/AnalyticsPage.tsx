@@ -9,7 +9,6 @@ import { ErrorState, LoadingState } from '../components/ui/States'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { Button } from '../components/ui/Button'
-import { DailyAnalyticsSection } from '../components/analytics/DailyAnalyticsSection'
 import { FunilAnalyticsSection } from '../components/analytics/FunilAnalyticsSection'
 import { AnalyticsImportSection } from '../components/analytics/AnalyticsImportSection'
 import {
@@ -105,8 +104,6 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const totalLives = asNumber(kpis.total_lives ?? raw.total_lives)
   const totalVideos = asNumber(kpis.total_videos ?? raw.total_videos)
   const totalConteudos = asNumber(kpis.total_conteudos ?? totalLives + totalVideos)
-  const rankingApresentadoras = apresentadorasRows
-  const rankingMarcas = marcasRows
 
   const metrics = [
     moneyMetric('GMV atribuído', kpis.gmv_total ?? raw.gmv_total ?? raw.gmv_mes, 'lives + vídeos', 'brand'),
@@ -137,8 +134,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
-  // Filtros marca/apresentadora afetam APENAS as tabelas de Comissões
-  // e o export CSV — KPIs/rankings do topo seguem o mês inteiro.
+  // Filtro marca/apresentadora: escopo ÚNICO da seção "Desempenho e comissionamento"
+  // (tabelas + CSV). KPIs e gráficos do topo seguem só o período (mês), sem esse filtro.
   const hasFilter = Boolean(marcaId || apresentadoraId)
   const comissoesFiltrosBar = (
     <div className="flex flex-wrap items-end gap-3">
@@ -183,7 +180,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     </div>
   )
 
-  // Topo (KPIs/gráficos/rankings) usa só período.
+  // Topo (KPIs/gráficos) usa só período.
   const periodoBar = (
     <div className="flex flex-wrap items-end gap-3">
       <PeriodControl period={period} onChange={setPeriod} />
@@ -266,66 +263,14 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
       </section>
 
       <AnalyticsImportSection mesAno={mes} />
-      <DailyAnalyticsSection mesAno={mes} />
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <p className="text-base font-bold tracking-[-0.01em] text-ink">Ranking de apresentadoras</p>
-            <p className="mt-1 text-xs text-ink-muted">Mesma fonte do relatório de comissão abaixo.</p>
-          </CardHeader>
-          <CardBody>
-            {comissoesApresentadorasQ.isLoading ? (
-              <p className="py-4 text-center text-sm text-muted">Carregando...</p>
-            ) : comissoesApresentadorasQ.isError ? (
-              <p className="py-4 text-center text-sm text-danger">Erro ao carregar ranking.</p>
-            ) : (
-              <DataTable<JsonRecord>
-                data={rankingApresentadoras}
-                columns={[
-                  { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome ?? item.apresentador_nome, 'Sem apresentadora') },
-                  { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
-                  { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos ?? item.pedidos_total).toLocaleString('pt-BR') },
-                  { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
-                  { key: 'total_videos', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.total_videos).toLocaleString('pt-BR') },
-                ]}
-              />
-            )}
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader>
-            <p className="text-base font-bold tracking-[-0.01em] text-ink">Ranking de marcas</p>
-            <p className="mt-1 text-xs text-ink-muted">Mesma fonte do relatório de comissão abaixo.</p>
-          </CardHeader>
-          <CardBody>
-            {comissoesMarcasQ.isLoading ? (
-              <p className="py-4 text-center text-sm text-muted">Carregando...</p>
-            ) : comissoesMarcasQ.isError ? (
-              <p className="py-4 text-center text-sm text-danger">Erro ao carregar ranking.</p>
-            ) : (
-              <DataTable<JsonRecord>
-                data={rankingMarcas}
-                columns={[
-                  { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome ?? item.nome, 'Marca') },
-                  { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
-                  { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos ?? item.pedidos_total).toLocaleString('pt-BR') },
-                  { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
-                  { key: 'total_videos', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.total_videos).toLocaleString('pt-BR') },
-                ]}
-              />
-            )}
-          </CardBody>
-        </Card>
-      </section>
 
       <FunilAnalyticsSection mesAno={mes} />
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-4">
           <div>
-            <p className="text-base font-bold text-ink">Relatório de comissionamento</p>
-            <p className="mt-1 text-xs text-ink-muted">Rankings, tabelas abaixo e CSV usam a mesma fonte e os mesmos filtros.</p>
+            <p className="text-base font-bold text-ink">Desempenho e comissionamento por entidade</p>
+            <p className="mt-1 text-xs text-ink-muted">GMV, pedidos, lives e comissão por apresentadora e por marca. O filtro e o CSV abaixo afetam só esta seção.</p>
           </div>
           {comissoesFiltrosBar}
         </div>
@@ -348,6 +293,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
                     { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, 'Sem apresentadora') },
                     { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
                     { key: 'pedidos_total', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos_total ?? item.pedidos).toLocaleString('pt-BR') },
+                    { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
                     { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => formatMoney(item.comissao_apresentadora) },
                   ]}
                 />
@@ -376,6 +322,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
                   columns={[
                     { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome, 'Sem marca') },
                     { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
+                    { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos ?? item.pedidos_total).toLocaleString('pt-BR') },
+                    { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
                     { key: 'comissao_franquia', header: 'Franquia', align: 'right', render: (item) => formatMoney(item.comissao_franquia) },
                     { key: 'comissao_franqueadora', header: 'Franqueadora', align: 'right', render: (item) => formatMoney(item.comissao_franqueadora) },
                   ]}
