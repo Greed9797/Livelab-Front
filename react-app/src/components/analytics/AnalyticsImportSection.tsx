@@ -54,8 +54,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: QK.analyticsDashboard() }),
         queryClient.invalidateQueries({ queryKey: QK.homeDashboard }),
-        queryClient.invalidateQueries({ queryKey: QK.funilAnalytics(mesAno, 'marca') }),
-        queryClient.invalidateQueries({ queryKey: QK.funilAnalytics(mesAno, 'apresentadora') }),
+        queryClient.invalidateQueries({ queryKey: ['funil-analytics', mesAno] }),
         queryClient.invalidateQueries({ queryKey: QK.lives }),
       ])
     },

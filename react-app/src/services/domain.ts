@@ -420,8 +420,8 @@ export function getAnalyticsDashboard(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/analytics/dashboard', filters)
 }
 
-export function getFunilAnalytics(mesAno: string, groupBy: 'marca' | 'apresentadora') {
-  return apiGet<JsonRecord[]>('/analytics/funil', { mesAno, groupBy })
+export function getFunilAnalytics(filters: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>('/analytics/funil', filters)
 }
 
 export function getDailyAnalytics(filters: Record<string, unknown> = {}) {

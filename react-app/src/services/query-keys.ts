@@ -80,8 +80,8 @@ export const QK = {
     mes ? ['metas-supervisor', mes] as const : ['metas-supervisor'] as const,
   analyticsDashboard: (period?: { mes: number; ano: number }) =>
     period ? ['analytics-dashboard', period] as const : ['analytics-dashboard'] as const,
-  funilAnalytics: (mesAno: string, groupBy: 'marca' | 'apresentadora') =>
-    ['funil-analytics', mesAno, groupBy] as const,
+  funilAnalytics: (mesAno: string, marcaId?: string, apresentadoraId?: string) =>
+    ['funil-analytics', mesAno, marcaId ?? '', apresentadoraId ?? ''] as const,
   dailyAnalytics: (mesAno: string, marcaId?: string, apresentadoraId?: string) =>
     ['daily-analytics', mesAno, marcaId ?? '', apresentadoraId ?? ''] as const,
   analyticsImportPreview: ['analytics-import-preview'] as const,

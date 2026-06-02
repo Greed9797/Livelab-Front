@@ -264,15 +264,20 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
       <AnalyticsImportSection mesAno={mes} />
 
-      <FunilAnalyticsSection mesAno={mes} />
+      <section className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-4">
+        <div>
+          <p className="text-base font-bold text-ink">Filtro por marca / apresentadora</p>
+          <p className="mt-1 text-xs text-ink-muted">Afeta o funil de conversão e o desempenho por entidade abaixo. KPIs e gráficos do topo seguem só o período.</p>
+        </div>
+        {comissoesFiltrosBar}
+      </section>
+
+      <FunilAnalyticsSection mesAno={mes} marcaId={marcaId} apresentadoraId={apresentadoraId} />
 
       <section className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-4">
-          <div>
-            <p className="text-base font-bold text-ink">Desempenho e comissionamento por entidade</p>
-            <p className="mt-1 text-xs text-ink-muted">GMV, GMV/hora de live, pedidos, lives e comissão por apresentadora e por marca. O filtro e o CSV abaixo afetam só esta seção.</p>
-          </div>
-          {comissoesFiltrosBar}
+        <div className="rounded-2xl border border-line bg-surface-muted p-4">
+          <p className="text-base font-bold text-ink">Desempenho e comissionamento por entidade</p>
+          <p className="mt-1 text-xs text-ink-muted">GMV, GMV/hora de live, pedidos, lives e comissão por apresentadora e por marca. Usa o filtro de marca/apresentadora acima.</p>
         </div>
       <section className="grid gap-4 xl:grid-cols-2">
         <Card>
