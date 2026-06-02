@@ -351,6 +351,7 @@ export function ConteudoPage() {
             const nextParams = new URLSearchParams(params); nextParams.delete('live'); setParams(nextParams, { replace: true })
           }}
           onCopyLiveReport={(text) => void navigator.clipboard.writeText(text).then(() => { setReportCopied(true); setTimeout(() => setReportCopied(false), 2000) })}
+          onInlineSaveLive={(id, payload) => updateLiveMutation.mutateAsync({ id, payload })}
         />
       ) : null}
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Calendar,
+  Check,
   ChevronDown,
   ChevronRight,
   Download,
@@ -13,11 +14,13 @@ import {
   Printer,
   Search,
   Trash2,
+  X,
 } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatDate, formatMoney } from '../../utils/format'
+import { parseBRMoneyToDecimal } from '../../utils/money'
 import { extractErrorMessage } from '../../services/api'
 import type { JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
@@ -306,6 +309,140 @@ function MenuBtn({
   )
 }
 
+// Célula de GMV editável inline (somente para lives em rascunho).
+// Reusa updateLive (PATCH parcial) via onSave; grava fat_gerado + manual_gmv.
+function InlineGmvCell({
+  gmv,
+  editable,
+  onSave,
+}: {
+  gmv: number
+  editable: boolean
+  onSave: (payload: JsonRecord) => Promise<unknown>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
+
+  function begin() {
+    setValue(gmv > 0 ? String(gmv).replace('.', ',') : '')
+    setError(false)
+    setEditing(true)
+  }
+  function cancel() {
+    setEditing(false)
+    setError(false)
+  }
+  async function commit() {
+    const decimal = parseBRMoneyToDecimal(value)
+    if (!Number.isFinite(decimal) || decimal < 0) {
+      setError(true)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave({ fat_gerado: decimal, manual_gmv: decimal })
+      setEditing(false)
+    } catch {
+      setError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const iconBtn = (color: string): React.CSSProperties => ({
+    width: 24,
+    height: 24,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 6,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elev-2)',
+    color,
+    cursor: 'pointer',
+    flexShrink: 0,
+  })
+
+  if (editing) {
+    return (
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, paddingRight: 6 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void commit()
+            } else if (e.key === 'Escape') {
+              cancel()
+            }
+          }}
+          placeholder="0,00"
+          inputMode="decimal"
+          disabled={saving}
+          style={{
+            width: 86,
+            textAlign: 'right',
+            padding: '4px 6px',
+            borderRadius: 6,
+            border: `1px solid ${error ? 'var(--danger)' : 'var(--primary)'}`,
+            background: 'var(--bg-input)',
+            color: 'var(--text-primary)',
+            fontSize: 12.5,
+            fontFamily: 'inherit',
+            fontVariantNumeric: 'tabular-nums',
+            outline: 'none',
+          }}
+        />
+        <button type="button" title="Salvar GMV" onClick={() => void commit()} disabled={saving} style={iconBtn('var(--success)')}>
+          <Check style={{ width: 13, height: 13 }} />
+        </button>
+        <button type="button" title="Cancelar" onClick={cancel} disabled={saving} style={iconBtn('var(--text-muted)')}>
+          <X style={{ width: 13, height: 13 }} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 6,
+        paddingRight: editable ? 6 : 14,
+        fontVariantNumeric: 'tabular-nums',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {gmv > 0 ? (
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)', letterSpacing: -0.005 }}>{formatMoney(gmv)}</span>
+      ) : (
+        <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>—</span>
+      )}
+      {editable ? (
+        <button
+          type="button"
+          title="Editar GMV (rascunho)"
+          onClick={(e) => {
+            e.stopPropagation()
+            begin()
+          }}
+          style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+        >
+          <Edit2 style={{ width: 12, height: 12 }} />
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 // ─── types ─────────────────────────────────────────────────────────────────
 
 export interface LivesTabProps {
@@ -320,6 +457,7 @@ export interface LivesTabProps {
   onDeleteLive: (live: JsonRecord) => void
   onCloseLiveModal: () => void
   onCopyLiveReport: (text: string) => void
+  onInlineSaveLive?: (liveId: string, payload: JsonRecord) => Promise<unknown>
 }
 
 // ─── main component ────────────────────────────────────────────────────────
@@ -336,6 +474,7 @@ export function LivesTab({
   onDeleteLive,
   onCloseLiveModal,
   onCopyLiveReport,
+  onInlineSaveLive,
 }: LivesTabProps) {
   const [search, setSearch] = useState('')
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
@@ -1096,30 +1235,12 @@ export function LivesTab({
                           </div>
                         </div>
 
-                        {/* GMV */}
-                        <div
-                          style={{
-                            textAlign: 'right',
-                            paddingRight: 14,
-                            fontVariantNumeric: 'tabular-nums',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {gmv > 0 ? (
-                            <span
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: 'var(--primary)',
-                                letterSpacing: -0.005,
-                              }}
-                            >
-                              {formatMoney(gmv)}
-                            </span>
-                          ) : (
-                            <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>—</span>
-                          )}
-                        </div>
+                        {/* GMV — editável inline quando rascunho */}
+                        <InlineGmvCell
+                          gmv={gmv}
+                          editable={Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
+                          onSave={(payload) => onInlineSaveLive!(liveId, payload)}
+                        />
 
                         {/* Comissão apresentadora */}
                         {(() => {
