@@ -458,6 +458,8 @@ export interface LivesTabProps {
   onCloseLiveModal: () => void
   onCopyLiveReport: (text: string) => void
   onInlineSaveLive?: (liveId: string, payload: JsonRecord) => Promise<unknown>
+  duplicateLiveIds?: string[]
+  duplicateClusterCount?: number
 }
 
 // ─── main component ────────────────────────────────────────────────────────
@@ -475,6 +477,8 @@ export function LivesTab({
   onCloseLiveModal,
   onCopyLiveReport,
   onInlineSaveLive,
+  duplicateLiveIds,
+  duplicateClusterCount = 0,
 }: LivesTabProps) {
   const [search, setSearch] = useState('')
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
@@ -484,7 +488,9 @@ export function LivesTab({
   const [marcaFilter, setMarcaFilter] = useState('')
   const [apresentadoraFilter, setApresentadoraFilter] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
+  const duplicateIdSet = useMemo(() => new Set(duplicateLiveIds ?? []), [duplicateLiveIds])
   const kebabOpenId = kebabMenu?.liveId ?? null
 
   // Close overlay menus on outside click
@@ -520,6 +526,7 @@ export function LivesTab({
   const filteredLives = useMemo(() => {
     const q = search.trim().toLowerCase()
     return livesData.filter((live) => {
+      if (showDuplicatesOnly && duplicateIdSet.size > 0 && !duplicateIdSet.has(asString(live.id))) return false
       if (q) {
         const client = asString(live.marca_nome ?? live.cliente_nome).toLowerCase()
         const cabine = asString(live.cabine_numero).toLowerCase()
@@ -531,7 +538,7 @@ export function LivesTab({
       if (apresentadoraFilter && asString(live.apresentadora_nome ?? live.apresentador_nome) !== apresentadoraFilter) return false
       return true
     })
-  }, [livesData, search, dateRange, marcaFilter, apresentadoraFilter])
+  }, [livesData, search, dateRange, marcaFilter, apresentadoraFilter, showDuplicatesOnly, duplicateIdSet])
 
   // Opções de filtro derivadas das lives carregadas (filtro client-side).
   const marcaOptions = useMemo(() => {
@@ -551,7 +558,7 @@ export function LivesTab({
     return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'))
   }, [livesData])
   const activeFilterCount = (dateRange !== 'todos' ? 1 : 0) + (marcaFilter ? 1 : 0) + (apresentadoraFilter ? 1 : 0)
-  const hasAnyFilter = Boolean(search.trim()) || activeFilterCount > 0
+  const hasAnyFilter = Boolean(search.trim()) || activeFilterCount > 0 || showDuplicatesOnly
   function clearFilters() {
     setDateRange('todos')
     setMarcaFilter('')
@@ -620,6 +627,37 @@ export function LivesTab({
 
   return (
     <section className="space-y-3">
+      {/* ── Banner de possíveis duplicatas ── */}
+      {duplicateClusterCount > 0 ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+            padding: '10px 14px',
+            borderRadius: 12,
+            border: '1px solid var(--warning-soft)',
+            background: 'var(--warning-soft)',
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--warning)' }}>
+            ⚠ {duplicateClusterCount}{' '}
+            {duplicateClusterCount === 1 ? 'grupo de possível duplicata' : 'grupos de possíveis duplicatas'}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            Mesma cabine com horário sobreposto, ou mesma marca + apresentadora no mesmo dia.
+          </span>
+          <button
+            type="button"
+            style={{ ...tbtn, marginLeft: 'auto' }}
+            onClick={() => setShowDuplicatesOnly((v) => !v)}
+          >
+            {showDuplicatesOnly ? 'Mostrar todas' : 'Revisar duplicatas'}
+          </button>
+        </div>
+      ) : null}
+
       {/* ── Toolbar ── */}
       <div
         style={{
@@ -1166,6 +1204,27 @@ export function LivesTab({
                           >
                             ID #{String(liveId).padStart(4, '0')}
                           </span>
+                          {duplicateIdSet.has(liveId) ? (
+                            <span
+                              style={{
+                                marginTop: 2,
+                                alignSelf: 'flex-start',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '1px 6px',
+                                borderRadius: 5,
+                                fontSize: 9.5,
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.06em',
+                                border: '1px solid var(--warning-soft)',
+                                background: 'var(--warning-soft)',
+                                color: 'var(--warning)',
+                              }}
+                            >
+                              Possível duplicata
+                            </span>
+                          ) : null}
                         </div>
 
                         {/* Cabine */}

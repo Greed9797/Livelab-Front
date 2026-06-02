@@ -6,6 +6,7 @@ export const QK = {
     params ? ['agenda', params] as const : ['agenda'] as const,
   lives: ['lives'] as const,
   livesByStatus: (status: string) => ['lives', status] as const,
+  livesDuplicatas: ['lives-duplicatas'] as const,
   homeDashboard: ['home-dashboard'] as const,
   rankingApresentadoras: (mes?: number) =>
     mes ? ['ranking-apresentadoras', mes] as const : ['ranking-apresentadoras'] as const,

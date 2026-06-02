@@ -25,6 +25,7 @@ import {
   getClientes,
   getLivePorId,
   getLives,
+  getLivesDuplicatas,
   getMarcas,
   getVideos,
   updateAgendaEvento,
@@ -151,6 +152,7 @@ export function ConteudoPage() {
   const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }) })
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
   const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada', limit: 200 }) })
+  const duplicatas = useQuery({ queryKey: ['lives-duplicatas'], queryFn: getLivesDuplicatas, enabled: tab === 'lives', staleTime: 5 * 60_000 })
   const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos() })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
@@ -160,7 +162,7 @@ export function ConteudoPage() {
     ;[
       ['agenda'], ['cabines'], ['lives'], ['home-dashboard'], ['ranking-apresentadoras'],
       ['comissoes-resumo'], ['comissoes-apresentadoras'], ['comissoes-marcas'],
-      ['comissoes-pendentes'], ['public-ranking'],
+      ['comissoes-pendentes'], ['public-ranking'], ['lives-duplicatas'],
     ].forEach((queryKey) => void client.invalidateQueries({ queryKey }))
   }
 
@@ -210,6 +212,15 @@ export function ConteudoPage() {
   const marcaRows = marcas.data ?? []
   const clienteRows = clientes.data ?? []
   const apresentadoraRows = apresentadoras.data ?? []
+  const dupClusters = Array.isArray((duplicatas.data as JsonRecord | undefined)?.clusters)
+    ? ((duplicatas.data as JsonRecord).clusters as JsonRecord[])
+    : []
+  const duplicateLiveIds = Array.from(new Set(
+    dupClusters.flatMap((cluster) => {
+      const lives = Array.isArray((cluster as JsonRecord).lives) ? ((cluster as JsonRecord).lives as JsonRecord[]) : []
+      return lives.map((live) => asString(live.id, '')).filter(Boolean)
+    }),
+  ))
 
   function switchTab(next: ConteudoTab) {
     setTab(next)
@@ -352,6 +363,8 @@ export function ConteudoPage() {
           }}
           onCopyLiveReport={(text) => void navigator.clipboard.writeText(text).then(() => { setReportCopied(true); setTimeout(() => setReportCopied(false), 2000) })}
           onInlineSaveLive={(id, payload) => updateLiveMutation.mutateAsync({ id, payload })}
+          duplicateLiveIds={duplicateLiveIds}
+          duplicateClusterCount={dupClusters.length}
         />
       ) : null}
 

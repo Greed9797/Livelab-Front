@@ -358,6 +358,10 @@ export function getLives(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/lives', params)
 }
 
+export function getLivesDuplicatas() {
+  return apiGet<JsonRecord>('/lives/duplicatas')
+}
+
 export async function getLiveAtualDaCabine(cabineId: string): Promise<LiveAtual | null> {
   const res = await apiGet<JsonRecord>(`/cabines/${cabineId}/live-atual`)
   if (!res.live_ativa) return null
