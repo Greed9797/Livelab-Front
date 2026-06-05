@@ -11,6 +11,7 @@ import { DataTable } from '../components/ui/DataTable'
 import { Button } from '../components/ui/Button'
 import { FunilAnalyticsSection } from '../components/analytics/FunilAnalyticsSection'
 import { AnalyticsImportSection } from '../components/analytics/AnalyticsImportSection'
+import { RelatorioEntidadeSection } from '../components/analytics/RelatorioEntidadeSection'
 import {
   exportarComissoesCSV,
   getAnalyticsDashboard,
@@ -271,6 +272,19 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         </div>
         {comissoesFiltrosBar}
       </section>
+
+      {hasFilter ? (
+        <RelatorioEntidadeSection
+          mes={mes}
+          marcaId={marcaId}
+          apresentadoraId={apresentadoraId}
+          nomeEntidade={[
+            marcaId ? asString(asArray<JsonRecord>(marcasOpts.data).find((m) => asString(m.id) === marcaId)?.nome, '') : '',
+            apresentadoraId ? asString(asArray<JsonRecord>(apresentadorasOpts.data).find((a) => asString(a.id) === apresentadoraId)?.nome, '') : '',
+          ].filter(Boolean).join(' · ')}
+          comissaoRow={marcaId ? marcasRows[0] : apresentadorasRows[0]}
+        />
+      ) : null}
 
       <FunilAnalyticsSection mesAno={mes} marcaId={marcaId} apresentadoraId={apresentadoraId} />
 

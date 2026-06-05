@@ -66,6 +66,45 @@ export function analyticsDailyChartRows(raw: JsonRecord, endpointRows: JsonRecor
   }
 }
 
+export interface DailyTotals {
+  gmv_lives: number
+  gmv_videos: number
+  gmv_total: number
+  horas_live: number
+  pedidos: number
+  total_lives: number
+  total_videos: number
+  gmv_por_hora: number
+  gmv_por_live: number
+  ticket_medio: number
+}
+
+// Consolida as linhas dia-a-dia do endpoint /analytics/diario (já filtrado por
+// marca/apresentadora) nos totais do mês daquela entidade. GMV total = lives +
+// vídeos; derivados com guarda de divisão por zero.
+export function sumDailyTotals(rows: JsonRecord[]): DailyTotals {
+  const acc = rows.reduce(
+    (t: { gmv_lives: number; gmv_videos: number; horas_live: number; pedidos: number; total_lives: number; total_videos: number }, r) => {
+      t.gmv_lives += asNumber(r.gmv_lives ?? r.gmv)
+      t.gmv_videos += asNumber(r.gmv_videos)
+      t.horas_live += asNumber(r.horas_live)
+      t.pedidos += asNumber(r.pedidos ?? r.total_pedidos ?? r.orders)
+      t.total_lives += asNumber(r.total_lives ?? r.lives)
+      t.total_videos += asNumber(r.total_videos)
+      return t
+    },
+    { gmv_lives: 0, gmv_videos: 0, horas_live: 0, pedidos: 0, total_lives: 0, total_videos: 0 },
+  )
+  const gmv_total = acc.gmv_lives + acc.gmv_videos
+  return {
+    ...acc,
+    gmv_total,
+    gmv_por_hora: acc.horas_live > 0 ? gmv_total / acc.horas_live : 0,
+    gmv_por_live: acc.total_lives > 0 ? gmv_total / acc.total_lives : 0,
+    ticket_medio: acc.pedidos > 0 ? gmv_total / acc.pedidos : 0,
+  }
+}
+
 export function latestPeriodWithData(raw: JsonRecord) {
   const rows = historyPoints(raw.gmv_mensal ?? raw.faturamento_mensal ?? raw.history)
   for (let index = rows.length - 1; index >= 0; index--) {
