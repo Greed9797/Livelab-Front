@@ -34,19 +34,15 @@ export function buildRelatorioPdf(input: RelatorioPdfInput): void {
 
   let y = 48
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(18)
+  doc.setFontSize(20)
   doc.setTextColor(20)
-  doc.text('LiveLab — Relatório mensal', MARGIN_X, y)
+  doc.text(input.titulo || 'Relatório', MARGIN_X, y)
 
-  y += 24
-  doc.setFontSize(13)
-  doc.text(input.titulo, MARGIN_X, y)
-
-  y += 16
+  y += 18
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
+  doc.setFontSize(11)
   doc.setTextColor(110)
-  doc.text(`${input.subtitulo} · ${input.mes}`, MARGIN_X, y)
+  doc.text(`Relatório mensal · ${input.subtitulo} · ${input.mes}`, MARGIN_X, y)
 
   autoTable(doc, {
     startY: y + 14,
@@ -84,11 +80,10 @@ export function buildRelatorioPdf(input: RelatorioPdfInput): void {
   doc.setTextColor(140)
   doc.text(`Gerado em ${input.geradoEm}`, MARGIN_X, footY)
 
-  const slug = input.titulo
-    .toLowerCase()
+  const slug = (input.titulo || 'Relatorio')
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-  doc.save(`relatorio-${slug || 'livelab'}-${input.mes}.pdf`)
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+  doc.save(`${slug || 'Relatorio'}_Relatorio_${input.mes}.pdf`)
 }
