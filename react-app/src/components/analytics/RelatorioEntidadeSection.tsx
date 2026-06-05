@@ -9,7 +9,7 @@ import { useToast } from '../ui/Toast'
 import { getDailyAnalytics } from '../../services/domain'
 import { QK } from '../../services/query-keys'
 import { extractErrorMessage } from '../../services/api'
-import { asArray, asNumber, asString, formatMoney } from '../../utils/format'
+import { asNumber, asString, formatMoney, unwrapList } from '../../utils/format'
 import { metric, moneyMetric, sumDailyTotals } from '../../pages/page-helpers'
 import type { JsonRecord, Metric } from '../../types/models'
 
@@ -39,7 +39,7 @@ export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEn
     staleTime: 5 * 60_000,
   })
 
-  const rows = asArray<JsonRecord>(query.data)
+  const rows = unwrapList<JsonRecord>(query.data)
     .slice()
     .sort((a, b) => asString(a.dia).localeCompare(asString(b.dia)))
   const totals = sumDailyTotals(rows)
