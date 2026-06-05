@@ -126,7 +126,7 @@ export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEn
                 </p>
               </div>
               <Link
-                to="/comercial"
+                to={`/comercial?ativo=${encodeURIComponent(nomeEntidade)}`}
                 className="shrink-0 rounded-full bg-[var(--warning)] px-4 py-2 text-sm font-bold text-white hover:opacity-90"
               >
                 Cadastrar % de franquia

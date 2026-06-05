@@ -1,5 +1,6 @@
 import { Building2, CircleDollarSign, Download, Eye, Handshake, LayoutDashboard, Plus, Store, Trash2, Users, Workflow } from 'lucide-react'
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
@@ -60,6 +61,10 @@ export function ComercialPage() {
   const [selectedAtivo, setSelectedAtivo] = useState<JsonRecord | null>(null)
   const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', logo_url: '' })
   const [auditMarcaId, setAuditMarcaId] = useState<string | null>(null)
+  // Para cliente_ecommerce, o % de comissão vive na marca principal vinculada.
+  // Guardamos o id dessa marca para salvar o % via updateMarca.
+  const [marcaPctId, setMarcaPctId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const user = useCurrentUser()
   const isMasterUser = user?.papel === 'franqueador_master'
@@ -265,6 +270,53 @@ export function ComercialPage() {
     })
   }
 
+  // Atualiza % de comissão na marca principal (usado quando o item é cliente_ecommerce).
+  const updateMarcaPctMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateMarca(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QK.marcas() })
+      void queryClient.invalidateQueries({ queryKey: QK.marcas('ativas') })
+      void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
+      void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
+      void queryClient.invalidateQueries({ queryKey: QK.ativoOperacional() })
+    },
+  })
+
+  // Carrega o % da marca (própria) ou da marca principal vinculada ao cliente.
+  useEffect(() => {
+    const data = ativoDetailQuery.data as JsonRecord | undefined
+    if (!data) return
+    if (selectedAtivoKind === 'marca') {
+      setMarcaPctId(selectedAtivoId || null)
+      return
+    }
+    const marcas = asArray<JsonRecord>(data.marcas)
+    if (marcas.length === 0) { setMarcaPctId(null); return }
+    const principal = marcas.find((m) => asString(m.nome) === asString(selectedAtivo?.nome))
+      ?? marcas.find((m) => asString(m.tipo) === 'cliente')
+      ?? marcas[0]
+    setMarcaPctId(asString(principal.id) || null)
+    setAtivoForm((current) => ({
+      ...current,
+      comissao_franquia_pct: asString(principal.comissao_franquia_pct ?? 0, '0'),
+      comissao_franqueadora_pct: asString(principal.comissao_franqueadora_pct ?? 0, '0'),
+      valor_fixo_minimo: asString(principal.valor_fixo_minimo ?? 0, '0'),
+    }))
+  }, [ativoDetailQuery.data, selectedAtivoKind, selectedAtivoId])
+
+  // Deep-link: /comercial?ativo=<nome> abre a aba e o item direto (vindo do relatório).
+  useEffect(() => {
+    const alvo = searchParams.get('ativo')
+    if (!alvo) return
+    const found = ativos.find((r) => asString(r.nome).trim().toLowerCase() === alvo.trim().toLowerCase())
+    if (!found) return
+    setTab('ativos')
+    openAtivo(found)
+    const next = new URLSearchParams(searchParams)
+    next.delete('ativo')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, ativos])
+
   function onClienteSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     clienteMutation.mutate({
@@ -324,6 +376,17 @@ export function ComercialPage() {
           logo_url: ativoForm.logo_url || null,
         }
     ativoUpdateMutation.mutate({ id, kind, payload })
+    // cliente_ecommerce: o % vive na marca principal — salva via updateMarca.
+    if (kind === 'cliente' && marcaPctId) {
+      updateMarcaPctMutation.mutate({
+        id: marcaPctId,
+        payload: {
+          comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
+          comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
+          valor_fixo_minimo: Number(ativoForm.valor_fixo_minimo || 0),
+        },
+      })
+    }
   }
 
   function toggleAtivoStatus(item = selectedAtivo) {
@@ -674,8 +737,8 @@ export function ComercialPage() {
                       <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.celular} onChange={(event) => setAtivoForm((current) => ({ ...current, celular: event.target.value }))} />
                     </label>
                   </>
-                ) : (
-                  <>
+                ) : null}
+                <>
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">Comissão Franquia (%)</span>
                       <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
@@ -691,8 +754,7 @@ export function ComercialPage() {
                       <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={ativoForm.valor_fixo_minimo} onChange={(event) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: event.target.value }))} />
                       <span className="mt-1 text-[11px] text-ink-muted">Piso da comissão: aplica se gmv × pct ficar abaixo deste valor.</span>
                     </label>
-                  </>
-                )}
+                </>
                 <div className="flex flex-wrap items-end gap-2">
                   <Button type="submit" isLoading={ativoUpdateMutation.isPending}>Salvar alterações</Button>
                   <Button type="button" variant="secondary" onClick={() => toggleAtivoStatus()} disabled={ativoUpdateMutation.isPending}>
