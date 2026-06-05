@@ -1,5 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { buildDailyPulse, computeStatus, formatHoras } from './dailyPulse'
+import { buildDailyPulse, computeStatus, diagnose, formatHoras } from './dailyPulse'
+
+describe('diagnose (não hardcoda R$0)', () => {
+  it('crítico com GMV>0 e zero pedidos reflete o GMV real', () => {
+    const d = diagnose('critico', { gmv: 500, pedidos: 0, horas: 2.5, totalLives: 1, gmvHora: 200, pedidosHora: 0 })
+    expect(d.descricao).toContain('500')
+    expect(d.descricao).not.toContain('R$0')
+  })
+})
+
+describe('buildDailyPulse edge cases', () => {
+  it('rows vazias = resumo zerado, sem crash', () => {
+    const p = buildDailyPulse([])
+    expect(p.resumo.gmvTotal).toBe(0)
+    expect(p.clientes).toEqual([])
+    expect(p.alertas).toEqual([])
+    expect(p.resumo.statusGeral).toBe('ok')
+  })
+  it('marca_id null agrupa por nome sem perder a linha', () => {
+    const p = buildDailyPulse([
+      { dia: '2026-06-01', marca_id: null, marca_nome: 'Sem marca', apresentadora_id: null, apresentadora_nome: 'X', gmv_total: 100, pedidos: 3, horas_live: 1, total_lives: 1 },
+    ])
+    expect(p.clientes.length).toBe(1)
+    expect(p.clientes[0].clienteNome).toBe('Sem marca')
+  })
+})
 
 describe('formatHoras', () => {
   it('formats fractional hours as HhMM', () => {

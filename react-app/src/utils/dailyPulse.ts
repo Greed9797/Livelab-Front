@@ -2,7 +2,7 @@
 // Transforma as linhas de /analytics/diario (dia × marca × apresentadora) em
 // um painel de decisão: status por cliente/dia, alertas e rankings.
 // Sem I/O. Diagnóstico é calculado em tempo de leitura (nunca persistido).
-import { asNumber, asString } from './format'
+import { asNumber, asString, formatMoney } from './format'
 import type { JsonRecord } from '../types/models'
 
 export type PulseStatus = 'critico' | 'atencao' | 'ok' | 'otimo'
@@ -137,7 +137,7 @@ export function computeStatus(a: PulseAgg): PulseStatus {
 export function diagnose(status: PulseStatus, a: PulseAgg): { titulo: string; descricao: string } {
   switch (status) {
     case 'critico':
-      return { titulo: 'Live longa sem venda', descricao: `${formatHoras(a.horas)} no ar, R$0 movimentado e ${a.pedidos} pedidos.` }
+      return { titulo: 'Live longa sem venda', descricao: `${formatHoras(a.horas)} no ar, ${formatMoney(a.gmv)} movimentado e ${a.pedidos} pedidos.` }
     case 'atencao':
       return { titulo: 'Baixa produtividade', descricao: `${formatHoras(a.horas)} no ar com GMV/hora abaixo da meta.` }
     case 'otimo':

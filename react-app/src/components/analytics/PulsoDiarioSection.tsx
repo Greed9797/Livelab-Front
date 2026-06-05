@@ -115,10 +115,13 @@ export function PulsoDiarioSection() {
   const rows = useMemo(() => unwrapList<JsonRecord>(dailyQuery.data), [dailyQuery.data])
   const pulse = useMemo(() => buildDailyPulse(rows), [rows])
 
-  const marcas = unwrapList<JsonRecord>(marcasQuery.data)
-  const apresentadoras = unwrapList<JsonRecord>(apresentadorasQuery.data)
+  const marcas = useMemo(() => unwrapList<JsonRecord>(marcasQuery.data), [marcasQuery.data])
+  const apresentadoras = useMemo(() => unwrapList<JsonRecord>(apresentadorasQuery.data), [apresentadorasQuery.data])
 
-  const chartData = pulse.serieDiaria.map((d) => ({ label: d.label, value: Math.round(d.gmvHora * 100) / 100 }))
+  const chartData = useMemo(
+    () => pulse.serieDiaria.map((d) => ({ label: d.label, value: Math.round(d.gmvHora * 100) / 100 })),
+    [pulse.serieDiaria],
+  )
   const heroMeta = STATUS_META[pulse.resumo.statusGeral]
   const periodoLabel = from === to ? from.split('-').reverse().join('/') : `${from.split('-').reverse().join('/')} → ${to.split('-').reverse().join('/')}`
 
@@ -155,19 +158,19 @@ export function PulsoDiarioSection() {
           </div>
           {preset === 'custom' ? (
             <div className="flex flex-wrap items-center gap-2">
-              <input type="date" value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} className="design-input" />
+              <input type="date" aria-label="Data inicial" value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} className="design-input" />
               <span className="text-ink-muted">até</span>
-              <input type="date" value={customTo} min={customFrom} max={today} onChange={(e) => setCustomTo(e.target.value)} className="design-input" />
+              <input type="date" aria-label="Data final" value={customTo} min={customFrom} max={today} onChange={(e) => setCustomTo(e.target.value)} className="design-input" />
             </div>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
-            <select value={marcaId} onChange={(e) => setMarcaId(e.target.value)} className="design-input min-w-[180px]">
+            <select aria-label="Filtrar por cliente ou marca" value={marcaId} onChange={(e) => setMarcaId(e.target.value)} className="design-input min-w-[180px]">
               <option value="">Todos os clientes/marcas</option>
               {marcas.map((m) => (
                 <option key={asString(m.id)} value={asString(m.id)}>{asString(m.nome)}</option>
               ))}
             </select>
-            <select value={apresentadoraId} onChange={(e) => setApresentadoraId(e.target.value)} className="design-input min-w-[180px]">
+            <select aria-label="Filtrar por apresentadora" value={apresentadoraId} onChange={(e) => setApresentadoraId(e.target.value)} className="design-input min-w-[180px]">
               <option value="">Todas as apresentadoras</option>
               {apresentadoras.map((a) => (
                 <option key={asString(a.id)} value={asString(a.id)}>{asString(a.nome)}</option>
