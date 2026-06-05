@@ -45,10 +45,7 @@ export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEn
   const totals = sumDailyTotals(rows)
 
   const comissaoMetrics: Metric[] = tipo === 'marca'
-    ? [
-        moneyMetric('Comissão franquia', comissaoRow?.comissao_franquia ?? 0, 'no período', 'success'),
-        moneyMetric('Comissão franqueadora', comissaoRow?.comissao_franqueadora ?? 0, 'no período', 'info'),
-      ]
+    ? [moneyMetric('Comissão franquia', comissaoRow?.comissao_franquia ?? 0, 'no período', 'success')]
     : [moneyMetric('Comissão', comissaoRow?.comissao_apresentadora ?? 0, 'no período', 'success')]
 
   const metrics: Metric[] = [

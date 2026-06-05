@@ -183,8 +183,21 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
   // Topo (KPIs/gráficos) usa só período.
   const periodoBar = (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <PeriodControl period={period} onChange={setPeriod} />
+      <input
+        type="month"
+        className="design-input h-11 px-3 text-sm"
+        value={mes}
+        max={periodToMesAno(currentPeriod())}
+        onChange={(e) => {
+          const m = e.target.value.match(/^(\d{4})-(\d{2})$/)
+          if (!m) return
+          setPeriodAutoAdjusted(true)
+          setPeriod({ ano: Number(m[1]), mes: Number(m[2]) })
+        }}
+        aria-label="Selecionar mês"
+      />
     </div>
   )
 
