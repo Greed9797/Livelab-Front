@@ -192,7 +192,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   // Topo (KPIs/gráficos) usa só período.
   const periodoBar = (
     <div className="flex flex-wrap items-center gap-3">
-      <PeriodControl period={period} onChange={setPeriod} />
+      <PeriodControl period={period} onChange={(p) => { setPeriodAutoAdjusted(true); setPeriod(p) }} />
       <input
         type="month"
         className="design-input h-11 px-3 text-sm"
