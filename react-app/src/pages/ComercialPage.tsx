@@ -257,6 +257,7 @@ export function ComercialPage() {
   }
 
   function openAtivo(item: JsonRecord) {
+    setMarcaPctId(null) // evita salvar % na marca do item anterior antes do effect repopular
     setSelectedAtivo(item)
     setAtivoForm({
       nome: asString(item.nome, ''),
@@ -308,14 +309,18 @@ export function ComercialPage() {
   useEffect(() => {
     const alvo = searchParams.get('ativo')
     if (!alvo) return
+    // espera as listas carregarem antes de decidir (senão perde o deep-link)
+    if (clientesQuery.isLoading || marcasQuery.isLoading) return
     const found = ativos.find((r) => asString(r.nome).trim().toLowerCase() === alvo.trim().toLowerCase())
-    if (!found) return
-    setTab('ativos')
-    openAtivo(found)
+    if (found) {
+      setTab('ativos')
+      openAtivo(found)
+    }
+    // limpa o param sempre (achando ou não) para não ficar preso no URL
     const next = new URLSearchParams(searchParams)
     next.delete('ativo')
     setSearchParams(next, { replace: true })
-  }, [searchParams, ativos])
+  }, [searchParams, ativos, clientesQuery.isLoading, marcasQuery.isLoading])
 
   function onClienteSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -354,7 +359,7 @@ export function ComercialPage() {
     })
   }
 
-  function onAtivoSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onAtivoSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!selectedAtivo) return
     const id = asString(selectedAtivo.id, '')
@@ -375,17 +380,21 @@ export function ComercialPage() {
           valor_fixo_minimo: Number(ativoForm.valor_fixo_minimo || 0),
           logo_url: ativoForm.logo_url || null,
         }
-    ativoUpdateMutation.mutate({ id, kind, payload })
-    // cliente_ecommerce: o % vive na marca principal — salva via updateMarca.
-    if (kind === 'cliente' && marcaPctId) {
-      updateMarcaPctMutation.mutate({
-        id: marcaPctId,
-        payload: {
-          comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
-          comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
-          valor_fixo_minimo: Number(ativoForm.valor_fixo_minimo || 0),
-        },
-      })
+    try {
+      await ativoUpdateMutation.mutateAsync({ id, kind, payload })
+      // cliente_ecommerce: o % vive na marca principal — só salva após o cliente ok.
+      if (kind === 'cliente' && marcaPctId) {
+        await updateMarcaPctMutation.mutateAsync({
+          id: marcaPctId,
+          payload: {
+            comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
+            comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
+            valor_fixo_minimo: Number(ativoForm.valor_fixo_minimo || 0),
+          },
+        })
+      }
+    } catch {
+      // erros exibidos via *.isError nas mutations
     }
   }
 
