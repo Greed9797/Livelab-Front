@@ -296,6 +296,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
             apresentadoraId ? asString(asArray<JsonRecord>(apresentadorasOpts.data).find((a) => asString(a.id) === apresentadoraId)?.nome, '') : '',
           ].filter(Boolean).join(' · ')}
           comissaoRow={marcaId ? marcasRows[0] : apresentadorasRows[0]}
+          franquiaPct={marcaId ? asNumber(asArray<JsonRecord>(marcasOpts.data).find((m) => asString(m.id) === marcaId)?.comissao_franquia_pct) : undefined}
         />
       ) : null}
 

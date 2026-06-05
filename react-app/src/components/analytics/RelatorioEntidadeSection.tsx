@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CircleDollarSign, Clock, FileDown, Film, Radio, ReceiptText, ShoppingBag, TrendingUp } from 'lucide-react'
+import { AlertTriangle, CircleDollarSign, Clock, FileDown, Film, Radio, ReceiptText, ShoppingBag, TrendingUp } from 'lucide-react'
 import { MetricCard } from '../ui/MetricCard'
 import { DataTable } from '../ui/DataTable'
 import { Card, CardBody, CardHeader } from '../ui/Card'
@@ -19,6 +20,8 @@ interface RelatorioEntidadeSectionProps {
   apresentadoraId: string
   nomeEntidade: string
   comissaoRow?: JsonRecord
+  /** % de comissão de franquia cadastrado na marca selecionada (0 = não configurado). */
+  franquiaPct?: number
 }
 
 function diaCurto(value: unknown): string {
@@ -27,10 +30,11 @@ function diaCurto(value: unknown): string {
   return m ? `${m[3]}/${m[2]}` : raw || '—'
 }
 
-export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEntidade, comissaoRow }: RelatorioEntidadeSectionProps) {
+export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEntidade, comissaoRow, franquiaPct }: RelatorioEntidadeSectionProps) {
   const toast = useToast()
   const [exporting, setExporting] = useState(false)
   const tipo: 'marca' | 'apresentadora' = marcaId ? 'marca' : 'apresentadora'
+  const semFranquiaPct = tipo === 'marca' && asNumber(franquiaPct) <= 0
 
   const query = useQuery({
     queryKey: QK.dailyAnalytics(mes, marcaId, apresentadoraId),
@@ -112,6 +116,23 @@ export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEn
           </div>
         </CardHeader>
         <CardBody>
+          {semFranquiaPct ? (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning-soft)] px-4 py-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--warning)]" />
+                <p className="text-sm text-ink">
+                  <span className="font-bold">{nomeEntidade || 'Esta marca'}</span> está sem <span className="font-bold">% de comissão de franquia</span> cadastrado — por isso a comissão sai como R$ 0,00.
+                  <span className="block text-xs text-ink-muted">Cadastre o percentual em Comercial → marca, no campo “% franquia”.</span>
+                </p>
+              </div>
+              <Link
+                to="/comercial"
+                className="shrink-0 rounded-full bg-[var(--warning)] px-4 py-2 text-sm font-bold text-white hover:opacity-90"
+              >
+                Cadastrar % de franquia
+              </Link>
+            </div>
+          ) : null}
           {query.isLoading ? (
             <p className="py-6 text-center text-sm text-ink-muted">Carregando relatório...</p>
           ) : query.isError ? (
