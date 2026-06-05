@@ -7,7 +7,7 @@ import { DataTable } from '../ui/DataTable'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
-import { getDailyAnalytics } from '../../services/domain'
+import { getDailyAnalytics, getMarcas } from '../../services/domain'
 import { QK } from '../../services/query-keys'
 import { extractErrorMessage } from '../../services/api'
 import { asNumber, asString, formatMoney, unwrapList } from '../../utils/format'
@@ -34,7 +34,6 @@ export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEn
   const toast = useToast()
   const [exporting, setExporting] = useState(false)
   const tipo: 'marca' | 'apresentadora' = marcaId ? 'marca' : 'apresentadora'
-  const semFranquiaPct = tipo === 'marca' && asNumber(franquiaPct) <= 0
 
   const query = useQuery({
     queryKey: QK.dailyAnalytics(mes, marcaId, apresentadoraId),
@@ -43,15 +42,27 @@ export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEn
     staleTime: 5 * 60_000,
   })
 
+  // Lê o % de franquia FRESCO direto pela marcaId que o relatório usa — alinha o
+  // id (mesmo registro do analytics) e ignora cache do dropdown (evita divergência
+  // com o que foi salvo em Comercial).
+  const marcaPctQuery = useQuery({
+    queryKey: ['relatorio-marca-pct', marcaId],
+    queryFn: () => getMarcas({ status: 'ativa' }),
+    enabled: tipo === 'marca' && Boolean(marcaId),
+    staleTime: 0,
+  })
+
   const rows = unwrapList<JsonRecord>(query.data)
     .slice()
     .sort((a, b) => asString(a.dia).localeCompare(asString(b.dia)))
   const totals = sumDailyTotals(rows)
 
-  // Comissão da franquia calculada em tempo real = GMV total × % cadastrado na
-  // marca. Não depende do valor gravado por venda (que pode estar 0 em vendas
-  // antigas), então reflete o % atual em qualquer mês.
-  const franquiaPctNum = asNumber(franquiaPct)
+  // % de franquia: prioriza o valor FRESCO da API pela marcaId; cai pro prop se
+  // ainda não carregou. Comissão = GMV total × % (tempo real, qualquer mês).
+  const franquiaPctFromApi = unwrapList<JsonRecord>(marcaPctQuery.data)
+    .find((m) => asString(m.id) === marcaId)?.comissao_franquia_pct
+  const franquiaPctNum = asNumber(franquiaPctFromApi ?? franquiaPct)
+  const semFranquiaPct = tipo === 'marca' && !marcaPctQuery.isLoading && franquiaPctNum <= 0
   const comissaoFranquiaCalc = totals.gmv_total * (franquiaPctNum / 100)
   const comissaoMetrics: Metric[] = tipo === 'marca'
     ? [moneyMetric('Comissão franquia', comissaoFranquiaCalc, `${franquiaPctNum.toLocaleString('pt-BR')}% do GMV`, 'success')]

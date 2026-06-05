@@ -63,7 +63,15 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     queryFn: () => getComissoesMarcas(filtros),
   })
 
-  const marcasOpts = useQuery({ queryKey: QK.marcas('analytics-filter'), queryFn: () => getMarcas({ status: 'ativa' }) })
+  // staleTime 0 + refetchOnMount: o % de franquia (comissao_franquia_pct) precisa
+  // vir sempre fresco — senão, após editar em Comercial, o relatório segue lendo
+  // o valor antigo em cache e mostra "sem %" / R$ 0,00 (divergência).
+  const marcasOpts = useQuery({
+    queryKey: QK.marcas('analytics-filter'),
+    queryFn: () => getMarcas({ status: 'ativa' }),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
   const apresentadorasOpts = useQuery({ queryKey: QK.apresentadoras('analytics-filter'), queryFn: () => getApresentadoras() })
   const raw = query.data ?? {}
   const latestDataPeriod = latestPeriodWithData(raw)
