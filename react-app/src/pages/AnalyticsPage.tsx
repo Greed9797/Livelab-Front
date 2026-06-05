@@ -12,6 +12,7 @@ import { Button } from '../components/ui/Button'
 import { FunilAnalyticsSection } from '../components/analytics/FunilAnalyticsSection'
 import { AnalyticsImportSection } from '../components/analytics/AnalyticsImportSection'
 import { RelatorioEntidadeSection } from '../components/analytics/RelatorioEntidadeSection'
+import { PulsoDiarioSection } from '../components/analytics/PulsoDiarioSection'
 import {
   exportarComissoesCSV,
   getAnalyticsDashboard,
@@ -218,13 +219,21 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         </div>
       ) : (
         <PageHeader
-          eyebrow="Analytics"
-          accent="Dashboard"
-          title="de métricas"
-          subtitle="GMV, horas, lives e desempenho por período."
+          eyebrow="Pulso Diário"
+          accent="Operação"
+          title="diária"
+          subtitle="Status, alertas e produtividade das lives por dia."
           actions={periodoBar}
         />
       )}
+
+      <PulsoDiarioSection />
+
+      <div className="flex items-center gap-3 pt-2">
+        <span className="text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted">Métricas detalhadas</span>
+        <span className="h-px flex-1 bg-line" />
+      </div>
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((item, index) => (
           <MetricCard key={item.label} metric={item} icon={icons[index]} />
