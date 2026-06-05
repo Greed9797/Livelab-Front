@@ -48,8 +48,13 @@ export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEn
     .sort((a, b) => asString(a.dia).localeCompare(asString(b.dia)))
   const totals = sumDailyTotals(rows)
 
+  // Comissão da franquia calculada em tempo real = GMV total × % cadastrado na
+  // marca. Não depende do valor gravado por venda (que pode estar 0 em vendas
+  // antigas), então reflete o % atual em qualquer mês.
+  const franquiaPctNum = asNumber(franquiaPct)
+  const comissaoFranquiaCalc = totals.gmv_total * (franquiaPctNum / 100)
   const comissaoMetrics: Metric[] = tipo === 'marca'
-    ? [moneyMetric('Comissão franquia', comissaoRow?.comissao_franquia ?? 0, 'no período', 'success')]
+    ? [moneyMetric('Comissão franquia', comissaoFranquiaCalc, `${franquiaPctNum.toLocaleString('pt-BR')}% do GMV`, 'success')]
     : [moneyMetric('Comissão', comissaoRow?.comissao_apresentadora ?? 0, 'no período', 'success')]
 
   const metrics: Metric[] = [
