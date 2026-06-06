@@ -41,7 +41,9 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
   // Filtro ÚNICO: período (range) + marca + apresentadora rege a página toda.
   const { from, to } = presetRange(preset, customFrom, customTo)
-  const mes = from.slice(0, 7)
+  // Seções mensais legadas usam o mês do FIM do intervalo (mês corrente), não o
+  // início — senão "7 dias" cruzando meses (31/05→06/06) cairia em maio e zeraria.
+  const mes = to.slice(0, 7)
   const period = { ano: Number(mes.slice(0, 4)), mes: Number(mes.slice(5, 7)) }
   const filtros = { mes, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }
   const hasFilter = Boolean(marcaId || apresentadoraId)
@@ -197,7 +199,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
           {hasFilter ? (
             <RelatorioEntidadeSection
-              mes={mes}
+              from={from}
+              to={to}
               marcaId={marcaId}
               apresentadoraId={apresentadoraId}
               nomeEntidade={[

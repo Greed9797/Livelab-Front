@@ -8,14 +8,14 @@ import { Card, CardBody, CardHeader } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
 import { getDailyAnalytics, getMarcas } from '../../services/domain'
-import { QK } from '../../services/query-keys'
 import { extractErrorMessage } from '../../services/api'
 import { asNumber, asString, formatMoney, unwrapList } from '../../utils/format'
 import { metric, moneyMetric, sumDailyTotals } from '../../pages/page-helpers'
 import type { JsonRecord, Metric } from '../../types/models'
 
 interface RelatorioEntidadeSectionProps {
-  mes: string
+  from: string
+  to: string
   marcaId: string
   apresentadoraId: string
   nomeEntidade: string
@@ -30,14 +30,23 @@ function diaCurto(value: unknown): string {
   return m ? `${m[3]}/${m[2]}` : raw || '—'
 }
 
-export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEntidade, comissaoRow, franquiaPct }: RelatorioEntidadeSectionProps) {
+function brDate(iso: string): string {
+  return iso.split('-').reverse().join('/')
+}
+
+export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, nomeEntidade, comissaoRow, franquiaPct }: RelatorioEntidadeSectionProps) {
   const toast = useToast()
   const [exporting, setExporting] = useState(false)
   const tipo: 'marca' | 'apresentadora' = marcaId ? 'marca' : 'apresentadora'
 
+  // Usa o intervalo completo (from/to) — não um mês único. Isso evita perder dados
+  // quando a janela cruza meses (ex.: "7 dias" = 31/05 → 06/06).
+  const periodoLabel = from === to ? brDate(from) : `${brDate(from)} → ${brDate(to)}`
+  const mesToken = from === to ? from : `${from}_a_${to}`
+
   const query = useQuery({
-    queryKey: QK.dailyAnalytics(mes, marcaId, apresentadoraId),
-    queryFn: () => getDailyAnalytics({ mesAno: mes, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
+    queryKey: ['relatorio-diario', from, to, marcaId, apresentadoraId],
+    queryFn: () => getDailyAnalytics({ from, to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
     enabled: Boolean(marcaId || apresentadoraId),
     staleTime: 5 * 60_000,
   })
@@ -95,7 +104,7 @@ export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEn
       buildRelatorioPdf({
         titulo: nomeEntidade || (tipo === 'marca' ? 'Marca' : 'Apresentadora'),
         subtitulo: tipo === 'marca' ? 'Relatório por marca' : 'Relatório por apresentadora',
-        mes,
+        mes: mesToken,
         metrics: metrics.map((m) => ({ label: m.label, value: m.value })),
         dailyRows: rows.map((r) => ({
           dia: diaCurto(r.dia),
@@ -121,10 +130,10 @@ export function RelatorioEntidadeSection({ mes, marcaId, apresentadoraId, nomeEn
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted">
-                Relatório do mês · {tipo === 'marca' ? 'marca' : 'apresentadora'}
+                Relatório do período · {tipo === 'marca' ? 'marca' : 'apresentadora'}
               </p>
               <h3 className="mt-0.5 text-lg font-extrabold tracking-[-0.01em] text-ink">{nomeEntidade || '—'}</h3>
-              <p className="mt-0.5 text-sm text-ink-muted">{mes} · consolidado a partir do dia-a-dia atribuído.</p>
+              <p className="mt-0.5 text-sm text-ink-muted">{periodoLabel} · consolidado a partir do dia-a-dia atribuído.</p>
             </div>
             <Button type="button" icon={FileDown} onClick={exportPdf} isLoading={exporting} disabled={query.isLoading || rows.length === 0}>
               Exportar PDF
