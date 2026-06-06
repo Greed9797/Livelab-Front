@@ -45,7 +45,9 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   // Seções mensais legadas usam o mês do FIM do intervalo (mês corrente), não o
   // início — senão "7 dias" cruzando meses (31/05→06/06) cairia em maio e zeraria.
   const mes = to.slice(0, 7)
-  const filtros = { mes, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }
+  // Comissões/funil/CSV usam o INTERVALO (data_inicio/data_fim) — mesmo período do
+  // topo — para não divergir do Pulso (que usava só o mês corrente antes).
+  const comissaoFiltros = { data_inicio: from, data_fim: to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }
   const hasFilter = Boolean(marcaId || apresentadoraId)
 
   // Rótulo de granularidade do período — usado nos títulos dos gráficos detalhados.
@@ -63,12 +65,12 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   })
 
   const comissoesApresentadorasQ = useQuery({
-    queryKey: QK.comissoesApresentadorasBy(mes, marcaId, apresentadoraId),
-    queryFn: () => getComissoesApresentadoras(filtros),
+    queryKey: ['comissoes-apresentadoras', from, to, marcaId, apresentadoraId],
+    queryFn: () => getComissoesApresentadoras(comissaoFiltros),
   })
   const comissoesMarcasQ = useQuery({
-    queryKey: QK.comissoesMarcasBy(mes, marcaId, apresentadoraId),
-    queryFn: () => getComissoesMarcas(filtros),
+    queryKey: ['comissoes-marcas', from, to, marcaId, apresentadoraId],
+    queryFn: () => getComissoesMarcas(comissaoFiltros),
   })
 
   // staleTime 0 + refetchOnMount: o % de franquia precisa vir sempre fresco — senão,
@@ -94,7 +96,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   async function handleExport() {
     setExporting(true)
     try {
-      const blob = await exportarComissoesCSV(filtros)
+      const blob = await exportarComissoesCSV(comissaoFiltros)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -230,7 +232,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
             />
           ) : null}
 
-          <FunilAnalyticsSection mesAno={mes} marcaId={marcaId} apresentadoraId={apresentadoraId} />
+          <FunilAnalyticsSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
 
           <section className="space-y-4">
             <div className="rounded-2xl border border-line bg-surface-muted p-4">

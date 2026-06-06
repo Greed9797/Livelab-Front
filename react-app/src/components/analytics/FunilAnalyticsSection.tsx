@@ -3,12 +3,12 @@ import { Card, CardBody, CardHeader } from '../ui/Card'
 import { LoadingState, ErrorState } from '../ui/States'
 import { extractErrorMessage } from '../../services/api'
 import { getFunilAnalytics } from '../../services/domain'
-import { QK } from '../../services/query-keys'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 
 interface Props {
-  mesAno: string
+  from: string
+  to: string
   marcaId?: string
   apresentadoraId?: string
 }
@@ -19,11 +19,12 @@ function pct(value: unknown): string {
   return `${(n * 100).toFixed(1)}%`
 }
 
-export function FunilAnalyticsSection({ mesAno, marcaId, apresentadoraId }: Props) {
+export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Props) {
   const query = useQuery({
-    queryKey: QK.funilAnalytics(mesAno, marcaId, apresentadoraId),
+    queryKey: ['funil-analytics', from, to, marcaId, apresentadoraId],
     queryFn: () => getFunilAnalytics({
-      mesAno,
+      from,
+      to,
       marca_id: marcaId || undefined,
       apresentadora_id: apresentadoraId || undefined,
     }),
