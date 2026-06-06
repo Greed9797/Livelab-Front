@@ -2,6 +2,52 @@ import { asString } from '../utils/format'
 import type { JsonRecord } from '../types/models'
 import type { BadgeTone } from '../components/ui/Badge'
 
+// ---- Agenda: cálculo de dias por visão (semana/mês) + range de fetch ----
+// O range de fetch DEVE cobrir exatamente os dias exibidos em cada visão, senão
+// a agenda fica dessincronizada (mostra dia sem dados que existem fora do range).
+function isoDay(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** Segunda→domingo da semana que contém `dateISO`. */
+export function weekDays(dateISO: string): string[] {
+  const d = new Date(`${dateISO}T00:00:00`)
+  const dow = (d.getDay() + 6) % 7 // segunda = 0
+  const monday = new Date(d)
+  monday.setDate(d.getDate() - dow)
+  return Array.from({ length: 7 }, (_, i) => {
+    const x = new Date(monday)
+    x.setDate(monday.getDate() + i)
+    return isoDay(x)
+  })
+}
+
+/** Grade 6×7 (42 dias) do mês de `dateISO`, começando na segunda. */
+export function monthGridDays(dateISO: string): string[] {
+  const d = new Date(`${dateISO}T00:00:00`)
+  const first = new Date(d.getFullYear(), d.getMonth(), 1)
+  const dow = (first.getDay() + 6) % 7
+  const start = new Date(first)
+  start.setDate(first.getDate() - dow)
+  return Array.from({ length: 42 }, (_, i) => {
+    const x = new Date(start)
+    x.setDate(start.getDate() + i)
+    return isoDay(x)
+  })
+}
+
+/** Range ISO (start inclusivo, end exclusivo) que cobre os dias exibidos na visão. */
+export function agendaFetchRange(dateISO: string, view: 'dia' | 'semana' | 'mes') {
+  const days = view === 'dia' ? [dateISO] : view === 'semana' ? weekDays(dateISO) : monthGridDays(dateISO)
+  const start = new Date(`${days[0]}T00:00:00`)
+  const end = new Date(`${days[days.length - 1]}T00:00:00`)
+  end.setDate(end.getDate() + 1)
+  return { start: start.toISOString(), end: end.toISOString() }
+}
+
 export const publicationStatusLabels: Record<string, string> = {
   rascunho: 'Rascunho',
   revisado: 'Revisado',

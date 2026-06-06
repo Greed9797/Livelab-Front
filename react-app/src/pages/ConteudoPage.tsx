@@ -9,6 +9,7 @@ import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { AnalyticsPage } from './AnalyticsPage'
 import { CabinesPage } from './CabinesPage'
 import { AgendaTab } from '../components/conteudo/AgendaTab'
+import { agendaFetchRange } from './conteudo-helpers'
 import { LivesTab, dateRangeToWindow, type DateRange } from '../components/conteudo/LivesTab'
 import { VideosTab, emptyVideo, type VideoForm } from '../components/conteudo/VideosTab'
 import {
@@ -41,13 +42,6 @@ import type { AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
 type ConteudoTab = 'agenda' | 'cabines' | 'lives' | 'videos' | 'analytics'
 
 const today = () => new Date().toISOString().slice(0, 10)
-
-function dayRange(date: string, days: number) {
-  const start = new Date(`${date}T00:00:00`)
-  const end = new Date(start)
-  end.setDate(start.getDate() + days)
-  return { start: start.toISOString(), end: end.toISOString() }
-}
 
 function normalizeConteudoTab(value: string | null): ConteudoTab {
   if (!value || value === 'calendario' || value === 'agenda') return 'agenda'
@@ -133,7 +127,7 @@ export function ConteudoPage() {
   const requestedDate = params.get('data') ?? ''
   const [tab, setTab] = useState<ConteudoTab>(requestedTab)
   const [agendaDate, setAgendaDate] = useState(requestedDate || today())
-  const [agendaView, setAgendaView] = useState<'dia' | 'semana'>('dia')
+  const [agendaView, setAgendaView] = useState<'dia' | 'semana' | 'mes'>('semana')
   const [agendaModalMode, setAgendaModalMode] = useState<AgendarLiveModalMode | null>(null)
   const [selectedAgendaEvent, setSelectedAgendaEvent] = useState<JsonRecord | null>(null)
   const [fetchingAgendaLive, setFetchingAgendaLive] = useState(false)
@@ -151,7 +145,7 @@ export function ConteudoPage() {
   const [livesApresentadoraId, setLivesApresentadoraId] = useState('')
   const client = useQueryClient()
 
-  const range = dayRange(agendaDate, agendaView === 'semana' ? 7 : 1)
+  const range = agendaFetchRange(agendaDate, agendaView)
   const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }) })
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
   const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada', limit: 200 }) })
