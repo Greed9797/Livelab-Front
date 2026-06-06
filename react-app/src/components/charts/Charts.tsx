@@ -45,3 +45,23 @@ export const BarPanel = makePanel('BarPanel')
 export const LinePanel = makePanel('LinePanel')
 export const DonutPanel = makePanel('DonutPanel')
 
+type ComboProps = {
+  title: string
+  subtitle?: string
+  data: Array<{ label: string; gmvHora: number; horas: number }>
+  accumulatedLabel?: string
+  accumulatedValue?: string
+}
+
+export function GmvHoraComboPanel(props: ComboProps) {
+  const Inner = lazy(async () => {
+    const mod = await import('./Charts.impl')
+    return { default: mod.GmvHoraComboPanel as ComponentType<ComboProps> }
+  })
+  return (
+    <Suspense fallback={<ChartFallback title={props.title} subtitle={props.subtitle} />}>
+      <Inner {...props} />
+    </Suspense>
+  )
+}
+

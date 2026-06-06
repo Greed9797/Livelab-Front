@@ -1,59 +1,52 @@
-import { Clock, CircleDollarSign, Download, Film, Radio, ReceiptText, ShoppingBag } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { Clock, CircleDollarSign, Film, Radio, ReceiptText, ShoppingBag } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
-import { PeriodControl } from '../components/forms/PeriodControl'
 import { MetricCard } from '../components/ui/MetricCard'
 import { BarPanel, LinePanel } from '../components/charts/Charts'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
-import { Button } from '../components/ui/Button'
 import { FunilAnalyticsSection } from '../components/analytics/FunilAnalyticsSection'
 import { AnalyticsImportSection } from '../components/analytics/AnalyticsImportSection'
 import { RelatorioEntidadeSection } from '../components/analytics/RelatorioEntidadeSection'
 import { PulsoDiarioSection } from '../components/analytics/PulsoDiarioSection'
+import { AnalyticsFilterBar, presetRange, ymd, type Preset } from '../components/analytics/AnalyticsFilterBar'
 import {
   exportarComissoesCSV,
   getAnalyticsDashboard,
-  getDailyAnalytics,
   getApresentadoras,
   getComissoesApresentadoras,
   getComissoesMarcas,
   getMarcas,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asArray, asNumber, asString, currentPeriod, formatMoney, getRecord, unwrapList } from '../utils/format'
-import { analyticsDailyChartRows, historyPoints, latestPeriodWithData, metric, moneyMetric, topDailyPoints } from './page-helpers'
+import { asArray, asNumber, asString, formatMoney, getRecord, unwrapList } from '../utils/format'
+import { historyPoints, metric, moneyMetric } from './page-helpers'
 import { QK } from '../services/query-keys'
 import { useToast } from '../components/ui/Toast'
 import type { JsonRecord } from '../types/models'
 
 const icons = [CircleDollarSign, ShoppingBag, Radio, Film, Clock, ReceiptText]
 
-function periodToMesAno(period: { mes: number; ano: number }) {
-  return `${period.ano}-${String(period.mes).padStart(2, '0')}`
-}
-
 export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const toast = useToast()
-  const [period, setPeriod] = useState(currentPeriod())
+  const queryClient = useQueryClient()
+  const [preset, setPreset] = useState<Preset>('mes')
+  const [customFrom, setCustomFrom] = useState(ymd(new Date()))
+  const [customTo, setCustomTo] = useState(ymd(new Date()))
   const [marcaId, setMarcaId] = useState<string>('')
   const [apresentadoraId, setApresentadoraId] = useState<string>('')
   const [exporting, setExporting] = useState(false)
-  const [chartMode, setChartMode] = useState<'mensal' | 'diario'>('mensal')
-  const [periodAutoAdjusted, setPeriodAutoAdjusted] = useState(false)
 
-  const mes = periodToMesAno(period)
+  // Filtro ÚNICO: período (range) + marca + apresentadora rege a página toda.
+  const { from, to } = presetRange(preset, customFrom, customTo)
+  const mes = from.slice(0, 7)
+  const period = { ano: Number(mes.slice(0, 4)), mes: Number(mes.slice(5, 7)) }
   const filtros = { mes, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }
+  const hasFilter = Boolean(marcaId || apresentadoraId)
 
   const query = useQuery({ queryKey: QK.analyticsDashboard(period), queryFn: () => getAnalyticsDashboard({ mesAno: mes }) })
-  const dailyQuery = useQuery({
-    queryKey: QK.dailyAnalytics(mes),
-    queryFn: () => getDailyAnalytics({ mesAno: mes }),
-    enabled: chartMode === 'diario',
-    staleTime: 5 * 60_000,
-  })
 
   const comissoesApresentadorasQ = useQuery({
     queryKey: QK.comissoesApresentadorasBy(mes, marcaId, apresentadoraId),
@@ -64,9 +57,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     queryFn: () => getComissoesMarcas(filtros),
   })
 
-  // staleTime 0 + refetchOnMount: o % de franquia (comissao_franquia_pct) precisa
-  // vir sempre fresco — senão, após editar em Comercial, o relatório segue lendo
-  // o valor antigo em cache e mostra "sem %" / R$ 0,00 (divergência).
+  // staleTime 0 + refetchOnMount: o % de franquia precisa vir sempre fresco — senão,
+  // após editar em Comercial, o relatório segue lendo o valor antigo (divergência).
   const marcasOpts = useQuery({
     queryKey: QK.marcas('analytics-filter'),
     queryFn: () => getMarcas({ status: 'ativa' }),
@@ -74,55 +66,16 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     refetchOnMount: 'always',
   })
   const apresentadorasOpts = useQuery({ queryKey: QK.apresentadoras('analytics-filter'), queryFn: () => getApresentadoras() })
-  const raw = query.data ?? {}
-  const latestDataPeriod = latestPeriodWithData(raw)
 
-  useEffect(() => {
-    if (!query.isSuccess || periodAutoAdjusted || !latestDataPeriod) return
-    if (latestDataPeriod.ano === period.ano && latestDataPeriod.mes === period.mes) return
-    const kpis = getRecord(raw.kpis)
-    const hasCurrentData =
-      asNumber(kpis.gmv_total ?? raw.gmv_total ?? raw.gmv_mes) > 0 ||
-      asNumber(kpis.total_lives ?? raw.total_lives) > 0 ||
-      asNumber(kpis.pedidos_total ?? raw.pedidos_total) > 0
-    if (hasCurrentData) return
-    setPeriodAutoAdjusted(true)
-    setPeriod(latestDataPeriod)
-  }, [latestDataPeriod?.ano, latestDataPeriod?.mes, period.ano, period.mes, periodAutoAdjusted, query.isSuccess, raw])
+  const marcas = useMemo(() => unwrapList<JsonRecord>(marcasOpts.data), [marcasOpts.data])
+  const apresentadoras = useMemo(() => unwrapList<JsonRecord>(apresentadorasOpts.data), [apresentadorasOpts.data])
 
-  if (query.isLoading) return <LoadingState />
-  if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
-
-  const kpis = getRecord(raw.kpis)
-  const endpointDailyRows = unwrapList<JsonRecord>(dailyQuery.data)
-  const { gmvRows: dailyGmvRows, pedidosRows: dailyPedidosRows, hasDashboardRows } = analyticsDailyChartRows(raw, endpointDailyRows)
-  const dailyGmvPoints = topDailyPoints(dailyGmvRows, ['gmv_total', 'gmv_lives', 'gmv'])
-  const dailyPedidosPoints = topDailyPoints(dailyPedidosRows, ['pedidos', 'total_pedidos', 'orders'])
-  const dailySubtitle = dailyQuery.isLoading && !hasDashboardRows
-    ? 'Carregando melhores dias do mês selecionado...'
-    : 'Top 10 dias do mês selecionado, ordenado do maior para o menor.'
-
-  const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
-  const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
-
-  const totalGMVApresentadoras = apresentadorasRows.reduce((sum, r) => sum + asNumber(r.gmv_total ?? r.gmv), 0)
-  const totalComissaoApresentadoras = apresentadorasRows.reduce((sum, r) => sum + asNumber(r.comissao_apresentadora), 0)
-  const totalGMVMarcas = marcasRows.reduce((sum, r) => sum + asNumber(r.gmv_total ?? r.gmv), 0)
-  const totalComissaoFranquia = marcasRows.reduce((sum, r) => sum + asNumber(r.comissao_franquia), 0)
-  const totalComissaoFranqueadora = marcasRows.reduce((sum, r) => sum + asNumber(r.comissao_franqueadora), 0)
-
-  const totalLives = asNumber(kpis.total_lives ?? raw.total_lives)
-  const totalVideos = asNumber(kpis.total_videos ?? raw.total_videos)
-  const totalConteudos = asNumber(kpis.total_conteudos ?? totalLives + totalVideos)
-
-  const metrics = [
-    moneyMetric('GMV atribuído', kpis.gmv_total ?? raw.gmv_total ?? raw.gmv_mes, 'lives + vídeos', 'brand'),
-    metric('Pedidos', asNumber(kpis.pedidos_total ?? raw.pedidos_total ?? kpis.total_vendas).toLocaleString('pt-BR'), 'pedidos atribuídos', 'success'),
-    metric('Lives realizadas', totalLives.toLocaleString('pt-BR'), 'período selecionado', 'neutral'),
-    metric('Horas de live', asNumber(kpis.horas_live ?? raw.horas_live).toFixed(1), 'lives encerradas', 'neutral'),
-    metric('GMV / live', formatMoney(kpis.gmv_por_live ?? raw.gmv_por_live), 'GMV total / lives', 'info'),
-    metric('GMV / hora', formatMoney(kpis.gmv_por_hora ?? raw.gmv_por_hora ?? raw.gmv_hora), 'GMV total / horas', 'success'),
-  ]
+  function refreshAll() {
+    void query.refetch()
+    void comissoesApresentadorasQ.refetch()
+    void comissoesMarcasQ.refetch()
+    void queryClient.invalidateQueries({ queryKey: ['daily-pulse'] })
+  }
 
   async function handleExport() {
     setExporting(true)
@@ -144,252 +97,193 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
-  // Filtro marca/apresentadora: escopo ÚNICO da seção "Desempenho e comissionamento"
-  // (tabelas + CSV). KPIs e gráficos do topo seguem só o período (mês), sem esse filtro.
-  const hasFilter = Boolean(marcaId || apresentadoraId)
-  const comissoesFiltrosBar = (
-    <div className="flex flex-wrap items-end gap-3">
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-ink-muted">Marca</span>
-        <select
-          className="design-input h-10 min-w-[180px] px-3 text-sm"
-          value={marcaId}
-          onChange={(e) => setMarcaId(e.target.value)}
-        >
-          <option value="">Todas as marcas</option>
-          {asArray<JsonRecord>(marcasOpts.data).map((m) => (
-            <option key={asString(m.id)} value={asString(m.id)}>{asString(m.nome, 'Sem nome')}</option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-ink-muted">Apresentadora</span>
-        <select
-          className="design-input h-10 min-w-[180px] px-3 text-sm"
-          value={apresentadoraId}
-          onChange={(e) => setApresentadoraId(e.target.value)}
-        >
-          <option value="">Todas as apresentadoras</option>
-          {asArray<JsonRecord>(apresentadorasOpts.data).map((a) => (
-            <option key={asString(a.id)} value={asString(a.id)}>{asString(a.nome, 'Sem nome')}</option>
-          ))}
-        </select>
-      </label>
-      {hasFilter ? (
-        <button
-          type="button"
-          className="h-10 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted"
-          onClick={() => { setMarcaId(''); setApresentadoraId('') }}
-        >
-          Limpar filtros
-        </button>
-      ) : null}
-      <Button type="button" icon={Download} variant="secondary" onClick={handleExport} isLoading={exporting}>
-        Exportar CSV
-      </Button>
-    </div>
+  const filterBar = (
+    <AnalyticsFilterBar
+      preset={preset}
+      onPreset={setPreset}
+      customFrom={customFrom}
+      customTo={customTo}
+      onCustomFrom={setCustomFrom}
+      onCustomTo={setCustomTo}
+      marcaId={marcaId}
+      apresentadoraId={apresentadoraId}
+      onMarca={setMarcaId}
+      onApresentadora={setApresentadoraId}
+      marcas={marcas}
+      apresentadoras={apresentadoras}
+      onRefresh={refreshAll}
+      refreshing={query.isFetching}
+      onExport={handleExport}
+      exporting={exporting}
+    />
   )
 
-  // Topo (KPIs/gráficos) usa só período.
-  const periodoBar = (
-    <div className="flex flex-wrap items-center gap-3">
-      <PeriodControl period={period} onChange={(p) => { setPeriodAutoAdjusted(true); setPeriod(p) }} />
-      <input
-        type="month"
-        className="design-input h-11 px-3 text-sm"
-        value={mes}
-        max={periodToMesAno(currentPeriod())}
-        onChange={(e) => {
-          const m = e.target.value.match(/^(\d{4})-(\d{2})$/)
-          if (!m) return
-          setPeriodAutoAdjusted(true)
-          setPeriod({ ano: Number(m[1]), mes: Number(m[2]) })
-        }}
-        aria-label="Selecionar mês"
-      />
-    </div>
-  )
+  const raw = query.data ?? {}
+  const kpis = getRecord(raw.kpis)
+  const totalLives = asNumber(kpis.total_lives ?? raw.total_lives)
+  const totalVideos = asNumber(kpis.total_videos ?? raw.total_videos)
+  const totalConteudos = asNumber(kpis.total_conteudos ?? totalLives + totalVideos)
+
+  const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
+  const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
+  const totalGMVApresentadoras = apresentadorasRows.reduce((sum, r) => sum + asNumber(r.gmv_total ?? r.gmv), 0)
+  const totalComissaoApresentadoras = apresentadorasRows.reduce((sum, r) => sum + asNumber(r.comissao_apresentadora), 0)
+  const totalGMVMarcas = marcasRows.reduce((sum, r) => sum + asNumber(r.gmv_total ?? r.gmv), 0)
+  const totalComissaoFranquia = marcasRows.reduce((sum, r) => sum + asNumber(r.comissao_franquia), 0)
+  const totalComissaoFranqueadora = marcasRows.reduce((sum, r) => sum + asNumber(r.comissao_franqueadora), 0)
+
+  const metrics = [
+    moneyMetric('GMV atribuído', kpis.gmv_total ?? raw.gmv_total ?? raw.gmv_mes, `mês de ${mes}`, 'brand'),
+    metric('Pedidos', asNumber(kpis.pedidos_total ?? raw.pedidos_total ?? kpis.total_vendas).toLocaleString('pt-BR'), 'pedidos atribuídos', 'success'),
+    metric('Lives realizadas', totalLives.toLocaleString('pt-BR'), `mês de ${mes}`, 'neutral'),
+    metric('Horas de live', asNumber(kpis.horas_live ?? raw.horas_live).toFixed(1), 'lives encerradas', 'neutral'),
+    metric('GMV / live', formatMoney(kpis.gmv_por_live ?? raw.gmv_por_live), 'GMV total / lives', 'info'),
+    metric('GMV / hora', formatMoney(kpis.gmv_por_hora ?? raw.gmv_por_hora ?? raw.gmv_hora), 'GMV total / horas', 'success'),
+  ]
 
   return (
     <div className="space-y-6">
       {embedded ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-base font-bold text-ink">Analytics</p>
-          {periodoBar}
-        </div>
+        <p className="text-base font-bold text-ink">Pulso Diário</p>
       ) : (
         <PageHeader
           eyebrow="Pulso Diário"
           accent="Operação"
           title="diária"
           subtitle="Status, alertas e produtividade das lives por dia."
-          actions={periodoBar}
         />
       )}
 
-      <PulsoDiarioSection />
+      {/* Filtro único — rege Pulso + métricas detalhadas */}
+      {filterBar}
+
+      <PulsoDiarioSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
 
       <div className="flex items-center gap-3 pt-2">
-        <span className="text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted">Métricas detalhadas</span>
+        <span className="text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted">Métricas detalhadas · mês de {mes}</span>
         <span className="h-px flex-1 bg-line" />
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((item, index) => (
-          <MetricCard key={item.label} metric={item} icon={icons[index]} />
-        ))}
-      </section>
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/60 p-3">
-          <div>
-            <p className="text-sm font-bold text-ink">Comparativo principal</p>
-            <p className="text-xs text-ink-muted">
-              {chartMode === 'mensal'
-                ? 'Evolução mensal consolidada de GMV e pedidos.'
-                : 'Ranking dos melhores dias do mês selecionado em GMV e pedidos.'}
-            </p>
-          </div>
-          <div className="flex rounded-full border border-line bg-surface p-1">
-            {(['mensal', 'diario'] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  chartMode === mode
-                    ? 'bg-brand text-white shadow-[0_8px_24px_rgba(255,90,31,0.28)]'
-                    : 'text-ink-muted hover:bg-surface-muted hover:text-ink'
-                }`}
-                onClick={() => setChartMode(mode)}
-              >
-                {mode === 'mensal' ? 'Mensal' : 'Diário'}
-              </button>
+      {query.isLoading ? (
+        <LoadingState />
+      ) : query.isError ? (
+        <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+      ) : (
+        <>
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {metrics.map((item, index) => (
+              <MetricCard key={item.label} metric={item} icon={icons[index]} />
             ))}
-          </div>
-        </div>
-        <div className="grid gap-4 xl:grid-cols-2">
-          {chartMode === 'mensal' ? (
-            <>
-              <LinePanel title="GMV mensal" data={historyPoints(raw.gmv_mensal ?? raw.faturamento_mensal ?? raw.history)} />
-              <BarPanel title="Pedidos mensais" data={historyPoints(raw.pedidos_mensal ?? raw.vendas_mensal, ['mes', 'label'], ['pedidos', 'total_vendas', 'value'])} />
-            </>
-          ) : (
-            <>
-              <BarPanel title="GMV diário" subtitle={dailySubtitle} data={dailyGmvPoints} />
-              <BarPanel title="Pedidos diários" subtitle={dailySubtitle} data={dailyPedidosPoints} />
-            </>
-          )}
-        </div>
-      </section>
+          </section>
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        <BarPanel title="Horas de live" data={historyPoints(raw.horas_live_por_dia ?? raw.horas_por_dia, ['dia', 'label'], ['horas', 'value'])} />
-        <BarPanel
-          title="Conteúdos no período"
-          data={[
-            { label: 'Lives', value: totalLives },
-            { label: 'Vídeos', value: totalVideos },
-            { label: 'Total', value: totalConteudos },
-          ]}
-        />
-      </section>
+          <section className="grid gap-4 xl:grid-cols-2">
+            <LinePanel title="GMV mensal" data={historyPoints(raw.gmv_mensal ?? raw.faturamento_mensal ?? raw.history)} />
+            <BarPanel title="Pedidos mensais" data={historyPoints(raw.pedidos_mensal ?? raw.vendas_mensal, ['mes', 'label'], ['pedidos', 'total_vendas', 'value'])} />
+          </section>
 
-      <AnalyticsImportSection mesAno={mes} />
+          <section className="grid gap-4 xl:grid-cols-2">
+            <BarPanel title="Horas de live" data={historyPoints(raw.horas_live_por_dia ?? raw.horas_por_dia, ['dia', 'label'], ['horas', 'value'])} />
+            <BarPanel
+              title="Conteúdos no período"
+              data={[
+                { label: 'Lives', value: totalLives },
+                { label: 'Vídeos', value: totalVideos },
+                { label: 'Total', value: totalConteudos },
+              ]}
+            />
+          </section>
 
-      <section className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-4">
-        <div>
-          <p className="text-base font-bold text-ink">Filtro por marca / apresentadora</p>
-          <p className="mt-1 text-xs text-ink-muted">Afeta o funil de conversão e o desempenho por entidade abaixo. KPIs e gráficos do topo seguem só o período.</p>
-        </div>
-        {comissoesFiltrosBar}
-      </section>
+          <AnalyticsImportSection mesAno={mes} />
 
-      {hasFilter ? (
-        <RelatorioEntidadeSection
-          mes={mes}
-          marcaId={marcaId}
-          apresentadoraId={apresentadoraId}
-          nomeEntidade={[
-            marcaId ? asString(asArray<JsonRecord>(marcasOpts.data).find((m) => asString(m.id) === marcaId)?.nome, '') : '',
-            apresentadoraId ? asString(asArray<JsonRecord>(apresentadorasOpts.data).find((a) => asString(a.id) === apresentadoraId)?.nome, '') : '',
-          ].filter(Boolean).join(' · ')}
-          comissaoRow={marcaId ? marcasRows[0] : apresentadorasRows[0]}
-          franquiaPct={marcaId ? asNumber(asArray<JsonRecord>(marcasOpts.data).find((m) => asString(m.id) === marcaId)?.comissao_franquia_pct) : undefined}
-        />
-      ) : null}
+          {hasFilter ? (
+            <RelatorioEntidadeSection
+              mes={mes}
+              marcaId={marcaId}
+              apresentadoraId={apresentadoraId}
+              nomeEntidade={[
+                marcaId ? asString(marcas.find((m) => asString(m.id) === marcaId)?.nome, '') : '',
+                apresentadoraId ? asString(apresentadoras.find((a) => asString(a.id) === apresentadoraId)?.nome, '') : '',
+              ].filter(Boolean).join(' · ')}
+              comissaoRow={marcaId ? marcasRows[0] : apresentadorasRows[0]}
+              franquiaPct={marcaId ? asNumber(marcas.find((m) => asString(m.id) === marcaId)?.comissao_franquia_pct) : undefined}
+            />
+          ) : null}
 
-      <FunilAnalyticsSection mesAno={mes} marcaId={marcaId} apresentadoraId={apresentadoraId} />
+          <FunilAnalyticsSection mesAno={mes} marcaId={marcaId} apresentadoraId={apresentadoraId} />
 
-      <section className="space-y-4">
-        <div className="rounded-2xl border border-line bg-surface-muted p-4">
-          <p className="text-base font-bold text-ink">Desempenho e comissionamento por entidade</p>
-          <p className="mt-1 text-xs text-ink-muted">GMV, GMV/hora de live, pedidos, lives e comissão por apresentadora e por marca. Usa o filtro de marca/apresentadora acima.</p>
-        </div>
-      <section className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões — por apresentadora</p>
-            <p className="mt-1 text-xs text-ink-muted">GMV + comissão da apresentadora no período/filtros.</p>
-          </CardHeader>
-          <CardBody>
-            {comissoesApresentadorasQ.isLoading ? (
-              <p className="py-4 text-center text-sm text-muted">Carregando...</p>
-            ) : apresentadorasRows.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted">{hasFilter ? 'Sem vendas para esta combinação de filtros no período. Tente limpar um dos filtros.' : 'Nenhuma comissão registrada no período.'}</p>
-            ) : (
-              <>
-                <DataTable<JsonRecord>
-                  data={apresentadorasRows}
-                  columns={[
-                    { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, 'Sem apresentadora') },
-                    { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
-                    { key: 'gmv_por_hora', header: 'GMV/h', align: 'right', render: (item) => formatMoney(item.gmv_por_hora) },
-                    { key: 'pedidos_total', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos_total ?? item.pedidos).toLocaleString('pt-BR') },
-                    { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
-                    { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => formatMoney(item.comissao_apresentadora) },
-                  ]}
-                />
-                <div className="mt-3 flex justify-between border-t border-line pt-3 text-sm font-bold text-ink">
-                  <span>Total ({apresentadorasRows.length})</span>
-                  <span>GMV {formatMoney(totalGMVApresentadoras)} · Comissão {formatMoney(totalComissaoApresentadoras)}</span>
-                </div>
-              </>
-            )}
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader>
-            <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões — por marca (Livelab)</p>
-            <p className="mt-1 text-xs text-ink-muted">Franquia + franqueadora. Filtra por marca / apresentadora / mês.</p>
-          </CardHeader>
-          <CardBody>
-            {comissoesMarcasQ.isLoading ? (
-              <p className="py-4 text-center text-sm text-muted">Carregando...</p>
-            ) : marcasRows.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted">{hasFilter ? 'Sem vendas para esta combinação de filtros no período. Tente limpar um dos filtros.' : 'Nenhuma comissão registrada no período.'}</p>
-            ) : (
-              <>
-                <DataTable<JsonRecord>
-                  data={marcasRows}
-                  columns={[
-                    { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome, 'Sem marca') },
-                    { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
-                    { key: 'gmv_por_hora', header: 'GMV/h', align: 'right', render: (item) => formatMoney(item.gmv_por_hora) },
-                    { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos ?? item.pedidos_total).toLocaleString('pt-BR') },
-                    { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
-                    { key: 'comissao_franquia', header: 'Franquia', align: 'right', render: (item) => formatMoney(item.comissao_franquia) },
-                    { key: 'comissao_franqueadora', header: 'Franqueadora', align: 'right', render: (item) => formatMoney(item.comissao_franqueadora) },
-                  ]}
-                />
-                <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-line pt-3 text-sm font-bold text-ink">
-                  <span>Total ({marcasRows.length})</span>
-                  <span>GMV {formatMoney(totalGMVMarcas)} · Franquia {formatMoney(totalComissaoFranquia)} · Franqueadora {formatMoney(totalComissaoFranqueadora)}</span>
-                </div>
-              </>
-            )}
-          </CardBody>
-        </Card>
-      </section>
-      </section>
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-line bg-surface-muted p-4">
+              <p className="text-base font-bold text-ink">Desempenho e comissionamento por entidade</p>
+              <p className="mt-1 text-xs text-ink-muted">GMV, GMV/hora, pedidos, lives e comissão por apresentadora e por marca. Usa o filtro único do topo.</p>
+            </div>
+            <section className="grid gap-4 xl:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões — por apresentadora</p>
+                  <p className="mt-1 text-xs text-ink-muted">GMV + comissão da apresentadora no período/filtros.</p>
+                </CardHeader>
+                <CardBody>
+                  {comissoesApresentadorasQ.isLoading ? (
+                    <p className="py-4 text-center text-sm text-muted">Carregando...</p>
+                  ) : apresentadorasRows.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-muted">{hasFilter ? 'Sem vendas para esta combinação de filtros no período. Tente limpar um dos filtros.' : 'Nenhuma comissão registrada no período.'}</p>
+                  ) : (
+                    <>
+                      <DataTable<JsonRecord>
+                        data={apresentadorasRows}
+                        columns={[
+                          { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, 'Sem apresentadora') },
+                          { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
+                          { key: 'gmv_por_hora', header: 'GMV/h', align: 'right', render: (item) => formatMoney(item.gmv_por_hora) },
+                          { key: 'pedidos_total', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos_total ?? item.pedidos).toLocaleString('pt-BR') },
+                          { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
+                          { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => formatMoney(item.comissao_apresentadora) },
+                        ]}
+                      />
+                      <div className="mt-3 flex justify-between border-t border-line pt-3 text-sm font-bold text-ink">
+                        <span>Total ({apresentadorasRows.length})</span>
+                        <span>GMV {formatMoney(totalGMVApresentadoras)} · Comissão {formatMoney(totalComissaoApresentadoras)}</span>
+                      </div>
+                    </>
+                  )}
+                </CardBody>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <p className="text-base font-bold tracking-[-0.01em] text-ink">Comissões — por marca (Livelab)</p>
+                  <p className="mt-1 text-xs text-ink-muted">Franquia + franqueadora. Usa o filtro único do topo.</p>
+                </CardHeader>
+                <CardBody>
+                  {comissoesMarcasQ.isLoading ? (
+                    <p className="py-4 text-center text-sm text-muted">Carregando...</p>
+                  ) : marcasRows.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-muted">{hasFilter ? 'Sem vendas para esta combinação de filtros no período. Tente limpar um dos filtros.' : 'Nenhuma comissão registrada no período.'}</p>
+                  ) : (
+                    <>
+                      <DataTable<JsonRecord>
+                        data={marcasRows}
+                        columns={[
+                          { key: 'marca_nome', header: 'Marca', render: (item) => asString(item.marca_nome, 'Sem marca') },
+                          { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
+                          { key: 'gmv_por_hora', header: 'GMV/h', align: 'right', render: (item) => formatMoney(item.gmv_por_hora) },
+                          { key: 'pedidos', header: 'Pedidos', align: 'right', render: (item) => asNumber(item.pedidos ?? item.pedidos_total).toLocaleString('pt-BR') },
+                          { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives ?? item.lives).toLocaleString('pt-BR') },
+                          { key: 'comissao_franquia', header: 'Franquia', align: 'right', render: (item) => formatMoney(item.comissao_franquia) },
+                          { key: 'comissao_franqueadora', header: 'Franqueadora', align: 'right', render: (item) => formatMoney(item.comissao_franqueadora) },
+                        ]}
+                      />
+                      <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-line pt-3 text-sm font-bold text-ink">
+                        <span>Total ({marcasRows.length})</span>
+                        <span>GMV {formatMoney(totalGMVMarcas)} · Franquia {formatMoney(totalComissaoFranquia)} · Franqueadora {formatMoney(totalComissaoFranqueadora)}</span>
+                      </div>
+                    </>
+                  )}
+                </CardBody>
+              </Card>
+            </section>
+          </section>
+        </>
+      )}
     </div>
   )
 }
