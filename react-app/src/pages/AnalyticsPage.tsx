@@ -14,15 +14,16 @@ import { PulsoDiarioSection } from '../components/analytics/PulsoDiarioSection'
 import { AnalyticsFilterBar, presetRange, ymd, type Preset } from '../components/analytics/AnalyticsFilterBar'
 import {
   exportarComissoesCSV,
-  getAnalyticsDashboard,
   getApresentadoras,
   getComissoesApresentadoras,
   getComissoesMarcas,
+  getDailyAnalytics,
   getMarcas,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asArray, asNumber, asString, formatMoney, getRecord, unwrapList } from '../utils/format'
-import { historyPoints, metric, moneyMetric } from './page-helpers'
+import { asArray, asNumber, asString, formatMoney, unwrapList } from '../utils/format'
+import { metric, moneyMetric, sumDailyTotals } from './page-helpers'
+import { buildDailyPulse } from '../utils/dailyPulse'
 import { QK } from '../services/query-keys'
 import { useToast } from '../components/ui/Toast'
 import type { JsonRecord } from '../types/models'
@@ -44,11 +45,22 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   // Seções mensais legadas usam o mês do FIM do intervalo (mês corrente), não o
   // início — senão "7 dias" cruzando meses (31/05→06/06) cairia em maio e zeraria.
   const mes = to.slice(0, 7)
-  const period = { ano: Number(mes.slice(0, 4)), mes: Number(mes.slice(5, 7)) }
   const filtros = { mes, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }
   const hasFilter = Boolean(marcaId || apresentadoraId)
 
-  const query = useQuery({ queryKey: QK.analyticsDashboard(period), queryFn: () => getAnalyticsDashboard({ mesAno: mes }) })
+  // Rótulo de granularidade do período — usado nos títulos dos gráficos detalhados.
+  const PERIODO_NOUN: Record<Preset, string> = {
+    hoje: 'hoje', ontem: 'ontem', '7d': '7 dias', '30d': '30 dias', mes: 'mês', custom: 'período',
+  }
+  const periodNoun = PERIODO_NOUN[preset]
+
+  // Mesma chave do Pulso → React Query dedup (1 fetch só). Métricas detalhadas
+  // e os 4 gráficos seguem o range do filtro, não um mês fixo.
+  const query = useQuery({
+    queryKey: ['daily-pulse', from, to, marcaId, apresentadoraId],
+    queryFn: () => getDailyAnalytics({ from, to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
+    staleTime: 60_000,
+  })
 
   const comissoesApresentadorasQ = useQuery({
     queryKey: QK.comissoesApresentadorasBy(mes, marcaId, apresentadoraId),
@@ -120,11 +132,16 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     />
   )
 
-  const raw = query.data ?? {}
-  const kpis = getRecord(raw.kpis)
-  const totalLives = asNumber(kpis.total_lives ?? raw.total_lives)
-  const totalVideos = asNumber(kpis.total_videos ?? raw.total_videos)
-  const totalConteudos = asNumber(kpis.total_conteudos ?? totalLives + totalVideos)
+  // Tudo abaixo segue o range do filtro (mesma fonte do Pulso: /diario por dia).
+  const diarioRows = useMemo(() => unwrapList<JsonRecord>(query.data), [query.data])
+  const totals = useMemo(() => sumDailyTotals(diarioRows), [diarioRows])
+  const serie = useMemo(() => buildDailyPulse(diarioRows).serieDiaria, [diarioRows])
+  const totalLives = totals.total_lives
+  const totalVideos = totals.total_videos
+  const totalConteudos = totalLives + totalVideos
+  const gmvPoints = useMemo(() => serie.map((d) => ({ label: d.label, value: Math.round(d.gmv * 100) / 100 })), [serie])
+  const pedidosPoints = useMemo(() => serie.map((d) => ({ label: d.label, value: d.pedidos })), [serie])
+  const horasPoints = useMemo(() => serie.map((d) => ({ label: d.label, value: Math.round(d.horas * 10) / 10 })), [serie])
 
   const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
   const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
@@ -135,12 +152,12 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const totalComissaoFranqueadora = marcasRows.reduce((sum, r) => sum + asNumber(r.comissao_franqueadora), 0)
 
   const metrics = [
-    moneyMetric('GMV atribuído', kpis.gmv_total ?? raw.gmv_total ?? raw.gmv_mes, `mês de ${mes}`, 'brand'),
-    metric('Pedidos', asNumber(kpis.pedidos_total ?? raw.pedidos_total ?? kpis.total_vendas).toLocaleString('pt-BR'), 'pedidos atribuídos', 'success'),
-    metric('Lives realizadas', totalLives.toLocaleString('pt-BR'), `mês de ${mes}`, 'neutral'),
-    metric('Horas de live', asNumber(kpis.horas_live ?? raw.horas_live).toFixed(1), 'lives encerradas', 'neutral'),
-    metric('GMV / live', formatMoney(kpis.gmv_por_live ?? raw.gmv_por_live), 'GMV total / lives', 'info'),
-    metric('GMV / hora', formatMoney(kpis.gmv_por_hora ?? raw.gmv_por_hora ?? raw.gmv_hora), 'GMV total / horas', 'success'),
+    moneyMetric('GMV atribuído', totals.gmv_total, periodNoun, 'brand'),
+    metric('Pedidos', totals.pedidos.toLocaleString('pt-BR'), 'pedidos atribuídos', 'success'),
+    metric('Lives realizadas', totalLives.toLocaleString('pt-BR'), periodNoun, 'neutral'),
+    metric('Horas de live', totals.horas_live.toFixed(1), 'lives encerradas', 'neutral'),
+    metric('GMV / live', formatMoney(totals.gmv_por_live), 'GMV total / lives', 'info'),
+    metric('GMV / hora', formatMoney(totals.gmv_por_hora), 'GMV total / horas', 'success'),
   ]
 
   return (
@@ -162,7 +179,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
       <PulsoDiarioSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
 
       <div className="flex items-center gap-3 pt-2">
-        <span className="text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted">Métricas detalhadas · mês de {mes}</span>
+        <span className="text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted">Métricas detalhadas · {periodNoun}</span>
         <span className="h-px flex-1 bg-line" />
       </div>
 
@@ -179,14 +196,15 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
           </section>
 
           <section className="grid gap-4 xl:grid-cols-2">
-            <LinePanel title="GMV mensal" data={historyPoints(raw.gmv_mensal ?? raw.faturamento_mensal ?? raw.history)} />
-            <BarPanel title="Pedidos mensais" data={historyPoints(raw.pedidos_mensal ?? raw.vendas_mensal, ['mes', 'label'], ['pedidos', 'total_vendas', 'value'])} />
+            <LinePanel title={`GMV · ${periodNoun}`} subtitle="GMV por dia no período selecionado" data={gmvPoints} />
+            <BarPanel title={`Pedidos · ${periodNoun}`} subtitle="Pedidos por dia no período" data={pedidosPoints} />
           </section>
 
           <section className="grid gap-4 xl:grid-cols-2">
-            <BarPanel title="Horas de live" data={historyPoints(raw.horas_live_por_dia ?? raw.horas_por_dia, ['dia', 'label'], ['horas', 'value'])} />
+            <BarPanel title={`Horas de live · ${periodNoun}`} subtitle="Horas no ar por dia" data={horasPoints} />
             <BarPanel
-              title="Conteúdos no período"
+              title={`Conteúdos · ${periodNoun}`}
+              subtitle="Lives e vídeos no período"
               data={[
                 { label: 'Lives', value: totalLives },
                 { label: 'Vídeos', value: totalVideos },
