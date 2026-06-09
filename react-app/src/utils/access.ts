@@ -3,11 +3,9 @@ import {
   Building2,
   ChartNoAxesCombined,
   CircleDollarSign,
-  Gauge,
   Home,
   KeyRound,
   LayoutDashboard,
-  MonitorPlay,
   Presentation,
   Settings,
   Store,
@@ -187,10 +185,11 @@ export const menuItems: MenuItem[] = [
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora'] },
   { label: 'Ranking', path: '/ranking/apresentadoras', icon: Trophy, roles: opsRoles },
   { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'franqueado'] },
-  // Cliente parceiro: escopo mínimo para go-live (Home + Lives + Configurações).
+  // Cliente parceiro: Home, Conteúdo, Financeiro, Configurações, Minha conta.
   { label: 'Minha conta', path: '/conta', icon: KeyRound, roles: allRoles },
-  { label: 'Cliente', path: '/cliente', icon: Gauge, roles: clienteRoles },
-  { label: 'Lives', path: '/cliente/lives', icon: MonitorPlay, roles: clienteRoles },
+  { label: 'Home', path: '/cliente', icon: Home, roles: clienteRoles },
+  { label: 'Conteúdo', path: '/cliente/conteudo', icon: Presentation, roles: clienteRoles },
+  { label: 'Financeiro', path: '/cliente/financeiro', icon: CircleDollarSign, roles: clienteRoles },
   { label: 'Configurações', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles },
 ]
 

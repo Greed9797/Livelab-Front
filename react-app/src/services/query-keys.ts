@@ -44,6 +44,10 @@ export const QK = {
     period ? ['cliente-dashboard', period] as const : ['cliente-dashboard'] as const,
   clienteLives: (period?: { mes: number; ano: number }) =>
     period ? ['cliente-lives', period] as const : ['cliente-lives'] as const,
+  clienteHome: (period: { mes: number; ano: number }) => ['cliente-home', period.ano, period.mes] as const,
+  clienteConteudoLives: (period: { mes: number; ano: number }) => ['cliente-conteudo-lives', period.ano, period.mes] as const,
+  clienteAnalyticsDiario: (from: string, to: string) => ['cliente-analytics-diario', from, to] as const,
+  clienteFinanceiro: (period: { mes: number; ano: number }) => ['cliente-financeiro', period.ano, period.mes] as const,
   crmSummary: ['crm-summary'] as const,
   financeiroCustos: (mes?: string) =>
     mes ? ['financeiro-custos', mes] as const : ['financeiro-custos'] as const,

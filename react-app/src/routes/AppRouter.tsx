@@ -17,7 +17,8 @@ const MasterUnitsPage = lazy(() => import('../pages/MasterUnitsPage').then(m => 
 const MasterConsolidatedPage = lazy(() => import('../pages/MasterConsolidatedPage').then(m => ({ default: m.MasterConsolidatedPage })))
 const ComercialPage = lazy(() => import('../pages/ComercialPage').then(m => ({ default: m.ComercialPage })))
 const ClienteDashboardPage = lazy(() => import('../pages/ClienteDashboardPage').then(m => ({ default: m.ClienteDashboardPage })))
-const ClienteLivesPage = lazy(() => import('../pages/ClienteLivesPage').then(m => ({ default: m.ClienteLivesPage })))
+const ClienteConteudoPage = lazy(() => import('../pages/ClienteConteudoPage').then(m => ({ default: m.ClienteConteudoPage })))
+const ClienteFinanceiroPage = lazy(() => import('../pages/ClienteFinanceiroPage').then(m => ({ default: m.ClienteFinanceiroPage })))
 const ConteudoPage = lazy(() => import('../pages/ConteudoPage').then(m => ({ default: m.ConteudoPage })))
 const FinanceiroPage = lazy(() => import('../pages/FinanceiroPage').then(m => ({ default: m.FinanceiroPage })))
 const ComissoesConfigPage = lazy(() => import('../pages/ComissoesConfigPage').then(m => ({ default: m.ComissoesConfigPage })))
@@ -74,7 +75,9 @@ export function AppRouter() {
             <Route element={<ProtectedRoute allowedRoles={['cliente_parceiro']} />}>
               <Route path="/cliente" element={<Suspense fallback={<PageFallback />}><ClienteDashboardPage /></Suspense>} />
               <Route path="/cliente/dashboard" element={<Navigate to="/cliente" replace />} />
-              <Route path="/cliente/lives" element={<Suspense fallback={<PageFallback />}><ClienteLivesPage /></Suspense>} />
+              <Route path="/cliente/conteudo" element={<Suspense fallback={<PageFallback />}><ClienteConteudoPage /></Suspense>} />
+              <Route path="/cliente/lives" element={<Navigate to="/cliente/conteudo" replace />} />
+              <Route path="/cliente/financeiro" element={<Suspense fallback={<PageFallback />}><ClienteFinanceiroPage /></Suspense>} />
               <Route path="/cliente/agenda" element={<Navigate to="/cliente" replace />} />
               <Route path="/cliente/configuracoes" element={<Suspense fallback={<PageFallback />}><ConfiguracoesPage clienteMode /></Suspense>} />
             </Route>

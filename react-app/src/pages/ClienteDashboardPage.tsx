@@ -1,67 +1,77 @@
-import { Clock, CircleDollarSign, MonitorPlay, Target, TrendingUp, WalletCards } from 'lucide-react'
+import { Clock, CircleDollarSign, MonitorPlay, Radio, ShoppingBag, TrendingUp, WalletCards } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { PeriodControl } from '../components/forms/PeriodControl'
 import { MetricCard } from '../components/ui/MetricCard'
-import { AreaPanel, BarPanel } from '../components/charts/Charts'
+import { AreaPanel } from '../components/charts/Charts'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { DataTable } from '../components/ui/DataTable'
-import { Badge, statusTone } from '../components/ui/Badge'
+import { Badge } from '../components/ui/Badge'
 import { ErrorState, LoadingState } from '../components/ui/States'
-import { getClienteDashboard } from '../services/domain'
+import { getClienteHome } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asNumber, asString, currentPeriod, formatMoney } from '../utils/format'
-import { historyPoints, normalizeCliente } from './page-helpers'
+import { asArray, asNumber, asString, currentPeriod, formatMoney, getRecord } from '../utils/format'
+import { metric, moneyMetric } from './page-helpers'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
-const icons = [CircleDollarSign, WalletCards, MonitorPlay, TrendingUp, Clock, Target]
+const icons = [CircleDollarSign, MonitorPlay, Clock, ShoppingBag, TrendingUp, WalletCards]
 
-function officialLiveGmv(item: JsonRecord) {
-  return item.gmv ?? item.ads_gmv ?? item.manual_gmv ?? item.fat_gerado
+function spTime(iso: unknown): string {
+  const raw = asString(iso, '')
+  const m = raw.match(/T(\d{2}:\d{2})/)
+  return m ? m[1] : '—'
 }
 
 export function ClienteDashboardPage() {
   const [period, setPeriod] = useState(currentPeriod())
-  const query = useQuery({ queryKey: QK.clienteDashboard(period), queryFn: () => getClienteDashboard(period), refetchInterval: 30_000 })
+  const query = useQuery({ queryKey: QK.clienteHome(period), queryFn: () => getClienteHome(period), refetchInterval: 30_000 })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
-  const data = normalizeCliente(query.data ?? {})
-  const liveAtiva = Object.keys(data.liveAtiva).length > 0 ? data.liveAtiva : null
+  const raw = getRecord(query.data)
+  const fin = getRecord(raw.financeiro_cliente)
+  const contrato = raw.contrato ? getRecord(raw.contrato) : null
+  const liveNow = asArray<JsonRecord>(raw.live_now)
+  const proximas = asArray<JsonRecord>(raw.proximas_lives_dia)
+  const series = asArray<JsonRecord>(raw.series_mensais).map((r) => ({ label: asString(r.mes), value: asNumber(r.gmv) }))
+
+  const metrics = [
+    moneyMetric('GMV do mês', raw.gmv_mes, 'lives publicadas', 'brand'),
+    metric('Lives publicadas', asNumber(raw.lives_mes).toLocaleString('pt-BR'), 'realizadas no mês', 'neutral'),
+    metric('Horas de live', asNumber(raw.horas_live_mes).toFixed(1), 'no mês', 'neutral'),
+    metric('Pedidos', asNumber(raw.pedidos).toLocaleString('pt-BR'), 'atribuídos', 'success'),
+    moneyMetric('GMV / live', raw.gmv_por_live, 'GMV / lives', 'info'),
+    moneyMetric('GMV / hora', raw.gmv_por_hora, 'GMV / horas', 'success'),
+  ]
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Cliente parceiro"
-        accent="Dashboard"
+        accent="Home"
         title="da loja"
-        subtitle="GMV, ROAS, investimento e consumo de lives por período."
+        subtitle="Resultados das lives publicadas, consumo de horas e financeiro do mês."
         actions={<PeriodControl period={period} onChange={setPeriod} />}
       />
 
-      {liveAtiva ? (
-        <Card className="brand-soft-panel border-brand/30">
+      {liveNow.length > 0 ? (
+        <Card className="border-brand/30">
           <CardBody className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <Badge tone="success">ao vivo</Badge>
-              <p className="mt-3 text-xl font-bold text-ink">Cabine {asString(liveAtiva.cabine_numero ?? liveAtiva.numero)}</p>
-              <p className="mt-1 text-sm text-ink-muted">{asString(liveAtiva.titulo ?? liveAtiva.cliente_nome, 'Live em andamento')}</p>
+              <p className="mt-3 text-xl font-bold text-ink">Cabine {asString(liveNow[0].cabine_numero, '—')}</p>
+              <p className="mt-1 text-sm text-ink-muted">Live em andamento</p>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-2 gap-3 text-center">
               <div className="rounded-2xl bg-surface p-3 shadow-[var(--shadow-card)]">
                 <p className="text-xs text-ink-muted">GMV</p>
-                <p className="font-bold text-ink">{formatMoney(liveAtiva.gmv_atual ?? liveAtiva.gmv)}</p>
-              </div>
-              <div className="rounded-2xl bg-surface p-3 shadow-[var(--shadow-card)]">
-                <p className="text-xs text-ink-muted">Viewers</p>
-                <p className="font-bold text-ink">{asNumber(liveAtiva.viewer_count).toLocaleString('pt-BR')}</p>
+                <p className="font-bold text-ink">{formatMoney(liveNow[0].gmv)}</p>
               </div>
               <div className="rounded-2xl bg-surface p-3 shadow-[var(--shadow-card)]">
                 <p className="text-xs text-ink-muted">Pedidos</p>
-                <p className="font-bold text-ink">{asNumber(liveAtiva.pedidos ?? liveAtiva.total_orders).toLocaleString('pt-BR')}</p>
+                <p className="font-bold text-ink">{asNumber(liveNow[0].pedidos).toLocaleString('pt-BR')}</p>
               </div>
             </div>
           </CardBody>
@@ -69,51 +79,63 @@ export function ClienteDashboardPage() {
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {data.metrics.map((item, index) => (
-          <MetricCard key={item.label} metric={item} icon={icons[index]} />
-        ))}
+        {metrics.map((item, index) => <MetricCard key={item.label} metric={item} icon={icons[index]} />)}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-        <AreaPanel title="Evolução mensal" data={data.history} />
-        <BarPanel title="Melhores horários de venda" data={historyPoints(data.topHorarios, ['hora', 'label'], ['gmv', 'valor', 'total'])} />
-      </section>
+      {/* Financeiro do mês: mensalidade fixa + comissão variável */}
+      <Card>
+        <CardHeader>
+          <p className="text-base font-bold text-ink">Financeiro do mês</p>
+          <p className="mt-0.5 text-xs text-ink-muted">Mensalidade fixa + comissão variável sobre o GMV.</p>
+        </CardHeader>
+        <CardBody>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">Mensalidade fixa</p>
+              <p className="num mt-1 text-2xl font-black text-ink">{formatMoney(fin.valor_fixo)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">Comissão variável</p>
+              <p className="num mt-1 text-2xl font-black text-ink">{formatMoney(fin.comissao_variavel)}</p>
+              <p className="mt-0.5 text-xs text-ink-muted">{asNumber(fin.comissao_pct).toLocaleString('pt-BR')}% do GMV</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">Total devido</p>
+              <p className="num mt-1 text-2xl font-black text-brand">{formatMoney(fin.total_devido)}</p>
+            </div>
+          </div>
+          {contrato ? (
+            <p className="mt-4 border-t border-line pt-3 text-xs text-ink-muted">
+              Pacote {asString(contrato.pacote_nome, '—')} · {asNumber(contrato.horas_consumidas).toFixed(1)}h de {asNumber(contrato.horas_contratadas).toFixed(1)}h consumidas · {asNumber(contrato.horas_restantes).toFixed(1)}h restantes
+            </p>
+          ) : null}
+        </CardBody>
+      </Card>
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <p className="text-sm font-bold text-ink">Próximas lives</p>
-          </CardHeader>
-          <CardBody>
-            <DataTable<JsonRecord>
-              data={data.upcoming}
-              columns={[
-                { key: 'data', header: 'Data', render: (item) => asString(item.data ?? item.data_solicitada) },
-                { key: 'hora', header: 'Hora', render: (item) => asString(item.hora ?? item.hora_inicio) },
-                { key: 'cabine', header: 'Cabine', render: (item) => `Cabine ${asString(item.cabine_numero ?? item.numero)}` },
-                { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, ''))}>{asString(item.status)}</Badge> },
-              ]}
-            />
-          </CardBody>
-        </Card>
+      {series.length > 0 ? <AreaPanel title="Evolução mensal de GMV" data={series} /> : null}
 
-        <Card>
-          <CardHeader>
-            <p className="text-sm font-bold text-ink">Lives detalhadas</p>
-          </CardHeader>
-          <CardBody>
-            <DataTable<JsonRecord>
-              data={data.lives}
-              columns={[
-                { key: 'data', header: 'Data', render: (item) => asString(item.data ?? item.iniciado_em ?? item.iniciada_em) },
-                { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(officialLiveGmv(item)) },
-                { key: 'roas', header: 'ROAS', align: 'right', render: (item) => asNumber(item.roas).toFixed(2) },
-                { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, ''))}>{asString(item.status)}</Badge> },
-              ]}
-            />
-          </CardBody>
-        </Card>
-      </section>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Radio className="h-4 w-4 text-ink-muted" />
+            <p className="text-base font-bold text-ink">Próximas lives de hoje</p>
+          </div>
+        </CardHeader>
+        <CardBody>
+          {proximas.length === 0 ? (
+            <p className="py-4 text-center text-sm text-ink-muted">Nenhuma live agendada para hoje.</p>
+          ) : (
+            <ul className="space-y-2">
+              {proximas.map((p) => (
+                <li key={asString(p.id)} className="flex items-center justify-between rounded-xl border border-line px-3 py-2">
+                  <span className="text-sm font-bold text-ink">Cabine {asString(p.cabine_numero, '—')}</span>
+                  <span className="num text-sm text-ink-muted">{spTime(p.data_inicio)} – {spTime(p.data_fim)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardBody>
+      </Card>
     </div>
   )
 }

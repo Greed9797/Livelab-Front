@@ -30,6 +30,23 @@ export function getMasterConsolidated(period: Period, status = 'all') {
   return apiGet<JsonRecord>('/master/consolidado', { periodo: periodToParam(period), status })
 }
 
+// ── Portal do cliente final (Fase 2) — leitura, sempre filtrado pelo JWT ──
+export function getClienteHome(period: Period) {
+  return apiGet<JsonRecord>('/cliente/home', { mes: period.mes, ano: period.ano })
+}
+
+export function getClienteConteudoLives(period: Period) {
+  return apiGet<JsonRecord>('/cliente/conteudo/lives', { mes: period.mes, ano: period.ano })
+}
+
+export function getClienteAnalyticsDiario(params: { from: string; to: string }) {
+  return apiGet<JsonRecord[]>('/cliente/analytics/diario', params)
+}
+
+export function getClienteFinanceiro(period: Period) {
+  return apiGet<JsonRecord>('/cliente/financeiro', { mes: period.mes, ano: period.ano })
+}
+
 export function getMasterCrm(period?: Period) {
   return apiGet<JsonRecord>('/master/crm', period ? { periodo: periodToParam(period) } : undefined)
 }
