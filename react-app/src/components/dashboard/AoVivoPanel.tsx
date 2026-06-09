@@ -3,13 +3,6 @@ import type { Cabine } from '../../types/models'
 import { asNumber, asString } from '../../utils/format'
 import { TikTokLiveButton } from '../ui/TikTokLiveButton'
 
-function elapsedMin(startedAt: string | undefined): number {
-  if (!startedAt) return 0
-  const d = new Date(startedAt)
-  if (isNaN(d.getTime())) return 0
-  return Math.floor((Date.now() - d.getTime()) / 60_000)
-}
-
 function initials(name: string): string {
   return name
     .split(' ')
@@ -43,9 +36,6 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
           <span style={{ color: 'var(--live)' }}>●</span>
           Ao vivo agora · {liveCabines.length}
         </h3>
-        <a href="#" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
-          Sala de controle →
-        </a>
       </div>
 
       {/* Summary */}
@@ -91,7 +81,7 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
             const ini = initials(nome)
             const gmv = asNumber(cab.gmv_atual)
             const viewers = asNumber(cab.viewer_count)
-            const elapsed = elapsedMin(cab.live_atual_id ? undefined : undefined)
+            const elapsed = asNumber((cab as { duracao_min?: number }).duracao_min)
             const cabNum = asNumber(cab.numero)
             const cabLabel = cabNum > 0 ? `C-${String(cabNum).padStart(2, '0')}` : 'Cabine'
 

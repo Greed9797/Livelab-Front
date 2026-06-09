@@ -166,7 +166,9 @@ export function hasRole(user: User | null, allowed?: Role[]): boolean {
 }
 
 export function needsClientOnboarding(user: User | null): boolean {
-  return user?.papel === 'cliente_parceiro' && user.onboarding_completed === false
+  // Onboarding obrigatório só bloqueia quando explicitamente habilitado por flag.
+  const enabled = import.meta.env.VITE_ENABLE_CLIENT_ONBOARDING === 'true'
+  return enabled && user?.papel === 'cliente_parceiro' && user.onboarding_completed === false
 }
 
 // Menu lateral — decisão 2026-05-25 (Lucas):

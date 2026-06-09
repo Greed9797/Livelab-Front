@@ -66,9 +66,9 @@ function AgendaCard({ agenda }: { agenda: JsonRecord[] }) {
         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
           Próximas lives · hoje
         </h3>
-        <a href="#" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
+        <Link to="/conteudo?tab=agenda" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
           Agenda completa →
-        </a>
+        </Link>
       </div>
       <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1 } as React.CSSProperties}>
         {upcoming.length === 0 && (

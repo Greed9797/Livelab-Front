@@ -6,6 +6,8 @@ import { allRoles, cabineRoles, clienteRoles, commercialRoles, financeRoles, int
 import { ProtectedRoute } from './ProtectedRoute'
 import { LoginPage } from '../pages/LoginPage'
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage'
+import { AceitarConvitePage } from '../pages/AceitarConvitePage'
+import { RedefinirSenhaPage } from '../pages/RedefinirSenhaPage'
 import { PublicRankingPage } from '../pages/PublicRankingPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 
@@ -42,6 +44,8 @@ export function AppRouter() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+        <Route path="/aceitar-convite" element={<AceitarConvitePage />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
         <Route path="/ranking" element={<PublicRankingPage />} />
 
         <Route element={<ProtectedRoute allowedRoles={clienteRoles} />}>

@@ -25,3 +25,20 @@ export async function logout(): Promise<void> {
 export async function requestPasswordReset(email: string): Promise<void> {
   await apiPost('/auth/esqueci-senha', { email })
 }
+
+// Aceitar convite: define a senha via token e já autentica (backend retorna sessão).
+export async function acceptInvite(token: string, nova_senha: string): Promise<Session> {
+  const response = await apiPost<AuthResponse>('/auth/aceitar-convite', { token, nova_senha })
+  const session: Session = {
+    accessToken: response.access_token,
+    refreshToken: response.refresh_token,
+    user: response.user,
+  }
+  saveSession(session)
+  return session
+}
+
+// Redefinir senha via token de recuperação (não autentica; usuário faz login depois).
+export async function resetPassword(token: string, nova_senha: string): Promise<void> {
+  await apiPost('/auth/redefinir-senha', { token, nova_senha })
+}
