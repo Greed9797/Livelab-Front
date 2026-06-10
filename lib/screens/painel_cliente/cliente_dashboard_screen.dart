@@ -19,6 +19,8 @@ import '../../providers/cliente_lives_provider.dart'
     show ClienteLive, ClienteLivesResponse, clienteLivesProvider;
 import '../../routes/app_routes.dart';
 import '../../widgets/metric_card.dart';
+import 'cliente_operacional_widgets.dart'
+    show ClienteOperacionalTopSection, ClienteSessoesSection;
 import 'dart:math' as math;
 
 // ---------------------------------------------------------------------------
@@ -257,8 +259,8 @@ class _DashboardContent extends StatelessWidget {
           const SizedBox(height: AppSpacing.x6),
         ],
 
-        // Block 1 — KPI Cards
-        _KpiGrid(dashboard: dashboard),
+        // Block 1 — Painel operacional (status, GMV/h, comissões, alertas)
+        const ClienteOperacionalTopSection(),
         const SizedBox(height: AppSpacing.x8),
 
         // Block 2 — Meta e Projeção
@@ -318,6 +320,10 @@ class _DashboardContent extends StatelessWidget {
           ),
           data: (response) => _DetailedLivesSection(response: response),
         ),
+        const SizedBox(height: AppSpacing.x8),
+
+        // Block 10 — Tabela de sessões operacionais
+        const ClienteSessoesSection(),
         const SizedBox(height: AppSpacing.x8),
 
         // Block 9 — Nova Live CTA
