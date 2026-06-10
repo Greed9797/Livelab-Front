@@ -90,4 +90,10 @@ export const QK = {
   dailyAnalytics: (mesAno: string, marcaId?: string, apresentadoraId?: string) =>
     ['daily-analytics', mesAno, marcaId ?? '', apresentadoraId ?? ''] as const,
   analyticsImportPreview: ['analytics-import-preview'] as const,
+  clienteOperacionalPainel: (period: { mes: number; ano: number }) =>
+    ['cliente-operacional-painel', period.ano, period.mes] as const,
+  clienteSessoes: (period: { mes: number; ano: number }, offset?: number) =>
+    offset !== undefined
+      ? (['cliente-sessoes', period.ano, period.mes, offset] as const)
+      : (['cliente-sessoes', period.ano, period.mes] as const),
 }
