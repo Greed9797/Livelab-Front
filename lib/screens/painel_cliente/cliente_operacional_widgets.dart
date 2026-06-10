@@ -9,6 +9,8 @@ import '../../livelab/theme/tokens.dart' show LlTokens;
 import '../../providers/cliente_dashboard_provider.dart'
     show ClientePeriod, clientePeriodProvider;
 import '../../providers/cliente_operacional_provider.dart';
+import '../../services/api_service.dart';
+import '../../utils/download_helper.dart';
 
 // ---------------------------------------------------------------------------
 // Formatters
@@ -740,7 +742,7 @@ class _SessoesError extends StatelessWidget {
   }
 }
 
-class _SessoesContent extends ConsumerWidget {
+class _SessoesContent extends ConsumerStatefulWidget {
   final SessoesResponse response;
   final ClientePeriod period;
 
@@ -750,8 +752,41 @@ class _SessoesContent extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SessoesContent> createState() => _SessoesContentState();
+}
+
+class _SessoesContentState extends ConsumerState<_SessoesContent> {
+  bool _isExporting = false;
+
+  Future<void> _exportPdf() async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+    try {
+      final bytes = await ApiService.getBytes(
+        '/cliente/relatorio.pdf',
+        params: {'mes': widget.period.mes, 'ano': widget.period.ano},
+      );
+      final filename =
+          'relatorio-operacional-${widget.period.ano}-${widget.period.mes.toString().padLeft(2, '0')}.pdf';
+      downloadBytesAsFile(bytes, filename);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiService.extractErrorMessage(e)),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = context.llTokens;
+    final response = widget.response;
     final hasMore = response.sessoes.length < response.total;
 
     return Container(
@@ -783,6 +818,11 @@ class _SessoesContent extends ConsumerWidget {
                   '${response.sessoes.length} de ${response.total}',
                   style: AppTypography.caption.copyWith(color: t.textMuted),
                 ),
+                const SizedBox(width: AppSpacing.x3),
+                _ExportPdfButton(
+                  isLoading: _isExporting,
+                  onPressed: _exportPdf,
+                ),
               ],
             ),
           ),
@@ -813,8 +853,8 @@ class _SessoesContent extends ConsumerWidget {
               child: Center(
                 child: OutlinedButton.icon(
                   onPressed: () => ref
-                      .read(clienteSessoesProvider(period).notifier)
-                      .loadMore(period),
+                      .read(clienteSessoesProvider(widget.period).notifier)
+                      .loadMore(widget.period),
                   icon: Icon(PhosphorIcons.arrowDown(), size: 14),
                   label: const Text('Carregar mais'),
                   style: OutlinedButton.styleFrom(
@@ -1290,6 +1330,51 @@ class _ComissaoApresentadoraRow extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Botão Exportar PDF
+// ---------------------------------------------------------------------------
+class _ExportPdfButton extends StatelessWidget {
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  const _ExportPdfButton({
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 32,
+      child: OutlinedButton.icon(
+        onPressed: isLoading ? null : onPressed,
+        icon: isLoading
+            ? const SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
+              )
+            : Icon(PhosphorIcons.filePdf(), size: 14),
+        label: Text(isLoading ? 'Exportando…' : 'Exportar PDF'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
+          textStyle: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x3,
+            vertical: AppSpacing.x1,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.smR,
+          ),
+        ),
       ),
     );
   }

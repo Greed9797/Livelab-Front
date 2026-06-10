@@ -286,6 +286,23 @@ class ApiService {
   static Future<Response<T>> delete<T>(String path) =>
       _runRequest(() => _dio.delete(path));
 
+  /// Faz GET autenticado e retorna o corpo como bytes brutos.
+  /// Usado para download de arquivos binários (PDF, XLSX, etc.) que exigem
+  /// Bearer token — não é possível usar link direto nesses casos.
+  static Future<Uint8List> getBytes(
+    String path, {
+    Map<String, dynamic>? params,
+  }) async {
+    final response = await _runRequest<List<int>>(
+      () => _dio.get<List<int>>(
+        path,
+        queryParameters: params,
+        options: Options(responseType: ResponseType.bytes),
+      ),
+    );
+    return Uint8List.fromList(response.data ?? []);
+  }
+
   /// Opens an SSE connection to the backend and emits real-time snapshots.
   /// Uses Dio with ResponseType.stream for Flutter Web compatibility.
   /// The stream closes when the subscription is cancelled (provider disposed).
