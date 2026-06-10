@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { menuForUser, needsClientOnboarding, routeForRole } from './access'
 import type { User } from '../types/models'
 
@@ -29,10 +29,20 @@ describe('routeForRole', () => {
 })
 
 describe('needsClientOnboarding', () => {
-  it('only blocks client users with pending onboarding', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('only blocks client users with pending onboarding when the flag is enabled', () => {
+    vi.stubEnv('VITE_ENABLE_CLIENT_ONBOARDING', 'true')
     expect(needsClientOnboarding({ ...baseUser, papel: 'cliente_parceiro', onboarding_completed: false })).toBe(true)
     expect(needsClientOnboarding({ ...baseUser, papel: 'cliente_parceiro', onboarding_completed: true })).toBe(false)
     expect(needsClientOnboarding({ ...baseUser, papel: 'franqueado', onboarding_completed: false })).toBe(false)
+  })
+
+  it('never blocks onboarding while the flag is disabled', () => {
+    vi.stubEnv('VITE_ENABLE_CLIENT_ONBOARDING', 'false')
+    expect(needsClientOnboarding({ ...baseUser, papel: 'cliente_parceiro', onboarding_completed: false })).toBe(false)
   })
 })
 
@@ -45,7 +55,7 @@ describe('menuForUser', () => {
     expect(masterMenu).toContain('/comercial')
     expect(masterMenu).not.toContain('/cliente')
     expect(clientMenu).toContain('/cliente')
-    expect(clientMenu).toContain('/cliente/lives')
+    expect(clientMenu).toContain('/cliente/conteudo')
     expect(clientMenu).toContain('/cliente/configuracoes')
     expect(clientMenu).not.toContain('/cliente/agenda')
     expect(clientMenu).not.toContain('/conhecimento')
