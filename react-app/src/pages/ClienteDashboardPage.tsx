@@ -8,7 +8,9 @@ import { AreaPanel } from '../components/charts/Charts'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { ErrorState, LoadingState } from '../components/ui/States'
-import { getClienteHome } from '../services/domain'
+import { PainelOperacionalSummary } from '../components/cliente/PainelOperacionalSummary'
+import { SessoesLiveTable } from '../components/cliente/SessoesLiveTable'
+import { getClienteHome, getClienteOperacionalPainel } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, currentPeriod, formatMoney, getRecord } from '../utils/format'
 import { metric, moneyMetric } from './page-helpers'
@@ -26,6 +28,10 @@ function spTime(iso: unknown): string {
 export function ClienteDashboardPage() {
   const [period, setPeriod] = useState(currentPeriod())
   const query = useQuery({ queryKey: QK.clienteHome(period), queryFn: () => getClienteHome(period), refetchInterval: 30_000 })
+  const operacionalQuery = useQuery({
+    queryKey: QK.clienteOperacionalPainel(period),
+    queryFn: () => getClienteOperacionalPainel(period),
+  })
 
   if (query.isLoading) return <LoadingState />
   if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
@@ -136,6 +142,25 @@ export function ClienteDashboardPage() {
           )}
         </CardBody>
       </Card>
+
+      {/* ── Painel Operacional ─────────────────────────────────────────────── */}
+      <div className="space-y-2">
+        <p className="text-base font-bold text-ink">Painel operacional</p>
+        <p className="text-xs text-ink-muted">Desempenho detalhado, comissões e indicadores por sessão de live.</p>
+      </div>
+
+      {operacionalQuery.isLoading ? (
+        <LoadingState label="Carregando painel operacional" />
+      ) : operacionalQuery.isError ? (
+        <ErrorState
+          message={extractErrorMessage(operacionalQuery.error)}
+          onRetry={() => void operacionalQuery.refetch()}
+        />
+      ) : operacionalQuery.data ? (
+        <PainelOperacionalSummary data={getRecord(operacionalQuery.data)} />
+      ) : null}
+
+      <SessoesLiveTable key={`${period.ano}-${period.mes}`} period={period} />
     </div>
   )
 }

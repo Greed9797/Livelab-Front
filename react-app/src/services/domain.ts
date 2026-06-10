@@ -1,5 +1,5 @@
 import type { Cabine, JsonRecord, Lead, LiveAtual, Period, Solicitacao } from '../types/models'
-import { api, apiDelete, apiGet, apiPatch, apiPost, apiPut, apiUpload } from './api'
+import { api, apiDelete, apiGet, apiGetBlob, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
 
 export function getHomeDashboard() {
@@ -332,6 +332,28 @@ export function getClienteReservas() {
 
 export function solicitarClienteLive(payload: JsonRecord) {
   return apiPost<JsonRecord>('/cliente/solicitacao', payload)
+}
+
+// ── Painel Operacional do Cliente (Fase C) ────────────────────────────────────
+
+export function getClienteOperacionalPainel(period: Period) {
+  return apiGet<JsonRecord>('/cliente/operacional', { mes: period.mes, ano: period.ano })
+}
+
+export function getClienteSessoes(
+  period: Period,
+  pagination: { limit?: number; offset?: number } = {},
+) {
+  return apiGet<JsonRecord>('/cliente/sessoes', {
+    mes: period.mes,
+    ano: period.ano,
+    ...(pagination.limit !== undefined ? { limit: pagination.limit } : {}),
+    ...(pagination.offset !== undefined ? { offset: pagination.offset } : {}),
+  })
+}
+
+export function getClienteRelatorioBlob(period: Period) {
+  return apiGetBlob('/cliente/relatorio.pdf', { mes: period.mes, ano: period.ano })
 }
 
 export function getCabines() {
