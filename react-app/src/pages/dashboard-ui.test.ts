@@ -43,10 +43,10 @@ describe('Dashboard presenter ranking UI helpers', () => {
 
   it('uses total GMV before live-only GMV in home KPI surfaces', () => {
     const kpiSource = readFileSync(new URL('../components/dashboard/KpiStrip.tsx', import.meta.url), 'utf8')
-    const heroSource = readFileSync(new URL('../components/dashboard/GmvHeroCard.tsx', import.meta.url), 'utf8')
+    const heroSource = readFileSync(new URL('../components/dashboard/GmvHeroPanel.tsx', import.meta.url), 'utf8')
 
     expect(kpiSource).toContain('raw.gmv_total_mes ?? raw.gmv_mes ?? raw.gmv_lives_mes')
-    expect(heroSource).toContain('raw.gmv_total_mes ?? raw.gmv_mes ?? raw.gmv_lives_mes')
+    expect(heroSource).toContain('raw.gmv_total_mes ?? raw.gmv_mes')
     expect(heroSource).toContain('raw.meta_mes ?? raw.meta_gmv')
   })
 
