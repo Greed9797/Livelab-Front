@@ -12,6 +12,11 @@ interface IntradayPoint {
   prev: number | null
 }
 
+interface DailyPoint {
+  dia: number
+  gmv: number
+}
+
 /* ── helpers ── */
 
 export function fmtCompact(v: number): string {
@@ -46,6 +51,17 @@ export function computeBusinessDays(): { diaUtil: number; diasUteisTotal: number
 export function calcRitmoProjetado(gmv: number, diaUtil: number, diasUteisTotal: number): number {
   if (diaUtil <= 0 || diasUteisTotal <= 0) return 0
   return (gmv / diaUtil) * diasUteisTotal
+}
+
+/**
+ * Returns the current day in America/Sao_Paulo timezone (1-based).
+ * Exported for testing purposes.
+ */
+export function getTodaySP(): number {
+  const now = new Date(
+    new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }),
+  )
+  return now.getDate()
 }
 
 /* ── sub-components ── */
@@ -162,11 +178,13 @@ function MetaBar({ gmv, meta, diaUtil, diasUteisTotal, ritmo }: MetaBarProps) {
   )
 }
 
-/* ── Intraday SVG chart (port of design GMVChart) ── */
+/* ── Shared chart constants ── */
 
 const CHART_W = 1000
 const CHART_H = 220
 const PAD = { l: 36, r: 12, t: 14, b: 26 }
+
+/* ── Intraday SVG chart (port of design GMVChart) ── */
 
 function buildIntradayPaths(data: IntradayPoint[]) {
   const innerW = CHART_W - PAD.l - PAD.r
@@ -234,6 +252,7 @@ function IntradayChart({ data }: { data: IntradayPoint[] }) {
   return (
     <div style={{ position: 'relative', height: CHART_H }}>
       <svg
+        data-testid="gmv-chart-intraday"
         width="100%"
         viewBox={`0 0 ${CHART_W} ${CHART_H}`}
         preserveAspectRatio="none"
@@ -334,6 +353,171 @@ function IntradayChart({ data }: { data: IntradayPoint[] }) {
   )
 }
 
+/* ── Daily SVG chart (fallback when intraday is empty) ── */
+
+interface DailyChartProps {
+  data: DailyPoint[]
+  /** 'YYYY-MM' string from payload — used to determine if we clip future days */
+  mesReferencia: string | null
+}
+
+function buildDailyPaths(data: DailyPoint[], todayDia: number, isCurrentMonth: boolean) {
+  const innerW = CHART_W - PAD.l - PAD.r
+  const innerH = CHART_H - PAD.t - PAD.b
+
+  // For current month: clip points to todayDia; for past months: use all
+  const visibleData = isCurrentMonth ? data.filter((p) => p.dia <= todayDia) : data
+  if (visibleData.length === 0) return null
+
+  const allVals = visibleData.map((p) => p.gmv).filter((v) => v > 0)
+  if (allVals.length === 0) return null
+
+  const maxV = Math.max(...allVals)
+  const niceMax = Math.ceil(maxV / 500) * 500 || 1000
+
+  // Total days in month for x-axis scaling
+  const totalDays = data.length
+
+  const xFn = (dia: number) => PAD.l + ((dia - 1) / Math.max(totalDays - 1, 1)) * innerW
+  const yFn = (v: number) => PAD.t + innerH - (v / niceMax) * innerH
+
+  // Build line + area paths
+  let linePath = ''
+  let areaPath = ''
+  let firstX: number | null = null
+  let lastX: number | null = null
+
+  visibleData.forEach((p) => {
+    const X = xFn(p.dia)
+    const Y = yFn(p.gmv)
+    if (linePath === '') { linePath = `M ${X} ${Y}`; firstX = X }
+    else linePath += ` L ${X} ${Y}`
+    lastX = X
+  })
+
+  if (firstX != null && lastX != null) {
+    areaPath = `${linePath} L ${lastX} ${yFn(0)} L ${firstX} ${yFn(0)} Z`
+  }
+
+  const YTICK_COUNT = 4
+  const yticks = Array.from({ length: YTICK_COUNT + 1 }, (_, i) => ({
+    val: (niceMax * i) / YTICK_COUNT,
+    y: yFn((niceMax * i) / YTICK_COUNT),
+  }))
+
+  // x-axis day labels: every ~5 days
+  const xLabels = data
+    .filter((p) => p.dia === 1 || p.dia % 5 === 0)
+    .map((p) => ({ dia: p.dia, x: xFn(p.dia) }))
+
+  // "today" vertical marker x-position (only when current month)
+  const todayX = isCurrentMonth && data.some((p) => p.dia === todayDia)
+    ? xFn(todayDia)
+    : null
+
+  return { linePath, areaPath, xFn, yFn, yticks, xLabels, todayX }
+}
+
+function DailyChart({ data, mesReferencia }: DailyChartProps) {
+  const todayDia = useMemo(() => getTodaySP(), [])
+
+  const isCurrentMonth = useMemo(() => {
+    if (!mesReferencia) return true
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
+    const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return mesReferencia === currentYm
+  }, [mesReferencia])
+
+  const paths = useMemo(
+    () => buildDailyPaths(data, todayDia, isCurrentMonth),
+    [data, todayDia, isCurrentMonth],
+  )
+
+  if (!paths) return null
+
+  const { linePath, areaPath, yticks, xLabels, todayX } = paths
+  const gradId = 'gmvDailyGrad'
+
+  return (
+    <div style={{ position: 'relative', height: CHART_H }}>
+      <svg
+        data-testid="gmv-chart-daily"
+        width="100%"
+        viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+        preserveAspectRatio="none"
+        style={{ display: 'block', height: CHART_H }}
+      >
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+
+        {/* horizontal gridlines + y labels */}
+        {yticks.map(({ val, y }) => (
+          <g key={val}>
+            <line
+              x1={PAD.l} y1={y} x2={CHART_W - PAD.r} y2={y}
+              stroke="var(--border)" strokeWidth="0.8" vectorEffect="non-scaling-stroke"
+            />
+            <text
+              x={PAD.l - 4} y={y + 3}
+              fontSize="9" fill="var(--text-faint)"
+              textAnchor="end"
+              fontFamily="var(--font-mono, monospace)"
+            >
+              {fmtCompact(val)}
+            </text>
+          </g>
+        ))}
+
+        {/* x axis labels — every ~5 days */}
+        {xLabels.map(({ dia, x }) => (
+          <text
+            key={dia}
+            x={x}
+            y={CHART_H - 8}
+            fontSize="9"
+            fill="var(--text-faint)"
+            textAnchor="middle"
+            fontFamily="var(--font-mono, monospace)"
+          >
+            {String(dia).padStart(2, '0')}
+          </text>
+        ))}
+
+        {/* area fill */}
+        {areaPath && <path d={areaPath} fill={`url(#${gradId})`} />}
+
+        {/* main line */}
+        {linePath && (
+          <path
+            d={linePath}
+            fill="none"
+            stroke="var(--primary)"
+            strokeWidth="1.75"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+
+        {/* "today" vertical marker (only in current month) */}
+        {todayX != null && (
+          <line
+            x1={todayX} x2={todayX}
+            y1={PAD.t} y2={PAD.t + (CHART_H - PAD.t - PAD.b)}
+            stroke="var(--primary)" strokeWidth="1"
+            strokeDasharray="2 3" opacity="0.5"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+      </svg>
+    </div>
+  )
+}
+
 /* ── Main exported component ── */
 
 export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
@@ -356,13 +540,29 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
   const diaUtil = periodoRaw?.dia_util ?? diaUtilCalc
   const diasUteisTotal = periodoRaw?.dias_uteis_total ?? diasUteisTotalCalc
 
-  // intraday: only render chart if array has at least one non-null v
+  // intraday: qualify if ANY point has v != null OR prev != null
   const intradayData = useMemo((): IntradayPoint[] | null => {
     if (!Array.isArray(raw.gmv_intraday) || raw.gmv_intraday.length === 0) return null
     const pts = (raw.gmv_intraday as IntradayPoint[]).filter((p) => p && typeof p.h === 'string')
     if (pts.length === 0) return null
-    return pts.some((p) => p.v != null) ? pts : null
+    return pts.some((p) => p.v != null || p.prev != null) ? pts : null
   }, [raw.gmv_intraday])
+
+  // daily: qualify if gmv_diario_mes has at least one gmv > 0
+  const dailyData = useMemo((): DailyPoint[] | null => {
+    if (intradayData != null) return null // intraday takes priority
+    if (!Array.isArray(raw.gmv_diario_mes) || raw.gmv_diario_mes.length === 0) return null
+    const pts = (raw.gmv_diario_mes as DailyPoint[]).filter(
+      (p) => p && typeof p.dia === 'number',
+    )
+    return pts.some((p) => p.gmv > 0) ? pts : null
+  }, [intradayData, raw.gmv_diario_mes])
+
+  const mesReferencia = raw.mes_referencia != null ? String(raw.mes_referencia) : null
+
+  // legend: adapts to chart mode
+  const showIntradayLegend = intradayData != null
+  const showDailyLegend = !showIntradayLegend && dailyData != null
 
   return (
     <div
@@ -378,20 +578,32 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
           GMV — desempenho do mês
         </span>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            <span
-              className="inline-block rounded-full"
-              style={{ width: 8, height: 8, background: 'var(--primary)' }}
-            />
-            Hoje
-          </span>
-          <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            <span
-              className="inline-block rounded-full"
-              style={{ width: 8, height: 8, background: 'var(--text-muted)', opacity: 0.6 }}
-            />
-            Mês anterior
-          </span>
+          {showIntradayLegend ? (
+            <>
+              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                <span
+                  className="inline-block rounded-full"
+                  style={{ width: 8, height: 8, background: 'var(--primary)' }}
+                />
+                Hoje
+              </span>
+              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                <span
+                  className="inline-block rounded-full"
+                  style={{ width: 8, height: 8, background: 'var(--text-muted)', opacity: 0.6 }}
+                />
+                Mês anterior
+              </span>
+            </>
+          ) : showDailyLegend ? (
+            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              <span
+                className="inline-block rounded-full"
+                style={{ width: 8, height: 8, background: 'var(--primary)' }}
+              />
+              Mês atual
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -431,10 +643,12 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
         ritmo={ritmo}
       />
 
-      {/* Intraday chart — rendered only when data is present */}
-      {intradayData && (
+      {/* Adaptive chart: intraday first, daily fallback, nothing if neither qualifies */}
+      {intradayData ? (
         <IntradayChart data={intradayData} />
-      )}
+      ) : dailyData ? (
+        <DailyChart data={dailyData} mesReferencia={mesReferencia} />
+      ) : null}
     </div>
   )
 }
