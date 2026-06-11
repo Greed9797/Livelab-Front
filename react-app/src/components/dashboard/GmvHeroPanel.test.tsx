@@ -102,13 +102,22 @@ describe('GmvHeroPanel', () => {
     expect(html).not.toContain('gmvIntradayGrad')
   })
 
-  it('does NOT render chart block when all v values are null', () => {
+  it('does NOT render intraday chart when all v AND prev values are null (regression: both null)', () => {
     const allNull = [
+      { h: '09', v: null, prev: null },
+      { h: '10', v: null, prev: null },
+    ]
+    const html = renderToStaticMarkup(<GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: allNull }} />)
+    expect(html).not.toContain('gmv-chart-intraday')
+  })
+
+  it('renders intraday chart when all v are null but prev has values (relaxed condition)', () => {
+    const allNullV = [
       { h: '09', v: null, prev: 1000 },
       { h: '10', v: null, prev: 1200 },
     ]
-    const html = renderToStaticMarkup(<GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: allNull }} />)
-    expect(html).not.toContain('gmvIntradayGrad')
+    const html = renderToStaticMarkup(<GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: allNullV }} />)
+    expect(html).toContain('gmv-chart-intraday')
   })
 
   it('renders chart SVG when gmv_intraday has at least one non-null v', () => {
@@ -120,6 +129,7 @@ describe('GmvHeroPanel', () => {
     ]
     const html = renderToStaticMarkup(<GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: data }} />)
     expect(html).toContain('gmvIntradayGrad')
+    expect(html).toContain('gmv-chart-intraday')
   })
 
   it('uses client-side business-day fallback when periodo is absent', () => {
@@ -144,9 +154,62 @@ describe('GmvHeroPanel', () => {
     expect(html).toContain('vs. mesmo período do mês anterior')
   })
 
-  it('renders legend with Hoje and Mês anterior labels', () => {
-    const html = renderToStaticMarkup(<GmvHeroPanel raw={baseRaw} />)
+  it('renders intraday legend "Hoje" and "Mês anterior" when intraday qualifies', () => {
+    const data = [{ h: '09', v: 800, prev: 700 }]
+    const html = renderToStaticMarkup(<GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: data }} />)
     expect(html).toContain('Hoje')
     expect(html).toContain('Mês anterior')
+    expect(html).not.toContain('Mês atual')
+  })
+
+  /* ── daily fallback chart tests ── */
+
+  const dailyPoints = Array.from({ length: 30 }, (_, i) => ({
+    dia: i + 1,
+    gmv: i < 15 ? (i + 1) * 1000 : 0,
+  }))
+
+  it('renders daily chart when intraday is absent and gmv_diario_mes has non-zero values', () => {
+    const html = renderToStaticMarkup(
+      <GmvHeroPanel raw={{ ...baseRaw, gmv_diario_mes: dailyPoints }} />,
+    )
+    expect(html).toContain('gmv-chart-daily')
+    expect(html).not.toContain('gmv-chart-intraday')
+  })
+
+  it('renders daily legend "Mês atual" (no "Mês anterior") in daily mode', () => {
+    const html = renderToStaticMarkup(
+      <GmvHeroPanel raw={{ ...baseRaw, gmv_diario_mes: dailyPoints }} />,
+    )
+    expect(html).toContain('Mês atual')
+    expect(html).not.toContain('Mês anterior')
+  })
+
+  it('does NOT render daily chart when gmv_diario_mes is all zeros', () => {
+    const allZero = Array.from({ length: 30 }, (_, i) => ({ dia: i + 1, gmv: 0 }))
+    const html = renderToStaticMarkup(
+      <GmvHeroPanel raw={{ ...baseRaw, gmv_diario_mes: allZero }} />,
+    )
+    expect(html).not.toContain('gmv-chart-daily')
+    expect(html).not.toContain('gmv-chart-intraday')
+  })
+
+  it('prefers intraday over daily when intraday qualifies', () => {
+    const intradayData = [{ h: '09', v: 800, prev: 700 }]
+    const html = renderToStaticMarkup(
+      <GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: intradayData, gmv_diario_mes: dailyPoints }} />,
+    )
+    expect(html).toContain('gmv-chart-intraday')
+    expect(html).not.toContain('gmv-chart-daily')
+  })
+
+  it('renders no chart and no chart legends when neither qualifies', () => {
+    const html = renderToStaticMarkup(
+      <GmvHeroPanel raw={{ ...baseRaw }} />,
+    )
+    expect(html).not.toContain('gmv-chart-intraday')
+    expect(html).not.toContain('gmv-chart-daily')
+    expect(html).not.toContain('Hoje')
+    expect(html).not.toContain('Mês atual')
   })
 })
