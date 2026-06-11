@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { KpiStrip } from '../components/dashboard/KpiStrip'
-import { GmvHeroCard } from '../components/dashboard/GmvHeroCard'
+import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
 import { CabinesGantt } from '../components/dashboard/CabinesGantt'
 import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
 import { PresenterLeaderboard } from '../components/dashboard/PresenterLeaderboard'
@@ -214,7 +214,7 @@ export function DashboardPage() {
 
       {/* Hero row */}
       <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 340px' }}>
-        <GmvHeroCard raw={raw} />
+        <GmvHeroPanel raw={raw} />
         <div className="flex flex-col gap-4">
           <PresenterLeaderboard
             rows={rankingApresentadoras}
