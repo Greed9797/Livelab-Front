@@ -51,10 +51,12 @@ export const QK = {
   crmSummary: ['crm-summary'] as const,
   financeiroCustos: (mes?: string) =>
     mes ? ['financeiro-custos', mes] as const : ['financeiro-custos'] as const,
-  financeiroResumo: ['financeiro-resumo'] as const,
-  financeiroFaturamento: ['financeiro-faturamento'] as const,
-  financeiroFluxo: ['financeiro-fluxo'] as const,
-  financeiroFranqueadora: ['financeiro-franqueadora'] as const,
+  // Period-aware: a query passa periodKey(periodRange); a invalidação chama sem
+  // argumento e casa por prefixo (['financeiro-resumo'] cobre ['financeiro-resumo', key]).
+  financeiroResumo: (key?: string) => (key ? ['financeiro-resumo', key] as const : ['financeiro-resumo'] as const),
+  financeiroFaturamento: (key?: string) => (key ? ['financeiro-faturamento', key] as const : ['financeiro-faturamento'] as const),
+  financeiroFluxo: (key?: string) => (key ? ['financeiro-fluxo', key] as const : ['financeiro-fluxo'] as const),
+  financeiroFranqueadora: (key?: string) => (key ? ['financeiro-franqueadora', key] as const : ['financeiro-franqueadora'] as const),
   financeiroClienteOperacional: (params?: { clienteKind?: string; clienteId?: string }) =>
     params ? ['financeiro-cliente-operacional', params] as const : ['financeiro-cliente-operacional'] as const,
   masterDashboard: (period?: { mes: number; ano: number }) =>
