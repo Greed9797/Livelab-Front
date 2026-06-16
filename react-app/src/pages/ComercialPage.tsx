@@ -48,8 +48,11 @@ const emptyAfiliadoForm = {
   observacoes: '',
 }
 
+// GMV operacional = verdade das lives (gmv_mes vem de /clientes e /marcas, derivado de
+// lives+vídeos do mês). NÃO usa fat_anual (faturamento anual de contrato, dado cadastral
+// estático que não reflete as lives) — sem lives no mês, mostra 0.
 function officialOperationalGmv(item: JsonRecord) {
-  return item.gmv_mes ?? item.gmv ?? item.ads_gmv ?? item.manual_gmv ?? item.fat_anual
+  return item.gmv_mes ?? item.gmv ?? item.ads_gmv ?? item.manual_gmv ?? 0
 }
 
 export function ComercialPage() {
