@@ -232,8 +232,8 @@ export function FinanceiroPage() {
               columns={[
                 { key: 'cliente_nome', header: 'Cliente', render: (item) => asString(item.cliente_nome ?? item.nome) },
                 { key: 'nicho', header: 'Nicho', render: (item) => asString(item.nicho ?? item.segmento) },
-                { key: 'valor', header: 'Faturamento', align: 'right', render: (item) => formatMoney(item.valor ?? item.faturamento) },
-                { key: 'lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives ?? item.total_lives).toLocaleString('pt-BR') },
+                { key: 'valor', header: 'Faturamento', align: 'right', render: (item) => formatMoney(item.valor ?? item.faturamento ?? item.total ?? item.gmv_mes ?? item.gmv_total) },
+                { key: 'lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives ?? item.total_lives ?? item.lives_mes).toLocaleString('pt-BR') },
                 {
                   key: 'acoes',
                   header: 'Ações',
