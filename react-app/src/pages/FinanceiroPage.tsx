@@ -88,10 +88,10 @@ export function FinanceiroPage() {
   const boletosRows = boletos.data ?? []
   const boletosVencidos = boletosRows.filter((item) => asString(item.status).toLowerCase() === 'vencido').length
   const metrics = [
-    moneyMetric('GMV bruto', raw.gmv_total ?? raw.receita ?? raw.fat_bruto ?? raw.fat_total, 'vendas atribuídas do período', 'brand'),
-    moneyMetric('Receita líquida', raw.receita_liquida ?? raw.fat_liquido, 'GMV x comissão configurada', 'success'),
+    moneyMetric('GMV bruto', raw.gmv_total ?? raw.receita ?? raw.fat_bruto ?? raw.fat_total, 'lives + vídeos do período', 'brand'),
+    moneyMetric('Receita líquida', raw.receita_liquida ?? raw.fat_liquido, 'comissão de franquia das lives − custos', 'success'),
     moneyMetric('Custos reais', raw.total_custos ?? raw.custos ?? 0, 'custos cadastrados', 'warning'),
-    metric('Comissão ausente', raw.comissao_faltante_count ?? raw.comissoes_sem_config ?? 0, 'marcas sem comissão', 'danger'),
+    metric('Comissão ausente', raw.comissao_faltante_count ?? raw.comissoes_sem_config ?? 0, 'lives com GMV sem comissão', 'danger'),
   ]
   const fluxoItems = historyPoints(fluxo.data?.items ?? fluxo.data?.fluxo ?? fluxo.data?.history)
   const hasFluxo = fluxoItems.some((item) => asNumber(item.value) !== 0 || asNumber(item.secondary) !== 0)
@@ -158,6 +158,33 @@ export function FinanceiroPage() {
               <MetricCard key={item.label} metric={item} icon={icons[index]} />
             ))}
           </section>
+
+          {/* Memória de cálculo — transparência: de onde vem cada número (fonte: lives + vídeos) */}
+          <details className="group rounded-2xl border border-line bg-surface">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
+              <span>Memória de cálculo — de onde vêm os números</span>
+              <span className="text-xs font-normal text-ink-muted">expandir</span>
+            </summary>
+            <div className="space-y-2 border-t border-line px-4 py-3 text-sm text-ink-muted">
+              <p>
+                <span className="font-semibold text-ink">GMV bruto {formatMoney(raw.gmv_total)}</span>
+                {' = '}Lives {formatMoney(raw.gmv_lives)} ({asNumber(raw.total_lives)} lives) + Vídeos {formatMoney(raw.gmv_videos)} ({asNumber(raw.total_videos)} vídeos)
+              </p>
+              <p>
+                <span className="font-semibold text-ink">Receita líquida {formatMoney(raw.receita_liquida)}</span>
+                {' = '}comissão de franquia das lives (Σ comissao_calculada) − custos {formatMoney(raw.total_custos)}
+              </p>
+              <p className="text-xs">
+                Comissão de franquia por live = <span className="num">MAX(valor fixo mínimo da marca, GMV × % da marca)</span>.
+                Fonte do GMV: tabela <code>lives</code> (Conteúdo/Operacional) + <code>video_registros</code> — não usa mais vendas_atribuidas como base de GMV.
+              </p>
+              {asNumber(raw.comissao_faltante_count) > 0 ? (
+                <p className="rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-[var(--danger)]">
+                  ⚠ {asNumber(raw.comissao_faltante_count)} live(s) com GMV mas sem comissão calculada — marca/apresentadora não resolvida. Ajuste o cadastro para reconciliar Financeiro × Comissões.
+                </p>
+              ) : null}
+            </div>
+          </details>
 
           <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
             {hasFluxo ? (
@@ -376,8 +403,10 @@ export function FinanceiroPage() {
                   <DataTable<JsonRecord>
                     data={asArray<JsonRecord>(franqueadora.data?.franqueados ?? [])}
                     columns={[
-                      { key: 'nome', header: 'Franqueado', render: (item) => asString(item.nome) },
-                      { key: 'gmv', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv ?? item.total_gmv) },
+                      { key: 'nome', header: 'Franqueado', render: (item) => asString(item.franqueado_nome ?? item.nome) },
+                      { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => formatMoney(item.gmv_total ?? item.gmv) },
+                      { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => asNumber(item.total_lives).toLocaleString('pt-BR') },
+                      { key: 'royalties_estimados', header: 'Royalties', align: 'right', render: (item) => formatMoney(item.royalties_estimados) },
                     ]}
                   />
                 </CardBody>
