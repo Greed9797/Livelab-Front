@@ -51,10 +51,10 @@ describe('computeStatus (regras agressivas)', () => {
 
 describe('buildDailyPulse', () => {
   const rows = [
-    // Make Zone: 6h01 no ar, zero pedido = crítico
-    { dia: '2026-06-05', marca_id: 'm1', marca_nome: 'Make Zone', apresentadora_id: 'a1', apresentadora_nome: 'Jady', gmv_total: 0, pedidos: 0, horas_live: 6.02, total_lives: 1 },
-    // Cliente Y: ok
-    { dia: '2026-06-04', marca_id: 'm2', marca_nome: 'Cliente Y', apresentadora_id: 'a1', apresentadora_nome: 'Jady', gmv_total: 1000, pedidos: 17, horas_live: 4.33, total_lives: 1 },
+    // Make Zone: 6h01 no ar, zero pedido = crítico (gmv_lives=0)
+    { dia: '2026-06-05', marca_id: 'm1', marca_nome: 'Make Zone', apresentadora_id: 'a1', apresentadora_nome: 'Jady', gmv_total: 0, gmv_lives: 0, pedidos: 0, horas_live: 6.02, total_lives: 1 },
+    // Cliente Y: ok (GMV de live → gmv_lives alimenta o GMV/hora, não gmv_total)
+    { dia: '2026-06-04', marca_id: 'm2', marca_nome: 'Cliente Y', apresentadora_id: 'a1', apresentadora_nome: 'Jady', gmv_total: 1000, gmv_lives: 1000, pedidos: 17, horas_live: 4.33, total_lives: 1 },
   ]
   const pulse = buildDailyPulse(rows)
 

@@ -99,7 +99,9 @@ export function sumDailyTotals(rows: JsonRecord[]): DailyTotals {
   return {
     ...acc,
     gmv_total,
-    gmv_por_hora: acc.horas_live > 0 ? gmv_total / acc.horas_live : 0,
+    // GMV/hora = GMV de LIVES ÷ horas (exclui vídeo, que tem horas=0 e inflaria);
+    // mesma convenção do backend (analytics/rollup/funil).
+    gmv_por_hora: acc.horas_live > 0 ? acc.gmv_lives / acc.horas_live : 0,
     gmv_por_live: acc.total_lives > 0 ? gmv_total / acc.total_lives : 0,
     ticket_medio: acc.pedidos > 0 ? gmv_total / acc.pedidos : 0,
   }

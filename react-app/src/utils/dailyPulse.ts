@@ -107,13 +107,14 @@ export function formatHoras(horas: number): string {
   return `${h}h${String(min).padStart(2, '0')}`
 }
 
-function makeAgg(gmv: number, pedidos: number, horas: number, totalLives: number): PulseAgg {
+function makeAgg(gmv: number, gmvLives: number, pedidos: number, horas: number, totalLives: number): PulseAgg {
   return {
     gmv,
     pedidos,
     horas,
     totalLives,
-    gmvHora: horas > 0 ? gmv / horas : 0,
+    // GMV/hora usa GMV de LIVES (vídeo tem horas=0 e inflaria); gmv (total) só p/ display.
+    gmvHora: horas > 0 ? gmvLives / horas : 0,
     pedidosHora: horas > 0 ? pedidos / horas : 0,
   }
 }
@@ -149,6 +150,7 @@ export function diagnose(status: PulseStatus, a: PulseAgg): { titulo: string; de
 
 interface RowAgg {
   gmv: number
+  gmvLives: number
   pedidos: number
   horas: number
   totalLives: number
@@ -156,13 +158,14 @@ interface RowAgg {
 
 function addRow(target: RowAgg, row: JsonRecord): void {
   target.gmv += asNumber(row.gmv_total)
+  target.gmvLives += asNumber(row.gmv_lives)
   target.pedidos += asNumber(row.pedidos)
   target.horas += asNumber(row.horas_live)
   target.totalLives += asNumber(row.total_lives)
 }
 
 function emptyRowAgg(): RowAgg {
-  return { gmv: 0, pedidos: 0, horas: 0, totalLives: 0 }
+  return { gmv: 0, gmvLives: 0, pedidos: 0, horas: 0, totalLives: 0 }
 }
 
 const STATUS_RANK: Record<PulseStatus, number> = { critico: 0, atencao: 1, ok: 2, otimo: 3 }
@@ -206,17 +209,17 @@ export function buildDailyPulse(rows: JsonRecord[]): DailyPulseData {
   const serieDiaria: PulseDay[] = [...byDay.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([data, r]) => {
-      const agg = makeAgg(r.gmv, r.pedidos, r.horas, r.totalLives)
+      const agg = makeAgg(r.gmv, r.gmvLives, r.pedidos, r.horas, r.totalLives)
       return { data, label: diaLabel(data), gmv: r.gmv, pedidos: r.pedidos, horas: r.horas, gmvHora: agg.gmvHora, status: computeStatus(agg) }
     })
 
   // clientes
   const clientes: PulseCliente[] = [...byCliente.entries()].map(([clienteId, c]) => {
-    const agg = makeAgg(c.agg.gmv, c.agg.pedidos, c.agg.horas, c.agg.totalLives)
+    const agg = makeAgg(c.agg.gmv, c.agg.gmvLives, c.agg.pedidos, c.agg.horas, c.agg.totalLives)
     const status = computeStatus(agg)
     let diasCriticos = 0
     for (const dr of c.dias.values()) {
-      if (computeStatus(makeAgg(dr.gmv, dr.pedidos, dr.horas, dr.totalLives)) === 'critico') diasCriticos += 1
+      if (computeStatus(makeAgg(dr.gmv, dr.gmvLives, dr.pedidos, dr.horas, dr.totalLives)) === 'critico') diasCriticos += 1
     }
     return {
       clienteId,
@@ -235,7 +238,7 @@ export function buildDailyPulse(rows: JsonRecord[]): DailyPulseData {
 
   // apresentadoras
   const rankingApresentadoras: PulseApresentadora[] = [...byApresentadora.entries()].map(([apresentadoraId, ap]) => {
-    const agg = makeAgg(ap.agg.gmv, ap.agg.pedidos, ap.agg.horas, ap.agg.totalLives)
+    const agg = makeAgg(ap.agg.gmv, ap.agg.gmvLives, ap.agg.pedidos, ap.agg.horas, ap.agg.totalLives)
     return {
       apresentadoraId,
       apresentadoraNome: ap.nome,
@@ -252,7 +255,7 @@ export function buildDailyPulse(rows: JsonRecord[]): DailyPulseData {
   // alertas (por dia × cliente) — só crítico/atenção
   const alertas: PulseAlerta[] = []
   for (const dc of byDiaCliente.values()) {
-    const agg = makeAgg(dc.agg.gmv, dc.agg.pedidos, dc.agg.horas, dc.agg.totalLives)
+    const agg = makeAgg(dc.agg.gmv, dc.agg.gmvLives, dc.agg.pedidos, dc.agg.horas, dc.agg.totalLives)
     const status = computeStatus(agg)
     if (status !== 'critico' && status !== 'atencao') continue
     const diag = diagnose(status, agg)
@@ -278,6 +281,7 @@ export function buildDailyPulse(rows: JsonRecord[]): DailyPulseData {
 
   // resumo
   const gmvTotal = clientes.reduce((s, c) => s + c.gmv, 0)
+  const gmvLivesTotal = [...byCliente.values()].reduce((s, c) => s + c.agg.gmvLives, 0)
   const pedidosTotal = clientes.reduce((s, c) => s + c.pedidos, 0)
   const horasTotal = clientes.reduce((s, c) => s + c.horas, 0)
   const clientesCriticos = clientes.filter((c) => c.status === 'critico').length
@@ -297,7 +301,7 @@ export function buildDailyPulse(rows: JsonRecord[]): DailyPulseData {
       gmvTotal,
       pedidosTotal,
       horasTotal,
-      gmvHora: horasTotal > 0 ? gmvTotal / horasTotal : 0,
+      gmvHora: horasTotal > 0 ? gmvLivesTotal / horasTotal : 0,
       diasComZeroVenda,
       horasSemVenda,
     },
