@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Info } from 'lucide-react'
@@ -7,9 +7,9 @@ import { DataTable } from '../components/ui/DataTable'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
-import { getApresentadoras, getComissoesApresentadoras, getLives } from '../services/domain'
+import { getApresentadoras, getComissaoMemoria, getComissoesApresentadoras, getComissoesPorApresentadora, getLives } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asArray, asNumber, asString, formatMoney, unwrapList } from '../utils/format'
+import { asArray, asNumber, asString, formatMoney, getRecord, unwrapList } from '../utils/format'
 import type { JsonRecord } from '../types/models'
 
 type DateRange = 'hoje' | '7d' | '30d' | 'mes'
@@ -53,9 +53,16 @@ function fmtDurationMins(mins: number): string {
   return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m}m`
 }
 function fmtDay(value: unknown): string {
-  const d = value ? new Date(asString(value)) : null
+  const raw = asString(value, '')
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) return `${m[3]}/${m[2]}`
+  const d = value ? new Date(raw) : null
   if (!d || Number.isNaN(d.getTime())) return '—'
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', weekday: 'short' }).format(d)
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(d)
+}
+function pctLabel(value: unknown): string {
+  const n = asNumber(value)
+  return `${n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
 }
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -72,6 +79,20 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
       {hint ? <p className="mt-1 text-xs text-ink-muted">{hint}</p> : null}
     </div>
   )
+}
+
+// Rótulo da regra aplicada na linha da memória: 2% de fim de semana, faixa da escada
+// ou o pct cru gravado (fallback) — explica de onde veio o percentual.
+function regraLabel(linha: JsonRecord): string {
+  if (linha.fim_de_semana) return '2% · fim de semana'
+  const faixa = getRecord(linha.faixa)
+  if (faixa.comissao_pct != null) {
+    const ini = asNumber(faixa.gmv_inicio)
+    const fim = faixa.gmv_fim == null ? null : asNumber(faixa.gmv_fim)
+    const faixaTxt = fim == null ? `≥ ${formatMoney(ini)}` : `${formatMoney(ini)}–${formatMoney(fim)}`
+    return `${pctLabel(faixa.comissao_pct)} · faixa ${faixaTxt}`
+  }
+  return `${pctLabel(linha.pct_aplicado)} · escada padrão`
 }
 
 export function ApresentadoraDetailPage() {
@@ -95,11 +116,33 @@ export function ApresentadoraDetailPage() {
     queryFn: () => getLives({ apresentadora_id: id, status: 'encerrada', limit: 200, ...periodWindow }),
     enabled: Boolean(id),
   })
+  // Onda 1 — comissão por live (coluna "Comissão" do histórico, sem N+1).
+  const comissaoLivesQ = useQuery({
+    queryKey: ['apresentadora-detalhe-comissao-lives', id, range],
+    queryFn: () => getComissoesPorApresentadora(id, periodWindow),
+    enabled: Boolean(id),
+  })
+  // Onda 1 — memória de cálculo detalhada (faixa, base do mês, 2% fds).
+  const memoriaQ = useQuery({
+    queryKey: ['apresentadora-detalhe-memoria', id, range],
+    queryFn: () => getComissaoMemoria({ apresentadora_id: id, ...periodWindow }),
+    enabled: Boolean(id),
+  })
   const apresentadorasQ = useQuery({ queryKey: ['apresentadoras', 'detalhe-fallback'], queryFn: getApresentadoras })
 
   const row = asArray<JsonRecord>(comissaoQ.data)[0] ?? {}
   const lives = unwrapList<JsonRecord>(livesQ.data)
   const apFallback = unwrapList<JsonRecord>(apresentadorasQ.data).find((a) => asString(a.id) === id)
+  const memoriaLinhas = asArray<JsonRecord>(getRecord(memoriaQ.data).linhas)
+
+  // Mapa live_id → comissão da apresentadora naquela live (merge no histórico).
+  const comissaoPorLive = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const l of asArray<JsonRecord>(getRecord(comissaoLivesQ.data).lives)) {
+      map.set(asString(l.live_id), asNumber(l.comissao_apresentadora))
+    }
+    return map
+  }, [comissaoLivesQ.data])
 
   const nome = asString(row.apresentadora_nome ?? apFallback?.nome, 'Apresentadora')
   const foto = asString(row.foto_url ?? row.apresentadora_foto_url ?? apFallback?.foto_url, '')
@@ -172,22 +215,43 @@ export function ApresentadoraDetailPage() {
             </CardBody>
           </Card>
 
-          {/* Memória de cálculo — parcial; detalhamento completo precisa da Onda 1 */}
+          {/* Memória de cálculo — detalhada (Onda 1) */}
           <Card>
             <CardHeader>
               <p className="text-base font-bold text-ink">Memória de cálculo da comissão</p>
-              <p className="mt-1 text-xs text-ink-muted">Composição do total recebido no período selecionado.</p>
+              <p className="mt-1 text-xs text-ink-muted">Como cada centavo da comissão variável foi formado no período.</p>
             </CardHeader>
-            <CardBody className="space-y-3">
+            <CardBody className="space-y-4">
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between gap-3"><span className="text-ink-muted">Fixo mensal</span><span className="num font-semibold text-ink">{formatMoney(fixo)}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-ink-muted">Comissão variável (escada × GMV)</span><span className="num font-semibold text-ink">{formatMoney(comissaoVar)}</span></div>
                 <div className="flex justify-between gap-3 border-t border-line pt-1.5"><span className="font-bold text-ink">Total recebido</span><span className="num font-bold text-ink">{formatMoney(totalRecebido)}</span></div>
               </div>
-              <p className="flex items-start gap-2 rounded-xl border border-dashed border-line bg-surface-muted/50 p-3 text-xs text-ink-muted">
-                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                O detalhamento da escada (qual faixa de GMV foi aplicada, override de 2% em fim de semana, rateio entre co-apresentadoras) precisa de um endpoint dedicado — entra na próxima onda. O <strong>fixo é mensal</strong>: em períodos menores que o mês cheio ele aparece somado uma vez, sem rateio.
-              </p>
+
+              {memoriaQ.isLoading ? (
+                <p className="py-3 text-center text-sm text-ink-muted">Carregando detalhamento…</p>
+              ) : memoriaLinhas.length > 0 ? (
+                <div>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-ink-muted">Detalhamento por venda</p>
+                  <DataTable<JsonRecord>
+                    data={memoriaLinhas}
+                    columns={[
+                      { key: 'data', header: 'Data', render: (l) => fmtDay(l.data) },
+                      { key: 'origem', header: 'Origem', render: (l) => asString(l.origem, '—') },
+                      { key: 'marca', header: 'Marca', render: (l) => asString(l.marca_nome, '—') },
+                      { key: 'gmv', header: 'GMV', align: 'right', render: (l) => <span className="num">{formatMoney(l.gmv)}</span> },
+                      { key: 'base', header: 'Base do mês', align: 'right', render: (l) => <span className="num">{formatMoney(l.base_gmv_mes)}</span> },
+                      { key: 'regra', header: 'Regra aplicada', render: (l) => regraLabel(l) },
+                      { key: 'comissao', header: 'Comissão', align: 'right', render: (l) => <span className="num font-semibold text-ink">{formatMoney(l.comissao_apresentadora)}</span> },
+                    ]}
+                  />
+                </div>
+              ) : (
+                <p className="flex items-start gap-2 rounded-xl border border-dashed border-line bg-surface-muted/50 p-3 text-xs text-ink-muted">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  Sem vendas atribuídas no período — a comissão variável vem de lives com marca/apresentadora resolvidas. O <strong>fixo é mensal</strong>: períodos menores que o mês cheio mostram o fixo somado uma vez, sem rateio.
+                </p>
+              )}
             </CardBody>
           </Card>
 
@@ -211,6 +275,15 @@ export function ApresentadoraDetailPage() {
                   { key: 'duracao', header: 'Duração', align: 'right', render: (live) => fmtDurationMins(liveDurationMins(live)) },
                   { key: 'gmv', header: 'GMV', align: 'right', render: (live) => <span className="num">{formatMoney(officialLiveGmv(live))}</span> },
                   { key: 'pedidos', header: 'Pedidos', align: 'right', render: (live) => <span className="num">{liveOrders(live).toLocaleString('pt-BR')}</span> },
+                  {
+                    key: 'comissao',
+                    header: 'Comissão',
+                    align: 'right',
+                    render: (live) => {
+                      const c = comissaoPorLive.get(asString(live.id ?? live.live_id))
+                      return <span className="num">{c == null ? '—' : formatMoney(c)}</span>
+                    },
+                  },
                   { key: 'status', header: 'Status', render: (live) => <Badge tone={statusTone(asString(live.status))}>{asString(live.status, '—')}</Badge> },
                 ]}
               />

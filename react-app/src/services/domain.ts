@@ -261,6 +261,16 @@ export function getComissoesApresentadoras(params: Record<string, unknown> = {})
   return apiGet<JsonRecord[]>('/comissoes/apresentadoras', params)
 }
 
+// Onda 1 — comissão por live de uma apresentadora (coluna "Comissão" do histórico).
+export function getComissoesPorApresentadora(id: string, params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>(`/comissoes/por-apresentadora/${id}`, params)
+}
+
+// Onda 1 — memória de cálculo (faixa, base do mês, 2% fds) por linha de venda.
+export function getComissaoMemoria(params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>('/comissoes/memoria', params)
+}
+
 export function getRankingApresentadoras(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/ranking/apresentadoras', params)
 }
