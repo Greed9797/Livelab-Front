@@ -17,7 +17,7 @@ function currentMonth() {
 export function RankingMarcasPage() {
   const [mes, setMes] = useState(currentMonth())
   const query = useQuery({
-    queryKey: QK.rankingMarcas(parseInt(mes.split('-')[1], 10)),
+    queryKey: QK.rankingMarcas(mes),
     queryFn: () => getComissoesMarcas({ mes }),
   })
 

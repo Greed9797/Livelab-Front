@@ -52,13 +52,15 @@ describe('PresenterLeaderboard', () => {
     expect(getPresenterLeaderboardProgress(10, 0)).toBe(0)
   })
 
-  it('builds deterministic finite sparkline points', () => {
-    const first = getPresenterSparklinePoints(rows[1], 1)
-    const second = getPresenterSparklinePoints(rows[1], 1)
+  it('uses the real daily series when present and returns empty otherwise (no synthetic trend)', () => {
+    // Sem série diária real → não inventa tendência (antes gerava 7 pontos procedurais).
+    expect(getPresenterSparklinePoints(rows[1])).toEqual([])
 
-    expect(first).toEqual(second)
-    expect(first).toHaveLength(7)
-    expect(first.every((point) => Number.isFinite(point) && point >= 0 && point <= 100)).toBe(true)
+    // Com série real → normaliza para 0–100 (% do pico), mantendo finitude.
+    const withSeries = getPresenterSparklinePoints({ sparkline: [100, 200, 150, 400] })
+    expect(withSeries.length).toBeGreaterThanOrEqual(2)
+    expect(withSeries.every((point) => Number.isFinite(point) && point >= 0 && point <= 100)).toBe(true)
+    expect(Math.max(...withSeries)).toBe(100)
   })
 
   it('renders a cinematic leaderboard without generic table emoji output', () => {

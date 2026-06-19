@@ -1,10 +1,10 @@
-import { X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { getHistoricoGmv } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asString, formatDate } from '../utils/format'
-import { Button } from '../components/ui/Button'
-import { ErrorState, EmptyState, LoadingState } from '../components/ui/States'
+import { Modal } from '../components/ui/Modal'
+import { DataTable } from '../components/ui/DataTable'
+import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
@@ -20,82 +20,35 @@ export function HistoricoGmvModal({ liveId, onClose }: HistoricoGmvModalProps) {
     enabled: Boolean(liveId),
   })
 
-  if (!liveId) return null
+  const rows = query.data ?? []
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-4xl rounded-2xl bg-surface shadow-lg">
-        <div className="flex items-center justify-between border-b border-line px-6 py-4">
-          <h2 className="text-lg font-bold text-ink">Histórico de Revisões de GMV</h2>
-          <Button
-            variant="ghost"
-            icon={X}
-            onClick={onClose}
-            className="h-10 w-10"
-          >
-            <span className="sr-only">Fechar</span>
-          </Button>
-        </div>
-
-        <div className="p-6">
-          {query.isLoading ? (
-            <LoadingState label="Carregando histórico..." />
-          ) : query.isError ? (
-            <ErrorState
-              message={extractErrorMessage(query.error)}
-              onRetry={() => void query.refetch()}
-            />
-          ) : (
-            <div>
-              {(!query.data || query.data.length === 0) ? (
-                <EmptyState
-                  title="Nenhuma revisão encontrada"
-                  description="Esta live não possui histórico de revisões de GMV."
-                />
-              ) : (
-                <div className="overflow-x-auto rounded-2xl border border-line bg-surface scrollbar-thin">
-                  <table className="min-w-full divide-y divide-line text-left text-sm">
-                    <thead className="bg-surface-muted/70 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-muted">
-                      <tr>
-                        <th className="whitespace-nowrap px-4 py-3.5">Data/Hora</th>
-                        <th className="whitespace-nowrap px-4 py-3.5">Campo</th>
-                        <th className="text-right whitespace-nowrap px-4 py-3.5">Valor Anterior</th>
-                        <th className="text-right whitespace-nowrap px-4 py-3.5">Valor Novo</th>
-                        <th className="whitespace-nowrap px-4 py-3.5">Alterado Por</th>
-                        <th className="whitespace-nowrap px-4 py-3.5">Motivo</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-line">
-                      {query.data.map((item: JsonRecord, index: number) => (
-                        <tr key={index} className="transition hover:bg-surface-muted/70">
-                          <td className="px-4 py-4 text-ink">
-                            {formatDate(asString(item.revisado_em ?? item.created_at, ''))}
-                          </td>
-                          <td className="px-4 py-4 text-ink">
-                            {asString(item.campo, '—')}
-                          </td>
-                          <td className="px-4 py-4 text-right text-ink-muted">
-                            {asString(item.valor_anterior, '—')}
-                          </td>
-                          <td className="px-4 py-4 text-right font-semibold text-ink">
-                            {asString(item.valor_novo, '—')}
-                          </td>
-                          <td className="px-4 py-4 text-ink">
-                            {asString(item.alterado_por ?? item.usuario_nome, '—')}
-                          </td>
-                          <td className="px-4 py-4 text-ink-muted">
-                            {asString(item.motivo, '—')}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <Modal
+      open={Boolean(liveId)}
+      title="Histórico de revisões de GMV"
+      subtitle="Toda alteração de GMV/pedidos desta live, com autor e motivo."
+      size="lg"
+      onClose={onClose}
+    >
+      {query.isLoading ? (
+        <LoadingState label="Carregando histórico..." />
+      ) : query.isError ? (
+        <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+      ) : rows.length === 0 ? (
+        <EmptyState title="Nenhuma revisão encontrada" description="Esta live não possui histórico de revisões de GMV." />
+      ) : (
+        <DataTable<JsonRecord>
+          data={rows}
+          columns={[
+            { key: 'revisado_em', header: 'Data/Hora', render: (item) => formatDate(asString(item.revisado_em ?? item.created_at, '')) },
+            { key: 'campo', header: 'Campo', render: (item) => asString(item.campo, '—') },
+            { key: 'valor_anterior', header: 'Valor anterior', align: 'right', render: (item) => <span className="text-ink-muted">{asString(item.valor_anterior, '—')}</span> },
+            { key: 'valor_novo', header: 'Valor novo', align: 'right', render: (item) => <span className="font-semibold text-ink">{asString(item.valor_novo, '—')}</span> },
+            { key: 'alterado_por', header: 'Alterado por', render: (item) => asString(item.alterado_por ?? item.usuario_nome, '—') },
+            { key: 'motivo', header: 'Motivo', render: (item) => asString(item.motivo, '—') },
+          ]}
+        />
+      )}
+    </Modal>
   )
 }

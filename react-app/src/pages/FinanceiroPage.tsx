@@ -1,6 +1,6 @@
 import { AlertTriangle, Building2, CircleDollarSign, Crown, Download, MapPin, Percent, Receipt, TrendingUp, Users, WalletCards, Zap } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { MetricCard } from '../components/ui/MetricCard'
@@ -15,7 +15,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getComissoesResumo, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional } from '../services/domain'
+import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { asArray, asNumber, asString, formatDate, formatMoney, getRecord } from '../utils/format'
@@ -78,6 +78,7 @@ function TotalsBar({ items }: { items: { label: string; value: string }[] }) {
 
 export function FinanceiroPage() {
   const user = useCurrentUser()
+  const navigate = useNavigate()
   const isCliente = user?.papel === 'cliente_parceiro'
   const isMaster = user?.papel === 'franqueador_master'
   const [params, setParams] = useSearchParams()
@@ -117,7 +118,6 @@ export function FinanceiroPage() {
   const custos = useQuery({ queryKey: QK.financeiroCustos(custo.competencia), queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
   const franqueadora = useQuery({ queryKey: QK.financeiroFranqueadora(pk), queryFn: () => getFinanceiroFranqueadora(fp), enabled: isMaster, placeholderData: keepPreviousData })
   const boletos = useQuery({ queryKey: QK.boletos, queryFn: getBoletos })
-  const comissoesResumo = useQuery({ queryKey: [...QK.comissoesResumo, pk], queryFn: () => getComissoesResumo(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
   const comissoesApresentadoras = useQuery({ queryKey: [...QK.comissoesApresentadoras, pk], queryFn: () => getComissoesApresentadoras(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
   const comissoesMarcas = useQuery({ queryKey: [...QK.comissoesMarcas, pk], queryFn: () => getComissoesMarcas(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
 
@@ -214,14 +214,6 @@ export function FinanceiroPage() {
   if (resumo.isError) return <ErrorState message={extractErrorMessage(resumo.error)} onRetry={() => void resumo.refetch()} />
   if (resumo.isLoading && !resumo.data) return <LoadingState />
 
-  const comissoesResumoRaw = comissoesResumo.data ?? {}
-  const comissoesTotais = (comissoesResumoRaw.totais ?? {}) as JsonRecord
-  const comissoesCards = [
-    moneyMetric('Comissão total', comissoesTotais.comissao ?? comissoesResumoRaw.comissao_total ?? comissoesResumoRaw.comissao_apresentadoras, 'apresentadoras, franquia e franqueadora', 'brand'),
-    moneyMetric('GMV base', comissoesTotais.gmv ?? comissoesResumoRaw.gmv_total, 'base de cálculo', 'success'),
-    moneyMetric('GMV lives', comissoesResumoRaw.gmv_lives, 'lives incluídas', 'neutral'),
-    moneyMetric('GMV vídeos', comissoesResumoRaw.gmv_videos, 'vídeos incluídos', 'warning'),
-  ]
   const apresentadorasRows = [...(comissoesApresentadoras.data ?? [])].sort((a, b) => asNumber(b.comissao_apresentadora ?? b.comissao_total) - asNumber(a.comissao_apresentadora ?? a.comissao_total))
   const marcasRows = [...(comissoesMarcas.data ?? [])].sort((a, b) => asNumber(b.gmv_total) - asNumber(a.gmv_total))
   const franqueadosRows = [...asArray<JsonRecord>(franqueadora.data?.franqueados)].sort((a, b) => asNumber(b.gmv_total ?? b.gmv) - asNumber(a.gmv_total ?? a.gmv))
@@ -373,7 +365,7 @@ export function FinanceiroPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-base font-bold text-ink">Faturamento por cliente</p>
-                <p className="mt-1 text-xs text-ink-muted">Participação da carteira no GMV da unidade no período. {clientes.length > 100 ? `Mostrando top 100 de ${num(clientes.length)}.` : ''}</p>
+                <p className="mt-1 text-xs text-ink-muted">Participação da carteira no GMV da unidade no período. Clique numa linha para abrir o detalhe. {clientes.length > 100 ? `Mostrando top 100 de ${num(clientes.length)}.` : ''}</p>
               </div>
               {clientes.length ? <Button variant="secondary" icon={Download} onClick={exportClientesCsv}>Exportar CSV</Button> : null}
             </div>
@@ -381,6 +373,7 @@ export function FinanceiroPage() {
           <CardBody>
             <DataTable<JsonRecord>
               data={clientesView}
+              onRowClick={(item) => setSelectedCliente(item)}
               columns={[
                 {
                   key: 'cliente_nome',
@@ -405,12 +398,6 @@ export function FinanceiroPage() {
                     const lives = asNumber(item.lives_mes ?? item.lives ?? item.total_lives)
                     return <span className="num">{lives > 0 ? formatMoney(asNumber(item.gmv_mes ?? item.total) / lives) : '—'}</span>
                   },
-                },
-                {
-                  key: 'acoes',
-                  header: 'Ações',
-                  align: 'right',
-                  render: (item) => <Button variant="secondary" onClick={() => setSelectedCliente(item)}>Abrir</Button>,
                 },
               ]}
             />
@@ -459,25 +446,18 @@ export function FinanceiroPage() {
 
       {tab === 'comissoes' ? (
         <>
-          {comissoesResumo.isLoading || comissoesApresentadoras.isLoading || comissoesMarcas.isLoading ? (
+          {comissoesApresentadoras.isLoading || comissoesMarcas.isLoading ? (
             <LoadingState />
-          ) : comissoesResumo.isError || comissoesApresentadoras.isError || comissoesMarcas.isError ? (
+          ) : comissoesApresentadoras.isError || comissoesMarcas.isError ? (
             <ErrorState
-              message={extractErrorMessage(comissoesResumo.error ?? comissoesApresentadoras.error ?? comissoesMarcas.error)}
+              message={extractErrorMessage(comissoesApresentadoras.error ?? comissoesMarcas.error)}
               onRetry={() => {
-                void comissoesResumo.refetch()
                 void comissoesApresentadoras.refetch()
                 void comissoesMarcas.refetch()
               }}
             />
           ) : (
             <section className="space-y-4">
-              <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {comissoesCards.map((item, index) => (
-                  <MetricCard key={item.label} metric={item} icon={[Percent, CircleDollarSign, TrendingUp, Receipt][index]} />
-                ))}
-              </section>
-
               <details className="group rounded-2xl border border-line bg-surface">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
                   <span>Regras de comissão</span>
@@ -492,11 +472,15 @@ export function FinanceiroPage() {
                 <Card>
                   <CardHeader>
                     <p className="text-base font-bold text-ink">Comissão por apresentador</p>
-                    <p className="mt-1 text-xs text-ink-muted">GMV base, vídeos e lives incluídos no cálculo.</p>
+                    <p className="mt-1 text-xs text-ink-muted">GMV base, vídeos e lives incluídos no cálculo. Clique numa linha para ver o detalhe e o histórico.</p>
                   </CardHeader>
                   <CardBody>
                     <DataTable<JsonRecord>
                       data={apresentadorasRows}
+                      onRowClick={(item) => {
+                        const id = asString(item.apresentadora_id ?? item.id, '')
+                        if (id) navigate(`/apresentadoras/${id}`)
+                      }}
                       columns={[
                         { key: 'apresentadora_nome', header: 'Apresentador', render: (item) => asString(item.apresentadora_nome ?? item.nome, 'Sem apresentador') },
                         { key: 'gmv_total', header: 'GMV base', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_total)}</span> },
@@ -512,11 +496,15 @@ export function FinanceiroPage() {
                 <Card>
                   <CardHeader>
                     <p className="text-base font-bold text-ink">Comissão por marca</p>
-                    <p className="mt-1 text-xs text-ink-muted">Valores por marca, cliente ou afiliada.</p>
+                    <p className="mt-1 text-xs text-ink-muted">Valores por marca, cliente ou afiliada. Clique numa linha para abrir o detalhe.</p>
                   </CardHeader>
                   <CardBody>
                     <DataTable<JsonRecord>
                       data={marcasRows}
+                      onRowClick={(item) => {
+                        const id = asString(item.marca_id ?? item.id, '')
+                        if (id) setSelectedCliente({ ...item, tipo_entidade: 'marca' })
+                      }}
                       columns={[
                         { key: 'marca_nome', header: 'Marca', render: (item) => (
                           <div className="flex items-center gap-2">
@@ -600,7 +588,7 @@ export function FinanceiroPage() {
 
       <Modal
         open={Boolean(selectedCliente)}
-        title="Financeiro por cliente"
+        title={selectedClienteKind === 'marca' ? 'Financeiro por marca' : 'Financeiro por cliente'}
         subtitle="GMV, receita, lives, vídeos e comissão do cadastro selecionado."
         size="xl"
         onClose={() => setSelectedCliente(null)}

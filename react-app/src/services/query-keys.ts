@@ -10,7 +10,7 @@ export const QK = {
   homeDashboard: ['home-dashboard'] as const,
   rankingApresentadoras: (mes?: number) =>
     mes ? ['ranking-apresentadoras', mes] as const : ['ranking-apresentadoras'] as const,
-  rankingMarcas: (mes?: number) =>
+  rankingMarcas: (mes?: string) =>
     mes ? ['ranking-marcas', mes] as const : ['ranking-marcas'] as const,
   comissoesResumo: ['comissoes-resumo'] as const,
   comissoesApresentadoras: ['comissoes-apresentadoras'] as const,

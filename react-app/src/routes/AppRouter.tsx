@@ -24,6 +24,7 @@ const FinanceiroPage = lazy(() => import('../pages/FinanceiroPage').then(m => ({
 const ComissoesConfigPage = lazy(() => import('../pages/ComissoesConfigPage').then(m => ({ default: m.ComissoesConfigPage })))
 const SolicitacoesPage = lazy(() => import('../pages/SolicitacoesPage').then(m => ({ default: m.SolicitacoesPage })))
 const ApresentadorasPage = lazy(() => import('../pages/ApresentadorasPage').then(m => ({ default: m.ApresentadorasPage })))
+const ApresentadoraDetailPage = lazy(() => import('../pages/ApresentadoraDetailPage').then(m => ({ default: m.ApresentadoraDetailPage })))
 const MetasPage = lazy(() => import('../pages/MetasPage').then(m => ({ default: m.MetasPage })))
 const RankingApresentadorasPage = lazy(() => import('../pages/RankingApresentadorasPage').then(m => ({ default: m.RankingApresentadorasPage })))
 const RankingMarcasPage = lazy(() => import('../pages/RankingMarcasPage').then(m => ({ default: m.RankingMarcasPage })))
@@ -103,6 +104,12 @@ export function AppRouter() {
 
             <Route element={<ProtectedRoute allowedRoles={financeRoles} />}>
               <Route path="/financeiro" element={<Suspense fallback={<PageFallback />}><FinanceiroPage /></Suspense>} />
+            </Route>
+
+            {/* Detalhe da apresentadora — alcançado por clique nas tabelas/rankings de
+                comissão (Financeiro) e no pulso operacional (ops). */}
+            <Route element={<ProtectedRoute allowedRoles={[...internalRoles, ...masterRoles]} />}>
+              <Route path="/apresentadoras/:id" element={<Suspense fallback={<PageFallback />}><ApresentadoraDetailPage /></Suspense>} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={financeRoles} />}>

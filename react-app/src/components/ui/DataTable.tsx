@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import type { ReactNode } from 'react'
 import type { TableColumn } from '../../types/models'
 import { EmptyState } from './States'
 
@@ -6,12 +7,20 @@ export function DataTable<T extends object>({
   columns,
   data,
   rowKey,
+  onRowClick,
+  footer,
 }: {
   columns: TableColumn<T>[]
   data: T[]
   rowKey?: (item: T, index: number) => string | number
+  /** Quando definido, a linha inteira vira um alvo clicável (drill-down de entidade). */
+  onRowClick?: (item: T, index: number) => void
+  /** Rodapé livre dentro do mesmo cartão da tabela — usado para linhas de total. */
+  footer?: ReactNode
 }) {
   if (data.length === 0) return <EmptyState />
+
+  const clickable = Boolean(onRowClick)
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-line bg-surface scrollbar-thin">
@@ -34,7 +43,27 @@ export function DataTable<T extends object>({
         </thead>
         <tbody className="divide-y divide-line">
           {data.map((item, index) => (
-            <tr key={rowKey ? rowKey(item, index) : index} className="transition hover:bg-surface-muted/70">
+            <tr
+              key={rowKey ? rowKey(item, index) : index}
+              className={clsx(
+                'transition hover:bg-surface-muted/70',
+                clickable && 'cursor-pointer focus:bg-surface-muted/70 focus:outline-none',
+              )}
+              {...(clickable
+                ? {
+                    role: 'button',
+                    tabIndex: 0,
+                    'aria-label': 'Abrir detalhes',
+                    onClick: () => onRowClick?.(item, index),
+                    onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        onRowClick?.(item, index)
+                      }
+                    },
+                  }
+                : {})}
+            >
               {columns.map((column) => (
                 <td
                   key={String(column.key)}
@@ -51,6 +80,7 @@ export function DataTable<T extends object>({
           ))}
         </tbody>
       </table>
+      {footer ? <div className="border-t border-line px-4 py-3">{footer}</div> : null}
     </div>
   )
 }

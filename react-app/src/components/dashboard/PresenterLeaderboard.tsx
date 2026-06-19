@@ -43,28 +43,16 @@ export function getPresenterLeaderboardProgress(gmv: number, maxGmv: number): nu
   return clamp(Number(((gmv / maxGmv) * 100).toFixed(2)))
 }
 
-export function getPresenterSparklinePoints(row: JsonRecord, index = 0): number[] {
+// Usa SOMENTE série diária real (sparkline/gmv_diario/serie_diaria), normalizada
+// para 0–100 (% do pico). Sem série, retorna [] — nunca uma tendência sintética.
+export function getPresenterSparklinePoints(row: JsonRecord): number[] {
   const realSeries = asArray<unknown>(row.sparkline ?? row.gmv_diario ?? row.serie_diaria)
     .map((point) => asNumber(point))
     .filter((point) => Number.isFinite(point) && point >= 0)
 
-  if (realSeries.length >= 2) {
-    const max = Math.max(...realSeries)
-    return realSeries.slice(-7).map((point) => getPresenterLeaderboardProgress(point, max))
-  }
-
-  const gmv = rankingGmv(row)
-  const lives = rankingLives(row)
-  const pedidos = rankingPedidos(row)
-  const seed = Math.max(1, Math.round(gmv + lives * 37 + pedidos * 11 + index * 23))
-  const base = clamp(Math.log10(gmv + 10) * 18, 18, 74)
-
-  return Array.from({ length: 7 }, (_, i) => {
-    const climb = gmv > 0 ? i * 4.2 : 0
-    const pulse = Math.sin((seed % 19) + i * 0.9) * 8
-    const liveBoost = lives > 0 ? Math.min(10, lives) : 0
-    return Math.round(clamp(base + climb + pulse + liveBoost))
-  })
+  if (realSeries.length < 2) return []
+  const max = Math.max(...realSeries)
+  return realSeries.slice(-7).map((point) => getPresenterLeaderboardProgress(point, max))
 }
 
 function initialsFromName(name: string): string {
@@ -133,7 +121,7 @@ function normalizeRows(rows: JsonRecord[], limit?: number): PresenterRow[] {
       pedidos: rankingPedidos(row),
       commission: getPresenterCommission(row),
       progress: getPresenterLeaderboardProgress(gmv, maxGmv),
-      sparkline: getPresenterSparklinePoints(row, index),
+      sparkline: getPresenterSparklinePoints(row),
       badges: buildBadges(row, index),
     }
   })
@@ -398,7 +386,11 @@ function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; i
 
       {variant === 'full' ? (
         <div className="hidden md:block">
-          <Sparkline points={row.sparkline} highlight={index === 0} />
+          {row.sparkline.length >= 2 ? (
+            <Sparkline points={row.sparkline} highlight={index === 0} />
+          ) : (
+            <span className="text-[11px] font-medium text-ink-muted/60">sem série</span>
+          )}
         </div>
       ) : null}
 

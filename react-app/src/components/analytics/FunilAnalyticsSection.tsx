@@ -3,7 +3,7 @@ import { Card, CardBody, CardHeader } from '../ui/Card'
 import { LoadingState, ErrorState } from '../ui/States'
 import { extractErrorMessage } from '../../services/api'
 import { getFunilAnalytics } from '../../services/domain'
-import { asArray, asNumber, asString, formatMoney, getRecord } from '../../utils/format'
+import { asArray, asNumber, asString, getRecord } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 
 interface Props {
@@ -33,7 +33,6 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
 
   const data = getRecord(query.data)
   const etapas = asArray<JsonRecord>(data.etapas)
-  const resumo = getRecord(data.resumo)
   const temDadosAds = Boolean(data.tem_dados_ads)
   const maxValor = etapas.reduce((max, etapa) => Math.max(max, asNumber(etapa.valor)), 0)
 
@@ -54,14 +53,6 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
           <p className="py-6 text-center text-sm text-ink-muted">Nenhuma live encerrada no período.</p>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Chip label="Lives" value={asNumber(resumo.total_lives).toLocaleString('pt-BR')} />
-              <Chip label="GMV" value={formatMoney(resumo.gmv)} />
-              <Chip label="Pedidos" value={asNumber(resumo.pedidos).toLocaleString('pt-BR')} />
-              <Chip label="Ticket médio" value={formatMoney(resumo.ticket_medio)} />
-              <Chip label="GMV/h" value={formatMoney(resumo.gmv_por_hora)} />
-            </div>
-
             <div className="space-y-2">
               {etapas.map((etapa, idx) => {
                 const valor = asNumber(etapa.valor)
@@ -106,14 +97,5 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
         )}
       </CardBody>
     </Card>
-  )
-}
-
-function Chip({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-line bg-surface-muted px-3 py-1.5">
-      <span className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{label}</span>
-      <span className="ml-2 text-sm font-bold tabular-nums text-ink">{value}</span>
-    </div>
   )
 }

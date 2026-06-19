@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Activity, AlertOctagon, AlertTriangle, Gauge, TriangleAlert, Users } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '../ui/Card'
@@ -130,16 +131,18 @@ export function PulsoDiarioSection({ from, to, marcaId, apresentadoraId }: Pulso
                   const meta = STATUS_META[a.severity === 'critical' ? 'critico' : 'atencao']
                   const Icon = a.severity === 'critical' ? AlertOctagon : AlertTriangle
                   return (
-                    <li key={`${a.data}-${a.clienteId}`} className="rounded-xl border border-line p-3" style={{ borderLeftColor: meta.color, borderLeftWidth: 3 }}>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 shrink-0" style={{ color: meta.color }} />
-                          <span className="text-sm font-bold text-ink">{a.clienteNome}</span>
+                    <li key={`${a.data}-${a.clienteId}`} className="overflow-hidden rounded-xl border border-line" style={{ borderLeftColor: meta.color, borderLeftWidth: 3 }}>
+                      <Link to={`/comercial?ativo=${encodeURIComponent(a.clienteNome)}`} className="block p-3 transition hover:bg-surface-muted/60">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 shrink-0" style={{ color: meta.color }} />
+                            <span className="text-sm font-bold text-ink">{a.clienteNome}</span>
+                          </div>
+                          <span className="text-xs font-semibold text-ink-muted">{a.dataLabel}</span>
                         </div>
-                        <span className="text-xs font-semibold text-ink-muted">{a.dataLabel}</span>
-                      </div>
-                      <p className="num mt-1 text-xs text-ink-muted">{a.descricao}</p>
-                      <p className="mt-0.5 text-sm font-semibold" style={{ color: meta.color }}>{a.titulo}</p>
+                        <p className="num mt-1 text-xs text-ink-muted">{a.descricao}</p>
+                        <p className="mt-0.5 text-sm font-semibold" style={{ color: meta.color }}>{a.titulo}</p>
+                      </Link>
                     </li>
                   )
                 })}
@@ -185,14 +188,19 @@ export function PulsoDiarioSection({ from, to, marcaId, apresentadoraId }: Pulso
         <CardBody>
           <ul className="grid gap-2 md:grid-cols-2">
             {pulse.rankingApresentadoras.map((ap) => (
-              <li key={ap.apresentadoraId} className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-ink">{ap.apresentadoraNome}</p>
-                  <p className="num text-xs text-ink-muted">
-                    {formatMoney(ap.gmvHora)}/h · {ap.pedidosHora.toFixed(1).replace('.', ',')} pedidos/h · {formatHoras(ap.horas)}
-                  </p>
-                </div>
-                <StatusBadge status={ap.status} />
+              <li key={ap.apresentadoraId} className="overflow-hidden rounded-xl border border-line">
+                <Link
+                  to={`/apresentadoras/${ap.apresentadoraId}`}
+                  className="flex items-center justify-between gap-3 px-3 py-2 transition hover:bg-surface-muted/60"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-ink">{ap.apresentadoraNome}</p>
+                    <p className="num text-xs text-ink-muted">
+                      {formatMoney(ap.gmvHora)}/h · {ap.pedidosHora.toFixed(1).replace('.', ',')} pedidos/h · {formatHoras(ap.horas)}
+                    </p>
+                  </div>
+                  <StatusBadge status={ap.status} />
+                </Link>
               </li>
             ))}
           </ul>
