@@ -223,57 +223,6 @@ export function ComercialPage() {
     return [...unique.values()]
   }, [clientes, marcas])
 
-  if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
-    void summaryQuery.refetch()
-    void leadsQuery.refetch()
-    void clientesQuery.refetch()
-    void marcasQuery.refetch()
-  }} />
-
-  function setClienteField(key: keyof typeof emptyClienteForm, value: string | boolean) {
-    setClienteForm((current) => ({ ...current, [key]: value }))
-  }
-
-  function setAfiliadoField(key: keyof typeof emptyAfiliadoForm, value: string) {
-    setAfiliadoForm((current) => ({ ...current, [key]: value }))
-  }
-
-  function exportAtivosCsv() {
-    downloadCsv('clientes-afiliados.csv', ativos, [
-      { key: 'tipo_operacional', header: 'tipo' },
-      { key: 'nome', header: 'nome' },
-      { key: 'marca_principal', header: 'marca_principal' },
-      { key: 'status', header: 'status' },
-      { key: 'gmv_mes', header: 'gmv_mes', value: (row) => officialOperationalGmv(row) ?? 0 },
-      { key: 'lives_mes', header: 'lives_mes', value: (row) => row.lives_mes ?? row.total_lives ?? 0 },
-      { key: 'videos_mes', header: 'videos_mes', value: (row) => row.videos_mes ?? row.quantidade_videos ?? 0 },
-      {
-        key: 'apresentadoras',
-        header: 'apresentadoras',
-        value: (row) => Array.isArray(row.apresentadoras)
-          ? row.apresentadoras.map((ap) => asString((ap as JsonRecord).nome)).join(', ')
-          : asString(row.apresentadora_nome, ''),
-      },
-      { key: 'responsavel', header: 'responsavel', value: (row) => row.responsavel_nome ?? row.gerente_nome ?? '' },
-    ])
-  }
-
-  function openAtivo(item: JsonRecord) {
-    setMarcaPctId(null) // evita salvar % na marca do item anterior antes do effect repopular
-    setSelectedAtivo(item)
-    setAtivoForm({
-      nome: asString(item.nome, ''),
-      status: asString(item.status, 'ativo'),
-      email: asString(item.email, ''),
-      celular: asString(item.celular ?? item.whatsapp, ''),
-      comissao_franquia_pct: asString(item.comissao_franquia_pct ?? 0, '0'),
-      comissao_franqueadora_pct: asString(item.comissao_franqueadora_pct ?? 0, '0'),
-      valor_fixo_minimo: asString(item.valor_fixo_minimo ?? 0, '0'),
-      logo_url: asString(item.logo_url, ''),
-    })
-  }
-
   // Atualiza % de comissão na marca principal (usado quando o item é cliente_ecommerce).
   const updateMarcaPctMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateMarca(id, payload),
@@ -324,6 +273,57 @@ export function ComercialPage() {
     next.delete('ativo')
     setSearchParams(next, { replace: true })
   }, [searchParams, ativos, clientesQuery.isLoading, marcasQuery.isLoading])
+
+  if (isLoading) return <LoadingState />
+  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
+    void summaryQuery.refetch()
+    void leadsQuery.refetch()
+    void clientesQuery.refetch()
+    void marcasQuery.refetch()
+  }} />
+
+  function setClienteField(key: keyof typeof emptyClienteForm, value: string | boolean) {
+    setClienteForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function setAfiliadoField(key: keyof typeof emptyAfiliadoForm, value: string) {
+    setAfiliadoForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function exportAtivosCsv() {
+    downloadCsv('clientes-afiliados.csv', ativos, [
+      { key: 'tipo_operacional', header: 'tipo' },
+      { key: 'nome', header: 'nome' },
+      { key: 'marca_principal', header: 'marca_principal' },
+      { key: 'status', header: 'status' },
+      { key: 'gmv_mes', header: 'gmv_mes', value: (row) => officialOperationalGmv(row) ?? 0 },
+      { key: 'lives_mes', header: 'lives_mes', value: (row) => row.lives_mes ?? row.total_lives ?? 0 },
+      { key: 'videos_mes', header: 'videos_mes', value: (row) => row.videos_mes ?? row.quantidade_videos ?? 0 },
+      {
+        key: 'apresentadoras',
+        header: 'apresentadoras',
+        value: (row) => Array.isArray(row.apresentadoras)
+          ? row.apresentadoras.map((ap) => asString((ap as JsonRecord).nome)).join(', ')
+          : asString(row.apresentadora_nome, ''),
+      },
+      { key: 'responsavel', header: 'responsavel', value: (row) => row.responsavel_nome ?? row.gerente_nome ?? '' },
+    ])
+  }
+
+  function openAtivo(item: JsonRecord) {
+    setMarcaPctId(null) // evita salvar % na marca do item anterior antes do effect repopular
+    setSelectedAtivo(item)
+    setAtivoForm({
+      nome: asString(item.nome, ''),
+      status: asString(item.status, 'ativo'),
+      email: asString(item.email, ''),
+      celular: asString(item.celular ?? item.whatsapp, ''),
+      comissao_franquia_pct: asString(item.comissao_franquia_pct ?? 0, '0'),
+      comissao_franqueadora_pct: asString(item.comissao_franqueadora_pct ?? 0, '0'),
+      valor_fixo_minimo: asString(item.valor_fixo_minimo ?? 0, '0'),
+      logo_url: asString(item.logo_url, ''),
+    })
+  }
 
   function onClienteSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
