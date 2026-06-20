@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run lint:hooks && tsc -b && vite build",
+    "lint:hooks": "eslint --config lint/hooks-gate.mjs \"src/**/*.{ts,tsx}\"",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
@@ -36,7 +37,10 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.61.1",
     "vite": "^7.2.6",
     "vitest": "^4.0.15"
   }
