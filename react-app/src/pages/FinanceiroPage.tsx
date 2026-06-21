@@ -641,34 +641,67 @@ export function FinanceiroPage() {
 
       <Modal
         open={Boolean(selectedCliente)}
-        title={selectedClienteKind === 'marca' ? 'Financeiro por marca' : 'Financeiro por cliente'}
-        subtitle="GMV, receita, lives, vídeos e comissão do cadastro selecionado."
+        title={`${selectedClienteKind === 'marca' ? 'Marca' : 'Cliente'}: ${asString(selectedCliente?.marca_nome ?? selectedCliente?.nome, '—')}`}
+        subtitle="GMV, comissão, sessões de live e vídeos do período selecionado."
         size="xl"
         onClose={() => setSelectedCliente(null)}
       >
         {selectedClienteDetail.isLoading ? <LoadingState label="Carregando histórico" /> : null}
         {selectedClienteDetail.isError ? <ErrorState message={extractErrorMessage(selectedClienteDetail.error)} onRetry={() => void selectedClienteDetail.refetch()} /> : null}
-        {selectedClienteDetail.data ? (
-          <div className="space-y-4">
-            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                moneyMetric('GMV mês', getRecord(selectedClienteDetail.data.metrics).gmv_mes, 'período atual', 'brand'),
-                moneyMetric('GMV acumulado', getRecord(selectedClienteDetail.data.metrics).gmv_acumulado, 'histórico', 'success'),
-                metric('Lives', getRecord(selectedClienteDetail.data.metrics).total_lives ?? 0, 'histórico', 'neutral'),
-                metric('Vídeos', getRecord(selectedClienteDetail.data.metrics).total_videos ?? 0, 'histórico', 'info'),
-              ].map((item, index) => <MetricCard key={item.label} metric={item} icon={[CircleDollarSign, TrendingUp, Users, Receipt][index]} />)}
-            </section>
-            <DataTable<JsonRecord>
-              data={asArray<JsonRecord>(selectedClienteDetail.data.vendas_atribuidas)}
-              columns={[
-                { key: 'data_referencia', header: 'Data', render: (item) => asString(item.data_referencia).slice(0, 10) },
-                { key: 'origem', header: 'Origem', render: (item) => asString(item.origem) },
-                { key: 'gmv', header: 'GMV', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv)}</span> },
-                { key: 'comissao_franquia', header: 'Receita LiveLab', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_franquia)}</span> },
-              ]}
-            />
-          </div>
-        ) : null}
+        {selectedClienteDetail.data ? (() => {
+          const m = getRecord(selectedClienteDetail.data.metrics)
+          const lives = asArray<JsonRecord>(selectedClienteDetail.data.lives)
+          const vendas = asArray<JsonRecord>(selectedClienteDetail.data.vendas_atribuidas)
+          const comissao = asNumber(m.comissao_franquia) + asNumber(m.comissao_franqueadora)
+          return (
+            <div className="space-y-4">
+              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  moneyMetric('GMV no período', m.gmv_mes, 'lives + vídeos', 'brand'),
+                  moneyMetric('Comissão de franquia', comissao, 'franquia + franqueadora', 'success'),
+                  metric('Lives', m.total_lives ?? 0, 'no período', 'neutral'),
+                  metric('Vídeos', m.total_videos ?? 0, 'no período', 'info'),
+                ].map((item, index) => <MetricCard key={item.label} metric={item} icon={[CircleDollarSign, Percent, Users, Receipt][index]} />)}
+              </section>
+
+              <Card>
+                <CardHeader><p className="text-base font-bold text-ink">Sessões de live</p></CardHeader>
+                <CardBody>
+                  {lives.length ? (
+                    <DataTable<JsonRecord>
+                      data={lives}
+                      columns={[
+                        { key: 'iniciado_em', header: 'Data', render: (item) => asString(item.iniciado_em).slice(0, 10) },
+                        { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, '—') },
+                        { key: 'gmv', header: 'GMV', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv)}</span> },
+                        { key: 'status', header: 'Status', render: (item) => <Badge tone={asString(item.status) === 'encerrada' ? 'success' : 'neutral'}>{asString(item.status, '—')}</Badge> },
+                      ]}
+                    />
+                  ) : (
+                    <EmptyState title="Sem lives no período" description="Nenhuma live encerrada para este cadastro no período selecionado." />
+                  )}
+                </CardBody>
+              </Card>
+
+              {vendas.length ? (
+                <Card>
+                  <CardHeader><p className="text-base font-bold text-ink">Comissões atribuídas</p></CardHeader>
+                  <CardBody>
+                    <DataTable<JsonRecord>
+                      data={vendas}
+                      columns={[
+                        { key: 'data', header: 'Data', render: (item) => asString(item.data).slice(0, 10) },
+                        { key: 'origem', header: 'Origem', render: (item) => asString(item.origem) },
+                        { key: 'gmv', header: 'GMV', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv)}</span> },
+                        { key: 'comissao_franquia', header: 'Comissão franquia', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_franquia)}</span> },
+                      ]}
+                    />
+                  </CardBody>
+                </Card>
+              ) : null}
+            </div>
+          )
+        })() : null}
       </Modal>
     </div>
   )
