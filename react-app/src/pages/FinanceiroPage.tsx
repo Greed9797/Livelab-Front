@@ -15,7 +15,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional } from '../services/domain'
+import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { asArray, asNumber, asString, formatDate, formatMoney, getRecord } from '../utils/format'
@@ -150,6 +150,15 @@ export function FinanceiroPage() {
       void client.invalidateQueries({ queryKey: QK.financeiroFluxo() })
     },
   })
+  const reprocessar = useMutation({
+    mutationFn: reprocessarComissoes,
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
+      void client.invalidateQueries({ queryKey: QK.comissoesApresentadoras })
+      void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
+    },
+  })
+  const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
 
   const raw = resumo.data ?? {}
   const clientesRaw = asArray<JsonRecord>(faturamento.data?.clientes ?? faturamento.data?.por_cliente ?? faturamento.data?.items ?? faturamento.data)
@@ -463,6 +472,44 @@ export function FinanceiroPage() {
             />
           ) : (
             <section className="space-y-4">
+              {podeReprocessar ? (
+                <Card>
+                  <CardBody className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-ink">Comissão zerada numa live que tem GMV?</p>
+                      <p className="mt-0.5 text-xs text-ink-muted">Recalcula agora as lives encerradas sem comissão (não espera os 10 min) e lista as que continuarem zeradas e por quê.</p>
+                    </div>
+                    <Button onClick={() => reprocessar.mutate()} isLoading={reprocessar.isPending}>Recalcular comissões agora</Button>
+                  </CardBody>
+                  {reprocessar.isError ? (
+                    <CardBody className="border-t border-line">
+                      <p className="rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{extractErrorMessage(reprocessar.error)}</p>
+                    </CardBody>
+                  ) : null}
+                  {reprocessar.data ? (
+                    <CardBody className="space-y-2 border-t border-line text-sm">
+                      <p className="text-ink">
+                        <span className="font-bold text-[var(--success)]">{asNumber(reprocessar.data.recalculadas_com_comissao)}</span> live(s) recalculada(s) com comissão
+                        {' · '}{asNumber(reprocessar.data.lives_sem_comissao_encontradas)} sem comissão encontradas
+                      </p>
+                      {asArray<JsonRecord>(reprocessar.data.ainda_zeradas).length ? (
+                        <div className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-ink">
+                          <p className="mb-1 font-semibold text-[var(--warning)]">Ainda zeradas (precisa ajuste de cadastro):</p>
+                          <ul className="space-y-0.5">
+                            {asArray<JsonRecord>(reprocessar.data.ainda_zeradas).map((l) => (
+                              <li key={asString(l.live_id)}>
+                                {asString(l.nome)} · {asString(l.dia)} · GMV {formatMoney(l.gmv)} — <span className="text-ink-muted">{asString(l.motivo)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-ink-muted">Nenhuma live ficou zerada. ✅</p>
+                      )}
+                    </CardBody>
+                  ) : null}
+                </Card>
+              ) : null}
               <details className="group rounded-2xl border border-line bg-surface">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
                   <span>Regras de comissão</span>

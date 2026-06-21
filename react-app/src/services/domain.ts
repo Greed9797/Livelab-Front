@@ -279,6 +279,12 @@ export function getComissoesMarcas(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/comissoes/marcas', params)
 }
 
+// Força AGORA o recálculo das comissões das lives encerradas sem vendas_atribuidas
+// e devolve um diagnóstico das que continuam zeradas (admin).
+export function reprocessarComissoes() {
+  return apiPost<JsonRecord>('/comissoes/reprocessar', {})
+}
+
 export function getApresentadoraFaixasComissao(id: string) {
   return apiGet<JsonRecord[]>(`/apresentadoras/${id}/faixas-comissao`)
 }
