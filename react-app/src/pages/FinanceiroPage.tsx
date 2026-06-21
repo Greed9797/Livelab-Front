@@ -280,15 +280,15 @@ export function FinanceiroPage() {
               </p>
               <p>
                 <span className="font-semibold text-[var(--success)]">Comissão de franquia {formatMoney(raw.receita_liquida)}</span>
-                {' = '}Σ comissão calculada das lives (receita da LiveLab, <span className="font-semibold">antes</span> dos custos)
+                {' = '}Σ comissão calculada das lives (GMV × % da marca){asNumber(raw.fixo_mensal) > 0 ? <> {' + '}fixo mensal {formatMoney(raw.fixo_mensal)}</> : null} — receita da LiveLab, <span className="font-semibold">antes</span> dos custos
               </p>
               <p>
                 <span className="font-semibold text-ink">Resultado líquido {formatMoney(raw.fat_liquido)}</span>
                 {' = '}comissão de franquia {formatMoney(raw.receita_liquida)} − custos {formatMoney(raw.total_custos)}
               </p>
               <p className="text-xs">
-                Comissão de franquia por live = <span className="num">MAX(valor fixo mínimo da marca, GMV × % da marca)</span>.
-                Fonte do GMV: tabela <code>lives</code> (Conteúdo/Operacional) + <code>video_registros</code> — não usa mais vendas_atribuidas como base de GMV.
+                Comissão de franquia = <span className="num">Σ(GMV × % da marca)</span> por live <span className="num">+ fixo mensal</span> das marcas (somado uma vez por mês com atividade).
+                Fonte do GMV: tabela <code>lives</code> (Conteúdo/Operacional) + <code>video_registros</code>.
               </p>
               {comissaoFaltante > 0 ? (
                 <p className="rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-[var(--danger)]">

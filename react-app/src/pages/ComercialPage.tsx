@@ -762,9 +762,9 @@ export function ComercialPage() {
                       <span className="mt-1 text-[11px] text-ink-muted">% destinado à Livelab/franqueadora.</span>
                     </label>
                     <label className="block">
-                      <span className="text-sm font-semibold text-ink">Valor fixo mínimo (R$)</span>
+                      <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
                       <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={ativoForm.valor_fixo_minimo} onChange={(event) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: event.target.value }))} />
-                      <span className="mt-1 text-[11px] text-ink-muted">Piso da comissão: aplica se gmv × pct ficar abaixo deste valor.</span>
+                      <span className="mt-1 text-[11px] text-ink-muted">Valor fixo somado à comissão, uma vez por mês com atividade (em franquia e franqueadora).</span>
                     </label>
                 </>
                 <div className="flex flex-wrap items-end gap-2">

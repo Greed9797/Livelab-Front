@@ -473,7 +473,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
           </CardHeader>
           <CardBody className="space-y-3">
             <p className="text-sm text-ink">
-              Cada marca tem <strong>% de comissão da franquia</strong>, <strong>% da franqueadora</strong> e <strong>valor fixo mínimo</strong>.
+              Cada marca tem <strong>% de comissão da franquia</strong>, <strong>% da franqueadora</strong> e um <strong>fixo mensal</strong> (somado à comissão uma vez por mês com atividade).
               A comissão da apresentadora segue a escada por GMV mensal (definida em <em>Apresentadoras</em>) e não muda por marca.
             </p>
             <Link
