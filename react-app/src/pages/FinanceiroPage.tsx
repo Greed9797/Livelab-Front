@@ -163,9 +163,13 @@ export function FinanceiroPage() {
   const boletosVencidos = boletosRows.filter((item) => asString(item.status).toLowerCase() === 'vencido').length
   const comissaoFaltante = asNumber(raw.comissao_faltante_count ?? raw.comissoes_sem_config)
 
+  const comissaoFixo = asNumber(raw.fixo_mensal)
+  const comissaoHint = comissaoFixo > 0
+    ? `receita LiveLab · inclui ${formatMoney(raw.fixo_mensal)} fixo`
+    : 'receita LiveLab, antes dos custos'
   const metrics = [
     moneyMetric('GMV total', raw.gmv_total ?? raw.fat_bruto, 'lives + vídeos do período', 'brand'),
-    moneyMetric('Comissão de franquia', raw.receita_liquida, 'receita LiveLab, antes dos custos', 'success'),
+    moneyMetric('Comissão de franquia', raw.receita_liquida, comissaoHint, 'success'),
     moneyMetric('Custos reais', raw.total_custos ?? 0, 'lançados na competência', 'warning'),
     metric('Comissão ausente', comissaoFaltante, 'lives com GMV sem comissão', comissaoFaltante > 0 ? 'danger' : 'neutral'),
   ]
@@ -256,6 +260,7 @@ export function FinanceiroPage() {
             <ReceitaWaterfall
               gmvTotal={raw.gmv_total ?? raw.fat_bruto}
               comissao={raw.receita_liquida}
+              fixo={raw.fixo_mensal}
               custos={raw.total_custos}
               resultado={raw.fat_liquido}
             />
@@ -514,6 +519,7 @@ export function FinanceiroPage() {
                         ) },
                         { key: 'gmv_total', header: 'GMV base', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_total)}</span> },
                         { key: 'comissao_apresentadoras', header: 'Apresentadores', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_apresentadoras)}</span> },
+                        { key: 'comissao_fixo', header: 'Fixo', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_fixo)}</span> },
                         { key: 'comissao_franquia', header: 'Franquia', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_franquia)}</span> },
                       ]}
                     />

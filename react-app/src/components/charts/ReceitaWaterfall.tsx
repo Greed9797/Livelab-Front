@@ -15,25 +15,34 @@ const BAR_MAX = PLOT_H - 26
 export function ReceitaWaterfall({
   gmvTotal,
   comissao,
+  fixo,
   custos,
   resultado,
 }: {
   gmvTotal: unknown
   comissao: unknown
+  fixo: unknown
   custos: unknown
   resultado: unknown
 }) {
   const gmv = asNumber(gmvTotal)
   const com = asNumber(comissao)
+  const fixoMensal = Math.max(asNumber(fixo), 0)
+  // parte variável da comissão (proporcional ao GMV); o fixo entra empilhado acima.
+  const variavel = Math.max(com - fixoMensal, 0)
   const cost = asNumber(custos)
   const res = asNumber(resultado)
-  const takeRate = gmv > 0 ? (com / gmv) * 100 : 0
+  // take rate considera SÓ a parte variável — o fixo mensal não é proporcional ao GMV.
+  const takeRate = gmv > 0 ? (variavel / gmv) * 100 : 0
   const custosExcedem = cost > com
 
   // Escala ancorada na comissão (degrau mais alto: resultado ≤ comissão e a queda ≤ comissão).
   const max = Math.max(com, 1)
   const scale = BAR_MAX / max
   const comH = Math.max(com * scale, com > 0 ? 3 : 0)
+  // barra empilhada: base = variável, topo = fixo (somam comH).
+  const fixoH = fixoMensal > 0 ? Math.max(fixoMensal * scale, 2) : 0
+  const variavelH = Math.max(comH - fixoH, variavel > 0 ? 3 : 0)
   const resH = Math.max(res * scale, res > 0 ? 3 : 0)
   const dropBottom = resH
   const dropH = Math.max(comH - resH, custosExcedem ? comH : cost > 0 ? 3 : 0)
@@ -61,10 +70,13 @@ export function ReceitaWaterfall({
         ) : (
           <>
             <div className="grid grid-cols-3 items-end gap-3" style={{ height: PLOT_H }}>
-              {/* Comissão de franquia (+) */}
+              {/* Comissão de franquia (+) — barra empilhada: variável (base) + fixo mensal (topo) */}
               <div className="relative flex h-full flex-col justify-end">
                 <p className="num mb-1.5 text-center text-sm font-bold text-ink">{formatMoney(com)}</p>
-                <div className="rounded-t-lg transition-[height] duration-300" style={{ height: comH, background: TONE_BG.success }} />
+                <div className="flex flex-col-reverse overflow-hidden rounded-t-lg transition-[height] duration-300" style={{ height: comH }}>
+                  <div style={{ height: variavelH, background: TONE_BG.success }} />
+                  {fixoMensal > 0 ? <div style={{ height: fixoH, background: TONE_BG.brand, opacity: 0.7 }} /> : null}
+                </div>
               </div>
               {/* − Custos (queda flutuante: do topo da comissão até o resultado) */}
               <div className="relative h-full">
@@ -80,7 +92,11 @@ export function ReceitaWaterfall({
               </div>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-              <Legend title="Comissão de franquia" note="Σ comissão das lives" tone="success" />
+              <Legend
+                title="Comissão de franquia"
+                note={fixoMensal > 0 ? `variável + fixo mensal (${formatMoney(fixoMensal)})` : 'variável + fixo mensal'}
+                tone="success"
+              />
               <Legend title="Custos" note="lançados no período" tone="danger" />
               <Legend title="Resultado líquido" note="comissão − custos" tone="brand" />
             </div>

@@ -751,6 +751,7 @@ export function ComercialPage() {
                   </>
                 ) : null}
                 <>
+                    <div className="col-span-full"><p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Comissão da marca</p></div>
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">Comissão Franquia (%)</span>
                       <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
@@ -764,7 +765,7 @@ export function ComercialPage() {
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
                       <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={ativoForm.valor_fixo_minimo} onChange={(event) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: event.target.value }))} />
-                      <span className="mt-1 text-[11px] text-ink-muted">Valor fixo somado à comissão, uma vez por mês com atividade (em franquia e franqueadora).</span>
+                      <span className="mt-1 text-[11px] text-ink-muted">≈ {formatMoney(asNumber(ativoForm.valor_fixo_minimo))} / mês quando a marca tiver atividade (em franquia e franqueadora).</span>
                     </label>
                 </>
                 <div className="flex flex-wrap items-end gap-2">
