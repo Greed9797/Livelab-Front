@@ -56,7 +56,7 @@ function officialOperationalGmv(item: JsonRecord) {
 }
 
 export function ComercialPage() {
-  const [tab, setTab] = useState<ComercialTab>('dashboard')
+  const [tab, setTab] = useState<ComercialTab>('ativos')
   const [showClienteForm, setShowClienteForm] = useState(false)
   const [showAfiliadoForm, setShowAfiliadoForm] = useState(false)
   const [clienteForm, setClienteForm] = useState(emptyClienteForm)
@@ -428,9 +428,9 @@ export function ComercialPage() {
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
         {[
+          ['ativos', Store, 'Clientes e afiliados'],
           ['dashboard', LayoutDashboard, 'Dashboard'],
           ['crm', Workflow, 'CRM'],
-          ['ativos', Store, 'Clientes e afiliados'],
         ].map(([key, Icon, label]) => (
           <button
             key={String(key)}

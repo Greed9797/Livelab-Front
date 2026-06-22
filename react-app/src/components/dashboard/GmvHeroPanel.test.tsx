@@ -194,13 +194,23 @@ describe('GmvHeroPanel', () => {
     expect(html).not.toContain('gmv-chart-intraday')
   })
 
-  it('prefers intraday over daily when intraday qualifies', () => {
+  it('defaults to the month (daily) chart when both intraday and daily qualify', () => {
     const intradayData = [{ h: '09', v: 800, prev: 700 }]
     const html = renderToStaticMarkup(
       <GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: intradayData, gmv_diario_mes: dailyPoints }} />,
     )
-    expect(html).toContain('gmv-chart-intraday')
-    expect(html).not.toContain('gmv-chart-daily')
+    // Toggle defaults to "Mês" → daily chart is shown, intraday is not.
+    expect(html).toContain('gmv-chart-daily')
+    expect(html).not.toContain('gmv-chart-intraday')
+  })
+
+  it('renders both toggle options (Hoje | Mês) when both datasets qualify', () => {
+    const intradayData = [{ h: '09', v: 800, prev: 700 }]
+    const html = renderToStaticMarkup(
+      <GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: intradayData, gmv_diario_mes: dailyPoints }} />,
+    )
+    expect(html).toContain('Período do gráfico')
+    expect(html).toContain('aria-pressed="true"') // the active "Mês" option
   })
 
   it('renders no chart and no chart legends when neither qualifies', () => {

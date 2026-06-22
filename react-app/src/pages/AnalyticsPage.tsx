@@ -17,11 +17,16 @@ import {
   getMarcas,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asArray, asNumber, asString, unwrapList } from '../utils/format'
+import { asArray, asNumber, asString, formatMoney, unwrapList } from '../utils/format'
+import { rankingCommission, rankingGmv, rankingId, rankingName } from '../utils/ranking'
+import { Card, CardBody, CardHeader } from '../components/ui/Card'
+import { Trophy } from 'lucide-react'
 import { sumDailyTotals } from './page-helpers'
 import { buildDailyPulse } from '../utils/dailyPulse'
 import { QK } from '../services/query-keys'
 import { useToast } from '../components/ui/Toast'
+import { useCurrentUser } from '../stores/auth-store'
+import { masterRoles, financeRoles, commercialRoles } from '../utils/access'
 import type { JsonRecord } from '../types/models'
 
 export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
@@ -43,6 +48,14 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   // topo — para não divergir do Pulso (que usava só o mês corrente antes).
   const comissaoFiltros = { data_inicio: from, data_fim: to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }
   const hasFilter = Boolean(marcaId || apresentadoraId)
+  // O ranking de marcas lê /comissoes/marcas (dado sensível de franquia). Só busca
+  // para papéis com acesso a comissões — apresentador/operacional/cabine veem /conteudo
+  // mas não devem disparar 403; para eles a seção simplesmente não renderiza.
+  const user = useCurrentUser()
+  const canSeeComissoes = useMemo(
+    () => [...masterRoles, ...financeRoles, ...commercialRoles].some((r) => r === user?.papel),
+    [user?.papel],
+  )
 
   // Rótulo de granularidade do período — usado nos títulos dos gráficos detalhados.
   const PERIODO_NOUN: Record<Preset, string> = {
@@ -70,14 +83,20 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     queryFn: () => getComissoesMarcas(comissaoFiltros),
     enabled: hasFilter,
   })
+  // Ranking de marcas do período — TODAS as marcas, sem filtro de entidade, sempre
+  // visível no Analytics (o comissoesMarcasQ acima é só o drill por entidade).
+  const rankingMarcasQ = useQuery({
+    queryKey: ['ranking-marcas', from, to],
+    queryFn: () => getComissoesMarcas({ data_inicio: from, data_fim: to }),
+    enabled: canSeeComissoes,
+    staleTime: 60_000,
+  })
 
-  // staleTime 0 + refetchOnMount: o % de franquia precisa vir sempre fresco — senão,
-  // após editar em Comercial, o relatório segue lendo o valor antigo (divergência).
+  // Usa o cache global (5 min) — o dropdown de marcas não precisa vir sempre fresco;
+  // o relatório por entidade já lê o % de franquia fresco direto pela marcaId.
   const marcasOpts = useQuery({
     queryKey: QK.marcas('analytics-filter'),
     queryFn: () => getMarcas({ status: 'ativa' }),
-    staleTime: 0,
-    refetchOnMount: 'always',
   })
   const apresentadorasOpts = useQuery({ queryKey: QK.apresentadoras('analytics-filter'), queryFn: () => getApresentadoras() })
 
@@ -88,6 +107,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     void query.refetch()
     void comissoesApresentadorasQ.refetch()
     void comissoesMarcasQ.refetch()
+    void rankingMarcasQ.refetch()
     void queryClient.invalidateQueries({ queryKey: ['daily-pulse'] })
   }
 
@@ -143,6 +163,22 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
   const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
   const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
+  const rankingMarcasRows = asArray<JsonRecord>(rankingMarcasQ.data)
+
+  // Ranking de marcas por GMV (desc) — lê nome/gmv/comissão via helpers de ranking,
+  // tolerantes a aliases de campo (nome|marca_nome, gmv_total|gmv).
+  const rankingMarcas = useMemo(
+    () =>
+      rankingMarcasRows
+        .map((row) => ({
+          id: rankingId(row, 'marca'),
+          nome: rankingName(row, 'marca'),
+          gmv: rankingGmv(row),
+          comissao: rankingCommission(row),
+        }))
+        .sort((a, b) => b.gmv - a.gmv),
+    [rankingMarcasRows],
+  )
 
   return (
     <div className="space-y-6">
@@ -160,6 +196,57 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
       {/* Filtro único — rege Pulso + gráficos de série + relatório por entidade */}
       {filterBar}
 
+      {/* GMV do mês — gráfico-herói, full-width, no topo dos resultados. */}
+      {!query.isLoading && !query.isError && gmvPoints.length > 0 ? (
+        <section className="space-y-4">
+          <div className="rounded-2xl p-px" style={{ background: 'linear-gradient(135deg, var(--primary-soft), transparent)' }}>
+            <LinePanel
+              title="GMV do mês"
+              subtitle={`GMV por dia · ${periodNoun}`}
+              data={gmvPoints}
+            />
+          </div>
+
+          {/* Ranking de marcas por GMV — escaneável, barras horizontais. */}
+          {rankingMarcas.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-[var(--primary)]" />
+                  <p className="text-base font-bold text-ink">Ranking de marcas</p>
+                </div>
+                <p className="mt-1 text-xs text-ink-muted">Por GMV no período selecionado</p>
+              </CardHeader>
+              <CardBody className="space-y-2">
+                {rankingMarcas.map((m, i) => {
+                  const top = rankingMarcas[0]?.gmv || 1
+                  const pct = Math.max(2, Math.round((m.gmv / top) * 100))
+                  return (
+                    <div key={m.id || m.nome} className="flex items-center gap-3 rounded-xl border border-line px-3 py-2">
+                      <span className="num grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--primary-soft)] text-xs font-black text-[var(--primary)]">
+                        {i + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <p className="truncate text-sm font-bold text-ink">{m.nome}</p>
+                          <p className="num shrink-0 text-sm font-black text-ink">{formatMoney(m.gmv)}</p>
+                        </div>
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+                          <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${pct}%` }} />
+                        </div>
+                        {m.comissao > 0 ? (
+                          <p className="num mt-1 text-xs text-ink-muted">Comissão {formatMoney(m.comissao)}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  )
+                })}
+              </CardBody>
+            </Card>
+          ) : null}
+        </section>
+      ) : null}
+
       <PulsoDiarioSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
 
       {query.isLoading ? (
@@ -168,9 +255,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
       ) : (
         <>
-          {/* Séries do período — distintas do hero do Pulso (que mostra os agregados). */}
-          <section className="grid gap-4 xl:grid-cols-2">
-            <LinePanel title={`GMV · ${periodNoun}`} subtitle="GMV por dia no período selecionado" data={gmvPoints} />
+          {/* Pedidos por dia — o GMV foi promovido para o topo (acima do Pulso). */}
+          <section>
             <BarPanel title={`Pedidos · ${periodNoun}`} subtitle="Pedidos por dia no período" data={pedidosPoints} />
           </section>
 

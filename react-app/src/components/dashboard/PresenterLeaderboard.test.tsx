@@ -71,6 +71,7 @@ describe('PresenterLeaderboard', () => {
         subtitle="Progresso vs. líder"
         action={<a href="/ranking-apresentadoras">Ver todas</a>}
         limit={3}
+        variant="full"
       />,
     )
 
@@ -80,6 +81,21 @@ describe('PresenterLeaderboard', () => {
     expect(html).toContain('Topo do mês')
     expect(html).toContain('Pódio')
     expect(html).not.toMatch(/🥇|🥈|🥉|NaN|undefined/)
+  })
+
+  it('renders a slim compact variant for the sidebar (name + GMV, no badges/cabine)', () => {
+    const html = renderToStaticMarkup(
+      <PresenterLeaderboard rows={rows} limit={3} variant="compact" />,
+    )
+
+    // Essenciais permanecem.
+    expect(html).toContain('Edja')
+    // Densidade removida: badges, cabine e "% do líder" não aparecem no compacto.
+    expect(html).not.toContain('Topo do mês')
+    expect(html).not.toContain('Pódio')
+    expect(html).not.toContain('C-04')
+    expect(html).not.toContain('do líder')
+    expect(html).not.toMatch(/NaN|undefined/)
   })
 
   it('renders an empty state safely', () => {

@@ -808,6 +808,28 @@ export function LivesTab({
   const clearFilters = onClearFilters
 
   const dayGroups = useMemo(() => groupByDay(filteredLives), [filteredLives])
+  // Pré-computa as agregações por grupo (duração/GMV/publicadas/rascunhos) uma única
+  // vez por mudança de `dayGroups`, em vez de recalcular reduce/filter por render
+  // dentro do map. Keyed pela própria referência de `group.lives`.
+  const dayGroupAggregates = useMemo(
+    () =>
+      dayGroups.map((group) => {
+        const totalMins = group.lives.reduce((s, l) => s + calcDuration(l).mins, 0)
+        const totalGmv = group.lives.reduce((s, l) => s + asNumber(officialLiveGmv(l)), 0)
+        const publicadas = group.lives.filter((l) => {
+          const s = asString(l.status_publicacao, '').toLowerCase()
+          return s === 'publicado' || s === 'publicada'
+        }).length
+        return {
+          dateKey: group.dateKey,
+          totalMins,
+          totalGmv,
+          publicadas,
+          rascunhos: group.lives.length - publicadas,
+        }
+      }),
+    [dayGroups],
+  )
   const totalCount = filteredLives.length
 
   function toggleDay(key: string) {
@@ -1200,20 +1222,11 @@ export function LivesTab({
             Nenhuma live encontrada{hasAnyFilter ? ' para esses filtros' : ''}.
           </div>
         ) : (
-          dayGroups.map((group) => {
+          dayGroups.map((group, groupIdx) => {
             const collapsed = collapsedDays.has(group.dateKey)
-            const totalMins = group.lives.reduce((s, l) => s + calcDuration(l).mins, 0)
+            const { totalMins, totalGmv, publicadas, rascunhos } = dayGroupAggregates[groupIdx]
             const h = Math.floor(totalMins / 60)
             const m = totalMins % 60
-            const totalGmv = group.lives.reduce(
-              (s, l) => s + asNumber(officialLiveGmv(l)),
-              0,
-            )
-            const publicadas = group.lives.filter((l) => {
-              const s = asString(l.status_publicacao, '').toLowerCase()
-              return s === 'publicado' || s === 'publicada'
-            }).length
-            const rascunhos = group.lives.length - publicadas
 
             return (
               <div key={group.dateKey}>

@@ -1,4 +1,4 @@
-import { AlertTriangle, Building2, CircleDollarSign, Crown, Download, MapPin, Percent, Receipt, TrendingUp, Users, WalletCards, Zap } from 'lucide-react'
+import { AlertTriangle, Building2, CircleDollarSign, Crown, Download, MapPin, Percent, Receipt, TrendingUp, Users, Zap } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -15,7 +15,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { createFinanceiroCusto, deleteFinanceiroCusto, getBoletos, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
+import { createFinanceiroCusto, deleteFinanceiroCusto, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { asArray, asNumber, asString, formatDate, formatMoney, getRecord } from '../utils/format'
@@ -39,7 +39,7 @@ import { BoletosPanel } from './BoletosPage'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
-type FinanceiroTab = 'operacional' | 'cliente' | 'recebiveis' | 'boletos' | 'comissoes' | 'franqueadora'
+type FinanceiroTab = 'operacional' | 'cliente' | 'comissoes' | 'franqueadora'
 
 const num = (value: unknown) => asNumber(value).toLocaleString('pt-BR')
 const sumBy = (rows: JsonRecord[], ...keys: string[]) =>
@@ -83,7 +83,7 @@ export function FinanceiroPage() {
   const isMaster = user?.papel === 'franqueador_master'
   const [params, setParams] = useSearchParams()
   const requestedTab = params.get('tab')
-  const initialTab: FinanceiroTab = isCliente ? 'boletos' : requestedTab === 'boletos' || requestedTab === 'comissoes' ? requestedTab : 'operacional'
+  const initialTab: FinanceiroTab = requestedTab === 'cliente' || requestedTab === 'comissoes' ? requestedTab : 'operacional'
   const [tab, setTab] = useState<FinanceiroTab>(initialTab)
 
   // Período (mês único ou intervalo) — fonte de edição local + sync URL. Queries usam
@@ -117,7 +117,6 @@ export function FinanceiroPage() {
   const faturamento = useQuery({ queryKey: QK.financeiroFaturamento(pk), queryFn: () => getFinanceiroFaturamento(fp), enabled: !isCliente, placeholderData: keepPreviousData })
   const custos = useQuery({ queryKey: QK.financeiroCustos(custo.competencia), queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
   const franqueadora = useQuery({ queryKey: QK.financeiroFranqueadora(pk), queryFn: () => getFinanceiroFranqueadora(fp), enabled: isMaster, placeholderData: keepPreviousData })
-  const boletos = useQuery({ queryKey: QK.boletos, queryFn: getBoletos })
   const comissoesApresentadoras = useQuery({ queryKey: [...QK.comissoesApresentadoras, pk], queryFn: () => getComissoesApresentadoras(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
   const comissoesMarcas = useQuery({ queryKey: [...QK.comissoesMarcas, pk], queryFn: () => getComissoesMarcas(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
 
@@ -168,8 +167,18 @@ export function FinanceiroPage() {
   )
   const clientesView = clientes.slice(0, 100)
   const custosRows = custos.data ?? []
-  const boletosRows = boletos.data ?? []
-  const boletosVencidos = boletosRows.filter((item) => asString(item.status).toLowerCase() === 'vencido').length
+  const apresentadorasRows = useMemo(
+    () => [...(comissoesApresentadoras.data ?? [])].sort((a, b) => asNumber(b.comissao_apresentadora ?? b.comissao_total) - asNumber(a.comissao_apresentadora ?? a.comissao_total)),
+    [comissoesApresentadoras.data],
+  )
+  const marcasRows = useMemo(
+    () => [...(comissoesMarcas.data ?? [])].sort((a, b) => asNumber(b.gmv_total) - asNumber(a.gmv_total)),
+    [comissoesMarcas.data],
+  )
+  const franqueadosRows = useMemo(
+    () => [...asArray<JsonRecord>(franqueadora.data?.franqueados)].sort((a, b) => asNumber(b.gmv_total ?? b.gmv) - asNumber(a.gmv_total ?? a.gmv)),
+    [franqueadora.data],
+  )
   const comissaoFaltante = asNumber(raw.comissao_faltante_count ?? raw.comissoes_sem_config)
 
   const comissaoFixo = asNumber(raw.fixo_mensal)
@@ -205,7 +214,7 @@ export function FinanceiroPage() {
   function switchTab(next: FinanceiroTab) {
     setTab(next)
     const nextParams = new URLSearchParams(params)
-    if (next === 'boletos' || next === 'comissoes') nextParams.set('tab', next)
+    if (next === 'cliente' || next === 'comissoes') nextParams.set('tab', next)
     else nextParams.delete('tab')
     setParams(nextParams, { replace: true })
   }
@@ -227,9 +236,6 @@ export function FinanceiroPage() {
   if (resumo.isError) return <ErrorState message={extractErrorMessage(resumo.error)} onRetry={() => void resumo.refetch()} />
   if (resumo.isLoading && !resumo.data) return <LoadingState />
 
-  const apresentadorasRows = [...(comissoesApresentadoras.data ?? [])].sort((a, b) => asNumber(b.comissao_apresentadora ?? b.comissao_total) - asNumber(a.comissao_apresentadora ?? a.comissao_total))
-  const marcasRows = [...(comissoesMarcas.data ?? [])].sort((a, b) => asNumber(b.gmv_total) - asNumber(a.gmv_total))
-  const franqueadosRows = [...asArray<JsonRecord>(franqueadora.data?.franqueados)].sort((a, b) => asNumber(b.gmv_total ?? b.gmv) - asNumber(a.gmv_total ?? a.gmv))
   const royaltiesConfigurados = asNumber(franqueadora.data?.total_royalties) > 0
 
   return (
@@ -246,8 +252,6 @@ export function FinanceiroPage() {
         {[
           ['operacional', CircleDollarSign, 'Operacional'],
           ['cliente', Users, 'Por cliente'],
-          ['recebiveis', TrendingUp, 'Recebíveis'],
-          ['boletos', WalletCards, 'Boletos'],
           ['comissoes', Percent, 'Comissões'],
           ...(isMaster ? [['franqueadora', Crown, 'Franqueadora']] : []),
         ].map(([key, Icon, label]) => (
@@ -425,37 +429,6 @@ export function FinanceiroPage() {
             ) : null}
           </CardBody>
         </Card>
-      ) : null}
-
-      {tab === 'recebiveis' ? (
-        <Card>
-          <CardHeader>
-            <p className="text-base font-bold text-ink">Recebíveis</p>
-          </CardHeader>
-          <CardBody>
-            <EmptyState title="Sem integração de recebíveis" description="Nenhuma integração de recebíveis configurada para esta unidade." />
-          </CardBody>
-        </Card>
-      ) : null}
-
-      {tab === 'boletos' ? (
-        <section className="grid gap-4">
-          {boletosRows.length ? (
-            <>
-              <MetricCard metric={metric('Boletos vencidos', boletosVencidos, 'requer cobrança', boletosVencidos > 0 ? 'danger' : 'neutral')} icon={Receipt} />
-              <BoletosPanel embedded />
-            </>
-          ) : (
-            <Card>
-              <CardHeader>
-                <p className="text-base font-bold text-ink">Boletos</p>
-              </CardHeader>
-              <CardBody>
-                <EmptyState title="Sem boletos" description="Nenhuma cobrança configurada ou boleto encontrado." />
-              </CardBody>
-            </Card>
-          )}
-        </section>
       ) : null}
 
       {tab === 'comissoes' ? (

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { asNumber, formatMoney } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 
@@ -549,20 +549,40 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
   }, [raw.gmv_intraday])
 
   // daily: qualify if gmv_diario_mes has at least one gmv > 0
+  // (no longer gated by intraday — both can be available so the toggle can switch)
   const dailyData = useMemo((): DailyPoint[] | null => {
-    if (intradayData != null) return null // intraday takes priority
     if (!Array.isArray(raw.gmv_diario_mes) || raw.gmv_diario_mes.length === 0) return null
     const pts = (raw.gmv_diario_mes as DailyPoint[]).filter(
       (p) => p && typeof p.dia === 'number',
     )
     return pts.some((p) => p.gmv > 0) ? pts : null
-  }, [intradayData, raw.gmv_diario_mes])
+  }, [raw.gmv_diario_mes])
 
   const mesReferencia = raw.mes_referencia != null ? String(raw.mes_referencia) : null
 
-  // legend: adapts to chart mode
-  const showIntradayLegend = intradayData != null
-  const showDailyLegend = !showIntradayLegend && dailyData != null
+  // chart view toggle — defaults to 'mes' (month view). If only one dataset
+  // is available, the effective view is forced to that one and the other
+  // toggle option is hidden.
+  const [view, setView] = useState<'hoje' | 'mes'>('mes')
+
+  const hasIntraday = intradayData != null
+  const hasDaily = dailyData != null
+
+  // effective view: honor selection when available, otherwise fall back to the
+  // only dataset present.
+  const effectiveView: 'hoje' | 'mes' | null = !hasIntraday && !hasDaily
+    ? null
+    : view === 'hoje'
+      ? hasIntraday
+        ? 'hoje'
+        : 'mes'
+      : hasDaily
+        ? 'mes'
+        : 'hoje'
+
+  // legend: adapts to the chart actually being shown
+  const showIntradayLegend = effectiveView === 'hoje'
+  const showDailyLegend = effectiveView === 'mes'
 
   return (
     <div
@@ -578,6 +598,46 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
           GMV — desempenho do mês
         </span>
         <div className="flex items-center gap-3 shrink-0">
+          {/* segmented toggle: Hoje | Mês (only when a chart can render) */}
+          {(hasIntraday || hasDaily) && (
+            <div
+              role="group"
+              aria-label="Período do gráfico"
+              className="inline-flex items-center rounded-[7px] p-0.5"
+              style={{ background: 'var(--bg-elev-2)', border: '1px solid var(--border)' }}
+            >
+              <button
+                type="button"
+                onClick={() => setView('hoje')}
+                disabled={!hasIntraday}
+                aria-pressed={effectiveView === 'hoje'}
+                hidden={!hasIntraday}
+                className="rounded-[5px] px-2 py-0.5 text-[11px] font-medium transition-colors"
+                style={{
+                  background: effectiveView === 'hoje' ? 'var(--bg-elev-1)' : 'transparent',
+                  color: effectiveView === 'hoje' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  cursor: hasIntraday ? 'pointer' : 'default',
+                }}
+              >
+                Hoje
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('mes')}
+                disabled={!hasDaily}
+                aria-pressed={effectiveView === 'mes'}
+                hidden={!hasDaily}
+                className="rounded-[5px] px-2 py-0.5 text-[11px] font-medium transition-colors"
+                style={{
+                  background: effectiveView === 'mes' ? 'var(--bg-elev-1)' : 'transparent',
+                  color: effectiveView === 'mes' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  cursor: hasDaily ? 'pointer' : 'default',
+                }}
+              >
+                Mês
+              </button>
+            </div>
+          )}
           {showIntradayLegend ? (
             <>
               <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
@@ -643,10 +703,11 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
         ritmo={ritmo}
       />
 
-      {/* Adaptive chart: intraday first, daily fallback, nothing if neither qualifies */}
-      {intradayData ? (
+      {/* Chart driven by the toggle (defaults to 'mes'). Falls back to whichever
+          dataset is available; renders nothing if neither qualifies. */}
+      {effectiveView === 'hoje' && intradayData ? (
         <IntradayChart data={intradayData} />
-      ) : dailyData ? (
+      ) : effectiveView === 'mes' && dailyData ? (
         <DailyChart data={dailyData} mesReferencia={mesReferencia} />
       ) : null}
     </div>

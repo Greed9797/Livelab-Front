@@ -101,6 +101,7 @@ export function PublicRankingPage() {
               rows={apresentadoras}
               title={`Ranking de apresentadoras${apresentadorasQuery.data?.unidade ? ` · ${asString(apresentadorasQuery.data.unidade)}` : ''}`}
               subtitle="Progresso vs. líder do mês"
+              variant="full"
               limit={6}
             />
           )

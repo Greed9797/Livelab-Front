@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Activity, AlertOctagon, AlertTriangle, Gauge, TriangleAlert, Users } from 'lucide-react'
+import { Activity, Gauge, Users } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { GmvHoraComboPanel } from '../charts/Charts'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
@@ -113,69 +113,30 @@ export function PulsoDiarioSection({ from, to, marcaId, apresentadoraId }: Pulso
         </CardBody>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Feed de alertas */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <TriangleAlert className="h-4 w-4 text-[var(--danger)]" />
-              <p className="text-base font-bold text-ink">Alertas operacionais</p>
-            </div>
-          </CardHeader>
-          <CardBody>
-            {pulse.alertas.length === 0 ? (
-              <p className="py-6 text-center text-sm text-ink-muted">Nenhum alerta no período. Operação saudável. ✅</p>
-            ) : (
-              <ul className="space-y-2">
-                {pulse.alertas.map((a) => {
-                  const meta = STATUS_META[a.severity === 'critical' ? 'critico' : 'atencao']
-                  const Icon = a.severity === 'critical' ? AlertOctagon : AlertTriangle
-                  return (
-                    <li key={`${a.data}-${a.clienteId}`} className="overflow-hidden rounded-xl border border-line" style={{ borderLeftColor: meta.color, borderLeftWidth: 3 }}>
-                      <Link to={`/comercial?ativo=${encodeURIComponent(a.clienteNome)}`} className="block p-3 transition hover:bg-surface-muted/60">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4 shrink-0" style={{ color: meta.color }} />
-                            <span className="text-sm font-bold text-ink">{a.clienteNome}</span>
-                          </div>
-                          <span className="text-xs font-semibold text-ink-muted">{a.dataLabel}</span>
-                        </div>
-                        <p className="num mt-1 text-xs text-ink-muted">{a.descricao}</p>
-                        <p className="mt-0.5 text-sm font-semibold" style={{ color: meta.color }}>{a.titulo}</p>
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </CardBody>
-        </Card>
-
-        {/* Ranking de clientes */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-ink-muted" />
-              <p className="text-base font-bold text-ink">Clientes</p>
-            </div>
-          </CardHeader>
-          <CardBody>
-            <ul className="space-y-2">
-              {pulse.clientes.map((c) => (
-                <li key={c.clienteId} className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-ink">{c.clienteNome}</p>
-                    <p className="num text-xs text-ink-muted">
-                      {formatHoras(c.horas)} · {formatMoney(c.gmvHora)}/h · {c.pedidos.toLocaleString('pt-BR')} pedidos
-                    </p>
-                  </div>
-                  <StatusBadge status={c.status} />
-                </li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
-      </div>
+      {/* Ranking de clientes */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-ink-muted" />
+            <p className="text-base font-bold text-ink">Clientes</p>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <ul className="grid gap-2 md:grid-cols-2">
+            {pulse.clientes.map((c) => (
+              <li key={c.clienteId} className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-ink">{c.clienteNome}</p>
+                  <p className="num text-xs text-ink-muted">
+                    {formatHoras(c.horas)} · {formatMoney(c.gmvHora)}/h · {c.pedidos.toLocaleString('pt-BR')} pedidos
+                  </p>
+                </div>
+                <StatusBadge status={c.status} />
+              </li>
+            ))}
+          </ul>
+        </CardBody>
+      </Card>
 
       {/* Ranking de apresentadoras */}
       <Card>

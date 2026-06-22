@@ -1,17 +1,23 @@
 import { BarChart3, CalendarClock, MonitorPlay, Presentation, Video } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { RegistrarMetricasLiveModal, type RegistrarMetricasLiveMode } from '../components/forms/RegistrarMetricasLiveModal'
 import { EditarLiveModal } from '../components/forms/EditarLiveModal'
-import { AnalyticsPage } from './AnalyticsPage'
-import { CabinesPage } from './CabinesPage'
 import { AgendaTab } from '../components/conteudo/AgendaTab'
 import { agendaFetchRange } from './conteudo-helpers'
-import { LivesTab, dateRangeToWindow, type DateRange } from '../components/conteudo/LivesTab'
-import { VideosTab, emptyVideo, type VideoForm } from '../components/conteudo/VideosTab'
+// Tipos/helpers leves importados estaticamente; os componentes pesados das abas
+// são carregados sob demanda via React.lazy (ver abaixo) para reduzir o chunk inicial.
+import { dateRangeToWindow, type DateRange } from '../components/conteudo/LivesTab'
+import { emptyVideo, type VideoForm } from '../components/conteudo/VideosTab'
+
+// Abas pesadas carregadas sob demanda — só baixam o chunk quando a aba é aberta.
+const LivesTab = lazy(() => import('../components/conteudo/LivesTab').then((m) => ({ default: m.LivesTab })))
+const VideosTab = lazy(() => import('../components/conteudo/VideosTab').then((m) => ({ default: m.VideosTab })))
+const AnalyticsPage = lazy(() => import('./AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })))
+const CabinesPage = lazy(() => import('./CabinesPage').then((m) => ({ default: m.CabinesPage })))
 import {
   createAgendaEvento,
   createVideo,
@@ -146,9 +152,9 @@ export function ConteudoPage() {
   const client = useQueryClient()
 
   const range = agendaFetchRange(agendaDate, agendaView)
-  const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }) })
+  const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }), placeholderData: (prev) => prev })
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
-  const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada', limit: 200 }) })
+  const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada', limit: 200 }), placeholderData: (prev) => prev })
   // Lista da aba "Lives realizadas" — filtrada server-side (separada da query `lives`
   // acima, que segue completa para alimentar a Agenda e o lookup por ?live=).
   const livesWindow = dateRangeToWindow(livesDateRange)
@@ -159,7 +165,7 @@ export function ConteudoPage() {
     placeholderData: (prev) => prev,
   })
   const duplicatas = useQuery({ queryKey: ['lives-duplicatas'], queryFn: getLivesDuplicatas, enabled: tab === 'lives', staleTime: 5 * 60_000 })
-  const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos() })
+  const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos(), enabled: tab === 'videos' })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
   const apresentadoras = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
@@ -207,10 +213,15 @@ export function ConteudoPage() {
     setLiveModalMode('detail')
   }, [liveModalMode, metricsModalMode, selectedLive])
 
-  const isLoading = agenda.isLoading || cabines.isLoading || lives.isLoading || videos.isLoading || marcas.isLoading || clientes.isLoading || apresentadoras.isLoading
-  const error = agenda.error ?? cabines.error ?? lives.error ?? videos.error ?? marcas.error ?? clientes.error ?? apresentadoras.error
+  // Bloqueia o primeiro paint apenas no que a aba ATUAL precisa.
+  // Agenda (default) só precisa de agenda + cabines; marcas/clientes/apresentadoras/
+  // videos/lives seguem buscando em background sem segurar o spinner de página inteira.
+  // As demais abas (lives/videos/analytics) carregam o próprio chunk lazy + dados em background,
+  // exibindo o fallback do <Suspense> — não há query bloqueante de página inteira para elas.
+  const isLoading = tab === 'agenda' ? (agenda.isLoading || cabines.isLoading) : false
+  const error = tab === 'agenda' ? (agenda.error ?? cabines.error) : null
   if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => { void agenda.refetch(); void cabines.refetch(); void lives.refetch(); void videos.refetch(); void marcas.refetch(); void clientes.refetch(); void apresentadoras.refetch() }} />
+  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => { void agenda.refetch(); void cabines.refetch() }} />
 
   const cabineRows = cabines.data ?? []
   const activeCabines = cabineRows.filter((c) => (c as unknown as JsonRecord).ativo !== false && asString(c.status, '') !== 'inativa')
@@ -348,9 +359,14 @@ export function ConteudoPage() {
         />
       ) : null}
 
-      {tab === 'cabines' ? <CabinesPage title="Cabines de conteúdo" embedded /> : null}
+      {tab === 'cabines' ? (
+        <Suspense fallback={<LoadingState />}>
+          <CabinesPage title="Cabines de conteúdo" embedded />
+        </Suspense>
+      ) : null}
 
       {tab === 'lives' ? (
+        <Suspense fallback={<LoadingState />}>
         <LivesTab
           livesData={livesList.data ?? []}
           dateRange={livesDateRange}
@@ -383,6 +399,7 @@ export function ConteudoPage() {
           duplicateLiveIds={duplicateLiveIds}
           duplicateClusterCount={dupClusters.length}
         />
+        </Suspense>
       ) : null}
 
       <EditarLiveModal open={Boolean(editLiveData)} live={editLiveData} onClose={() => setEditLiveData(null)} />
@@ -406,6 +423,7 @@ export function ConteudoPage() {
       />
 
       {tab === 'videos' ? (
+        <Suspense fallback={<LoadingState />}>
         <VideosTab
           videosData={videos.data ?? []}
           marcaRows={marcaRows}
@@ -427,9 +445,14 @@ export function ConteudoPage() {
           onVideoFieldChange={(key, value) => setVideoForm((cur) => ({ ...cur, [key]: value }))}
           onVideoSubmit={onVideoSubmit}
         />
+        </Suspense>
       ) : null}
 
-      {tab === 'analytics' ? <AnalyticsPage embedded /> : null}
+      {tab === 'analytics' ? (
+        <Suspense fallback={<LoadingState />}>
+          <AnalyticsPage embedded />
+        </Suspense>
+      ) : null}
     </div>
   )
 }
