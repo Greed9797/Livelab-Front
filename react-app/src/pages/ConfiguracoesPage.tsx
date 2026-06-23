@@ -25,12 +25,16 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   const toast = useToast()
   const client = useQueryClient()
   const currentUser = useCurrentUser()
+  // Apenas franqueador_master/franqueado veem os controles administrativos.
+  // Demais papéis internos (operação, cabine, apresentador, etc.) só acessam
+  // a seção de conta/segurança (trocar senha). Default-DENY: na dúvida, esconde.
+  const isAdmin = currentUser?.papel === 'franqueador_master' || currentUser?.papel === 'franqueado'
   const publicRankingUrl = currentUser?.tenant_id
     ? `${window.location.origin}/ranking?unidade=${currentUser.tenant_id}`
     : `${window.location.origin}/ranking`
   const [params, setParams] = useSearchParams()
-  const query = useQuery({ queryKey: QK.configuracoes(clienteMode), queryFn: getConfiguracoes, enabled: !clienteMode })
-  const rankingQuery = useQuery({ queryKey: QK.configuracoeRankingPublico, queryFn: getRankingPublicoConfig, enabled: !clienteMode })
+  const query = useQuery({ queryKey: QK.configuracoes(clienteMode), queryFn: getConfiguracoes, enabled: !clienteMode && isAdmin })
+  const rankingQuery = useQuery({ queryKey: QK.configuracoeRankingPublico, queryFn: getRankingPublicoConfig, enabled: !clienteMode && isAdmin })
   const period = currentPeriod()
   const perfilQuery = useQuery({ queryKey: QK.clientePerfil, queryFn: getClientePerfil, enabled: clienteMode })
   const metaQuery = useQuery({ queryKey: QK.clienteMeta(period), queryFn: () => getClienteMeta(period), enabled: clienteMode })
@@ -61,7 +65,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   const metaUnidadeQuery = useQuery({
     queryKey: QK.metaUnidade(metaAnoMes),
     queryFn: () => getMetaUnidade(metaAnoMes),
-    enabled: !clienteMode,
+    enabled: !clienteMode && isAdmin,
   })
 
   // ── Metas apresentadoras + supervisor ──────────────────────────────────────
@@ -69,12 +73,12 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   const metasApresentadorasQuery = useQuery({
     queryKey: QK.metasApresentadoras(metasMes),
     queryFn: () => getMetasApresentadoras(metasMes),
-    enabled: !clienteMode && settingsTab === 'metas',
+    enabled: !clienteMode && isAdmin && settingsTab === 'metas',
   })
   const metasSupervisorQuery = useQuery({
     queryKey: QK.metasSupervisor(metasMes),
     queryFn: () => getMetaSupervisor(metasMes),
-    enabled: !clienteMode && settingsTab === 'metas',
+    enabled: !clienteMode && isAdmin && settingsTab === 'metas',
   })
   const [metasSupervisorInput, setMetasSupervisorInput] = useState('')
   const [metasApresentadorasInputs, setMetasApresentadorasInputs] = useState<Record<string, string>>({})
@@ -206,8 +210,58 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
                 </p>
               </CardBody>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <p className="text-base font-bold text-ink">Segurança</p>
+                <p className="mt-1 text-xs text-ink-muted">Altere a sua senha de acesso. Mínimo 8 caracteres, com letra e número.</p>
+              </CardHeader>
+              <CardBody>
+                <form className="grid gap-4 md:grid-cols-2" onSubmit={(event) => {
+                  event.preventDefault()
+                  senhaMutation.mutate(senha)
+                }}>
+                  <input className="design-input h-11 w-full px-4" type="password" autoComplete="current-password" placeholder="Senha atual" value={senha.senha_atual} onChange={(event) => setSenha((current) => ({ ...current, senha_atual: event.target.value }))} required />
+                  <input className="design-input h-11 w-full px-4" type="password" autoComplete="new-password" placeholder="Nova senha" value={senha.nova_senha} onChange={(event) => setSenha((current) => ({ ...current, nova_senha: event.target.value }))} minLength={8} required />
+                  {senhaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(senhaMutation.error)}</p> : null}
+                  {senhaMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)] md:col-span-2">Senha alterada. Outras sessões foram desconectadas.</p> : null}
+                  <div className="md:col-span-2">
+                    <Button type="submit" icon={KeyRound} isLoading={senhaMutation.isPending}>Trocar senha</Button>
+                  </div>
+                </form>
+              </CardBody>
+            </Card>
           </div>
         </section>
+      </div>
+    )
+  }
+
+  // Papéis não-admin: somente a seção de conta/segurança (trocar senha).
+  // Nenhum controle administrativo (unidade, metas, ranking, usuários, integrações) é renderizado.
+  if (!isAdmin) {
+    return (
+      <div className="space-y-6">
+        <PageHeader eyebrow="Conta" accent="Configurações" title="da conta" subtitle="Altere a sua senha de acesso. Mínimo 8 caracteres, com letra e número." />
+        <Card>
+          <CardHeader>
+            <p className="text-sm font-bold text-ink">Segurança</p>
+          </CardHeader>
+          <CardBody>
+            <form className="grid gap-4 md:grid-cols-2" onSubmit={(event) => {
+              event.preventDefault()
+              senhaMutation.mutate(senha)
+            }}>
+              <input className="design-input h-11 w-full px-4" type="password" autoComplete="current-password" placeholder="Senha atual" value={senha.senha_atual} onChange={(event) => setSenha((current) => ({ ...current, senha_atual: event.target.value }))} required />
+              <input className="design-input h-11 w-full px-4" type="password" autoComplete="new-password" placeholder="Nova senha" value={senha.nova_senha} onChange={(event) => setSenha((current) => ({ ...current, nova_senha: event.target.value }))} minLength={8} required />
+              {senhaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(senhaMutation.error)}</p> : null}
+              {senhaMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)] md:col-span-2">Senha alterada. Outras sessões foram desconectadas.</p> : null}
+              <div className="md:col-span-2">
+                <Button type="submit" icon={KeyRound} isLoading={senhaMutation.isPending}>Trocar senha</Button>
+              </div>
+            </form>
+          </CardBody>
+        </Card>
       </div>
     )
   }

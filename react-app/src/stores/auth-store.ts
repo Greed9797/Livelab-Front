@@ -72,10 +72,6 @@ export function useCurrentUser(): User | null {
   return useAuthStore((state) => state.user)
 }
 
-export function useLogout(): () => Promise<void> {
-  return useAuthStore((state) => state.logout)
-}
-
 export function bootstrapAuthOnce(): void {
   const state = useAuthStore.getState()
   if (!state.isBootstrapped) state.bootstrap()

@@ -224,7 +224,3 @@ export function BoletosPanel({ embedded = false }: { embedded?: boolean }) {
     </div>
   )
 }
-
-export function BoletosPage() {
-  return <BoletosPanel />
-}

@@ -54,10 +54,6 @@ export function formatBRLWithoutSymbol(value: unknown): string {
   return normalizeFormatted(BRL_NUMBER_FORMATTER.format(parseBRMoneyToDecimal(value)))
 }
 
-export function isValidMoneyInput(input: unknown): boolean {
-  return toFiniteNumber(input) !== null
-}
-
 export function normalizeMoneyInputText(input: string): string {
   if (!input.trim()) return ''
   return formatBRLWithoutSymbol(input)

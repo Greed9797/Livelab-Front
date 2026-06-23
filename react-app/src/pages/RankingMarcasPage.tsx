@@ -4,6 +4,7 @@ import { Trophy } from 'lucide-react'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import { RankingNavTabs } from '../components/dashboard/RankingNavTabs'
 import { RankingPodium } from '../components/dashboard/RankingPodium'
 import { RankingBars } from '../components/dashboard/RankingBars'
 import { getComissoesMarcas } from '../services/domain'
@@ -34,10 +35,13 @@ export function RankingMarcasPage() {
         title="de marcas"
         subtitle="Marcas com maior GMV no mês. Logo via favicon do site quando não configurado."
         actions={
-          <label className="flex items-center gap-2 text-sm font-semibold text-ink">
-            Mês
-            <input className="design-input h-10 px-3" type="month" value={mes} onChange={(event) => setMes(event.target.value)} />
-          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <RankingNavTabs />
+            <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+              Mês
+              <input className="design-input h-10 px-3" type="month" value={mes} onChange={(event) => setMes(event.target.value)} />
+            </label>
+          </div>
         }
       />
 

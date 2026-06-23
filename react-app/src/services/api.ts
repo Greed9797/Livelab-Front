@@ -151,10 +151,6 @@ export async function apiUpload<T>(path: string, file: File, params?: Record<str
   return response.data
 }
 
-export function apiBaseUrl(): string {
-  return api.defaults.baseURL ?? ''
-}
-
 export async function apiGetBlob(path: string, params?: Record<string, unknown>): Promise<Blob> {
   const response = await api.get<Blob>(path, { params, responseType: 'blob' })
   return response.data

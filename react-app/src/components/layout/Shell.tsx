@@ -1,4 +1,4 @@
-import { Bell, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
+import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
@@ -185,7 +185,7 @@ export function Shell() {
 
         <main className="min-h-screen px-4 py-6 md:px-7 lg:px-8 lg:py-5">
           {isHomeRoute ? (
-            <div className="mb-5 hidden items-center justify-between gap-3 border-b border-line pb-4 lg:flex">
+            <div className="mb-5 hidden items-center gap-3 border-b border-line pb-4 lg:flex">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand to-[#ff8a3c] text-sm font-bold text-white shadow-[0_4px_12px_-4px_rgba(255,90,31,0.55)]">
                   {initials(user?.tenant_nome ?? user?.nome)}
@@ -201,13 +201,6 @@ export function Shell() {
                   </div>
                 </div>
               </div>
-              <button
-                className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-surface text-ink-muted transition hover:bg-surface-muted hover:text-ink"
-                aria-label="Notificações"
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-surface bg-brand" />
-              </button>
             </div>
           ) : null}
           <Outlet />

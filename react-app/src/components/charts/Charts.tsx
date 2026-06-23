@@ -2,7 +2,7 @@
 // primeiro gráfico aparece. Páginas sem gráfico (Cabines, Conteúdo tabs
 // sem analytics) nunca pagam o custo.
 //
-// API permanece idêntica: import { AreaPanel, BarPanel, LinePanel, DonutPanel } from '.../Charts'.
+// API permanece idêntica: import { AreaPanel, BarPanel, LinePanel } from '.../Charts'.
 
 import { lazy, Suspense, type ComponentType } from 'react'
 import type { ChartPoint } from '../../types/models'
@@ -24,7 +24,7 @@ function ChartFallback({ title, subtitle }: { title: string; subtitle?: string }
   )
 }
 
-function makePanel(name: 'AreaPanel' | 'BarPanel' | 'LinePanel' | 'DonutPanel') {
+function makePanel(name: 'AreaPanel' | 'BarPanel' | 'LinePanel') {
   return function LazyPanel(props: PanelProps) {
     // Re-import named export via wrapper component
     const Inner = lazy(async () => {
@@ -43,7 +43,6 @@ function makePanel(name: 'AreaPanel' | 'BarPanel' | 'LinePanel' | 'DonutPanel') 
 export const AreaPanel = makePanel('AreaPanel')
 export const BarPanel = makePanel('BarPanel')
 export const LinePanel = makePanel('LinePanel')
-export const DonutPanel = makePanel('DonutPanel')
 
 type ComboProps = {
   title: string

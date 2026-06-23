@@ -1,4 +1,4 @@
-import type { Cabine, JsonRecord, Lead, LiveAtual, Period, Solicitacao } from '../types/models'
+import type { Cabine, JsonRecord, Lead, LiveAtual, Period } from '../types/models'
 import { api, apiDelete, apiGet, apiGetBlob, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
 
@@ -119,10 +119,6 @@ export function getUsuarios(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/usuarios', params)
 }
 
-export function getConvitesPendentes() {
-  return apiGet<JsonRecord[]>('/usuarios/convites-pendentes')
-}
-
 export function convidarUsuario(payload: JsonRecord) {
   return apiPost<JsonRecord>('/usuarios/convidar', payload)
 }
@@ -213,26 +209,6 @@ export function getAgendaConflitos(
   return apiGet<JsonRecord>(`/agenda/conflitos?${params.toString()}`)
 }
 
-export function criarEventoAgenda(payload: {
-  tipo: string
-  cabine_id: string
-  marca_id?: string
-  data_inicio: string
-  data_fim: string
-  recorrencia?: {
-    frequencia: 'diaria' | 'semanal' | 'quinzenal' | 'mensal'
-    ate?: string
-    total_ocorrencias?: number
-    dias_semana?: number[]
-  }
-}) {
-  return apiPost<JsonRecord>('/agenda', payload)
-}
-
-export function atualizarEventoAgenda(id: string, payload: Record<string, unknown>, modoRecorrencia = 'apenas_este') {
-  return apiPatch<JsonRecord>(`/agenda/${id}`, { ...payload, modo_recorrencia: modoRecorrencia })
-}
-
 export function getVideos(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/videos', params)
 }
@@ -247,14 +223,6 @@ export function updateVideo(id: string, payload: JsonRecord) {
 
 export function deleteVideo(id: string) {
   return apiDelete(`/videos/${id}`)
-}
-
-export function getVendasAtribuidas(params: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord[]>('/vendas-atribuidas', params)
-}
-
-export function getComissoesResumo(params: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord>('/comissoes/resumo', params)
 }
 
 export function getComissoesApresentadoras(params: Record<string, unknown> = {}) {
@@ -310,14 +278,6 @@ export function getAuditLog(params: { entity_type?: string; entity_id?: string; 
   })
 }
 
-export function getContratos(params: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord[]>('/contratos', params)
-}
-
-export function getClienteDashboard(period: Period) {
-  return apiGet<JsonRecord>('/cliente/dashboard', { mes: period.mes, ano: period.ano })
-}
-
 export function getClienteLives(period: Period) {
   return apiGet<JsonRecord>('/cliente/lives', { mes: period.mes, ano: period.ano })
 }
@@ -326,16 +286,8 @@ export function getClientePerfil() {
   return apiGet<JsonRecord>('/cliente/perfil')
 }
 
-export function updateClienteTiktok(tiktok_username: string | null) {
-  return apiPost<JsonRecord>('/cliente/perfil/tiktok', { tiktok_username })
-}
-
 export function getClienteMeta(period: Period) {
   return apiGet<JsonRecord>('/cliente/meta', { mes: period.mes, ano: period.ano })
-}
-
-export function updateClienteMeta(payload: JsonRecord) {
-  return apiPatch<JsonRecord>('/cliente/meta', payload)
 }
 
 export function getClienteAgenda(params: Record<string, unknown> = {}) {
@@ -376,10 +328,6 @@ export function getCabines() {
   return apiGet<Cabine[]>('/cabines')
 }
 
-export function getCabinesFilaAtivacao() {
-  return apiGet<JsonRecord[]>('/cabines/fila-ativacao')
-}
-
 export function updateCabine(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/cabines/${id}`, payload)
 }
@@ -393,20 +341,12 @@ export function liberarCabine(id: string) {
   return apiPatch(`/cabines/${id}/liberar`, {})
 }
 
-export function reservarCabine(id: string, contratoId: string) {
-  return apiPatch(`/cabines/${id}/reservar`, { contrato_id: contratoId })
-}
-
 export function atualizarStatusCabine(id: string, status: string) {
   return apiPatch(`/cabines/${id}/status`, { status })
 }
 
 export function getCabineHistorico(id: string) {
   return apiGet<JsonRecord>(`/cabines/${id}/historico`)
-}
-
-export function getCabineLiveAtual(id: string) {
-  return apiGet<JsonRecord>(`/cabines/${id}/live-atual`)
 }
 
 export function getLives(params: Record<string, unknown> = {}) {
@@ -463,20 +403,12 @@ export function getApresentadoras() {
   return apiGet<JsonRecord[]>('/apresentadoras')
 }
 
-export function createApresentadora(payload: JsonRecord) {
-  return apiPost<JsonRecord>('/apresentadoras', payload)
-}
-
 export function updateApresentadora(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/apresentadoras/${id}`, payload)
 }
 
 export function deleteApresentadora(id: string) {
   return apiDelete(`/apresentadoras/${id}`)
-}
-
-export function getAnalyticsDashboard(filters: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord>('/analytics/dashboard', filters)
 }
 
 export function getFunilAnalytics(filters: Record<string, unknown> = {}) {
@@ -559,26 +491,6 @@ export function getKnowledgeArticles(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/knowledge/articles', params)
 }
 
-export function getComissoesPendentes() {
-  return apiGet<JsonRecord[]>('/comissoes/pendentes')
-}
-
-export function aprovarComissao(id: string) {
-  return apiPatch<JsonRecord>(`/comissoes/${id}/aprovar`, {})
-}
-
-export function reprovarComissao(id: string, motivo: string) {
-  return apiPatch<JsonRecord>(`/comissoes/${id}/reprovar`, { motivo })
-}
-
-export function getComissoesDaLive(liveId: string) {
-  return apiGet<JsonRecord>(`/lives/${liveId}/comissoes`)
-}
-
-export function getComissoesPorLive(params: { mes: string }) {
-  return apiGet<JsonRecord[]>('/comissoes/por-live', params)
-}
-
 export async function exportarComissoesCSV(params: Record<string, unknown> = {}): Promise<Blob> {
   const response = await api.get<Blob>('/comissoes/export-csv', { params, responseType: 'blob' })
   return response.data
@@ -586,10 +498,6 @@ export async function exportarComissoesCSV(params: Record<string, unknown> = {})
 
 export function getFinanceiroFranqueadora(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/financeiro/franqueadora', filters)
-}
-
-export function exportarDadosCliente(clienteId: string) {
-  return apiGet<JsonRecord>(`/clientes/${clienteId}/exportar-dados`)
 }
 
 export function criarLiveManual(payload: JsonRecord) {
@@ -602,10 +510,6 @@ export function getHistoricoGmv(liveId: string) {
 
 export function getMetaUnidade(anoMes?: string) {
   return apiGet<JsonRecord>('/meta-unidade', anoMes ? { ano_mes: anoMes } : {})
-}
-
-export function saveMetaUnidade(payload: JsonRecord) {
-  return apiPut<JsonRecord>('/meta-unidade', payload)
 }
 
 export function getUltimaLiveCabine(cabineId: string): Promise<{
@@ -627,19 +531,10 @@ export function upsertMetaApresentadora(id: string, mes: string, payload: { gmv_
   return apiPut<JsonRecord>(`/metas/apresentadoras/${id}`, payload, { mes })
 }
 
-export function deleteMetaApresentadora(id: string, mes: string) {
-  return apiDelete(`/metas/apresentadoras/${id}?mes=${mes}`)
-}
-
 export function getMetaSupervisor(mes?: string) {
   return apiGet<JsonRecord>('/metas/supervisor', mes ? { mes } : undefined)
 }
 
 export function upsertMetaSupervisor(mes: string, payload: { gmv_meta_total: number; calculado_automaticamente?: boolean }) {
   return apiPut<JsonRecord>('/metas/supervisor', payload, { mes })
-}
-
-// Solicitações
-export function getSolicitacoes(params: Record<string, unknown> = {}) {
-  return apiGet<Solicitacao[]>('/solicitacoes', params)
 }

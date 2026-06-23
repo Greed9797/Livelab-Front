@@ -4,13 +4,10 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   ComposedChart,
   Legend,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -19,7 +16,6 @@ import {
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import type { ChartPoint } from '../../types/models'
 
-const colors = ['#ff5a1f', '#2c7ad6', '#1fa968', '#e08a0b', '#8b5cf6', '#64748b']
 const gridStroke = 'var(--border)'
 const axisColor = 'var(--text-muted)'
 
@@ -196,31 +192,6 @@ export function AreaPanel({ title, data }: { title: string; data: ChartPoint[] }
               <Tooltip content={<MoneyTooltip />} />
               <Area type="monotone" dataKey="value" name="GMV" stroke="#ff5a1f" fill="url(#gmvGradient)" strokeWidth={3} />
             </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </CardBody>
-    </Card>
-  )
-}
-
-export function DonutPanel({ title, data }: { title: string; data: ChartPoint[] }) {
-  return (
-    <Card>
-      <CardHeader>
-        <p className="text-base font-bold tracking-[-0.01em] text-ink">{title}</p>
-      </CardHeader>
-      <CardBody>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={data} dataKey="value" nameKey="label" innerRadius={56} outerRadius={86} paddingAngle={2}>
-                {data.map((_, index) => (
-                  <Cell key={index} fill={colors[index % colors.length]} />
-                ))}
-              </Pie>
-              <Tooltip content={<MoneyTooltip />} />
-              <Legend />
-            </PieChart>
           </ResponsiveContainer>
         </div>
       </CardBody>

@@ -10,6 +10,7 @@ import {
   getPresenterLeaderboardName,
   isRealPresenter,
 } from '../components/dashboard/PresenterLeaderboard'
+import { RankingNavTabs } from '../components/dashboard/RankingNavTabs'
 import { getRankingApresentadoras } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { formatMoney } from '../utils/format'
@@ -120,17 +121,20 @@ export function RankingApresentadorasPage() {
         title="de apresentadoras"
         subtitle="Leaderboard mensal com GMV, progresso vs. líder e comissão consolidada registrada no sistema."
         actions={
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-ink-muted">Mês</label>
-            <input
-              type="month"
-              className="design-input h-10 px-3 text-sm"
-              value={mes}
-              onChange={(event) => {
-                setMesEscolhido(true)
-                setMes(event.target.value)
-              }}
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <RankingNavTabs />
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-ink-muted">Mês</label>
+              <input
+                type="month"
+                className="design-input h-10 px-3 text-sm"
+                value={mes}
+                onChange={(event) => {
+                  setMesEscolhido(true)
+                  setMes(event.target.value)
+                }}
+              />
+            </div>
           </div>
         }
       />

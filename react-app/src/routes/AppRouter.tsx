@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ErrorBoundary } from '../components/ui/ErrorBoundary'
 import { Shell } from '../components/layout/Shell'
-import { allRoles, cabineRoles, clienteRoles, commercialRoles, financeRoles, internalRoles, masterRoles, opsRoles } from '../utils/access'
+import { cabineRoles, clienteRoles, commercialRoles, configuracoesRoles, financeRoles, internalRoles, masterRoles, opsRoles } from '../utils/access'
 import { ProtectedRoute } from './ProtectedRoute'
 import { LoginPage } from '../pages/LoginPage'
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage'
@@ -22,14 +22,12 @@ const ClienteFinanceiroPage = lazy(() => import('../pages/ClienteFinanceiroPage'
 const ConteudoPage = lazy(() => import('../pages/ConteudoPage').then(m => ({ default: m.ConteudoPage })))
 const FinanceiroPage = lazy(() => import('../pages/FinanceiroPage').then(m => ({ default: m.FinanceiroPage })))
 const ComissoesConfigPage = lazy(() => import('../pages/ComissoesConfigPage').then(m => ({ default: m.ComissoesConfigPage })))
-const SolicitacoesPage = lazy(() => import('../pages/SolicitacoesPage').then(m => ({ default: m.SolicitacoesPage })))
 const ApresentadorasPage = lazy(() => import('../pages/ApresentadorasPage').then(m => ({ default: m.ApresentadorasPage })))
 const ApresentadoraDetailPage = lazy(() => import('../pages/ApresentadoraDetailPage').then(m => ({ default: m.ApresentadoraDetailPage })))
 const MetasPage = lazy(() => import('../pages/MetasPage').then(m => ({ default: m.MetasPage })))
 const RankingApresentadorasPage = lazy(() => import('../pages/RankingApresentadorasPage').then(m => ({ default: m.RankingApresentadorasPage })))
 const RankingMarcasPage = lazy(() => import('../pages/RankingMarcasPage').then(m => ({ default: m.RankingMarcasPage })))
 const ConfiguracoesPage = lazy(() => import('../pages/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
-const MinhaContaPage = lazy(() => import('../pages/MinhaContaPage').then(m => ({ default: m.MinhaContaPage })))
 const KnowledgePage = lazy(() => import('../pages/KnowledgePage').then(m => ({ default: m.KnowledgePage })))
 const OnboardingPage = lazy(() => import('../pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 
@@ -91,11 +89,10 @@ export function AppRouter() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={opsRoles} />}>
-              {/* /solicitacoes mantida apenas para acesso histórico — não é mais fluxo principal */}
-              <Route path="/solicitacoes" element={<Suspense fallback={<PageFallback />}><SolicitacoesPage /></Suspense>} />
               <Route path="/apresentadoras" element={<Suspense fallback={<PageFallback />}><ApresentadorasPage /></Suspense>} />
               <Route path="/metas" element={<Suspense fallback={<PageFallback />}><MetasPage /></Suspense>} />
               <Route path="/ranking/apresentadoras" element={<Suspense fallback={<PageFallback />}><RankingApresentadorasPage /></Suspense>} />
+              <Route path="/ranking/marcas" element={<Suspense fallback={<PageFallback />}><RankingMarcasPage /></Suspense>} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={[...financeRoles, ...commercialRoles]} />}>
@@ -127,12 +124,10 @@ export function AppRouter() {
               <Route path="/lives/manual" element={<Navigate to="/conteudo?tab=lives" replace />} />
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'admin_master', 'franqueado', 'gerente']} />}>
+            {/* Configurações unificada: admins veem painel completo; demais papéis veem só conta/segurança.
+                Gating fino (admin vs não-admin) fica dentro de ConfiguracoesPage. Cliente usa /cliente/configuracoes. */}
+            <Route element={<ProtectedRoute allowedRoles={configuracoesRoles} />}>
               <Route path="/configuracoes" element={<Suspense fallback={<PageFallback />}><ConfiguracoesPage /></Suspense>} />
-            </Route>
-
-            <Route element={<ProtectedRoute allowedRoles={allRoles} />}>
-              <Route path="/conta" element={<Suspense fallback={<PageFallback />}><MinhaContaPage /></Suspense>} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={[...masterRoles, ...internalRoles, 'apresentador', 'apresentadora']} />}>

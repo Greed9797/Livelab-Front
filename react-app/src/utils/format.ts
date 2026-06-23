@@ -1,22 +1,10 @@
 import type { ApiListResponse, JsonRecord, Period } from '../types/models'
 import { formatBRL, parseBRMoneyToDecimal } from './money'
 
-export const brl = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-
 export const brlPrecise = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
   maximumFractionDigits: 2,
-})
-
-export const compactNumber = new Intl.NumberFormat('pt-BR', {
-  notation: 'compact',
-  maximumFractionDigits: 1,
 })
 
 export function asNumber(value: unknown, fallback = 0): number {

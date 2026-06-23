@@ -4,7 +4,6 @@ import {
   ChartNoAxesCombined,
   CircleDollarSign,
   Home,
-  KeyRound,
   LayoutDashboard,
   Presentation,
   Settings,
@@ -94,15 +93,16 @@ export const cabineRoles: Role[] = [
 
 export const clienteRoles: Role[] = ['cliente_parceiro']
 
-// Todos os papéis autenticados — para recursos self-service (ex: trocar senha).
-export const allRoles: Role[] = Array.from(new Set<Role>([
+// Configurações unificada (ex-"Minha conta"): todos os papéis internos/ops/cabine
+// + master + apresentador. Admins veem o painel completo; os demais só conta/segurança.
+// Cliente parceiro fica de fora — usa o atalho próprio '/cliente/configuracoes'.
+export const configuracoesRoles: Role[] = Array.from(new Set<Role>([
   ...masterRoles,
   ...internalRoles,
-  ...commercialRoles,
-  ...financeRoles,
   ...opsRoles,
   ...cabineRoles,
-  ...clienteRoles,
+  'apresentador',
+  'apresentadora',
 ]))
 
 export function normalizeRole(role: Role): OfficialRole {
@@ -184,9 +184,11 @@ export const menuItems: MenuItem[] = [
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora'] },
   { label: 'Ranking', path: '/ranking/apresentadoras', icon: Trophy, roles: opsRoles },
-  { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: ['franqueador_master', 'franqueado'] },
-  // Cliente parceiro: Home, Conteúdo, Financeiro, Configurações, Minha conta.
-  { label: 'Minha conta', path: '/conta', icon: KeyRound, roles: allRoles },
+  // Configurações unificada: todos os papéis internos/ops/cabine + apresentador alcançam.
+  // Admins (franqueador_master/franqueado) veem o painel completo; os demais só a seção de conta/segurança.
+  // Cliente parceiro tem o próprio atalho separado ('/cliente/configuracoes').
+  { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: configuracoesRoles },
+  // Cliente parceiro: Home, Conteúdo, Financeiro, Configurações.
   { label: 'Home', path: '/cliente', icon: Home, roles: clienteRoles },
   { label: 'Conteúdo', path: '/cliente/conteudo', icon: Presentation, roles: clienteRoles },
   { label: 'Financeiro', path: '/cliente/financeiro', icon: CircleDollarSign, roles: clienteRoles },
