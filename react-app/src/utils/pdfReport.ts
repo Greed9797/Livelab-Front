@@ -8,8 +8,10 @@ export interface PdfMetric {
 
 export interface PdfDailyRow {
   dia: string
+  marca: string
   gmvLives: string
-  gmvVideos: string
+  comissao: string
+  comissaoPct: string
   horas: string
   pedidos: string
 }
@@ -64,12 +66,12 @@ export function buildRelatorioPdf(input: RelatorioPdfInput): void {
 
   autoTable(doc, {
     startY: afterMetrics + 8,
-    head: [['Dia', 'GMV lives', 'GMV vídeos', 'Horas', 'Pedidos']],
-    body: input.dailyRows.map((r) => [r.dia, r.gmvLives, r.gmvVideos, r.horas, r.pedidos]),
+    head: [['Dia', 'Marca', 'GMV lives', 'R$ comissão', '% comissão', 'Horas', 'Pedidos']],
+    body: input.dailyRows.map((r) => [r.dia, r.marca, r.gmvLives, r.comissao, r.comissaoPct, r.horas, r.pedidos]),
     theme: 'grid',
     headStyles: { fillColor: DARK },
     styles: { fontSize: 9, cellPadding: 4 },
-    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+    columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
     margin: { left: MARGIN_X, right: MARGIN_X },
   })
 

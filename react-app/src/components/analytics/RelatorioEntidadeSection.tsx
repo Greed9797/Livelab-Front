@@ -108,8 +108,10 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
         metrics: metrics.map((m) => ({ label: m.label, value: m.value })),
         dailyRows: rows.map((r) => ({
           dia: diaCurto(r.dia),
+          marca: asString(r.marca_nome, '—'),
           gmvLives: formatMoney(r.gmv_lives ?? r.gmv),
-          gmvVideos: formatMoney(r.gmv_videos),
+          comissao: formatMoney(r.comissao_apresentadora),
+          comissaoPct: `${asNumber(r.comissao_pct).toFixed(2)}%`,
           horas: asNumber(r.horas_live).toFixed(1),
           pedidos: asNumber(r.pedidos ?? r.total_pedidos).toLocaleString('pt-BR'),
         })),
@@ -177,8 +179,10 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
                   data={rows}
                   columns={[
                     { key: 'dia', header: 'Dia', render: (r) => diaCurto(r.dia) },
+                    { key: 'marca_nome', header: 'Marca', render: (r) => asString(r.marca_nome, '—') },
                     { key: 'gmv_lives', header: 'GMV lives', align: 'right', render: (r) => formatMoney(r.gmv_lives ?? r.gmv) },
-                    { key: 'gmv_videos', header: 'GMV vídeos', align: 'right', render: (r) => formatMoney(r.gmv_videos) },
+                    { key: 'comissao_apresentadora', header: 'R$ comissão', align: 'right', render: (r) => formatMoney(r.comissao_apresentadora) },
+                    { key: 'comissao_pct', header: '% comissão', align: 'right', render: (r) => `${asNumber(r.comissao_pct).toFixed(2)}%` },
                     { key: 'horas_live', header: 'Horas', align: 'right', render: (r) => asNumber(r.horas_live).toFixed(1) },
                     { key: 'pedidos', header: 'Pedidos', align: 'right', render: (r) => asNumber(r.pedidos ?? r.total_pedidos).toLocaleString('pt-BR') },
                   ]}
