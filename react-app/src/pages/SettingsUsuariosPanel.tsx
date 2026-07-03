@@ -31,7 +31,6 @@ import {
   reenviarConviteUsuario,
   resetSenhaUsuario,
   uploadImageAsset,
-  updateApresentadoraFaixaComissao,
   updateApresentadora,
   updateUsuario,
 } from '../services/domain'
@@ -78,6 +77,8 @@ const statusOptions = [
   { value: 'false', label: 'Inativos' },
 ]
 
+// comissao_pct plano saiu dos formulários: o cálculo de comissão ignora esse campo —
+// a fonte é sempre a escada de faixas por GMV.
 const emptyForm: CreateFormState = {
   nome: '',
   email: '',
@@ -85,7 +86,6 @@ const emptyForm: CreateFormState = {
   cliente_id: '',
   apresentadora_id: '',
   fixo: '2700',
-  comissao_pct: '',
   meta_diaria_gmv: '',
   foto_url: '',
   senha_temporaria: '',
@@ -96,7 +96,6 @@ const emptyEditForm = {
   papel: 'gerente',
   ativo: true,
   fixo: '2700',
-  comissao_pct: '',
   meta_diaria_gmv: '',
   foto_url: '',
 }
@@ -202,10 +201,6 @@ export function SettingsUsuariosPanel() {
       void client.invalidateQueries({ queryKey: ['apresentadoras'] })
     },
   })
-  const updateFaixaMutation = useMutation({
-    mutationFn: ({ apresentadoraId, faixaId, payload }: { apresentadoraId: string; faixaId: string; payload: JsonRecord }) => updateApresentadoraFaixaComissao(apresentadoraId, faixaId, payload),
-    onSuccess: () => void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] }),
-  })
   const deleteFaixaMutation = useMutation({
     mutationFn: ({ apresentadoraId, faixaId }: { apresentadoraId: string; faixaId: string }) => deleteApresentadoraFaixaComissao(apresentadoraId, faixaId),
     onSuccess: () => void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] }),
@@ -219,7 +214,6 @@ export function SettingsUsuariosPanel() {
         presenterPayload.nome = ef.nome
         presenterPayload.ativo = ef.ativo
         if (ef.fixo !== '') presenterPayload.fixo = parseBRMoneyToDecimal(ef.fixo)
-        if (ef.comissao_pct !== '') presenterPayload.comissao_pct = Number(ef.comissao_pct || 0)
         if (ef.meta_diaria_gmv !== '') presenterPayload.meta_diaria_gmv = parseBRMoneyToDecimal(ef.meta_diaria_gmv)
         presenterPayload.foto_url = ef.foto_url || null
       }
@@ -303,7 +297,6 @@ export function SettingsUsuariosPanel() {
       papel: asString(item.papel, 'gerente'),
       ativo: ativoValue(item.ativo),
       fixo: isPresenterUser(item) || isPresenterProfile(item) ? presenterFixedValue(item) : asString(item.fixo_mensal ?? item.fixo, ''),
-      comissao_pct: asString(item.comissao_live_pct ?? item.comissao_pct, ''),
       meta_diaria_gmv: asString(item.meta_diaria_gmv, ''),
       foto_url: asString(item.foto_url ?? item.apresentadora_foto_url, ''),
     })
@@ -318,7 +311,6 @@ export function SettingsUsuariosPanel() {
       ...(form.papel === 'cliente_parceiro' ? { cliente_id: form.cliente_id } : {}),
       ...(isPresenterRole(form.papel) && form.apresentadora_id ? { apresentadora_id: form.apresentadora_id } : {}),
       ...(isPresenterRole(form.papel) && form.fixo !== '' ? { fixo: parseBRMoneyToDecimal(form.fixo) } : {}),
-      ...(isPresenterRole(form.papel) && form.comissao_pct !== '' ? { comissao_pct: Number(form.comissao_pct || 0) } : {}),
       ...(isPresenterRole(form.papel) && form.meta_diaria_gmv !== '' ? { meta_diaria_gmv: parseBRMoneyToDecimal(form.meta_diaria_gmv) } : {}),
       ...(isPresenterRole(form.papel) && form.foto_url ? { foto_url: form.foto_url } : {}),
       senha_temporaria: form.senha_temporaria,
@@ -346,7 +338,6 @@ export function SettingsUsuariosPanel() {
         gmv_inicio: parseBRMoneyToDecimal(faixaForm.gmv_inicio),
         gmv_fim: faixaForm.gmv_fim ? parseBRMoneyToDecimal(faixaForm.gmv_fim) : null,
         comissao_pct: Number(faixaForm.comissao_pct || 0),
-        ativo: true,
       },
     })
   }
@@ -521,18 +512,14 @@ export function SettingsUsuariosPanel() {
               faixaForm={faixaForm}
               onFaixaFormChange={setFaixaForm}
               onAddFaixa={() => submitFaixa()}
-              onToggleFaixa={(faixaId, currentAtivo) => updateFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId, payload: { ativo: !currentAtivo } })}
               onDeleteFaixa={(faixaId) => deleteFaixaMutation.mutate({ apresentadoraId: editingPresenterId, faixaId })}
               faixasQuery={faixasQuery}
               mutations={{
                 createPending: createFaixaMutation.isPending,
-                updatePending: updateFaixaMutation.isPending,
                 deletePending: deleteFaixaMutation.isPending,
                 createError: createFaixaMutation.error,
-                updateError: updateFaixaMutation.error,
                 deleteError: deleteFaixaMutation.error,
                 isCreateError: createFaixaMutation.isError,
-                isUpdateError: updateFaixaMutation.isError,
                 isDeleteError: deleteFaixaMutation.isError,
               }}
             />

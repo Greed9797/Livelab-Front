@@ -528,14 +528,29 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
           <CardBody className="space-y-3">
             <p className="text-sm text-ink">
               Cada marca tem <strong>% de comissão da franquia</strong>, <strong>% da franqueadora</strong> e um <strong>fixo mensal</strong> (somado à comissão uma vez por mês com atividade).
-              A comissão da apresentadora segue a escada por GMV mensal (definida em <em>Apresentadoras</em>) e não muda por marca.
+              A comissão da apresentadora segue a escada por GMV mensal e não muda por marca: a <strong>escada padrão</strong> da unidade é gerenciada em <em>Comissões</em>, e a personalização por apresentadora fica em <em>Usuários e equipe</em>.
             </p>
-            <Link
-              className="inline-flex h-11 items-center justify-center rounded-full bg-brand px-5 text-sm font-bold text-white hover:bg-brand-hover"
-              to="/comercial?tab=ativos"
-            >
-              Editar marcas em Comercial
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                className="inline-flex h-11 items-center justify-center rounded-full bg-brand px-5 text-sm font-bold text-white hover:bg-brand-hover"
+                to="/comissoes/config"
+              >
+                Escada padrão em Comissões
+              </Link>
+              <Link
+                className="inline-flex h-11 items-center justify-center rounded-full border border-line bg-surface px-5 text-sm font-bold text-ink hover:bg-surface-muted"
+                to="/comercial?tab=ativos"
+              >
+                Editar marcas em Comercial
+              </Link>
+              <button
+                type="button"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-line bg-surface px-5 text-sm font-bold text-ink hover:bg-surface-muted"
+                onClick={() => switchSettingsTab('usuarios')}
+              >
+                Personalizar em Usuários e equipe
+              </button>
+            </div>
             <p className="text-xs text-ink-muted">Toda edição é registrada no audit log da marca.</p>
           </CardBody>
         </Card>

@@ -1,21 +1,29 @@
 import { CircleDollarSign } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { Badge } from '../ui/Badge'
 import { ImagePicker } from '../ui/ImagePicker'
 import { MoneyInput } from '../ui/MoneyInput'
 import { extractErrorMessage } from '../../services/api'
-import { asString } from '../../utils/format'
+import { getComissaoFaixasDefault } from '../../services/domain'
+import { QK } from '../../services/query-keys'
+import { asNumber, asString } from '../../utils/format'
 import { isPresenterRole } from '../../utils/presenters'
 import { UsuarioPapelSelect } from './UsuarioPapelSelect'
 import type { JsonRecord } from '../../types/models'
 
 const DEFAULT_PRESENTER_FIXED = '2700'
 
-const defaultCommissionTiers = [
-  { label: 'até R$ 50k', value: '0,5%' },
-  { label: 'até R$ 150k', value: '1%' },
-  { label: 'até R$ 500k', value: '1,5%' },
-  { label: 'acima de R$ 500k', value: '2%' },
-]
+// Ex.: 70000 → "R$ 70 mil"; 150000.01 → "R$ 150 mil".
+function formatGmvMil(value: number) {
+  if (value >= 1000) return `R$ ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`
+  return `R$ ${value.toLocaleString('pt-BR')}`
+}
+
+// Ex.: "até R$ 70 mil" / "acima de R$ 150 mil".
+function tierLabel(tier: JsonRecord) {
+  if (tier.gmv_fim == null) return `acima de ${formatGmvMil(asNumber(tier.gmv_inicio))}`
+  return `até ${formatGmvMil(asNumber(tier.gmv_fim))}`
+}
 
 export interface CreateFormState {
   nome: string
@@ -24,7 +32,6 @@ export interface CreateFormState {
   cliente_id: string
   apresentadora_id: string
   fixo: string
-  comissao_pct: string
   meta_diaria_gmv: string
   foto_url: string
   senha_temporaria: string
@@ -51,6 +58,12 @@ export function UsuarioForm({
   inviteError,
   isInviteError,
 }: Props) {
+  const faixasDefault = useQuery({
+    queryKey: QK.comissaoFaixasDefault,
+    queryFn: getComissaoFaixasDefault,
+    enabled: isPresenterRole(form.papel),
+  })
+
   return (
     <div className="space-y-5">
       <UsuarioPapelSelect
@@ -165,25 +178,13 @@ export function UsuarioForm({
                 onChange={(raw) => onFieldChange('meta_diaria_gmv', raw)}
               />
             </label>
-            <label className="block md:col-span-2 xl:col-span-1">
-              <span className="text-sm font-semibold text-ink">Comissão base opcional (%)</span>
-              <input
-                className="design-input mt-2 h-11 w-full px-4"
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={form.comissao_pct}
-                onChange={(e) => onFieldChange('comissao_pct', e.target.value)}
-                placeholder="Escada padrão"
-              />
-            </label>
           </div>
+          {/* Escada padrão do tenant — a comissão vem sempre das faixas por GMV. */}
           <div className="flex flex-wrap gap-2">
-            {defaultCommissionTiers.map((tier) => (
-              <span key={tier.label} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink">
+            {(faixasDefault.data ?? []).map((tier) => (
+              <span key={asString(tier.id)} className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink">
                 <CircleDollarSign className="h-3.5 w-3.5 text-brand" />
-                {tier.label} · <strong>{tier.value}</strong>
+                {tierLabel(tier)} · <strong>{asNumber(tier.comissao_pct).toLocaleString('pt-BR')}%</strong>
               </span>
             ))}
           </div>

@@ -269,6 +269,31 @@ export function deleteApresentadoraFaixaComissao(id: string, faixaId: string) {
   return apiDelete(`/apresentadoras/${id}/faixas-comissao/${faixaId}`)
 }
 
+// Escada padrão de comissão do tenant — fonte editável. Alterar propaga no
+// backend para as apresentadoras que estavam no padrão (personalizadas ficam).
+export function getComissaoFaixasDefault() {
+  return apiGet<JsonRecord[]>('/comissoes/faixas-default')
+}
+
+export function createComissaoFaixaDefault(payload: JsonRecord) {
+  return apiPost<JsonRecord>('/comissoes/faixas-default', payload)
+}
+
+export function updateComissaoFaixaDefault(faixaId: string, payload: JsonRecord) {
+  return apiPatch<JsonRecord>(`/comissoes/faixas-default/${faixaId}`, payload)
+}
+
+export function deleteComissaoFaixaDefault(faixaId: string) {
+  return apiDelete(`/comissoes/faixas-default/${faixaId}`)
+}
+
+// Fechamento: recalcula as comissões PENDENTES de um mês (ex.: '2026-06') com a
+// escada vigente, antes de consolidar/aprovar. Backend responde 202 e processa
+// em background; aprovadas nunca são tocadas.
+export function recalcularComissoesMes(mes: string) {
+  return apiPost<{ mes: string; apresentadoras: number }>('/comissoes/recalcular-mes', { mes })
+}
+
 export function getAuditLog(params: { entity_type?: string; entity_id?: string; action?: string; limit?: number } = {}) {
   return apiGet<{ itens: JsonRecord[]; total: number; pagina: number; por_pagina: number }>('/audit-log', {
     ...(params.entity_type ? { entity_type: params.entity_type } : {}),

@@ -5,6 +5,7 @@ import {
   CircleDollarSign,
   Home,
   LayoutDashboard,
+  Percent,
   Presentation,
   Settings,
   Store,
@@ -182,6 +183,8 @@ export const menuItems: MenuItem[] = [
   { label: 'Comercial', path: '/comercial', icon: Workflow, roles: [...masterRoles, ...commercialRoles] },
   { label: 'Conteúdo', path: '/conteudo', icon: Presentation, roles: cabineRoles },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
+  // Hub de comissões — mesmos roles da rota /comissoes/config no AppRouter.
+  { label: 'Comissões', path: '/comissoes/config', icon: Percent, roles: ['franqueador_master', 'franqueado'] },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora'] },
   { label: 'Ranking', path: '/ranking/apresentadoras', icon: Trophy, roles: opsRoles },
   // Configurações unificada: todos os papéis internos/ops/cabine + apresentador alcançam.

@@ -34,6 +34,7 @@ export const QK = {
   apresentadoraFaixas: (id: string) => ['apresentadora-faixas', id] as const,
   apresentadoraFaixasComissao: (id?: string) =>
     id ? ['apresentadora-faixas-comissao', id] as const : ['apresentadora-faixas-comissao'] as const,
+  comissaoFaixasDefault: ['comissao-faixas-default'] as const,
   clientePerfil: ['cliente-perfil'] as const,
   clienteReservas: ['cliente-reservas'] as const,
   clienteMeta: (period?: { mes: number; ano: number }) =>

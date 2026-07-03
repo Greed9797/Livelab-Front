@@ -14,6 +14,17 @@ export interface Faixa {
 }
 
 /**
+ * Espelho do fallback do backend (DEFAULT_APRESENTADORA_COMISSAO_FAIXAS):
+ * escada exibida/comparada enquanto tenant_comissao_faixas_default estiver
+ * vazia. Fonte única no front — não duplicar em páginas.
+ */
+export const FALLBACK_ESCADA: (Faixa & Record<string, unknown>)[] = [
+  { gmv_inicio: 0, gmv_fim: 70000, comissao_pct: 1 },
+  { gmv_inicio: 70000.01, gmv_fim: 150000, comissao_pct: 1.5 },
+  { gmv_inicio: 150000.01, gmv_fim: null, comissao_pct: 2 },
+]
+
+/**
  * Returns the active tier that contains `gmvMes`, or null if no tiers exist.
  * Only considers tiers where `ativo !== false`.
  */
