@@ -10,6 +10,7 @@ import { getBoletoAlertas, getBoletoDetalhe, getBoletos, marcarBoletoPago, marca
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { asString, formatDate, formatMoney } from '../utils/format'
+import { getSaoPauloDateInput } from '../utils/sao-paulo-date'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
@@ -19,7 +20,9 @@ function boletoStatus(item: JsonRecord): string {
   const status = asString(item.status, '').toLowerCase()
   if (status && status !== 'pendente') return status
   const vencimento = asString(item.vencimento, '')
-  if (vencimento && new Date(vencimento) < new Date(new Date().toISOString().slice(0, 10))) return 'vencido'
+  // vencimento é coluna DATE ('YYYY-MM-DD'); comparação lexicográfica com o dia de SP
+  // evita new Date() (UTC-midnight) e o "hoje" em UTC, que virava o dia 3h mais cedo.
+  if (vencimento && vencimento.slice(0, 10) < getSaoPauloDateInput()) return 'vencido'
   return status || 'pendente'
 }
 
@@ -148,7 +151,7 @@ export function BoletosPanel({ embedded = false }: { embedded?: boolean }) {
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0">
-                      <p className="truncate font-bold text-ink">{asString(item.tipo, 'Boleto')} {asString(item.competencia, '')}</p>
+                      <p className="truncate font-bold text-ink">{asString(item.tipo, 'Boleto')} {formatDate(asString(item.competencia, ''))}</p>
                       <p className="mt-1 text-sm text-ink-muted">Vence em {formatDate(asString(item.vencimento, ''))}</p>
                     </div>
                     <div className="flex items-center gap-3 md:justify-end">
@@ -182,7 +185,7 @@ export function BoletosPanel({ embedded = false }: { embedded?: boolean }) {
                   </div>
                   <dl className="mt-4 space-y-2 text-sm">
                     <div className="flex justify-between gap-4"><dt className="text-ink-muted">Vencimento</dt><dd className="font-semibold text-ink">{formatDate(asString(detalhe.vencimento, ''))}</dd></div>
-                    <div className="flex justify-between gap-4"><dt className="text-ink-muted">Competência</dt><dd className="font-semibold text-ink">{asString(detalhe.competencia)}</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="text-ink-muted">Competência</dt><dd className="font-semibold text-ink">{formatDate(asString(detalhe.competencia))}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-ink-muted">Gateway</dt><dd className="font-semibold text-ink">{asString(detalhe.gateway_provider)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-ink-muted">Referência</dt><dd className="max-w-44 truncate font-semibold text-ink">{asString(detalhe.referencia_externa ?? detalhe.gateway_id)}</dd></div>
                   </dl>

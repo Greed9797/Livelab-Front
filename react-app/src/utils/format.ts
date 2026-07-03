@@ -45,8 +45,15 @@ export function formatPercent(value: unknown): string {
   return `${asNumber(value).toFixed(1).replace('.', ',')}%`
 }
 
+// Colunas DATE do Postgres chegam como 'YYYY-MM-DD' (ou, em payloads antigos,
+// 'YYYY-MM-DDT00:00:00.000Z'). São datas-calendário: formatar por split, nunca
+// via new Date() — UTC-midnight em fuso SP (UTC-3) voltaria um dia na exibição.
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})(?:T00:00:00(?:\.000)?Z)?$/
+
 export function formatDate(value?: string): string {
   if (!value) return '—'
+  const dateOnly = DATE_ONLY_RE.exec(value)
+  if (dateOnly) return `${dateOnly[3]}/${dateOnly[2]}/${dateOnly[1]}`
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return new Intl.DateTimeFormat('pt-BR', {
