@@ -289,8 +289,21 @@ function FechamentoMesSection() {
   const recalcMut = useMutation({
     mutationFn: recalcularComissoesMes,
     onSuccess: () => {
-      // Comissões pendentes mudam em background — invalida as telas que as exibem.
-      void client.invalidateQueries({ queryKey: QK.apresentadoraFaixasComissao() })
+      // Comissões pendentes mudam em background — invalida TODAS as telas que as
+      // exibem (config, analytics e relatório/PDF derivam dessas queries).
+      const keys: readonly unknown[][] = [
+        [...QK.apresentadoraFaixasComissao()],
+        [...QK.comissoesApresentadoras],
+        [...QK.comissoesMarcas],
+        [...QK.comissoesResumo],
+        ['relatorio-diario'],
+        ['daily-pulse'],
+        // Detalhe da apresentadora (/apresentadoras/:id) usa keys próprias.
+        ['apresentadora-detalhe-comissao'],
+        ['apresentadora-detalhe-comissao-lives'],
+        ['apresentadora-detalhe-memoria'],
+      ]
+      keys.forEach((qk) => void client.invalidateQueries({ queryKey: qk }))
     },
   })
 

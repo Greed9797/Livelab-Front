@@ -20,6 +20,7 @@ const ClienteDashboardPage = lazy(() => import('../pages/ClienteDashboardPage').
 const ClienteConteudoPage = lazy(() => import('../pages/ClienteConteudoPage').then(m => ({ default: m.ClienteConteudoPage })))
 const ClienteFinanceiroPage = lazy(() => import('../pages/ClienteFinanceiroPage').then(m => ({ default: m.ClienteFinanceiroPage })))
 const ConteudoPage = lazy(() => import('../pages/ConteudoPage').then(m => ({ default: m.ConteudoPage })))
+const AnalyticsPage = lazy(() => import('../pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })))
 const FinanceiroPage = lazy(() => import('../pages/FinanceiroPage').then(m => ({ default: m.FinanceiroPage })))
 const ComissoesConfigPage = lazy(() => import('../pages/ComissoesConfigPage').then(m => ({ default: m.ComissoesConfigPage })))
 const ApresentadorasPage = lazy(() => import('../pages/ApresentadorasPage').then(m => ({ default: m.ApresentadorasPage })))
@@ -95,8 +96,10 @@ export function AppRouter() {
               <Route path="/ranking/marcas" element={<Suspense fallback={<PageFallback />}><RankingMarcasPage /></Suspense>} />
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={[...financeRoles, ...commercialRoles]} />}>
-              <Route path="/analytics-dashboard" element={<Navigate to="/conteudo?tab=analytics" replace />} />
+            {/* Analytics standalone (era só redirect) — inclui master, que os grupos
+                finance/commercial não cobrem. A aba em /conteudo continua existindo. */}
+            <Route element={<ProtectedRoute allowedRoles={[...masterRoles, ...financeRoles, ...commercialRoles]} />}>
+              <Route path="/analytics-dashboard" element={<Suspense fallback={<PageFallback />}><AnalyticsPage /></Suspense>} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={financeRoles} />}>

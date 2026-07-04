@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Info } from 'lucide-react'
+import { ArrowLeft, FileDown, Info } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { Badge, statusTone } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { useToast } from '../components/ui/Toast'
 import { ErrorState, LoadingState } from '../components/ui/States'
+import type { PdfTable } from '../utils/pdfReport'
 import { HistoricoGmvModal } from './HistoricoGmvModal'
 import { getApresentadoras, getComissaoMemoria, getComissoesApresentadoras, getComissoesPorApresentadora, getLives } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -98,8 +101,10 @@ function regraLabel(linha: JsonRecord): string {
 export function ApresentadoraDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const toast = useToast()
   const [range, setRange] = useState<DateRange>('mes')
   const [liveDetailId, setLiveDetailId] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
   const periodWindow = dateRangeToWindow(range)
 
   // Fonte única dos KPIs e da comissão: o mesmo /comissoes/apresentadoras do
@@ -157,6 +162,72 @@ export function ApresentadoraDetailPage() {
   const isLoading = comissaoQ.isLoading || livesQ.isLoading
   const isError = comissaoQ.isError || livesQ.isError
 
+  // PDF do fechamento: KPIs + memória de cálculo (regra aplicada em cada venda)
+  // + histórico live-a-live — o documento que justifica a comissão do período.
+  async function exportPdf() {
+    setExporting(true)
+    try {
+      const { buildRelatorioPdf } = await import('../utils/pdfReport')
+      const { data_inicio, data_fim } = periodWindow
+      const tables: PdfTable[] = []
+      if (memoriaLinhas.length > 0) {
+        tables.push({
+          title: 'Memória de cálculo — detalhamento por venda',
+          head: ['Data', 'Origem', 'Marca', 'GMV', 'Base do mês', 'Regra aplicada', 'Comissão'],
+          rightAlign: [3, 4, 6],
+          body: memoriaLinhas.map((l) => [
+            fmtDay(l.data),
+            asString(l.origem, '—'),
+            asString(l.marca_nome, '—'),
+            formatMoney(l.gmv),
+            formatMoney(l.base_gmv_mes),
+            regraLabel(l),
+            formatMoney(l.comissao_apresentadora),
+          ]),
+        })
+      }
+      if (lives.length > 0) {
+        tables.push({
+          title: 'Histórico de lives',
+          head: ['Data', 'Marca', 'Cabine', 'Duração', 'GMV', 'Pedidos', 'Comissão'],
+          rightAlign: [3, 4, 5, 6],
+          body: lives.map((live) => {
+            const c = comissaoPorLive.get(asString(live.id ?? live.live_id))
+            return [
+              fmtDay(live.iniciado_em ?? live.data_inicio ?? live.encerrado_em),
+              asString(live.marca_nome ?? live.cliente_nome, '—'),
+              asString(live.cabine_nome ?? (asNumber(live.cabine_numero) > 0 ? `Cabine ${asNumber(live.cabine_numero)}` : ''), '—'),
+              fmtDurationMins(liveDurationMins(live)),
+              formatMoney(officialLiveGmv(live)),
+              liveOrders(live).toLocaleString('pt-BR'),
+              c == null ? '—' : formatMoney(c),
+            ]
+          }),
+        })
+      }
+      buildRelatorioPdf({
+        titulo: nome,
+        subtitulo: 'Relatório da apresentadora',
+        mes: data_inicio === data_fim ? data_inicio : `${data_inicio}_a_${data_fim}`,
+        metrics: [
+          { label: 'GMV total', value: formatMoney(gmv) },
+          { label: 'GMV / hora', value: formatMoney(gmvHora) },
+          { label: 'Lives no período', value: `${totalLives.toLocaleString('pt-BR')} · ${horas.toFixed(1)}h no ar` },
+          { label: 'Fixo mensal', value: formatMoney(fixo) },
+          { label: 'Comissão variável', value: formatMoney(comissaoVar) },
+          { label: 'Total recebido', value: formatMoney(totalRecebido) },
+        ],
+        tables,
+        geradoEm: new Date().toLocaleString('pt-BR'),
+      })
+      toast.push('PDF gerado', 'success')
+    } catch (err) {
+      toast.push(extractErrorMessage(err), 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <button
@@ -190,6 +261,17 @@ export function ApresentadoraDetailPage() {
               {r.label}
             </button>
           ))}
+          <Button
+            type="button"
+            icon={FileDown}
+            onClick={exportPdf}
+            isLoading={exporting}
+            // memoriaQ/comissaoLivesQ também: sem elas o PDF sairia sem a memória
+            // de cálculo e com '—' nas comissões por live, silenciosamente.
+            disabled={isLoading || isError || memoriaQ.isLoading || comissaoLivesQ.isLoading}
+          >
+            Exportar PDF
+          </Button>
         </div>
       </div>
 

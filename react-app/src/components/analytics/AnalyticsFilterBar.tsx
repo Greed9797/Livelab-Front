@@ -126,7 +126,7 @@ export function AnalyticsFilterBar(props: AnalyticsFilterBarProps) {
           </Button>
           {props.onExport ? (
             <Button type="button" variant="secondary" icon={Download} onClick={props.onExport} isLoading={props.exporting}>
-              Exportar CSV
+              Exportar comissões (CSV)
             </Button>
           ) : null}
         </div>

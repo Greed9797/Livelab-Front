@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
-import { BarPanel, LinePanel } from '../components/charts/Charts'
+import { BarPanel } from '../components/charts/Charts'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { FunilAnalyticsSection } from '../components/analytics/FunilAnalyticsSection'
 import { AnalyticsImportSection } from '../components/analytics/AnalyticsImportSection'
@@ -18,9 +18,9 @@ import {
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, unwrapList } from '../utils/format'
-import { rankingCommission, rankingGmv, rankingId, rankingName } from '../utils/ranking'
+import { rankingGmv, rankingId, rankingName } from '../utils/ranking'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { Trophy } from 'lucide-react'
+import { FileDown, Trophy } from 'lucide-react'
 import { sumDailyTotals } from './page-helpers'
 import { buildDailyPulse } from '../utils/dailyPulse'
 import { QK } from '../services/query-keys'
@@ -147,7 +147,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
       apresentadoras={apresentadoras}
       onRefresh={refreshAll}
       refreshing={query.isFetching}
-      onExport={handleExport}
+      // CSV de comissões — só para papéis com acesso (os demais levariam 403 do backend).
+      onExport={canSeeComissoes ? handleExport : undefined}
       exporting={exporting}
     />
   )
@@ -158,15 +159,14 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const serie = useMemo(() => buildDailyPulse(diarioRows).serieDiaria, [diarioRows])
   const totalLives = totals.total_lives
   const totalVideos = totals.total_videos
-  const gmvPoints = useMemo(() => serie.map((d) => ({ label: d.label, value: Math.round(d.gmv * 100) / 100 })), [serie])
   const pedidosPoints = useMemo(() => serie.map((d) => ({ label: d.label, value: d.pedidos })), [serie])
 
   const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
   const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
   const rankingMarcasRows = asArray<JsonRecord>(rankingMarcasQ.data)
 
-  // Ranking de marcas por GMV (desc) — lê nome/gmv/comissão via helpers de ranking,
-  // tolerantes a aliases de campo (nome|marca_nome, gmv_total|gmv).
+  // Ranking de marcas por GMV (desc) — só GMV aqui; comissão vive no Financeiro
+  // (fonte única). Helpers tolerantes a aliases de campo (nome|marca_nome, gmv_total|gmv).
   const rankingMarcas = useMemo(
     () =>
       rankingMarcasRows
@@ -174,7 +174,6 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
           id: rankingId(row, 'marca'),
           nome: rankingName(row, 'marca'),
           gmv: rankingGmv(row),
-          comissao: rankingCommission(row),
         }))
         .sort((a, b) => b.gmv - a.gmv),
     [rankingMarcasRows],
@@ -186,26 +185,56 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         <p className="text-base font-bold text-ink">Pulso Diário</p>
       ) : (
         <PageHeader
-          eyebrow="Pulso Diário"
-          accent="Operação"
-          title="diária"
-          subtitle="Status, alertas e produtividade das lives por dia."
+          eyebrow="Analytics · Operação"
+          accent="Pulso"
+          title="diário"
+          subtitle="Status, produtividade das lives e relatórios por marca e apresentadora."
         />
       )}
 
       {/* Filtro único — rege Pulso + gráficos de série + relatório por entidade */}
       {filterBar}
 
-      {/* GMV do mês — gráfico-herói, full-width, no topo dos resultados. */}
-      {!query.isLoading && !query.isError && gmvPoints.length > 0 ? (
-        <section className="space-y-4">
-          <div className="rounded-2xl p-px" style={{ background: 'linear-gradient(135deg, var(--primary-soft), transparent)' }}>
-            <LinePanel
-              title="GMV do mês"
-              subtitle={`GMV por dia · ${periodNoun}`}
-              data={gmvPoints}
+      {/* Relatório por entidade — logo abaixo do filtro: é o que se vem buscar para
+          exportar. Sem filtro, um hint ensina o caminho em vez da seção surgir do nada. */}
+      {hasFilter ? (
+        <RelatorioEntidadeSection
+          from={from}
+          to={to}
+          marcaId={marcaId}
+          apresentadoraId={apresentadoraId}
+          nomeEntidade={[
+            marcaId ? asString(marcas.find((m) => asString(m.id) === marcaId)?.nome, '') : '',
+            apresentadoraId ? asString(apresentadoras.find((a) => asString(a.id) === apresentadoraId)?.nome, '') : '',
+          ].filter(Boolean).join(' · ')}
+          comissaoRow={marcaId ? marcasRows[0] : apresentadorasRows[0]}
+          franquiaPct={marcaId ? asNumber(marcas.find((m) => asString(m.id) === marcaId)?.comissao_franquia_pct) : undefined}
+        />
+      ) : (
+        <div className="flex items-start gap-2.5 rounded-2xl border border-dashed border-line bg-surface-muted/40 px-4 py-3">
+          <FileDown className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+          <p className="text-sm text-ink-muted">
+            <span className="font-bold text-ink">Relatório em PDF:</span> selecione uma marca ou apresentadora no filtro acima —
+            o relatório do período (GMV, horas, pedidos e comissão) aparece aqui, pronto para exportar.
+          </p>
+        </div>
+      )}
+
+      <PulsoDiarioSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
+
+      {query.isLoading ? (
+        <LoadingState />
+      ) : query.isError ? (
+        <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+      ) : (
+        <>
+          <section>
+            <BarPanel
+              title={`Pedidos · ${periodNoun}`}
+              subtitle={`Pedidos por dia no período · ${totalLives.toLocaleString('pt-BR')} lives · ${totalVideos.toLocaleString('pt-BR')} vídeos`}
+              data={pedidosPoints}
             />
-          </div>
+          </section>
 
           {/* Ranking de marcas por GMV — escaneável, barras horizontais. */}
           {rankingMarcas.length > 0 ? (
@@ -234,9 +263,6 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
                         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-muted">
                           <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${pct}%` }} />
                         </div>
-                        {m.comissao > 0 ? (
-                          <p className="num mt-1 text-xs text-ink-muted">Comissão {formatMoney(m.comissao)}</p>
-                        ) : null}
                       </div>
                     </div>
                   )
@@ -244,51 +270,11 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
               </CardBody>
             </Card>
           ) : null}
-        </section>
-      ) : null}
-
-      <PulsoDiarioSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
-
-      {query.isLoading ? (
-        <LoadingState />
-      ) : query.isError ? (
-        <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
-      ) : (
-        <>
-          {/* Pedidos por dia — o GMV foi promovido para o topo (acima do Pulso). */}
-          <section>
-            <BarPanel title={`Pedidos · ${periodNoun}`} subtitle="Pedidos por dia no período" data={pedidosPoints} />
-          </section>
-
-          <section className="grid gap-4 xl:grid-cols-2">
-            <BarPanel
-              title={`Conteúdos · ${periodNoun}`}
-              subtitle="Lives e vídeos no período"
-              data={[
-                { label: 'Lives', value: totalLives },
-                { label: 'Vídeos', value: totalVideos },
-              ]}
-            />
-          </section>
-
-          <AnalyticsImportSection mesAno={mes} />
-
-          {hasFilter ? (
-            <RelatorioEntidadeSection
-              from={from}
-              to={to}
-              marcaId={marcaId}
-              apresentadoraId={apresentadoraId}
-              nomeEntidade={[
-                marcaId ? asString(marcas.find((m) => asString(m.id) === marcaId)?.nome, '') : '',
-                apresentadoraId ? asString(apresentadoras.find((a) => asString(a.id) === apresentadoraId)?.nome, '') : '',
-              ].filter(Boolean).join(' · ')}
-              comissaoRow={marcaId ? marcasRows[0] : apresentadorasRows[0]}
-              franquiaPct={marcaId ? asNumber(marcas.find((m) => asString(m.id) === marcaId)?.comissao_franquia_pct) : undefined}
-            />
-          ) : null}
 
           <FunilAnalyticsSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
+
+          {/* Ferramenta de operação — fim da página, fora do fluxo de consulta. */}
+          <AnalyticsImportSection mesAno={mes} />
         </>
       )}
     </div>

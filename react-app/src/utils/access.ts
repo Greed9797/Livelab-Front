@@ -2,6 +2,7 @@ import {
   BookOpen,
   Building2,
   ChartNoAxesCombined,
+  ChartSpline,
   CircleDollarSign,
   Home,
   LayoutDashboard,
@@ -182,6 +183,8 @@ export const menuItems: MenuItem[] = [
   { label: 'Franqueados', path: '/master/franqueados', icon: Store, roles: ['franqueador_master'] },
   { label: 'Comercial', path: '/comercial', icon: Workflow, roles: [...masterRoles, ...commercialRoles] },
   { label: 'Conteúdo', path: '/conteudo', icon: Presentation, roles: cabineRoles },
+  // Analytics standalone — mesmos roles da rota /analytics-dashboard no AppRouter.
+  { label: 'Analytics', path: '/analytics-dashboard', icon: ChartSpline, roles: [...masterRoles, ...financeRoles, ...commercialRoles] },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
   // Hub de comissões — mesmos roles da rota /comissoes/config no AppRouter.
   { label: 'Comissões', path: '/comissoes/config', icon: Percent, roles: ['franqueador_master', 'franqueado'] },

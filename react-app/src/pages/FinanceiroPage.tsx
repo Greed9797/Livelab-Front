@@ -15,7 +15,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { createFinanceiroCusto, deleteFinanceiroCusto, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
+import { createFinanceiroCusto, deleteFinanceiroCusto, exportarComissoesCSV, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { asArray, asNumber, asString, formatDate, formatMoney, getRecord } from '../utils/format'
@@ -109,6 +109,8 @@ export function FinanceiroPage() {
   }, [committed.fim])
 
   const [selectedCliente, setSelectedCliente] = useState<JsonRecord | null>(null)
+  const [exportingComissoes, setExportingComissoes] = useState(false)
+  const [comissoesExportError, setComissoesExportError] = useState('')
   const client = useQueryClient()
 
   const resumo = useQuery({ queryKey: QK.financeiroResumo(pk), queryFn: () => getFinanceiroResumo(fp), enabled: !isCliente, placeholderData: keepPreviousData })
@@ -217,6 +219,28 @@ export function FinanceiroPage() {
     if (next === 'cliente' || next === 'comissoes') nextParams.set('tab', next)
     else nextParams.delete('tab')
     setParams(nextParams, { replace: true })
+  }
+
+  // Mesmo CSV de comissões do Analytics — aqui porque o Financeiro é o dono das
+  // tabelas de comissão; `cp` normaliza mes/data_inicio/data_fim no backend.
+  async function exportComissoesCsv() {
+    setExportingComissoes(true)
+    try {
+      const blob = await exportarComissoesCSV(cp)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `comissoes-${committed.inicio}_${committed.fim}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setComissoesExportError('')
+    } catch (err) {
+      setComissoesExportError(extractErrorMessage(err))
+    } finally {
+      setExportingComissoes(false)
+    }
   }
 
   function exportClientesCsv() {
@@ -492,6 +516,15 @@ export function FinanceiroPage() {
                   Live em sábado ou domingo usa 2%. Dias úteis e vídeos seguem as faixas mensais, com vínculo de marca e escada padrão como fallback.
                 </p>
               </details>
+
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                {comissoesExportError ? (
+                  <p className="text-sm font-medium text-[var(--danger)]">{comissoesExportError}</p>
+                ) : null}
+                <Button type="button" variant="secondary" icon={Download} onClick={exportComissoesCsv} isLoading={exportingComissoes}>
+                  Exportar comissões (CSV)
+                </Button>
+              </div>
 
               <section className="grid gap-4 xl:grid-cols-2">
                 <Card>
