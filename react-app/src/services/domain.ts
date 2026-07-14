@@ -167,6 +167,36 @@ export function getAgenda(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/agenda', params)
 }
 
+// ── Grade visual (grade_padrao + grade_excecoes) ──────────────────────────
+
+export function getGrade(params: { data_inicio: string; data_fim: string; marca_id?: string; apresentadora_id?: string }) {
+  return apiGet<{ dias: JsonRecord[] }>('/grade', params)
+}
+
+export function getGradePadrao() {
+  return apiGet<{ celulas: JsonRecord[] }>('/grade/padrao')
+}
+
+export function saveGradePadraoCell(payload: JsonRecord) {
+  return apiPut<JsonRecord>('/grade/padrao', payload)
+}
+
+export function deleteGradePadraoCell(params: { dia_semana: number; cabine_id: string; hora_inicio: string }) {
+  return apiDelete(`/grade/padrao?dia_semana=${params.dia_semana}&cabine_id=${params.cabine_id}&hora_inicio=${encodeURIComponent(params.hora_inicio)}`)
+}
+
+export function saveGradeExcecao(payload: JsonRecord) {
+  return apiPut<JsonRecord>('/grade/excecoes', payload)
+}
+
+export function deleteGradeExcecao(params: { data: string; cabine_id: string; hora_inicio: string }) {
+  return apiDelete(`/grade/excecoes?data=${params.data}&cabine_id=${params.cabine_id}&hora_inicio=${encodeURIComponent(params.hora_inicio)}`)
+}
+
+export function copiarGradeDia(payload: { data_origem: string; data_destino: string }) {
+  return apiPost<JsonRecord>('/grade/copiar-dia', payload)
+}
+
 export function createAgendaEvento(payload: JsonRecord) {
   return apiPost<JsonRecord>('/agenda', payload)
 }

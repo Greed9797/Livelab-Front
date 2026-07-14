@@ -1,4 +1,4 @@
-import { BarChart3, CalendarClock, MonitorPlay, Presentation, Video } from 'lucide-react'
+import { BarChart3, CalendarClock, MonitorPlay, Video } from 'lucide-react'
 import { FormEvent, Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -7,6 +7,7 @@ import { LoadingState, ErrorState } from '../components/ui/States'
 import { RegistrarMetricasLiveModal, type RegistrarMetricasLiveMode } from '../components/forms/RegistrarMetricasLiveModal'
 import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { AgendaTab } from '../components/conteudo/AgendaTab'
+import { GradeTab } from '../components/conteudo/GradeTab'
 import { agendaFetchRange } from './conteudo-helpers'
 // Tipos/helpers leves importados estaticamente; os componentes pesados das abas
 // são carregados sob demanda via React.lazy (ver abaixo) para reduzir o chunk inicial.
@@ -17,7 +18,6 @@ import { emptyVideo, type VideoForm } from '../components/conteudo/VideosTab'
 const LivesTab = lazy(() => import('../components/conteudo/LivesTab').then((m) => ({ default: m.LivesTab })))
 const VideosTab = lazy(() => import('../components/conteudo/VideosTab').then((m) => ({ default: m.VideosTab })))
 const AnalyticsPage = lazy(() => import('./AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })))
-const CabinesPage = lazy(() => import('./CabinesPage').then((m) => ({ default: m.CabinesPage })))
 import {
   createAgendaEvento,
   createVideo,
@@ -45,13 +45,18 @@ import { parseBRMoneyToDecimal } from '../utils/money'
 import type { JsonRecord } from '../types/models'
 import type { AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
 
-type ConteudoTab = 'agenda' | 'cabines' | 'lives' | 'videos' | 'analytics'
+type ConteudoTab = 'agenda' | 'lives' | 'videos' | 'analytics'
+
+// Rollback rápido da Grade visual: true volta a renderizar a AgendaTab antiga.
+// Remover junto com a AgendaTab na fase 4 (pós-validação em produção).
+const USE_LEGACY_AGENDA = false
 
 const today = () => new Date().toISOString().slice(0, 10)
 
 function normalizeConteudoTab(value: string | null): ConteudoTab {
-  if (!value || value === 'calendario' || value === 'agenda') return 'agenda'
-  if (['cabines', 'lives', 'videos', 'analytics'].includes(value)) return value as ConteudoTab
+  // 'cabines' (aba removida) e 'calendario' são deep links antigos → caem na Grade.
+  if (!value || value === 'calendario' || value === 'agenda' || value === 'cabines') return 'agenda'
+  if (['lives', 'videos', 'analytics'].includes(value)) return value as ConteudoTab
   return 'agenda'
 }
 
@@ -305,13 +310,12 @@ export function ConteudoPage() {
         eyebrow="Conteúdo"
         accent="Produção"
         title="operacional"
-        subtitle="Agenda por cabine, lives, vídeos e analytics em um fluxo único."
+        subtitle="Grade por cabine, lives, vídeos e analytics em um fluxo único."
       />
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
         {([
           ['agenda', CalendarClock, 'Agenda'],
-          ['cabines', Presentation, 'Cabines'],
           ['lives', MonitorPlay, 'Lives realizadas'],
           ['videos', Video, 'Vídeos gravados'],
           ['analytics', BarChart3, 'Analytics'],
@@ -330,7 +334,15 @@ export function ConteudoPage() {
         ))}
       </div>
 
-      {tab === 'agenda' ? (
+      {tab === 'agenda' && !USE_LEGACY_AGENDA ? (
+        <GradeTab
+          activeCabines={activeCabines as unknown as JsonRecord[]}
+          marcaRows={marcaRows}
+          apresentadoraRows={apresentadoraRows}
+        />
+      ) : null}
+
+      {tab === 'agenda' && USE_LEGACY_AGENDA ? (
         <AgendaTab
           agendaDate={agendaDate}
           agendaView={agendaView}
@@ -357,12 +369,6 @@ export function ConteudoPage() {
           onUpdateAgenda={(id, payload) => updateAgendaMutation.mutate({ id, payload })}
           onDeleteAgenda={(id, modoRecorrencia) => deleteAgendaMutation.mutate({ id, modoRecorrencia })}
         />
-      ) : null}
-
-      {tab === 'cabines' ? (
-        <Suspense fallback={<LoadingState />}>
-          <CabinesPage title="Cabines de conteúdo" embedded />
-        </Suspense>
       ) : null}
 
       {tab === 'lives' ? (

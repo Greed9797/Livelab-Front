@@ -1,0 +1,328 @@
+import { FormEvent, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ChevronLeft, ChevronRight, Copy, Pencil } from 'lucide-react'
+import { Card, CardBody, CardHeader } from '../ui/Card'
+import { Button } from '../ui/Button'
+import { Modal } from '../ui/Modal'
+import { LoadingState, ErrorState } from '../ui/States'
+import { monthGridDays, weekDays } from '../../pages/conteudo-helpers'
+import {
+  copiarGradeDia,
+  deleteGradeExcecao,
+  deleteGradePadraoCell,
+  getGrade,
+  getGradePadrao,
+  saveGradeExcecao,
+  saveGradePadraoCell,
+} from '../../services/domain'
+import { extractErrorMessage } from '../../services/api'
+import { asString } from '../../utils/format'
+import type { JsonRecord } from '../../types/models'
+import {
+  DIAS_SEMANA_LABELS,
+  corDaMarca,
+  marcasPresentes,
+  type GradeCelula,
+  type GradeDia,
+  type GradePadraoCelula,
+} from './gradeUtils'
+import { GradeDiaView, GradeMesView, GradeSemanaView } from './GradeViews'
+import { GradeCellPopover, type GradeCellTarget } from './GradeCellPopover'
+
+type GradeView = 'dia' | 'semana' | 'mes'
+
+const todayISO = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function shiftDate(dateISO: string, view: GradeView, direction: 1 | -1): string {
+  const d = new Date(`${dateISO}T00:00:00`)
+  if (view === 'dia') d.setDate(d.getDate() + direction)
+  if (view === 'semana') d.setDate(d.getDate() + 7 * direction)
+  if (view === 'mes') d.setMonth(d.getMonth() + direction)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function formatShortDate(dataISO: string) {
+  return dataISO.split('-').reverse().slice(0, 2).join('/')
+}
+
+interface GradeTabProps {
+  activeCabines: JsonRecord[]
+  marcaRows: JsonRecord[]
+  apresentadoraRows: JsonRecord[]
+}
+
+export function GradeTab({ activeCabines, marcaRows, apresentadoraRows }: GradeTabProps) {
+  const [view, setView] = useState<GradeView>('dia')
+  const [date, setDate] = useState(todayISO())
+  const [filtroMarca, setFiltroMarca] = useState('')
+  const [filtroApresentadora, setFiltroApresentadora] = useState('')
+  const [editPadrao, setEditPadrao] = useState(false)
+  const [padraoDow, setPadraoDow] = useState(1) // segunda
+  const [popoverTarget, setPopoverTarget] = useState<GradeCellTarget | null>(null)
+  const [copiarDiaOpen, setCopiarDiaOpen] = useState(false)
+  const [copiarDestino, setCopiarDestino] = useState('')
+  const client = useQueryClient()
+
+  const cabinesOrdenadas = useMemo(
+    () => [...activeCabines].sort((a, b) => Number(a.numero ?? 0) - Number(b.numero ?? 0)),
+    [activeCabines],
+  )
+
+  const range = useMemo(() => {
+    const days = view === 'dia' ? [date] : view === 'semana' ? weekDays(date) : monthGridDays(date)
+    return { start: days[0], end: days[days.length - 1] }
+  }, [date, view])
+
+  const grade = useQuery({
+    queryKey: ['grade', range.start, range.end, filtroMarca, filtroApresentadora],
+    queryFn: () => getGrade({
+      data_inicio: range.start,
+      data_fim: range.end,
+      marca_id: filtroMarca || undefined,
+      apresentadora_id: filtroApresentadora || undefined,
+    }),
+    enabled: !editPadrao,
+    placeholderData: (prev) => prev,
+  })
+
+  const gradePadrao = useQuery({
+    queryKey: ['grade-padrao'],
+    queryFn: getGradePadrao,
+    enabled: editPadrao,
+  })
+
+  function invalidateGrade() {
+    void client.invalidateQueries({ queryKey: ['grade'] })
+    void client.invalidateQueries({ queryKey: ['grade-padrao'] })
+  }
+
+  function closePopover() { setPopoverTarget(null) }
+
+  const savePadraoMutation = useMutation({ mutationFn: saveGradePadraoCell, onSuccess: () => { invalidateGrade(); closePopover() } })
+  const deletePadraoMutation = useMutation({ mutationFn: deleteGradePadraoCell, onSuccess: () => { invalidateGrade(); closePopover() } })
+  const saveExcecaoMutation = useMutation({ mutationFn: saveGradeExcecao, onSuccess: () => { invalidateGrade(); closePopover() } })
+  const deleteExcecaoMutation = useMutation({ mutationFn: deleteGradeExcecao, onSuccess: () => { invalidateGrade(); closePopover() } })
+  const copiarDiaMutation = useMutation({ mutationFn: copiarGradeDia, onSuccess: () => { invalidateGrade(); setCopiarDiaOpen(false); setCopiarDestino('') } })
+
+  const isSaving = savePadraoMutation.isPending || deletePadraoMutation.isPending
+    || saveExcecaoMutation.isPending || deleteExcecaoMutation.isPending
+  const popoverError = savePadraoMutation.error ?? deletePadraoMutation.error
+    ?? saveExcecaoMutation.error ?? deleteExcecaoMutation.error
+
+  const dias = ((grade.data?.dias ?? []) as unknown as GradeDia[])
+  const gradePorData = useMemo(() => {
+    const map = new Map<string, GradeCelula[]>()
+    for (const dia of dias) map.set(dia.data, dia.celulas)
+    return map
+  }, [dias])
+
+  const padraoCelulas = ((gradePadrao.data?.celulas ?? []) as unknown as GradePadraoCelula[])
+  const padraoDoDow = useMemo(
+    () => padraoCelulas.filter((c) => c.dia_semana === padraoDow),
+    [padraoCelulas, padraoDow],
+  )
+
+  const celulasVisiveis = editPadrao ? padraoDoDow : dias.flatMap((d) => d.celulas)
+  const legenda = marcasPresentes(celulasVisiveis)
+
+  const today = todayISO()
+  const periodLabel = view === 'dia'
+    ? date.split('-').reverse().join('/')
+    : view === 'semana'
+      ? `${formatShortDate(range.start)} – ${formatShortDate(range.end)}`
+      : new Date(`${date.slice(0, 7)}-01T00:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+
+  function onCellClick(base: Omit<GradeCellTarget, 'data' | 'diaSemana'>) {
+    setPopoverTarget(editPadrao ? { ...base, diaSemana: padraoDow } : { ...base, data: date })
+    savePadraoMutation.reset(); deletePadraoMutation.reset()
+    saveExcecaoMutation.reset(); deleteExcecaoMutation.reset()
+  }
+
+  function onPopoverSave(values: { marca_id: string; apresentadora_id: string | null; observacao: string | null }) {
+    if (!popoverTarget) return
+    const base = {
+      cabine_id: popoverTarget.cabineId,
+      hora_inicio: popoverTarget.horaInicio,
+      hora_fim: popoverTarget.horaFim,
+      ...values,
+    }
+    if (editPadrao) savePadraoMutation.mutate({ ...base, dia_semana: popoverTarget.diaSemana })
+    else saveExcecaoMutation.mutate({ ...base, data: popoverTarget.data })
+  }
+
+  function onPopoverClear() {
+    if (!popoverTarget?.celula) return
+    const { cabineId, horaInicio, horaFim, celula, data, diaSemana } = popoverTarget
+    if (editPadrao && diaSemana !== undefined) {
+      deletePadraoMutation.mutate({ dia_semana: diaSemana, cabine_id: cabineId, hora_inicio: horaInicio })
+      return
+    }
+    if (!data) return
+    if (celula.origem === 'padrao') {
+      // "Limpar" célula que vem do padrão = exceção vazia só neste dia
+      saveExcecaoMutation.mutate({ data, cabine_id: cabineId, hora_inicio: horaInicio, hora_fim: horaFim, marca_id: null })
+    } else {
+      deleteExcecaoMutation.mutate({ data, cabine_id: cabineId, hora_inicio: horaInicio })
+    }
+  }
+
+  function onCopiarDiaSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!copiarDestino) return
+    copiarDiaMutation.mutate({ data_origem: date, data_destino: copiarDestino })
+  }
+
+  const isLoading = editPadrao ? gradePadrao.isLoading : grade.isLoading
+  const loadError = editPadrao ? gradePadrao.error : grade.error
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="inline-flex rounded-full border border-line bg-surface p-1">
+              {([['dia', 'Dia'], ['semana', 'Semana'], ['mes', 'Mês']] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={editPadrao}
+                  onClick={() => setView(key)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${
+                    !editPadrao && view === key ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
+                  } ${editPadrao ? 'opacity-40' : ''}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              {view === 'dia' && !editPadrao ? (
+                <Button variant="secondary" icon={Copy} onClick={() => setCopiarDiaOpen(true)}>Copiar dia</Button>
+              ) : null}
+              <Button
+                variant={editPadrao ? 'primary' : 'secondary'}
+                icon={Pencil}
+                onClick={() => { setEditPadrao((cur) => !cur); setView('dia'); closePopover() }}
+              >
+                {editPadrao ? 'Sair do padrão' : 'Editar padrão'}
+              </Button>
+            </div>
+          </div>
+
+          {editPadrao ? (
+            <>
+              <div className="rounded-xl border border-line bg-surface-muted px-4 py-2.5 text-sm font-semibold text-ink">
+                Você está editando o padrão semanal — as mudanças repetem toda semana.
+              </div>
+              <div className="inline-flex flex-wrap rounded-full border border-line bg-surface p-1">
+                {[1, 2, 3, 4, 5, 6, 0].map((dow) => (
+                  <button
+                    key={dow}
+                    type="button"
+                    onClick={() => setPadraoDow(dow)}
+                    className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
+                      padraoDow === dow ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    {DIAS_SEMANA_LABELS[dow]}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => setDate(shiftDate(date, view, -1))} aria-label="Período anterior" className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="min-w-[170px] text-center text-sm font-bold capitalize text-ink">{periodLabel}</span>
+                <button type="button" onClick={() => setDate(shiftDate(date, view, 1))} aria-label="Próximo período" className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              <button type="button" onClick={() => setDate(today)} className="h-9 rounded-lg border border-line px-3 text-sm font-bold text-ink-muted hover:text-ink">
+                Hoje
+              </button>
+              <input className="design-input h-9 px-3 text-sm [color-scheme:dark]" type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+              <select aria-label="Filtrar por marca" className="design-input h-9 px-3 text-sm" value={filtroMarca} onChange={(e) => setFiltroMarca(e.target.value)}>
+                <option value="">Todas as marcas</option>
+                {marcaRows.map((m) => (
+                  <option key={asString(m.id)} value={asString(m.id)}>{asString(m.nome, 'Sem nome')}</option>
+                ))}
+              </select>
+              <select aria-label="Filtrar por apresentadora" className="design-input h-9 px-3 text-sm" value={filtroApresentadora} onChange={(e) => setFiltroApresentadora(e.target.value)}>
+                <option value="">Todas as apresentadoras</option>
+                {apresentadoraRows.map((a) => (
+                  <option key={asString(a.id)} value={asString(a.id)}>{asString(a.nome, 'Sem nome')}</option>
+                ))}
+              </select>
+              {legenda.length > 0 ? (
+                <div className="ml-auto flex flex-wrap items-center gap-3 text-xs text-ink-muted">
+                  {legenda.slice(0, 8).map((m) => (
+                    <span key={m.id} className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded" style={{ background: corDaMarca(m.id).solid }} />
+                      {m.nome}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </CardHeader>
+
+      <CardBody>
+        {isLoading ? (
+          <LoadingState />
+        ) : loadError ? (
+          <ErrorState message={extractErrorMessage(loadError)} onRetry={() => { void (editPadrao ? gradePadrao.refetch() : grade.refetch()) }} />
+        ) : editPadrao ? (
+          <GradeDiaView celulas={padraoDoDow} cabines={cabinesOrdenadas} onCellClick={onCellClick} marcarExcecoes={false} />
+        ) : view === 'dia' ? (
+          <GradeDiaView celulas={gradePorData.get(date) ?? []} cabines={cabinesOrdenadas} onCellClick={onCellClick} />
+        ) : view === 'semana' ? (
+          <GradeSemanaView dias={dias} today={today} onOpenDia={(d) => { setDate(d); setView('dia') }} />
+        ) : (
+          <GradeMesView
+            monthDays={monthGridDays(date)}
+            monthRef={date}
+            today={today}
+            gradePorData={gradePorData}
+            filtroAtivo={Boolean(filtroMarca || filtroApresentadora)}
+            onOpenDia={(d) => { setDate(d); setView('dia') }}
+          />
+        )}
+      </CardBody>
+
+      <GradeCellPopover
+        target={popoverTarget}
+        marcas={marcaRows}
+        apresentadoras={apresentadoraRows}
+        isSaving={isSaving}
+        errorMessage={popoverError ? extractErrorMessage(popoverError) : null}
+        onClose={closePopover}
+        onSave={onPopoverSave}
+        onClear={onPopoverClear}
+      />
+
+      <Modal open={copiarDiaOpen} title="Copiar dia" subtitle={`Copia a grade de ${date.split('-').reverse().join('/')} para outra data (sobrescreve o destino).`} size="sm" onClose={() => setCopiarDiaOpen(false)}>
+        <form onSubmit={onCopiarDiaSubmit} className="space-y-4 px-5 py-4">
+          <label className="block text-sm">
+            <span className="mb-1 block font-semibold text-ink">Data de destino</span>
+            <input className="design-input h-10 w-full px-3 [color-scheme:dark]" type="date" value={copiarDestino} onChange={(e) => setCopiarDestino(e.target.value)} required />
+          </label>
+          {copiarDiaMutation.error ? (
+            <p className="text-sm font-semibold text-[color:var(--danger)]">{extractErrorMessage(copiarDiaMutation.error)}</p>
+          ) : null}
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setCopiarDiaOpen(false)}>Cancelar</Button>
+            <Button type="submit" isLoading={copiarDiaMutation.isPending} disabled={!copiarDestino}>Copiar</Button>
+          </div>
+        </form>
+      </Modal>
+    </Card>
+  )
+}
