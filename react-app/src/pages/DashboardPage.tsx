@@ -182,6 +182,15 @@ function monthLabel(mesISO: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
+/** Últimos 12 meses (incluindo o corrente), mais recente primeiro. */
+function last12Months(currentMonth: string): string[] {
+  return Array.from({ length: 12 }, (_, i) => {
+    let mes = currentMonth
+    for (let j = 0; j < i; j++) mes = shiftMonth(mes, -1)
+    return mes
+  })
+}
+
 /* ── Main page ── */
 export function DashboardPage() {
   const today = getSaoPauloDateInput()
@@ -233,7 +242,20 @@ export function DashboardPage() {
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <span className="min-w-[150px] text-center text-sm font-bold capitalize text-ink">{monthLabel(mesExibido)}</span>
+        <select
+          aria-label="Filtrar por mês"
+          className="design-input h-9 min-w-[160px] px-3 text-sm font-bold capitalize"
+          value={mesExibido}
+          onChange={(e) => setMesSelecionado(e.target.value === currentMonth ? null : e.target.value)}
+        >
+          {last12Months(currentMonth).map((m) => (
+            <option key={m} value={m} className="capitalize">{monthLabel(m)}</option>
+          ))}
+          {/* mês exibido pode estar fora da janela de 12 meses (navegação por seta) */}
+          {!last12Months(currentMonth).includes(mesExibido) ? (
+            <option value={mesExibido}>{monthLabel(mesExibido)}</option>
+          ) : null}
+        </select>
         <button
           type="button"
           aria-label="Próximo mês"

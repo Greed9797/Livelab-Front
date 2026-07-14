@@ -559,6 +559,12 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
   }, [raw.gmv_diario_mes])
 
   const mesReferencia = raw.mes_referencia != null ? String(raw.mes_referencia) : null
+  // Legenda mostra o mês que os dados representam (pode ser um mês passado via seletor)
+  const mesReferenciaLabel = useMemo(() => {
+    if (!mesReferencia || !/^\d{4}-\d{2}/.test(mesReferencia)) return null
+    const [y, m] = mesReferencia.split('-').map(Number)
+    return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  }, [mesReferencia])
 
   // chart view toggle — defaults to 'mes' (month view). If only one dataset
   // is available, the effective view is forced to that one and the other
@@ -661,7 +667,7 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
                 className="inline-block rounded-full"
                 style={{ width: 8, height: 8, background: 'var(--primary)' }}
               />
-              Mês atual
+              <span className="capitalize">{mesReferenciaLabel ?? 'Mês atual'}</span>
             </span>
           ) : null}
         </div>
