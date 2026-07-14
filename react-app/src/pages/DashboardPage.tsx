@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { KpiStrip } from '../components/dashboard/KpiStrip'
 import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
@@ -168,17 +170,34 @@ function AlertsStrip({ raw }: { raw: JsonRecord }) {
   )
 }
 
+/* ── Month helpers ── */
+function shiftMonth(mesISO: string, direction: 1 | -1): string {
+  const [y, m] = mesISO.split('-').map(Number)
+  const d = new Date(y, m - 1 + direction, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function monthLabel(mesISO: string): string {
+  const [y, m] = mesISO.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+}
+
 /* ── Main page ── */
 export function DashboardPage() {
   const today = getSaoPauloDateInput()
+  const currentMonth = today.slice(0, 7)
+  // null = automático (backend escolhe o mês efetivo: atual se tem dados, senão o último com dados)
+  const [mesSelecionado, setMesSelecionado] = useState<string | null>(null)
   // Intervalos calibrados pra reduzir requests background sem perder
   // real-time onde importa. A home já traz cabines, agenda e ranking inicial.
   const homeQuery = useQuery({
-    queryKey: ['home-dashboard'],
-    queryFn: getHomeDashboard,
+    queryKey: ['home-dashboard', mesSelecionado ?? 'auto'],
+    queryFn: () => getHomeDashboard(mesSelecionado ? { mes: mesSelecionado } : {}),
     staleTime: 30_000,
-    refetchInterval: 30_000, // mantém — KPIs ao vivo
+    // Mês passado é histórico — não precisa de polling ao vivo
+    refetchInterval: mesSelecionado && mesSelecionado !== currentMonth ? false : 30_000,
     refetchIntervalInBackground: false,
+    placeholderData: (prev) => prev,
   })
 
   if (homeQuery.isLoading) return <LoadingState />
@@ -190,6 +209,8 @@ export function DashboardPage() {
   )
 
   const raw = (homeQuery.data ?? {}) as JsonRecord
+  // Mês exibido: seleção manual > mes_referencia do backend > mês corrente
+  const mesExibido = mesSelecionado ?? asString(raw.mes_referencia, currentMonth).slice(0, 7)
   const agenda = asArray<JsonRecord>(raw.agenda_hoje ?? raw.proximas_lives_dia)
   const cabines = asArray<Cabine>(raw.cabines)
   const rankingApresentadoras = asArray<JsonRecord>(raw.ranking_apresentadoras_mes)
@@ -201,6 +222,38 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHead liveCount={liveCabines.length} />
+
+      {/* Seletor de mês — mesmo período rege todos os números da página */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          aria-label="Mês anterior"
+          onClick={() => setMesSelecionado(shiftMonth(mesExibido, -1))}
+          className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="min-w-[150px] text-center text-sm font-bold capitalize text-ink">{monthLabel(mesExibido)}</span>
+        <button
+          type="button"
+          aria-label="Próximo mês"
+          disabled={mesExibido >= currentMonth}
+          onClick={() => setMesSelecionado(shiftMonth(mesExibido, 1))}
+          className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted disabled:opacity-35"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        {mesSelecionado ? (
+          <button
+            type="button"
+            onClick={() => setMesSelecionado(null)}
+            className="h-9 rounded-lg border border-line px-3 text-sm font-bold text-ink-muted hover:text-ink"
+          >
+            Mês atual
+          </button>
+        ) : null}
+        {homeQuery.isFetching ? <span className="text-xs text-ink-muted">atualizando…</span> : null}
+      </div>
 
       {/* KPI strip */}
       <div className="overflow-x-auto">

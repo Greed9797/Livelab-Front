@@ -93,7 +93,9 @@ export function KpiStrip({ raw }: KpiStripProps) {
   const videosPrev = asNumber(raw.videos_prev)
   const gmvPorLive = asNumber(raw.gmv_por_live ?? raw.gmv_por_live_mes) || (livesMes > 0 ? gmvMes / livesMes : 0)
   const gmvPorLivePrev = asNumber(raw.gmv_por_live_prev)
-  const gmvPorHora = asNumber(raw.gmv_por_hora ?? raw.gmv_por_hora_mes ?? raw.gmv_hora) || (horasLive > 0 ? gmvMes / horasLive : 0)
+  // Fallback segue a convenção do Analytics: GMV/hora usa só GMV de lives
+  const gmvLivesMes = asNumber(raw.gmv_lives_mes ?? raw.gmv_total_mes ?? raw.gmv_mes)
+  const gmvPorHora = asNumber(raw.gmv_por_hora ?? raw.gmv_por_hora_mes ?? raw.gmv_hora) || (horasLive > 0 ? gmvLivesMes / horasLive : 0)
   const gmvPorHoraPrev = asNumber(raw.gmv_por_hora_prev)
 
   const gmvSpark = (raw.gmv_year as number[] | undefined)

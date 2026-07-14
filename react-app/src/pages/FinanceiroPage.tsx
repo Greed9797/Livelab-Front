@@ -8,6 +8,7 @@ import { LinePanel } from '../components/charts/Charts'
 import { ReceitaWaterfall } from '../components/charts/ReceitaWaterfall'
 import { FinanceiroHeroPanel } from '../components/dashboard/FinanceiroHeroPanel'
 import { PeriodRangeControl } from '../components/forms/PeriodRangeControl'
+import { CadastroQuickEdit } from '../components/forms/CadastroQuickEdit'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { Badge } from '../components/ui/Badge'
@@ -656,11 +657,22 @@ export function FinanceiroPage() {
         {selectedClienteDetail.isError ? <ErrorState message={extractErrorMessage(selectedClienteDetail.error)} onRetry={() => void selectedClienteDetail.refetch()} /> : null}
         {selectedClienteDetail.data ? (() => {
           const m = getRecord(selectedClienteDetail.data.metrics)
+          const cadastro = getRecord(selectedClienteDetail.data.marca ?? selectedClienteDetail.data.cliente)
           const lives = asArray<JsonRecord>(selectedClienteDetail.data.lives)
           const vendas = asArray<JsonRecord>(selectedClienteDetail.data.vendas_atribuidas)
           const comissao = asNumber(m.comissao_franquia) + asNumber(m.comissao_franqueadora)
           return (
             <div className="space-y-4">
+              <CadastroQuickEdit
+                kind={selectedClienteKind}
+                record={cadastro}
+                onSaved={() => {
+                  void client.invalidateQueries({ queryKey: QK.financeiroClienteOperacional({ clienteKind: selectedClienteKind, clienteId: selectedClienteId }) })
+                  void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
+                  void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
+                  void client.invalidateQueries({ queryKey: QK.financeiroFaturamento() })
+                }}
+              />
               <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {[
                   moneyMetric('GMV no período', m.gmv_mes, 'lives + vídeos', 'brand'),
