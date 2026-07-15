@@ -179,7 +179,10 @@ function shiftMonth(mesISO: string, direction: 1 | -1): string {
 
 function monthLabel(mesISO: string): string {
   const [y, m] = mesISO.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  // Capitaliza só a inicial ("julho de 2026" → "Julho de 2026"); CSS capitalize
+  // deixaria "Julho De 2026" (De maiúsculo, errado em pt-BR).
+  const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
 /** Últimos 12 meses (incluindo o corrente), mais recente primeiro. */
@@ -244,12 +247,12 @@ export function DashboardPage() {
         </button>
         <select
           aria-label="Filtrar por mês"
-          className="design-input h-9 min-w-[160px] px-3 text-sm font-bold capitalize"
+          className="design-input h-9 min-w-[160px] px-3 text-sm font-bold"
           value={mesExibido}
           onChange={(e) => setMesSelecionado(e.target.value === currentMonth ? null : e.target.value)}
         >
           {last12Months(currentMonth).map((m) => (
-            <option key={m} value={m} className="capitalize">{monthLabel(m)}</option>
+            <option key={m} value={m}>{monthLabel(m)}</option>
           ))}
           {/* mês exibido pode estar fora da janela de 12 meses (navegação por seta) */}
           {!last12Months(currentMonth).includes(mesExibido) ? (

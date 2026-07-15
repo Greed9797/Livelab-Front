@@ -524,7 +524,8 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
   // GMV + delta
   const gmv = asNumber(raw.gmv_total_mes ?? raw.gmv_mes)
   const gmvPrev = asNumber(raw.gmv_mes_prev ?? raw.gmv_prev)
-  const delta = gmvPrev > 0 ? ((gmv - gmvPrev) / gmvPrev) * 100 : 0
+  // null quando não há mês anterior → não mostra pill nem "vs. mês anterior"
+  const delta = gmvPrev > 0 ? ((gmv - gmvPrev) / gmvPrev) * 100 : null
 
   // meta — prefer new field names, fallback to legacy (raw.meta_mes ?? raw.meta_gmv)
   const metaRaw = raw.meta_mes ?? raw.meta_gmv
@@ -563,7 +564,8 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
   const mesReferenciaLabel = useMemo(() => {
     if (!mesReferencia || !/^\d{4}-\d{2}/.test(mesReferencia)) return null
     const [y, m] = mesReferencia.split('-').map(Number)
-    return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    return label.charAt(0).toUpperCase() + label.slice(1) // "Julho de 2026", não "Julho De"
   }, [mesReferencia])
 
   // chart view toggle — defaults to 'mes' (month view). If only one dataset
@@ -667,7 +669,7 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
                 className="inline-block rounded-full"
                 style={{ width: 8, height: 8, background: 'var(--primary)' }}
               />
-              <span className="capitalize">{mesReferenciaLabel ?? 'Mês atual'}</span>
+              <span>{mesReferenciaLabel ?? 'Mês atual'}</span>
             </span>
           ) : null}
         </div>
@@ -694,10 +696,14 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
             {gmv.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
-        <DeltaPill v={delta} />
-        <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
-          vs. mesmo período do mês anterior
-        </span>
+        {delta !== null ? (
+          <>
+            <DeltaPill v={delta} />
+            <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
+              vs. mesmo período do mês anterior
+            </span>
+          </>
+        ) : null}
       </div>
 
       {/* MetaBar */}

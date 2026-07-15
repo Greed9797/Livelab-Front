@@ -13,8 +13,9 @@ interface KpiItemProps {
   suffix?: string
 }
 
-function delta(cur: number, prev: number): number {
-  if (!prev) return 0
+// undefined = sem base de comparação → não renderiza o pill (evita "+0.0%" falso)
+function delta(cur: number, prev: number): number | undefined {
+  if (!prev) return undefined
   return ((cur - prev) / prev) * 100
 }
 
