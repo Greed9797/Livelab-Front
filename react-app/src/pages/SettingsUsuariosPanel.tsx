@@ -119,7 +119,7 @@ export function SettingsUsuariosPanel() {
   const [auditUserId, setAuditUserId] = useState<string | null>(null)
 
   const usuarios = useQuery({ queryKey: QK.usuarios, queryFn: getUsuarios })
-  const clientes = useQuery({ queryKey: QK.clientes(), queryFn: getClientes })
+  const clientes = useQuery({ queryKey: QK.clientes(), queryFn: () => getClientes() })
   const apresentadoras = useQuery({ queryKey: QK.apresentadoras(), queryFn: getApresentadoras })
 
   const presenterProfileOptions = useMemo(

@@ -91,17 +91,51 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     enabled: canSeeComissoes,
     staleTime: 60_000,
   })
+  // Ranking de apresentadoras do período — fonte das entidades COM atividade (filtra zerados).
+  const rankingApresentadorasQ = useQuery({
+    queryKey: ['ranking-apresentadoras', from, to],
+    queryFn: () => getComissoesApresentadoras({ data_inicio: from, data_fim: to }),
+    enabled: canSeeComissoes,
+    staleTime: 60_000,
+  })
 
-  // Usa o cache global (5 min) — o dropdown de marcas não precisa vir sempre fresco;
-  // o relatório por entidade já lê o % de franquia fresco direto pela marcaId.
+  // Cadastral (fallback): resolve nome da entidade selecionada + papéis sem comissão.
   const marcasOpts = useQuery({
     queryKey: QK.marcas('analytics-filter'),
     queryFn: () => getMarcas({ status: 'ativa' }),
   })
   const apresentadorasOpts = useQuery({ queryKey: QK.apresentadoras('analytics-filter'), queryFn: () => getApresentadoras() })
 
-  const marcas = useMemo(() => unwrapList<JsonRecord>(marcasOpts.data), [marcasOpts.data])
-  const apresentadoras = useMemo(() => unwrapList<JsonRecord>(apresentadorasOpts.data), [apresentadorasOpts.data])
+  // Opções dos dropdowns = só entidades com Live/GMV no período (via ranking, que já
+  // filtra zerados no backend). Fallback pro cadastral quando o ranking está indisponível.
+  // A entidade atualmente selecionada é sempre mantida (evita filtro "preso").
+  const marcas = useMemo(() => {
+    const cadastral = unwrapList<JsonRecord>(marcasOpts.data)
+    const doPeriodo = unwrapList<JsonRecord>(rankingMarcasQ.data)
+      .map((r) => ({ id: rankingId(r, 'marca'), nome: rankingName(r, 'marca') }))
+      .filter((m) => m.id)
+    const base = (doPeriodo.length ? doPeriodo : cadastral.map((m) => ({ id: asString(m.id), nome: asString(m.nome, 'Sem nome') })))
+      .filter((m) => m.id)
+    if (marcaId && !base.some((m) => m.id === marcaId)) {
+      const sel = cadastral.find((m) => asString(m.id) === marcaId)
+      if (sel) base.push({ id: marcaId, nome: asString(sel.nome, 'Sem nome') })
+    }
+    return base
+  }, [rankingMarcasQ.data, marcasOpts.data, marcaId])
+
+  const apresentadoras = useMemo(() => {
+    const cadastral = unwrapList<JsonRecord>(apresentadorasOpts.data)
+    const doPeriodo = unwrapList<JsonRecord>(rankingApresentadorasQ.data)
+      .map((r) => ({ id: rankingId(r, 'apresentadora'), nome: rankingName(r, 'apresentadora') }))
+      .filter((a) => a.id)
+    const base = (doPeriodo.length ? doPeriodo : cadastral.map((a) => ({ id: asString(a.id), nome: asString(a.nome, 'Sem nome') })))
+      .filter((a) => a.id)
+    if (apresentadoraId && !base.some((a) => a.id === apresentadoraId)) {
+      const sel = cadastral.find((a) => asString(a.id) === apresentadoraId)
+      if (sel) base.push({ id: apresentadoraId, nome: asString(sel.nome, 'Sem nome') })
+    }
+    return base
+  }, [rankingApresentadorasQ.data, apresentadorasOpts.data, apresentadoraId])
 
   function refreshAll() {
     void query.refetch()
@@ -208,7 +242,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
             apresentadoraId ? asString(apresentadoras.find((a) => asString(a.id) === apresentadoraId)?.nome, '') : '',
           ].filter(Boolean).join(' · ')}
           comissaoRow={marcaId ? marcasRows[0] : apresentadorasRows[0]}
-          franquiaPct={marcaId ? asNumber(marcas.find((m) => asString(m.id) === marcaId)?.comissao_franquia_pct) : undefined}
+          franquiaPct={marcaId ? asNumber(unwrapList<JsonRecord>(marcasOpts.data).find((m) => asString(m.id) === marcaId)?.comissao_franquia_pct) : undefined}
         />
       ) : (
         <div className="flex items-start gap-2.5 rounded-2xl border border-dashed border-line bg-surface-muted/40 px-4 py-3">

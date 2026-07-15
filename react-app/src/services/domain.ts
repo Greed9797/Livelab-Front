@@ -87,8 +87,8 @@ export function addLeadTarefa(id: string, payload: JsonRecord) {
   return apiPost<JsonRecord>(`/leads/${id}/tarefa`, payload)
 }
 
-export function getClientes() {
-  return apiGet<JsonRecord[]>('/clientes')
+export function getClientes(params: { status?: string } = {}) {
+  return apiGet<JsonRecord[]>('/clientes', params.status ? { status: params.status } : undefined)
 }
 
 export function createCliente(payload: JsonRecord) {

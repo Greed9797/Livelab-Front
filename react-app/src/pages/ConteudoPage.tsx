@@ -1,4 +1,4 @@
-import { BarChart3, CalendarClock, MonitorPlay, Video } from 'lucide-react'
+import { CalendarClock, MonitorPlay, Video } from 'lucide-react'
 import { FormEvent, Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -17,7 +17,6 @@ import { emptyVideo, type VideoForm } from '../components/conteudo/VideosTab'
 // Abas pesadas carregadas sob demanda — só baixam o chunk quando a aba é aberta.
 const LivesTab = lazy(() => import('../components/conteudo/LivesTab').then((m) => ({ default: m.LivesTab })))
 const VideosTab = lazy(() => import('../components/conteudo/VideosTab').then((m) => ({ default: m.VideosTab })))
-const AnalyticsPage = lazy(() => import('./AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })))
 import {
   createAgendaEvento,
   createVideo,
@@ -45,7 +44,7 @@ import { parseBRMoneyToDecimal } from '../utils/money'
 import type { JsonRecord } from '../types/models'
 import type { AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
 
-type ConteudoTab = 'agenda' | 'lives' | 'videos' | 'analytics'
+type ConteudoTab = 'agenda' | 'lives' | 'videos'
 
 // Rollback rápido da Grade visual: true volta a renderizar a AgendaTab antiga.
 // Remover junto com a AgendaTab na fase 4 (pós-validação em produção).
@@ -54,9 +53,8 @@ const USE_LEGACY_AGENDA = false
 const today = () => new Date().toISOString().slice(0, 10)
 
 function normalizeConteudoTab(value: string | null): ConteudoTab {
-  // 'cabines' (aba removida) e 'calendario' são deep links antigos → caem na Grade.
-  if (!value || value === 'calendario' || value === 'agenda' || value === 'cabines') return 'agenda'
-  if (['lives', 'videos', 'analytics'].includes(value)) return value as ConteudoTab
+  // 'cabines'/'analytics' (abas removidas) e 'calendario' são deep links antigos → caem na Grade.
+  if (['lives', 'videos'].includes(value ?? '')) return value as ConteudoTab
   return 'agenda'
 }
 
@@ -172,7 +170,7 @@ export function ConteudoPage() {
   const duplicatas = useQuery({ queryKey: ['lives-duplicatas'], queryFn: getLivesDuplicatas, enabled: tab === 'lives', staleTime: 5 * 60_000 })
   const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos(), enabled: tab === 'videos' })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
-  const clientes = useQuery({ queryKey: ['clientes'], queryFn: getClientes })
+  const clientes = useQuery({ queryKey: ['clientes'], queryFn: () => getClientes() })
   const apresentadoras = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
 
   function invalidateOperational() {
@@ -310,7 +308,7 @@ export function ConteudoPage() {
         eyebrow="Conteúdo"
         accent="Produção"
         title="operacional"
-        subtitle="Grade por cabine, lives, vídeos e analytics em um fluxo único."
+        subtitle="Grade por cabine, lives e vídeos em um fluxo único."
       />
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
@@ -318,7 +316,6 @@ export function ConteudoPage() {
           ['agenda', CalendarClock, 'Agenda'],
           ['lives', MonitorPlay, 'Lives realizadas'],
           ['videos', Video, 'Vídeos gravados'],
-          ['analytics', BarChart3, 'Analytics'],
         ] as const).map(([key, Icon, label]) => (
           <button
             key={key}
@@ -451,12 +448,6 @@ export function ConteudoPage() {
           onVideoFieldChange={(key, value) => setVideoForm((cur) => ({ ...cur, [key]: value }))}
           onVideoSubmit={onVideoSubmit}
         />
-        </Suspense>
-      ) : null}
-
-      {tab === 'analytics' ? (
-        <Suspense fallback={<LoadingState />}>
-          <AnalyticsPage embedded />
         </Suspense>
       ) : null}
     </div>

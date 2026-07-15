@@ -71,14 +71,15 @@ export function ComercialPage() {
   const queryClient = useQueryClient()
   const user = useCurrentUser()
   const isMasterUser = user?.papel === 'franqueador_master'
+  const [verArquivados, setVerArquivados] = useState(false)
 
   const summaryQuery = useQuery({
     queryKey: isMasterUser ? QK.masterCrm : QK.crmSummary,
     queryFn: isMasterUser ? () => getMasterCrm() : getCrmSummary,
   })
   const leadsQuery = useQuery({ queryKey: QK.leads, queryFn: getLeads })
-  const clientesQuery = useQuery({ queryKey: QK.clientes(), queryFn: getClientes })
-  const marcasQuery = useQuery({ queryKey: QK.marcas('ativas'), queryFn: () => getMarcas({ status: 'ativa' }) })
+  const clientesQuery = useQuery({ queryKey: QK.clientes(verArquivados ? 'arquivados' : 'ativos'), queryFn: () => getClientes(verArquivados ? { status: 'arquivado' } : {}) })
+  const marcasQuery = useQuery({ queryKey: QK.marcas(verArquivados ? 'arquivadas' : 'ativas'), queryFn: () => getMarcas({ status: verArquivados ? 'arquivada' : 'ativa' }) })
   const selectedAtivoId = asString(selectedAtivo?.id, '')
   const selectedAtivoKind = asString(selectedAtivo?.tipo_operacional) === 'cliente_ecommerce' ? 'cliente' : 'marca'
   const ativoDetailQuery = useQuery({
@@ -413,6 +414,20 @@ export function ComercialPage() {
     setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
   }
 
+  function toggleArquivarAtivo(item = selectedAtivo) {
+    if (!item) return
+    const id = asString(item.id, '')
+    const kind = selectedAtivoKind
+    const current = asString(ativoForm.status || item.status)
+    const arquivado = current === 'arquivada' || current === 'arquivado'
+    // Arquivar = ocultar de tudo (revés. Desarquivar volta pra ativa/ativo).
+    const nextStatus = kind === 'cliente'
+      ? (arquivado ? 'ativo' : 'arquivado')
+      : (arquivado ? 'ativa' : 'arquivada')
+    ativoUpdateMutation.mutate({ id, kind, payload: { status: nextStatus } })
+    setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
+  }
+
   function deleteAtivo() {
     if (!selectedAtivo) return
     const id = asString(selectedAtivo.id, '')
@@ -518,6 +533,9 @@ export function ComercialPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-base font-bold text-ink">Clientes e afiliados</p>
                 <div className="flex flex-wrap gap-2">
+                  <Button variant={verArquivados ? 'primary' : 'secondary'} onClick={() => setVerArquivados((v) => !v)}>
+                    {verArquivados ? 'Ver ativos' : 'Ver arquivados'}
+                  </Button>
                   <Button icon={Plus} onClick={() => setShowClienteForm((value) => !value)}>Novo cliente</Button>
                   <Button variant="secondary" icon={Plus} onClick={() => setShowAfiliadoForm((value) => !value)}>Novo afiliado</Button>
                   <Button variant="secondary" icon={Download} onClick={exportAtivosCsv}>Exportar CSV</Button>
@@ -772,6 +790,9 @@ export function ComercialPage() {
                   <Button type="submit" isLoading={ativoUpdateMutation.isPending}>Salvar alterações</Button>
                   <Button type="button" variant="secondary" onClick={() => toggleAtivoStatus()} disabled={ativoUpdateMutation.isPending}>
                     {['ativo', 'ativa'].includes(ativoForm.status) ? 'Inativar' : 'Reativar'}
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={() => toggleArquivarAtivo()} disabled={ativoUpdateMutation.isPending}>
+                    {['arquivada', 'arquivado'].includes(ativoForm.status) ? 'Desarquivar' : 'Arquivar'}
                   </Button>
                   {selectedAtivoKind === 'marca' && selectedAtivoId ? (
                     <Button

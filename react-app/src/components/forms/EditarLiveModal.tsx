@@ -121,7 +121,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
   const [cabinesQuery, clientesQuery, marcasQuery, apresentadorasQuery] = useQueries({
     queries: [
       { queryKey: QK.cabines, queryFn: getCabines, staleTime: 15_000, enabled: open },
-      { queryKey: QK.clientes('live-edit'), queryFn: getClientes, enabled: open },
+      { queryKey: QK.clientes('live-edit'), queryFn: () => getClientes(), enabled: open },
       { queryKey: QK.marcas('live-edit'), queryFn: () => getMarcas({ status: 'ativa' }), enabled: open },
       { queryKey: QK.apresentadoras('live-edit'), queryFn: getApresentadoras, enabled: open },
     ],
