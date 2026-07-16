@@ -30,6 +30,11 @@ function Sidebar({
   const logout = useAuthStore((state) => state.logout)
   const location = useLocation()
   const items = menuForUser(user)
+  // A arte da logo é monocromática: branca no tema escuro, preta no claro.
+  const theme = useThemeStore((state) => state.resolvedTheme)
+  const logoSrc = expanded
+    ? `/images/logo-wordmark-${theme}.png`
+    : `/images/logo-icon-${theme}.png`
 
   async function handleLogout() {
     await logout()
@@ -44,16 +49,11 @@ function Sidebar({
       )}
     >
       <div className={clsx('mb-5 flex items-center', expanded ? 'w-full gap-3 px-2' : 'w-full flex-col gap-3')}>
-        <img
-          src="/images/favicon.png"
-          alt=""
-          className="h-12 w-12 rounded-xl object-cover shadow-[0_6px_16px_-4px_rgba(255,90,31,0.5)]"
-        />
         {expanded ? (
           <>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-extrabold text-ink">Livelab</p>
-              <p className="truncate text-xs text-ink-muted">{user?.tenant_nome ?? 'LiveShop SaaS'}</p>
+              <img src={logoSrc} alt="Livelab" className="h-7 w-auto max-w-full object-contain object-left" />
+              <p className="mt-1 truncate text-xs text-ink-muted">{user?.tenant_nome ?? 'LiveShop SaaS'}</p>
             </div>
             {onToggle ? (
               <button
@@ -67,6 +67,9 @@ function Sidebar({
               </button>
             ) : null}
           </>
+        ) : null}
+        {!expanded ? (
+          <img src={logoSrc} alt="Livelab" className="h-10 w-10 shrink-0 object-contain" />
         ) : null}
         {!expanded && onToggle ? (
           <button
