@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { asNumber, formatMoney } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 
@@ -15,9 +15,52 @@ interface IntradayPoint {
 interface DailyPoint {
   dia: number
   gmv: number
+  pedidos: number
+  /** GMV do mesmo dia no mês anterior (série comparativa tracejada). */
+  prev: number
 }
 
 /* ── helpers ── */
+
+/**
+ * Tooltip dos gráficos SVG artesanais. Posicionado por proporção do eixo X;
+ * vira para a esquerda depois da metade para não vazar do card.
+ */
+function ChartTooltip({
+  xRatio,
+  title,
+  rows,
+}: {
+  xRatio: number
+  title: string
+  rows: Array<{ label: string; value: string; color?: string }>
+}) {
+  const flip = xRatio > 0.6
+  return (
+    <div
+      className="pointer-events-none absolute z-10 rounded-lg border border-line bg-surface px-3 py-2 shadow-[var(--shadow-card)]"
+      style={{
+        left: `${xRatio * 100}%`,
+        top: 8,
+        transform: flip ? 'translateX(calc(-100% - 10px))' : 'translateX(10px)',
+        minWidth: 150,
+      }}
+    >
+      <p className="mb-1 text-[11px] font-bold text-ink">{title}</p>
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-center justify-between gap-3 text-[11px]">
+          <span className="flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+            {row.color ? (
+              <span className="inline-block rounded-full" style={{ width: 6, height: 6, background: row.color }} />
+            ) : null}
+            {row.label}
+          </span>
+          <span className="num font-semibold" style={{ color: 'var(--text-primary)' }}>{row.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function fmtCompact(v: number): string {
   if (v >= 1_000_000) return `${(v / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`
@@ -242,12 +285,22 @@ function buildIntradayPaths(data: IntradayPoint[]) {
 
 function IntradayChart({ data }: { data: IntradayPoint[] }) {
   const paths = useMemo(() => buildIntradayPaths(data), [data])
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
   if (!paths) return null
 
   const { currPath, currAreaPath, prevPath, xFn, yFn, nowIdx, yticks } = paths
   const nowX = nowIdx >= 0 ? xFn(nowIdx) : null
   const nowY = nowIdx >= 0 && data[nowIdx].v != null ? yFn(data[nowIdx].v as number) : null
   const gradId = 'gmvIntradayGrad'
+  const hovered = hoveredIdx != null ? data[hoveredIdx] : null
+
+  function onMove(event: ReactMouseEvent<SVGRectElement>) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    if (rect.width === 0 || data.length === 0) return
+    const ratio = (event.clientX - rect.left) / rect.width
+    const idx = Math.round(ratio * (data.length - 1))
+    setHoveredIdx(Math.min(Math.max(idx, 0), data.length - 1))
+  }
 
   return (
     <div style={{ position: 'relative', height: CHART_H }}>
@@ -348,7 +401,43 @@ function IntradayChart({ data }: { data: IntradayPoint[] }) {
             />
           </g>
         )}
+
+        {/* guia + dots do ponto sob o cursor */}
+        {hovered && hoveredIdx != null && (
+          <g pointerEvents="none">
+            <line
+              x1={xFn(hoveredIdx)} x2={xFn(hoveredIdx)}
+              y1={PAD.t} y2={PAD.t + (CHART_H - PAD.t - PAD.b)}
+              stroke="var(--text-muted)" strokeWidth="1" opacity="0.5"
+              vectorEffect="non-scaling-stroke"
+            />
+            {hovered.v != null && <circle cx={xFn(hoveredIdx)} cy={yFn(hovered.v)} r="3.5" fill="var(--primary)" />}
+            {hovered.prev != null && (
+              <circle cx={xFn(hoveredIdx)} cy={yFn(hovered.prev)} r="3" fill="var(--text-muted)" opacity="0.8" />
+            )}
+          </g>
+        )}
+
+        {/* overlay de captura do mouse */}
+        <rect
+          x={PAD.l} y={PAD.t}
+          width={CHART_W - PAD.l - PAD.r} height={CHART_H - PAD.t - PAD.b}
+          fill="transparent"
+          onMouseMove={onMove}
+          onMouseLeave={() => setHoveredIdx(null)}
+        />
       </svg>
+
+      {hovered && hoveredIdx != null && (
+        <ChartTooltip
+          xRatio={(xFn(hoveredIdx) - PAD.l) / (CHART_W - PAD.l - PAD.r)}
+          title={`${hovered.h}h`}
+          rows={[
+            { label: 'Hoje', value: hovered.v != null ? formatMoney(hovered.v) : '—', color: 'var(--primary)' },
+            { label: 'Mês anterior', value: hovered.prev != null ? formatMoney(hovered.prev) : '—', color: 'var(--text-muted)' },
+          ]}
+        />
+      )}
     </div>
   )
 }
@@ -369,7 +458,11 @@ function buildDailyPaths(data: DailyPoint[], todayDia: number, isCurrentMonth: b
   const visibleData = isCurrentMonth ? data.filter((p) => p.dia <= todayDia) : data
   if (visibleData.length === 0) return null
 
-  const allVals = visibleData.map((p) => p.gmv).filter((v) => v > 0)
+  // A escala considera as duas séries — senão a linha do mês anterior sai do gráfico.
+  const allVals = [
+    ...visibleData.map((p) => p.gmv),
+    ...data.map((p) => p.prev ?? 0),
+  ].filter((v) => v > 0)
   if (allVals.length === 0) return null
 
   const maxV = Math.max(...allVals)
@@ -399,6 +492,16 @@ function buildDailyPaths(data: DailyPoint[], todayDia: number, isCurrentMonth: b
     areaPath = `${linePath} L ${lastX} ${yFn(0)} L ${firstX} ${yFn(0)} Z`
   }
 
+  // Série comparativa do mês anterior (mês inteiro, tracejada cinza).
+  let prevPath = ''
+  data.forEach((p) => {
+    const value = p.prev ?? 0
+    const X = xFn(p.dia)
+    const Y = yFn(value)
+    prevPath += prevPath === '' ? `M ${X} ${Y}` : ` L ${X} ${Y}`
+  })
+  const hasPrev = data.some((p) => (p.prev ?? 0) > 0)
+
   const YTICK_COUNT = 4
   const yticks = Array.from({ length: YTICK_COUNT + 1 }, (_, i) => ({
     val: (niceMax * i) / YTICK_COUNT,
@@ -415,11 +518,12 @@ function buildDailyPaths(data: DailyPoint[], todayDia: number, isCurrentMonth: b
     ? xFn(todayDia)
     : null
 
-  return { linePath, areaPath, xFn, yFn, yticks, xLabels, todayX }
+  return { linePath, areaPath, prevPath, hasPrev, xFn, yFn, yticks, xLabels, todayX, visibleData }
 }
 
 function DailyChart({ data, mesReferencia }: DailyChartProps) {
   const todayDia = useMemo(() => getTodaySP(), [])
+  const [hovered, setHovered] = useState<DailyPoint | null>(null)
 
   const isCurrentMonth = useMemo(() => {
     if (!mesReferencia) return true
@@ -435,8 +539,20 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
 
   if (!paths) return null
 
-  const { linePath, areaPath, yticks, xLabels, todayX } = paths
+  const { linePath, areaPath, prevPath, hasPrev, xFn, yFn, yticks, xLabels, todayX, visibleData } = paths
   const gradId = 'gmvDailyGrad'
+
+  // Do X do cursor (em coordenadas do viewBox) acha o ponto mais próximo.
+  function onMove(event: ReactMouseEvent<SVGRectElement>) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    if (rect.width === 0 || visibleData.length === 0) return
+    const xView = ((event.clientX - rect.left) / rect.width) * (CHART_W - PAD.l - PAD.r) + PAD.l
+    let closest = visibleData[0]
+    for (const p of visibleData) {
+      if (Math.abs(xFn(p.dia) - xView) < Math.abs(xFn(closest.dia) - xView)) closest = p
+    }
+    setHovered(closest)
+  }
 
   return (
     <div style={{ position: 'relative', height: CHART_H }}>
@@ -490,6 +606,21 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
         {/* area fill */}
         {areaPath && <path d={areaPath} fill={`url(#${gradId})`} />}
 
+        {/* mês anterior — tracejada cinza (mesmo padrão do IntradayChart) */}
+        {hasPrev && prevPath && (
+          <path
+            d={prevPath}
+            fill="none"
+            stroke="var(--text-muted)"
+            strokeWidth="1.25"
+            strokeDasharray="3 4"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity="0.6"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+
         {/* main line */}
         {linePath && (
           <path
@@ -513,7 +644,44 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
             vectorEffect="non-scaling-stroke"
           />
         )}
+
+        {/* guia + dots do ponto sob o cursor */}
+        {hovered && (
+          <g pointerEvents="none">
+            <line
+              x1={xFn(hovered.dia)} x2={xFn(hovered.dia)}
+              y1={PAD.t} y2={PAD.t + (CHART_H - PAD.t - PAD.b)}
+              stroke="var(--text-muted)" strokeWidth="1" opacity="0.5"
+              vectorEffect="non-scaling-stroke"
+            />
+            <circle cx={xFn(hovered.dia)} cy={yFn(hovered.gmv)} r="3.5" fill="var(--primary)" />
+            {hasPrev && (
+              <circle cx={xFn(hovered.dia)} cy={yFn(hovered.prev ?? 0)} r="3" fill="var(--text-muted)" opacity="0.8" />
+            )}
+          </g>
+        )}
+
+        {/* overlay de captura do mouse */}
+        <rect
+          x={PAD.l} y={PAD.t}
+          width={CHART_W - PAD.l - PAD.r} height={CHART_H - PAD.t - PAD.b}
+          fill="transparent"
+          onMouseMove={onMove}
+          onMouseLeave={() => setHovered(null)}
+        />
       </svg>
+
+      {hovered && (
+        <ChartTooltip
+          xRatio={(xFn(hovered.dia) - PAD.l) / (CHART_W - PAD.l - PAD.r)}
+          title={`Dia ${String(hovered.dia).padStart(2, '0')}`}
+          rows={[
+            { label: 'GMV', value: formatMoney(hovered.gmv), color: 'var(--primary)' },
+            { label: 'Vendas', value: `${hovered.pedidos.toLocaleString('pt-BR')} pedidos` },
+            ...(hasPrev ? [{ label: 'Mês anterior', value: formatMoney(hovered.prev ?? 0), color: 'var(--text-muted)' }] : []),
+          ]}
+        />
+      )}
     </div>
   )
 }
@@ -553,9 +721,15 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
   // (no longer gated by intraday — both can be available so the toggle can switch)
   const dailyData = useMemo((): DailyPoint[] | null => {
     if (!Array.isArray(raw.gmv_diario_mes) || raw.gmv_diario_mes.length === 0) return null
-    const pts = (raw.gmv_diario_mes as DailyPoint[]).filter(
-      (p) => p && typeof p.dia === 'number',
-    )
+    // pedidos/prev tolerantes: backend antigo mandava só {dia, gmv}.
+    const pts = (raw.gmv_diario_mes as JsonRecord[])
+      .filter((p) => p && typeof p.dia === 'number')
+      .map((p): DailyPoint => ({
+        dia: Number(p.dia),
+        gmv: asNumber(p.gmv),
+        pedidos: asNumber(p.pedidos),
+        prev: asNumber(p.prev),
+      }))
     return pts.some((p) => p.gmv > 0) ? pts : null
   }, [raw.gmv_diario_mes])
 
@@ -664,13 +838,22 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
               </span>
             </>
           ) : showDailyLegend ? (
-            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              <span
-                className="inline-block rounded-full"
-                style={{ width: 8, height: 8, background: 'var(--primary)' }}
-              />
-              <span>{mesReferenciaLabel ?? 'Mês atual'}</span>
-            </span>
+            <>
+              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                <span
+                  className="inline-block rounded-full"
+                  style={{ width: 8, height: 8, background: 'var(--primary)' }}
+                />
+                <span>{mesReferenciaLabel ?? 'Mês atual'}</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                <span
+                  className="inline-block rounded-full"
+                  style={{ width: 8, height: 8, background: 'var(--text-muted)', opacity: 0.6 }}
+                />
+                Mês anterior
+              </span>
+            </>
           ) : null}
         </div>
       </div>

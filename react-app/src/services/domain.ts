@@ -169,7 +169,7 @@ export function getAgenda(params: Record<string, unknown> = {}) {
 
 // ── Grade visual (grade_padrao + grade_excecoes) ──────────────────────────
 
-export function getGrade(params: { data_inicio: string; data_fim: string; marca_id?: string; apresentadora_id?: string }) {
+export function getGrade(params: { data_inicio: string; data_fim: string; marca_id?: string; apresentadora_id?: string }): Promise<{ dias: JsonRecord[] }> {
   return apiGet<{ dias: JsonRecord[] }>('/grade', params)
 }
 
@@ -181,8 +181,11 @@ export function saveGradePadraoCell(payload: JsonRecord) {
   return apiPut<JsonRecord>('/grade/padrao', payload)
 }
 
-export function deleteGradePadraoCell(params: { dia_semana: number; cabine_id: string; hora_inicio: string }) {
-  return apiDelete(`/grade/padrao?dia_semana=${params.dia_semana}&cabine_id=${params.cabine_id}&hora_inicio=${encodeURIComponent(params.hora_inicio)}`)
+export function deleteGradePadraoCell(params: { dia_semana?: number; dias_semana?: number[]; cabine_id: string; hora_inicio: string }) {
+  const dow = params.dias_semana?.length
+    ? `dias_semana=${params.dias_semana.join(',')}`
+    : `dia_semana=${params.dia_semana}`
+  return apiDelete(`/grade/padrao?${dow}&cabine_id=${params.cabine_id}&hora_inicio=${encodeURIComponent(params.hora_inicio)}`)
 }
 
 export function saveGradeExcecao(payload: JsonRecord) {

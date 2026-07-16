@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { GradeDiaView } from '../components/conteudo/GradeViews'
+import { corDaMarca, marcasPresentes, type GradeDia } from '../components/conteudo/gradeUtils'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { KpiStrip } from '../components/dashboard/KpiStrip'
 import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
-import { CabinesGantt } from '../components/dashboard/CabinesGantt'
 import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
 import { PresenterLeaderboard } from '../components/dashboard/PresenterLeaderboard'
-import { getHomeDashboard } from '../services/domain'
+import { getGrade, getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString } from '../utils/format'
 import { getSaoPauloDateInput } from '../utils/sao-paulo-date'
@@ -198,6 +199,7 @@ function last12Months(currentMonth: string): string[] {
 export function DashboardPage() {
   const today = getSaoPauloDateInput()
   const currentMonth = today.slice(0, 7)
+  const navigate = useNavigate()
   // null = automático (backend escolhe o mês efetivo: atual se tem dados, senão o último com dados)
   const [mesSelecionado, setMesSelecionado] = useState<string | null>(null)
   // Intervalos calibrados pra reduzir requests background sem perder
@@ -210,6 +212,13 @@ export function DashboardPage() {
     refetchInterval: mesSelecionado && mesSelecionado !== currentMonth ? false : 30_000,
     refetchIntervalInBackground: false,
     placeholderData: (prev) => prev,
+  })
+
+  // Card de cabines = espelho da Grade (aba Agenda) para hoje.
+  const gradeQuery = useQuery({
+    queryKey: ['grade', today, today],
+    queryFn: () => getGrade({ data_inicio: today, data_fim: today }),
+    staleTime: 60_000,
   })
 
   if (homeQuery.isLoading) return <LoadingState />
@@ -230,6 +239,12 @@ export function DashboardPage() {
   const liveCabines = cabines.filter(
     (c) => asString(c.status, '').includes('ao_vivo') || asString(c.status, '') === 'live'
   )
+
+  // Grade de hoje (mesma fonte da aba Agenda) + legenda por marca
+  const celulasHoje = ((gradeQuery.data?.dias ?? []) as unknown as GradeDia[])[0]?.celulas ?? []
+  const cabinesOrdenadas = [...(cabines as unknown as JsonRecord[])]
+    .sort((a, b) => asNumber(a.numero) - asNumber(b.numero))
+  const legendaMarcas = marcasPresentes(celulasHoje)
 
   return (
     <div className="flex flex-col gap-5">
@@ -315,26 +330,29 @@ export function DashboardPage() {
           className="flex flex-col gap-4 rounded-xl p-4"
           style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-              Cabines — ocupação de hoje
+              Grade de hoje
             </h3>
-            <div className="flex items-center gap-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-sm" style={{ background: 'oklch(0.66 0.22 25 / 0.5)', border: '1px solid oklch(0.66 0.22 25)' }} />
-                Ao vivo
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-sm" style={{ background: 'oklch(0.74 0.11 235 / 0.3)', border: '1px solid oklch(0.74 0.11 235 / 0.6)' }} />
-                Agendada
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-sm" style={{ background: 'var(--bg-elev-3)', border: '1px solid var(--border)' }} />
-                Concluída
-              </span>
+            {/* Legenda por marca — espelha a aba Agenda (cor determinística por marca_id) */}
+            <div className="flex flex-wrap items-center justify-end gap-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              {legendaMarcas.slice(0, 5).map((m) => (
+                <span key={m.id} className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-sm" style={{ background: corDaMarca(m.id).solid }} />
+                  {m.nome}
+                </span>
+              ))}
             </div>
           </div>
-          <CabinesGantt agenda={agenda} cabines={cabines} date={today} />
+          {gradeQuery.isLoading ? (
+            <p className="py-6 text-center text-xs" style={{ color: 'var(--text-muted)' }}>Carregando grade…</p>
+          ) : (
+            <GradeDiaView
+              celulas={celulasHoje}
+              cabines={cabinesOrdenadas}
+              onCellClick={() => navigate('/conteudo')}
+            />
+          )}
         </div>
 
         <AoVivoPanel liveCabines={liveCabines} />

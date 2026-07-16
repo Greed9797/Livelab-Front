@@ -19,7 +19,6 @@ import { extractErrorMessage } from '../../services/api'
 import { asString } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 import {
-  DIAS_SEMANA_LABELS,
   corDaMarca,
   marcasPresentes,
   type GradeCelula,
@@ -30,6 +29,24 @@ import { GradeDiaView, GradeMesView, GradeSemanaView } from './GradeViews'
 import { GradeCellPopover, type GradeCellTarget } from './GradeCellPopover'
 
 type GradeView = 'dia' | 'semana' | 'mes'
+
+/** Escopo do template: dias úteis (um bloco só) ou sábado/domingo isolados. */
+type PadraoScope = 'uteis' | 6 | 0
+
+const PADRAO_SCOPES: ReadonlyArray<{ key: PadraoScope; label: string }> = [
+  { key: 'uteis', label: 'Seg–Sex' },
+  { key: 6, label: 'Sáb' },
+  { key: 0, label: 'Dom' },
+]
+
+function dowsFromScope(scope: PadraoScope): number[] {
+  return scope === 'uteis' ? [1, 2, 3, 4, 5] : [scope]
+}
+
+/** Dia exibido na grade do template (a segunda representa os dias úteis). */
+function dowRepresentativo(scope: PadraoScope): number {
+  return scope === 'uteis' ? 1 : scope
+}
 
 const todayISO = () => {
   const d = new Date()
@@ -60,7 +77,7 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows }: GradeT
   const [filtroMarca, setFiltroMarca] = useState('')
   const [filtroApresentadora, setFiltroApresentadora] = useState('')
   const [editPadrao, setEditPadrao] = useState(false)
-  const [padraoDow, setPadraoDow] = useState(1) // segunda
+  const [padraoScope, setPadraoScope] = useState<PadraoScope>('uteis')
   const [popoverTarget, setPopoverTarget] = useState<GradeCellTarget | null>(null)
   const [copiarDiaOpen, setCopiarDiaOpen] = useState(false)
   const [copiarDestino, setCopiarDestino] = useState('')
@@ -120,9 +137,11 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows }: GradeT
   }, [dias])
 
   const padraoCelulas = ((gradePadrao.data?.celulas ?? []) as unknown as GradePadraoCelula[])
+  // Em "Seg–Sex" a segunda (dow 1) é a representativa — a migration 122 e o save
+  // multi-dow mantêm os 5 dias úteis sincronizados.
   const padraoDoDow = useMemo(
-    () => padraoCelulas.filter((c) => c.dia_semana === padraoDow),
-    [padraoCelulas, padraoDow],
+    () => padraoCelulas.filter((c) => c.dia_semana === dowRepresentativo(padraoScope)),
+    [padraoCelulas, padraoScope],
   )
 
   const celulasVisiveis = editPadrao ? padraoDoDow : dias.flatMap((d) => d.celulas)
@@ -136,7 +155,9 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows }: GradeT
       : new Date(`${date.slice(0, 7)}-01T00:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
   function onCellClick(base: Omit<GradeCellTarget, 'data' | 'diaSemana'>) {
-    setPopoverTarget(editPadrao ? { ...base, diaSemana: padraoDow } : { ...base, data: date })
+    setPopoverTarget(editPadrao
+      ? { ...base, diaSemana: dowRepresentativo(padraoScope) }
+      : { ...base, data: date })
     savePadraoMutation.reset(); deletePadraoMutation.reset()
     saveExcecaoMutation.reset(); deleteExcecaoMutation.reset()
   }
@@ -149,15 +170,16 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows }: GradeT
       hora_fim: popoverTarget.horaFim,
       ...values,
     }
-    if (editPadrao) savePadraoMutation.mutate({ ...base, dia_semana: popoverTarget.diaSemana })
+    // Em "Seg–Sex" grava nos 5 dias úteis de uma vez (backend usa unnest).
+    if (editPadrao) savePadraoMutation.mutate({ ...base, dias_semana: dowsFromScope(padraoScope) })
     else saveExcecaoMutation.mutate({ ...base, data: popoverTarget.data })
   }
 
   function onPopoverClear() {
     if (!popoverTarget?.celula) return
-    const { cabineId, horaInicio, horaFim, celula, data, diaSemana } = popoverTarget
-    if (editPadrao && diaSemana !== undefined) {
-      deletePadraoMutation.mutate({ dia_semana: diaSemana, cabine_id: cabineId, hora_inicio: horaInicio })
+    const { cabineId, horaInicio, horaFim, celula, data } = popoverTarget
+    if (editPadrao) {
+      deletePadraoMutation.mutate({ dias_semana: dowsFromScope(padraoScope), cabine_id: cabineId, hora_inicio: horaInicio })
       return
     }
     if (!data) return
@@ -215,19 +237,21 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows }: GradeT
           {editPadrao ? (
             <>
               <div className="rounded-xl border border-line bg-surface-muted px-4 py-2.5 text-sm font-semibold text-ink">
-                Você está editando o padrão semanal — as mudanças repetem toda semana.
+                {padraoScope === 'uteis'
+                  ? 'Você está editando o padrão dos dias úteis — a mudança vale de segunda a sexta, toda semana.'
+                  : `Você está editando o padrão de ${padraoScope === 6 ? 'sábado' : 'domingo'} — repete toda semana.`}
               </div>
               <div className="inline-flex flex-wrap rounded-full border border-line bg-surface p-1">
-                {[1, 2, 3, 4, 5, 6, 0].map((dow) => (
+                {PADRAO_SCOPES.map((scope) => (
                   <button
-                    key={dow}
+                    key={String(scope.key)}
                     type="button"
-                    onClick={() => setPadraoDow(dow)}
+                    onClick={() => setPadraoScope(scope.key)}
                     className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
-                      padraoDow === dow ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
+                      padraoScope === scope.key ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
                     }`}
                   >
-                    {DIAS_SEMANA_LABELS[dow]}
+                    {scope.label}
                   </button>
                 ))}
               </div>

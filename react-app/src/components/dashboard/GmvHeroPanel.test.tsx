@@ -177,12 +177,28 @@ describe('GmvHeroPanel', () => {
     expect(html).not.toContain('gmv-chart-intraday')
   })
 
-  it('renders daily legend "Mês atual" (no "Mês anterior") in daily mode', () => {
+  it('renders daily legend com mês atual E "Mês anterior" (série comparativa)', () => {
     const html = renderToStaticMarkup(
       <GmvHeroPanel raw={{ ...baseRaw, gmv_diario_mes: dailyPoints }} />,
     )
     expect(html).toContain('Mês atual')
-    expect(html).not.toContain('Mês anterior')
+    expect(html).toContain('Mês anterior')
+  })
+
+  it('desenha a linha tracejada do mês anterior quando há prev > 0', () => {
+    const comPrev = dailyPoints.map((p) => ({ ...p, prev: p.gmv * 0.8 }))
+    const html = renderToStaticMarkup(
+      <GmvHeroPanel raw={{ ...baseRaw, gmv_diario_mes: comPrev }} />,
+    )
+    expect(html).toContain('stroke-dasharray="3 4"')
+  })
+
+  it('sem prev, não desenha a série comparativa no chart diário', () => {
+    const html = renderToStaticMarkup(
+      <GmvHeroPanel raw={{ ...baseRaw, gmv_diario_mes: dailyPoints }} />,
+    )
+    // só o marcador "hoje" usa 2 3; a série prev usaria 3 4
+    expect(html).not.toContain('stroke-dasharray="3 4"')
   })
 
   it('does NOT render daily chart when gmv_diario_mes is all zeros', () => {
