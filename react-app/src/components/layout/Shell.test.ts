@@ -11,8 +11,8 @@ describe('Shell layout source contract', () => {
     expect(shellSource).not.toContain(['Buscar', 'no', 'SaaS'].join(' '))
   })
 
-  it('guards the large desktop header behind the home route condition', () => {
-    expect(shellSource).toContain('const isHomeRoute')
-    expect(shellSource).toContain('isHomeRoute ?')
+  it('does not render the tenant header above the page content on desktop', () => {
+    expect(shellSource).not.toContain('isHomeRoute')
+    expect(shellSource).not.toContain('tenant_nome ?? user?.nome')
   })
 })

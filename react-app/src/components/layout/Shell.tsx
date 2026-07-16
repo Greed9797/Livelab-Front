@@ -143,8 +143,6 @@ export function Shell() {
   const [desktopExpanded, setDesktopExpanded] = useState(false)
   const theme = useThemeStore((state) => state.resolvedTheme)
   const user = useAuthStore((state) => state.user)
-  const location = useLocation()
-  const isHomeRoute = location.pathname === '/' || location.pathname === '/master'
 
   return (
     <div className="livelab-shell min-h-screen" data-theme={theme}>
@@ -184,25 +182,6 @@ export function Shell() {
         </header>
 
         <main className="min-h-screen px-4 py-6 md:px-7 lg:px-8 lg:py-5">
-          {isHomeRoute ? (
-            <div className="mb-5 hidden items-center gap-3 border-b border-line pb-4 lg:flex">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand to-[#ff8a3c] text-sm font-bold text-white shadow-[0_4px_12px_-4px_rgba(255,90,31,0.55)]">
-                  {initials(user?.tenant_nome ?? user?.nome)}
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold leading-tight text-ink">{user?.tenant_nome ?? 'Livelab'}</p>
-                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-xs text-ink-muted">
-                    <span className="truncate">{user?.nome ?? 'Usuário'}</span>
-                    <span className="h-1 w-1 rounded-full bg-ink-muted/60" />
-                    <span className="rounded-full border border-line bg-surface px-2 py-0.5 font-semibold text-ink-muted">
-                      {roleLabel(user?.papel)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
           <Outlet />
         </main>
       </div>

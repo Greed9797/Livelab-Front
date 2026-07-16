@@ -6,8 +6,8 @@ import { GradeDiaView } from '../components/conteudo/GradeViews'
 import { corDaMarca, marcasPresentes, type GradeDia } from '../components/conteudo/gradeUtils'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { KpiStrip } from '../components/dashboard/KpiStrip'
+import { PageHeader } from '../components/ui/PageHeader'
 import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
-import { AoVivoPanel } from '../components/dashboard/AoVivoPanel'
 import { PresenterLeaderboard } from '../components/dashboard/PresenterLeaderboard'
 import { getGrade, getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -18,110 +18,22 @@ import type { Cabine, JsonRecord } from '../types/models'
 /* ── Page header ── */
 function PageHead({ liveCount }: { liveCount: number }) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <h1 className="m-0 text-2xl font-bold leading-tight tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          <span className="font-serif italic font-normal" style={{ color: 'var(--primary)' }}>Visão</span>{' '}
-          da unidade
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
-          Pulso operacional, comercial e financeiro — atualizado em tempo real.
-        </p>
-      </div>
-      {liveCount > 0 && (
-        <span
-          className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
-          style={{ background: 'var(--live-soft)', color: 'var(--live)', border: '1px solid var(--live)' }}
-        >
+    <PageHeader
+      accent="Visão"
+      title="da unidade"
+      subtitle="Pulso operacional, comercial e financeiro — atualizado em tempo real."
+      actions={
+        liveCount > 0 ? (
           <span
-            className="h-1.5 w-1.5 rounded-full animate-pulse"
-            style={{ background: 'var(--live)' }}
-          />
-          {liveCount} {liveCount === 1 ? 'live' : 'lives'} ao vivo agora
-        </span>
-      )}
-    </div>
-  )
-}
-
-/* ── Agenda card ── */
-function AgendaCard({ agenda }: { agenda: JsonRecord[] }) {
-  function parseHora(dt: string | undefined): string {
-    if (!dt) return '—'
-    const d = new Date(dt)
-    if (isNaN(d.getTime())) return dt.slice(0, 5)
-    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  }
-
-  const upcoming = agenda
-    .filter((ev) => {
-      const status = asString(ev.status, '')
-      return !status.includes('conclu') && !status.includes('cancel') && !status.includes('encerr')
-    })
-    .slice(0, 6)
-
-  return (
-    <div
-      className="flex flex-col rounded-xl overflow-hidden"
-      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
-    >
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Próximas lives · hoje
-        </h3>
-        <Link to="/conteudo?tab=agenda" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
-          Agenda completa →
-        </Link>
-      </div>
-      <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1 } as React.CSSProperties}>
-        {upcoming.length === 0 && (
-          <p className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
-            Nenhuma live agendada para hoje
-          </p>
-        )}
-        {upcoming.map((ev, i) => {
-          const hora = parseHora(asString(ev.data_inicio ?? ev.hora_inicio, ''))
-          const nome = asString(ev.cliente_nome ?? ev.marca_nome ?? ev.titulo)
-          const cabNum = asNumber(ev.cabine_numero ?? ev.numero)
-          const cab = cabNum > 0 ? `C-${String(cabNum).padStart(2, '0')}` : ''
-          const isLive = asString(ev.status, '').includes('ao_vivo') || asString(ev.status, '').includes('live')
-
-          return (
-            <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-              <div className="w-14 shrink-0">
-                <div
-                  className="text-[13px] font-semibold font-mono leading-none"
-                  style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
-                >
-                  {hora}
-                </div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  {isLive && <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--live)' }} />}
-                  <span className="truncate text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {nome}
-                  </span>
-                </div>
-                {asString(ev.apresentadora_nome ?? ev.apresentador_nome, '') && (
-                  <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                    {asString(ev.apresentadora_nome ?? ev.apresentador_nome)}
-                  </div>
-                )}
-              </div>
-              {cab && (
-                <span
-                  className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium font-mono"
-                  style={{ background: 'var(--bg-elev-3)', color: 'var(--text-muted)' }}
-                >
-                  {cab}
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
+            className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
+            style={{ background: 'var(--live-soft)', color: 'var(--live)', border: '1px solid var(--live)' }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: 'var(--live)' }} />
+            {liveCount} {liveCount === 1 ? 'live' : 'lives'} ao vivo agora
+          </span>
+        ) : null
+      }
+    />
   )
 }
 
@@ -232,7 +144,6 @@ export function DashboardPage() {
   const raw = (homeQuery.data ?? {}) as JsonRecord
   // Mês exibido: seleção manual > mes_referencia do backend > mês corrente
   const mesExibido = mesSelecionado ?? asString(raw.mes_referencia, currentMonth).slice(0, 7)
-  const agenda = asArray<JsonRecord>(raw.agenda_hoje ?? raw.proximas_lives_dia)
   const cabines = asArray<Cabine>(raw.cabines)
   const rankingApresentadoras = asArray<JsonRecord>(raw.ranking_apresentadoras_mes)
 
@@ -308,24 +219,21 @@ export function DashboardPage() {
       {/* Hero row */}
       <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 340px' }}>
         <GmvHeroPanel raw={raw} />
-        <div className="flex flex-col gap-4">
-          <PresenterLeaderboard
-            rows={rankingApresentadoras}
-            title="Pódio de apresentadoras"
-            subtitle="Top 3 do mês · GMV e comissão"
-            limit={3}
-            action={
-              <Link className="text-xs font-semibold text-brand hover:underline" to="/ranking/apresentadoras">
-                Ver ranking →
-              </Link>
-            }
-          />
-          <AgendaCard agenda={agenda} />
-        </div>
+        <PresenterLeaderboard
+          rows={rankingApresentadoras}
+          title="Pódio de apresentadoras"
+          subtitle="Top 5 do mês · GMV e comissão"
+          limit={5}
+          action={
+            <Link className="text-xs font-semibold text-brand hover:underline" to="/ranking/apresentadoras">
+              Ver ranking →
+            </Link>
+          }
+        />
       </div>
 
-      {/* Operations row */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 340px' }}>
+      {/* Grade de hoje — largura total */}
+      <div className="grid gap-4">
         <div
           className="flex flex-col gap-4 rounded-xl p-4"
           style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
@@ -354,8 +262,6 @@ export function DashboardPage() {
             />
           )}
         </div>
-
-        <AoVivoPanel liveCabines={liveCabines} />
       </div>
 
       {/* Ranking apresentadoras */}

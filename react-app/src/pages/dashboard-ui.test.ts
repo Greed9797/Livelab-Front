@@ -35,7 +35,6 @@ describe('Dashboard presenter ranking UI helpers', () => {
 
     expect(source).toContain('getHomeDashboard')
     expect(source).toContain('raw.cabines')
-    expect(source).toContain('raw.agenda_hoje')
     expect(source).not.toContain('getCabines')
     expect(source).not.toContain('getAgenda')
     expect(source).not.toContain('getComissoesApresentadoras')
