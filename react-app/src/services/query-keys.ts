@@ -23,6 +23,7 @@ export const QK = {
   comissoesDaLive: (liveId: string) => ['comissoes-da-live', liveId] as const,
   comissoesPorLive: (mes: string) => ['comissoes-por-live', mes] as const,
   clientes: (scope?: string) => (scope ? ['clientes', scope] : ['clientes']) as readonly string[],
+  clienteBriefing: (id: string) => ['cliente-briefing', id] as const,
   marcas: (scope?: string) => (scope ? ['marcas', scope] : ['marcas']) as readonly string[],
   apresentadoras: (scope?: string) => (scope ? ['apresentadoras', scope] : ['apresentadoras']) as readonly string[],
   leads: ['leads'] as const,

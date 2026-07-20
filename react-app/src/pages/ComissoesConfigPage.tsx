@@ -26,7 +26,7 @@ import type { JsonRecord } from '../types/models'
 
 type Tab = 'marca' | 'apresentadora'
 
-type VinculoStatus = 'ok' | 'sem_pct' | 'sem_video' | 'sem_vinculo'
+type VinculoStatus = 'ok' | 'sem_video' | 'sem_vinculo'
 
 // Assinatura do conjunto de faixas — "Padrão" quando as faixas ativas da
 // apresentadora batem exatamente com a escada padrão do tenant.
@@ -62,18 +62,12 @@ function vinculoTone(status: VinculoStatus): 'success' | 'warning' | 'danger' {
 function vinculoLabel(status: VinculoStatus): string {
   if (status === 'ok') return 'Vínculo OK'
   if (status === 'sem_vinculo') return 'Sem vínculo'
-  if (status === 'sem_video') return 'Sem % vídeo'
-  return 'Sem % live'
+  return 'Sem % vídeo'
 }
 
 function classifyVinculo(vinculo?: JsonRecord): VinculoStatus {
   if (!vinculo) return 'sem_vinculo'
-  const live = asNumber(vinculo.comissao_live_pct)
-  const video = asNumber(vinculo.comissao_video_pct)
-  if (live <= 0 && video <= 0) return 'sem_vinculo'
-  if (live <= 0) return 'sem_pct'
-  if (video <= 0) return 'sem_video'
-  return 'ok'
+  return asNumber(vinculo.comissao_video_pct) > 0 ? 'ok' : 'sem_video'
 }
 
 const thClass = 'px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted'
@@ -408,7 +402,7 @@ export function ComissoesConfigPage() {
         <Card>
           <CardHeader>
             <p className="text-base font-bold text-ink">Vínculos apresentadora × marca</p>
-            <p className="mt-1 text-xs text-ink-muted">% live e % vídeo definidos no cadastro de clientes e marcas em <Link className="text-brand underline" to="/comercial">Comercial</Link>.</p>
+            <p className="mt-1 text-xs text-ink-muted">% vídeo definido no cadastro de clientes e marcas em <Link className="text-brand underline" to="/comercial">Comercial</Link>.</p>
           </CardHeader>
           <CardBody className="p-0">
             <div className="overflow-x-auto">
@@ -417,7 +411,6 @@ export function ComissoesConfigPage() {
                   <tr className="border-b border-line">
                     <th className={`${thClass} text-left`}>Marca</th>
                     <th className={`${thClass} text-left`}>Apresentadora</th>
-                    <th className={`${thClass} text-right`}>% Live</th>
                     <th className={`${thClass} text-right`}>% Vídeo</th>
                     <th className={`${thClass} text-left`}>Status</th>
                   </tr>
@@ -432,7 +425,6 @@ export function ComissoesConfigPage() {
                           <td className="px-4 py-3 font-medium text-ink">{asString(marca.nome)}</td>
                           <td className="px-4 py-3 text-ink-muted italic">Nenhuma apresentadora vinculada</td>
                           <td className="num px-4 py-3 text-right text-ink-muted">—</td>
-                          <td className="num px-4 py-3 text-right text-ink-muted">—</td>
                           <td className="px-4 py-3"><Badge tone={vinculoTone(status)}>{vinculoLabel(status)}</Badge></td>
                         </tr>
                       )]
@@ -443,7 +435,6 @@ export function ComissoesConfigPage() {
                         <tr key={`marca-${asString(marca.id)}-${asString(v.apresentadora_id ?? v.id)}`}>
                           <td className="px-4 py-3 font-medium text-ink">{asString(marca.nome)}</td>
                           <td className="px-4 py-3 text-ink">{asString(v.apresentadora_nome ?? v.nome)}</td>
-                          <td className="num px-4 py-3 text-right text-ink">{asNumber(v.comissao_live_pct).toFixed(2)}%</td>
                           <td className="num px-4 py-3 text-right text-ink">{asNumber(v.comissao_video_pct).toFixed(2)}%</td>
                           <td className="px-4 py-3"><Badge tone={vinculoTone(status)}>{vinculoLabel(status)}</Badge></td>
                         </tr>

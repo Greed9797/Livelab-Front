@@ -49,3 +49,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .worktrees/
+
+# Metadados de ferramentas locais
+.serena/

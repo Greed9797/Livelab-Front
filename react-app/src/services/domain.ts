@@ -107,6 +107,24 @@ export function getClienteOperacional(id: string, params: Record<string, unknown
   return apiGet<JsonRecord>(`/clientes/${id}/operacional`, params)
 }
 
+export interface ClienteBriefing {
+  id: string
+  cliente_id: string
+  conteudo: string
+  atualizado_por_id: string | null
+  atualizado_por_nome: string | null
+  criado_em: string
+  atualizado_em: string
+}
+
+export function getClienteBriefing(id: string) {
+  return apiGet<ClienteBriefing | null>(`/clientes/${id}/briefing`)
+}
+
+export function saveClienteBriefing(id: string, conteudo: string) {
+  return apiPut<ClienteBriefing>(`/clientes/${id}/briefing`, { conteudo })
+}
+
 export function getRankingPublicoConfig() {
   return apiGet<JsonRecord>('/configuracoes/ranking-publico')
 }

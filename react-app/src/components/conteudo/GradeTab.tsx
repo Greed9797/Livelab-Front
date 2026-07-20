@@ -69,9 +69,11 @@ interface GradeTabProps {
   activeCabines: JsonRecord[]
   marcaRows: JsonRecord[]
   apresentadoraRows: JsonRecord[]
+  /** false = papel read-only: grade visível, ações de escrita escondidas. */
+  canWrite?: boolean
 }
 
-export function GradeTab({ activeCabines, marcaRows, apresentadoraRows }: GradeTabProps) {
+export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite = true }: GradeTabProps) {
   const [view, setView] = useState<GradeView>('dia')
   const [date, setDate] = useState(todayISO())
   const [filtroMarca, setFiltroMarca] = useState('')
@@ -155,6 +157,8 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows }: GradeT
       : new Date(`${date.slice(0, 7)}-01T00:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
   function onCellClick(base: Omit<GradeCellTarget, 'data' | 'diaSemana'>) {
+    // Read-only: a célula continua legível, mas não abre o popover de edição.
+    if (!canWrite) return
     setPopoverTarget(editPadrao
       ? { ...base, diaSemana: dowRepresentativo(padraoScope) }
       : { ...base, data: date })
@@ -221,16 +225,18 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows }: GradeT
               ))}
             </div>
             <div className="flex items-center gap-2">
-              {view === 'dia' && !editPadrao ? (
+              {canWrite && view === 'dia' && !editPadrao ? (
                 <Button variant="secondary" icon={Copy} onClick={() => setCopiarDiaOpen(true)}>Copiar dia</Button>
               ) : null}
-              <Button
-                variant={editPadrao ? 'primary' : 'secondary'}
-                icon={Pencil}
-                onClick={() => { setEditPadrao((cur) => !cur); setView('dia'); closePopover() }}
-              >
-                {editPadrao ? 'Sair do padrão' : 'Editar padrão'}
-              </Button>
+              {canWrite ? (
+                <Button
+                  variant={editPadrao ? 'primary' : 'secondary'}
+                  icon={Pencil}
+                  onClick={() => { setEditPadrao((cur) => !cur); setView('dia'); closePopover() }}
+                >
+                  {editPadrao ? 'Sair do padrão' : 'Editar padrão'}
+                </Button>
+              ) : null}
             </div>
           </div>
 

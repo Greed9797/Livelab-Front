@@ -28,6 +28,8 @@ export const emptyVideo = {
 export type VideoForm = typeof emptyVideo
 
 export interface VideosTabProps {
+  /** false = papel read-only: lista visível, ações de escrita escondidas. */
+  canWrite?: boolean
   videosData: JsonRecord[]
   marcaRows: JsonRecord[]
   apresentadoraRows: JsonRecord[]
@@ -46,6 +48,7 @@ export interface VideosTabProps {
 }
 
 export function VideosTab({
+  canWrite = true,
   videosData,
   marcaRows,
   apresentadoraRows,
@@ -68,9 +71,11 @@ export function VideosTab({
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-base font-bold text-ink">Vídeos gravados</p>
-            <Button icon={Plus} onClick={onOpenCreateVideoModal}>
-              Registrar vídeo
-            </Button>
+            {canWrite ? (
+              <Button icon={Plus} onClick={onOpenCreateVideoModal}>
+                Registrar vídeo
+              </Button>
+            ) : null}
           </div>
         </CardHeader>
         <CardBody>
@@ -111,11 +116,11 @@ export function VideosTab({
                 render: (item) =>
                   asNumber(item.pedidos_atribuidos).toLocaleString('pt-BR'),
               },
-              {
+              ...(canWrite ? [{
                 key: 'acoes',
                 header: 'Ações',
-                align: 'right',
-                render: (item) => (
+                align: 'right' as const,
+                render: (item: JsonRecord) => (
                   <div className="flex justify-end gap-2">
                     <Button
                       variant="secondary"
@@ -134,7 +139,7 @@ export function VideosTab({
                     </Button>
                   </div>
                 ),
-              },
+              }] : []),
             ]}
           />
         </CardBody>

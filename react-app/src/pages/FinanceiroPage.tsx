@@ -19,6 +19,7 @@ import { MoneyInput } from '../components/ui/MoneyInput'
 import { createFinanceiroCusto, deleteFinanceiroCusto, exportarComissoesCSV, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
+import { canWrite } from '../utils/access'
 import { asArray, asNumber, asString, formatDate, formatMoney, getRecord } from '../utils/format'
 import { parseBRMoneyToDecimal } from '../utils/money'
 import { downloadCsv } from '../utils/exportCsv'
@@ -161,6 +162,8 @@ export function FinanceiroPage() {
     },
   })
   const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
+  // financeiro_readonly e auditor alcançam /financeiro só para consultar — sem form de custos.
+  const podeEscrever = canWrite(user)
 
   const raw = resumo.data ?? {}
   const clientesRaw = asArray<JsonRecord>(faturamento.data?.clientes ?? faturamento.data?.por_cliente ?? faturamento.data?.items ?? faturamento.data)
@@ -360,6 +363,7 @@ export function FinanceiroPage() {
                 <p className="mt-1 text-xs text-ink-muted">Lançamentos de um mês — independem do intervalo selecionado acima.</p>
               </CardHeader>
               <CardBody className="space-y-3">
+                {podeEscrever ? (
                 <form className="grid gap-3" onSubmit={onCustoSubmit}>
                   <input className="design-input h-11 w-full px-4" placeholder="Descrição" value={custo.descricao} onChange={(event) => setCustoField('descricao', event.target.value)} required />
                   <div className="grid gap-3 sm:grid-cols-3">
@@ -372,6 +376,7 @@ export function FinanceiroPage() {
                   {createCusto.isError || custos.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createCusto.error ?? custos.error)}</p> : null}
                   <Button type="submit" icon={Receipt} isLoading={createCusto.isPending}>Adicionar custo</Button>
                 </form>
+                ) : null}
                 <div className="space-y-2 border-t border-line pt-3">
                   {custosRows.length === 0 ? (
                     <EmptyState title="Sem custos no mês" description="Nenhum custo lançado para a competência selecionada." />
@@ -389,7 +394,9 @@ export function FinanceiroPage() {
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <span className="num text-sm font-bold text-ink">{formatMoney(item.valor, true)}</span>
-                          <Button variant="ghost" disabled={deleteCusto.isPending} onClick={() => void deleteCusto.mutate(asString(item.id, ''))}>Excluir</Button>
+                          {podeEscrever ? (
+                            <Button variant="ghost" disabled={deleteCusto.isPending} onClick={() => void deleteCusto.mutate(asString(item.id, ''))}>Excluir</Button>
+                          ) : null}
                         </div>
                       </div>
                     )

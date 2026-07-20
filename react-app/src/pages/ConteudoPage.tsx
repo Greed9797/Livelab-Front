@@ -40,6 +40,8 @@ import {
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString } from '../utils/format'
+import { canWrite } from '../utils/access'
+import { useCurrentUser } from '../stores/auth-store'
 import { parseBRMoneyToDecimal } from '../utils/money'
 import type { JsonRecord } from '../types/models'
 import type { AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
@@ -130,6 +132,9 @@ function mergeAgendaWithLiveFallbacks(
 }
 
 export function ConteudoPage() {
+  // Papéis read-only (auditor, suporte, marketing, comercial_readonly, …) chegam nesta
+  // página para consultar; escondemos as ações de escrita em vez de deixar o backend 403.
+  const podeEscrever = canWrite(useCurrentUser())
   const [params, setParams] = useSearchParams()
   const requestedTab = normalizeConteudoTab(params.get('tab'))
   const requestedCabineId = params.get('cabine') ?? ''
@@ -336,6 +341,7 @@ export function ConteudoPage() {
           activeCabines={activeCabines as unknown as JsonRecord[]}
           marcaRows={marcaRows}
           apresentadoraRows={apresentadoraRows}
+          canWrite={podeEscrever}
         />
       ) : null}
 
@@ -371,6 +377,7 @@ export function ConteudoPage() {
       {tab === 'lives' ? (
         <Suspense fallback={<LoadingState />}>
         <LivesTab
+          canWrite={podeEscrever}
           livesData={livesList.data ?? []}
           dateRange={livesDateRange}
           onDateRangeChange={setLivesDateRange}
@@ -398,7 +405,7 @@ export function ConteudoPage() {
             const nextParams = new URLSearchParams(params); nextParams.delete('live'); setParams(nextParams, { replace: true })
           }}
           onCopyLiveReport={(text) => void navigator.clipboard.writeText(text).then(() => { setReportCopied(true); setTimeout(() => setReportCopied(false), 2000) })}
-          onInlineSaveLive={(id, payload) => updateLiveMutation.mutateAsync({ id, payload })}
+          onInlineSaveLive={podeEscrever ? (id, payload) => updateLiveMutation.mutateAsync({ id, payload }) : undefined}
           duplicateLiveIds={duplicateLiveIds}
           duplicateClusterCount={dupClusters.length}
         />
@@ -428,6 +435,7 @@ export function ConteudoPage() {
       {tab === 'videos' ? (
         <Suspense fallback={<LoadingState />}>
         <VideosTab
+          canWrite={podeEscrever}
           videosData={videos.data ?? []}
           marcaRows={marcaRows}
           apresentadoraRows={apresentadoraRows}

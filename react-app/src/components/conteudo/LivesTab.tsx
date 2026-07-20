@@ -688,6 +688,8 @@ function InlineApresentadoraCell({
 // ─── types ─────────────────────────────────────────────────────────────────
 
 export interface LivesTabProps {
+  /** false = papel read-only: lista visível, ações de escrita escondidas. */
+  canWrite?: boolean
   livesData: JsonRecord[]
   liveModalMode: 'detail' | null
   selectedLiveRecord: JsonRecord | null
@@ -716,6 +718,7 @@ export interface LivesTabProps {
 // ─── main component ────────────────────────────────────────────────────────
 
 export function LivesTab({
+  canWrite = true,
   livesData,
   liveModalMode,
   selectedLiveRecord,
@@ -1142,6 +1145,7 @@ export function LivesTab({
         </div>
 
         {/* add button */}
+        {canWrite ? (
         <button
           type="button"
           style={{
@@ -1165,6 +1169,7 @@ export function LivesTab({
           <Plus style={{ width: 14, height: 14, strokeWidth: 2.2 }} />
           Cadastrar live
         </button>
+        ) : null}
       </div>
 
       {/* ── Table ── */}
@@ -1646,7 +1651,8 @@ export function LivesTab({
                             <ExternalLink style={{ width: 13, height: 13 }} />
                           </button>
 
-                          {/* Kebab */}
+                          {/* Kebab — só para quem pode editar/excluir */}
+                          {canWrite ? (
                           <div
                             style={{ position: 'relative' }}
                             onClick={(e) => e.stopPropagation()}
@@ -1670,6 +1676,7 @@ export function LivesTab({
                               <MoreHorizontal style={{ width: 13, height: 13 }} />
                             </button>
                           </div>
+                          ) : null}
                         </div>
                       </div>
                     )
@@ -1829,23 +1836,25 @@ export function LivesTab({
               )
             })()}
 
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                icon={Edit2}
-                onClick={() => onOpenEditLive(selectedLiveRecord)}
-              >
-                Editar
-              </Button>
-              <Button
-                variant="danger"
-                icon={Trash2}
-                isLoading={deleteLiveMutation.isPending}
-                onClick={() => onDeleteLive(selectedLiveRecord)}
-              >
-                Excluir
-              </Button>
-            </div>
+            {canWrite ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="secondary"
+                  icon={Edit2}
+                  onClick={() => onOpenEditLive(selectedLiveRecord)}
+                >
+                  Editar
+                </Button>
+                <Button
+                  variant="danger"
+                  icon={Trash2}
+                  isLoading={deleteLiveMutation.isPending}
+                  onClick={() => onDeleteLive(selectedLiveRecord)}
+                >
+                  Excluir
+                </Button>
+              </div>
+            ) : null}
 
             {deleteLiveMutation.isError ? (
               <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">

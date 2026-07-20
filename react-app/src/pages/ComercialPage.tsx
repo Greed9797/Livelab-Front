@@ -12,6 +12,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ImagePicker } from '../components/ui/ImagePicker'
 import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
+import { BriefingSection } from '../components/comercial/BriefingSection'
 import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, getMasterCrm, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
@@ -811,6 +812,10 @@ export function ComercialPage() {
                 {ativoUpdateMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
                 {ativoDeleteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoDeleteMutation.error)}</p> : null}
               </form>
+
+              {selectedAtivoKind === 'cliente' && selectedAtivoId ? (
+                <BriefingSection key={selectedAtivoId} clienteId={selectedAtivoId} />
+              ) : null}
 
               <section className="grid gap-4 xl:grid-cols-2">
                 <Card>

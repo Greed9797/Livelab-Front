@@ -95,6 +95,33 @@ export const cabineRoles: Role[] = [
 
 export const clienteRoles: Role[] = ['cliente_parceiro']
 
+/**
+ * Papéis que podem ESCREVER (criar/editar/excluir) na UI operacional e financeira.
+ * Espelha o que o backend aceita — os demais papéis veem a página em leitura e não
+ * devem renderizar botões de escrita.
+ *
+ * IMPORTANTE: não derivar de normalizeRole(). Ela colapsa gerente_comercial,
+ * financeiro_readonly, auditor, suporte, marketing e comercial_readonly em
+ * 'operacional', ou seja, daria escrita exatamente aos 6 papéis read-only.
+ * Por isso a checagem é feita no papel cru, igual ao writeRoles de BoletosPage.
+ */
+export const writeRoles: Role[] = [
+  'franqueador_master',
+  'admin_master',
+  'gerente_regional',
+  'franqueado',
+  'gerente',
+  'operacional',
+  'financeiro',
+  'produtor_live',
+  'apresentador',
+  'apresentadora',
+]
+
+export function canWrite(user: User | null): boolean {
+  return Boolean(user && writeRoles.includes(user.papel))
+}
+
 // Configurações unificada (ex-"Minha conta"): todos os papéis internos/ops/cabine
 // + master + apresentador. Admins veem o painel completo; os demais só conta/segurança.
 // Cliente parceiro fica de fora — usa o atalho próprio '/cliente/configuracoes'.
