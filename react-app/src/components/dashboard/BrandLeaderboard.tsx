@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 import { Target } from 'lucide-react'
 import type { JsonRecord } from '../../types/models'
 import { asNumber, asString, formatMoney } from '../../utils/format'
-import { corDaMarca } from '../conteudo/gradeUtils'
+import { resolveMarcaCor } from '../../utils/brandColor'
 import { getBrandImage } from '../../utils/favicon'
 
 type BrandLeaderboardProps = {
@@ -43,9 +43,9 @@ function normalizeRows(rows: JsonRecord[], limit?: number): BrandRow[] {
   const mapped = rows.map((r, i) => {
     const marcaId = asString(r.marca_id, '')
     const name = asString(r.nome ?? r.marca_nome, 'Sem marca')
-    // Sem coluna de cor no schema de marcas — cor determinística por id,
-    // a mesma usada na Grade/Agenda, então a marca tem a mesma cor em toda a app.
-    const color = marcaId ? corDaMarca(marcaId).solid : 'var(--text-muted)'
+    // Cor manual (marcas.cor, migration 125) ganha; NULL cai no hash
+    // determinístico por id — a mesma cor da Grade/Agenda em toda a app.
+    const color = marcaId ? resolveMarcaCor(r.cor, marcaId) : 'var(--text-muted)'
     const pctRaw = r.pct_meta_hora
     return {
       key: marcaId || `marca-${i}`,
