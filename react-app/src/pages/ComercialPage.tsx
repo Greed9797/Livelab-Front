@@ -1,4 +1,4 @@
-import { Building2, CircleDollarSign, Download, Eye, Handshake, LayoutDashboard, Plus, Store, Trash2, Users, Workflow } from 'lucide-react'
+import { Building2, CircleDollarSign, Download, Eye, Handshake, LayoutDashboard, Plus, Search, Store, Trash2, Users, Workflow } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -12,6 +12,10 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { ImagePicker } from '../components/ui/ImagePicker'
 import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
+import { MoneyInput } from '../components/ui/MoneyInput'
+import { useToast } from '../components/ui/Toast'
+import { normalizeMoneyInputText, parseBRMoneyToDecimal } from '../utils/money'
+import { extractBrandColor, resolveMarcaCor } from '../utils/brandColor'
 import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, getMasterCrm, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
@@ -24,6 +28,39 @@ import { useCurrentUser } from '../stores/auth-store'
 import type { JsonRecord } from '../types/models'
 
 type ComercialTab = 'dashboard' | 'crm' | 'ativos'
+
+// Vocabulário de status alinhado aos CHECKs do banco:
+// clientes (migrations 016/042) e marcas (migrations 080/121).
+const CLIENTE_STATUS_OPTIONS = ['ativo', 'inadimplente', 'cancelado', 'arquivado']
+const MARCA_STATUS_OPTIONS = ['ativa', 'pausada', 'inativa', 'arquivada']
+const STATUS_LABELS: Record<string, string> = {
+  ativo: 'Ativo',
+  ativa: 'Ativa',
+  pausada: 'Pausada',
+  inativa: 'Inativa',
+  inadimplente: 'Inadimplente',
+  cancelado: 'Cancelado',
+  cancelado_automaticamente: 'Cancelado (auto)',
+  arquivado: 'Arquivado',
+  arquivada: 'Arquivada',
+  negociacao: 'Negociação',
+  enviado: 'Enviado',
+  em_analise: 'Em análise',
+  pendencia_comercial: 'Pendência comercial',
+  aprovado: 'Aprovado',
+  onboarding: 'Onboarding',
+  risco_assumido: 'Risco assumido',
+  reprovado: 'Reprovado',
+}
+
+export function statusLabel(status: string) {
+  return STATUS_LABELS[status] ?? (status || '—')
+}
+
+// Busca insensível a acento/caixa (client-side).
+export function normalizarBusca(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
 
 const emptyClienteForm = {
   nome: '',
@@ -45,6 +82,8 @@ const emptyAfiliadoForm = {
   email: '',
   tiktok_username: '',
   logo_url: '',
+  comissao_franquia_pct: '',
+  cor: '', // '' = automática (extraída do logo ao salvar, senão hash)
   observacoes: '',
 }
 
@@ -62,13 +101,22 @@ export function ComercialPage() {
   const [clienteForm, setClienteForm] = useState(emptyClienteForm)
   const [afiliadoForm, setAfiliadoForm] = useState(emptyAfiliadoForm)
   const [selectedAtivo, setSelectedAtivo] = useState<JsonRecord | null>(null)
-  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', logo_url: '' })
+  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', logo_url: '', cor: '' })
+  // Cor da marca no modal de edição: null = intocada (mantém/extrai), 'manual' = hex
+  // escolhido no picker, 'clear' = botão "Automática" (PATCH cor: null).
+  const [ativoCorTouch, setAtivoCorTouch] = useState<'manual' | 'clear' | null>(null)
   const [auditMarcaId, setAuditMarcaId] = useState<string | null>(null)
+  const [busca, setBusca] = useState('')
+  const [filtroStatus, setFiltroStatus] = useState('todos')
+  const [mostrarTodos, setMostrarTodos] = useState(false)
+  // Linha mesclada (N cadastros) clicada: guarda o item para o seletor de registro.
+  const [dupEscolha, setDupEscolha] = useState<JsonRecord | null>(null)
   // Para cliente_ecommerce, o % de comissão vive na marca principal vinculada.
   // Guardamos o id dessa marca para salvar o % via updateMarca.
   const [marcaPctId, setMarcaPctId] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const user = useCurrentUser()
   const isMasterUser = user?.papel === 'franqueador_master'
   const [verArquivados, setVerArquivados] = useState(false)
@@ -93,6 +141,7 @@ export function ComercialPage() {
   const clienteMutation = useMutation({
     mutationFn: createCliente,
     onSuccess: () => {
+      toast.push('Cliente criado com sucesso.', 'success')
       setClienteForm(emptyClienteForm)
       setShowClienteForm(false)
       void queryClient.invalidateQueries({ queryKey: QK.clientes() })
@@ -104,6 +153,7 @@ export function ComercialPage() {
   const afiliadoMutation = useMutation({
     mutationFn: createMarca,
     onSuccess: () => {
+      toast.push('Afiliado criado com sucesso.', 'success')
       setAfiliadoForm(emptyAfiliadoForm)
       setShowAfiliadoForm(false)
       void queryClient.invalidateQueries({ queryKey: QK.marcas() })
@@ -130,6 +180,7 @@ export function ComercialPage() {
       kind === 'cliente' ? deleteCliente(id) : deleteMarca(id)
     ),
     onSuccess: () => {
+      toast.push('Cadastro excluído.', 'success')
       setSelectedAtivo(null)
       void queryClient.invalidateQueries({ queryKey: QK.clientes() })
       void queryClient.invalidateQueries({ queryKey: QK.marcas() })
@@ -207,7 +258,8 @@ export function ComercialPage() {
       const key = `${asString(item.tipo_operacional)}:${asString(item.nome).trim().toLowerCase()}`
       const existing = unique.get(key)
       if (!existing) {
-        unique.set(key, item)
+        // duplicados = registros originais por trás da linha mesclada (seletor de edição)
+        unique.set(key, { ...item, duplicados: [item] })
         continue
       }
       unique.set(key, {
@@ -218,11 +270,31 @@ export function ComercialPage() {
         lives_mes: asNumber(existing.lives_mes ?? existing.total_lives) + asNumber(item.lives_mes ?? item.total_lives),
         videos_mes: asNumber(existing.videos_mes ?? existing.quantidade_videos) + asNumber(item.videos_mes ?? item.quantidade_videos),
         duplicado_count: asNumber(existing.duplicado_count, 1) + 1,
+        duplicados: [...asArray<JsonRecord>(existing.duplicados), item],
       })
     }
 
     return [...unique.values()]
   }, [clientes, marcas])
+
+  const statusDisponiveis = useMemo(
+    () => [...new Set(ativos.map((item) => asString(item.status)).filter(Boolean))].sort(),
+    [ativos],
+  )
+
+  const ativosFiltrados = useMemo(() => {
+    const q = normalizarBusca(busca.trim())
+    return ativos.filter((item) => {
+      if (filtroStatus !== 'todos' && asString(item.status) !== filtroStatus) return false
+      if (!q) return true
+      return [item.nome, item.marca_principal, item.tipo_operacional, item.status, statusLabel(asString(item.status))]
+        .some((value) => normalizarBusca(asString(value)).includes(q))
+    })
+  }, [ativos, busca, filtroStatus])
+
+  // ponytail: paginação simples — mostra 50 e um "Mostrar todos"; troque por paginação real se a carteira passar de centenas.
+  const LIMITE_LINHAS = 50
+  const ativosVisiveis = mostrarTodos ? ativosFiltrados : ativosFiltrados.slice(0, LIMITE_LINHAS)
 
   // Atualiza % de comissão na marca principal (usado quando o item é cliente_ecommerce).
   const updateMarcaPctMutation = useMutation({
@@ -254,7 +326,7 @@ export function ComercialPage() {
       ...current,
       comissao_franquia_pct: asString(principal.comissao_franquia_pct ?? 0, '0'),
       comissao_franqueadora_pct: asString(principal.comissao_franqueadora_pct ?? 0, '0'),
-      valor_fixo_minimo: asString(principal.valor_fixo_minimo ?? 0, '0'),
+      valor_fixo_minimo: normalizeMoneyInputText(asString(principal.valor_fixo_minimo ?? 0, '0')),
     }))
   }, [ativoDetailQuery.data, selectedAtivoKind, selectedAtivoId])
 
@@ -312,18 +384,30 @@ export function ComercialPage() {
   }
 
   function openAtivo(item: JsonRecord) {
+    const isCliente = asString(item.tipo_operacional) === 'cliente_ecommerce'
     setMarcaPctId(null) // evita salvar % na marca do item anterior antes do effect repopular
     setSelectedAtivo(item)
+    setAtivoCorTouch(null)
     setAtivoForm({
       nome: asString(item.nome, ''),
-      status: asString(item.status, 'ativo'),
+      status: asString(item.status, isCliente ? 'ativo' : 'ativa'),
       email: asString(item.email, ''),
       celular: asString(item.celular ?? item.whatsapp, ''),
       comissao_franquia_pct: asString(item.comissao_franquia_pct ?? 0, '0'),
       comissao_franqueadora_pct: asString(item.comissao_franqueadora_pct ?? 0, '0'),
-      valor_fixo_minimo: asString(item.valor_fixo_minimo ?? 0, '0'),
+      valor_fixo_minimo: normalizeMoneyInputText(asString(item.valor_fixo_minimo ?? 0, '0')),
       logo_url: asString(item.logo_url, ''),
+      cor: asString(item.cor, ''),
     })
+  }
+
+  // Clique na linha/Detalhes: item mesclado (N>1) abre seletor de qual registro editar.
+  function abrirAtivo(item: JsonRecord) {
+    if (asArray<JsonRecord>(item.duplicados).length > 1) {
+      setDupEscolha(item)
+      return
+    }
+    openAtivo(item)
   }
 
   function onClienteSubmit(event: FormEvent<HTMLFormElement>) {
@@ -346,14 +430,21 @@ export function ComercialPage() {
     })
   }
 
-  function onAfiliadoSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onAfiliadoSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    // Cor: manual vence; sem manual, tenta extrair do logo (falha = sem cor, hash cobre).
+    let cor: string | undefined = afiliadoForm.cor || undefined
+    if (!cor && afiliadoForm.logo_url) cor = (await extractBrandColor(afiliadoForm.logo_url)) ?? undefined
     afiliadoMutation.mutate({
       nome: afiliadoForm.nome,
       tipo: 'afiliada',
       status: 'ativa',
       tiktok_username: afiliadoForm.tiktok_username || undefined,
       logo_url: afiliadoForm.logo_url || undefined,
+      ...(cor ? { cor } : {}),
+      // Comissão tem coluna própria (comissao_franquia_pct); não vai mais em observações.
+      ...(afiliadoForm.comissao_franquia_pct !== '' ? { comissao_franquia_pct: Number(afiliadoForm.comissao_franquia_pct) } : {}),
+      // Responsável/WhatsApp/E-mail não têm coluna em marcas — permanecem em observações.
       observacoes: [
         afiliadoForm.responsavel ? `Responsável: ${afiliadoForm.responsavel}` : '',
         afiliadoForm.whatsapp ? `WhatsApp: ${afiliadoForm.whatsapp}` : '',
@@ -368,22 +459,34 @@ export function ComercialPage() {
     if (!selectedAtivo) return
     const id = asString(selectedAtivo.id, '')
     const kind = selectedAtivoKind
-    const payload = kind === 'cliente'
-      ? {
-          nome: ativoForm.nome,
-          status: ativoForm.status,
-          email: ativoForm.email || undefined,
-          celular: ativoForm.celular || undefined,
-          logo_url: ativoForm.logo_url || null,
-        }
-      : {
-          nome: ativoForm.nome,
-          status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
-          comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
-          comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
-          valor_fixo_minimo: Number(ativoForm.valor_fixo_minimo || 0),
-          logo_url: ativoForm.logo_url || null,
-        }
+    let payload: JsonRecord
+    if (kind === 'cliente') {
+      payload = {
+        nome: ativoForm.nome,
+        status: ativoForm.status,
+        email: ativoForm.email || undefined,
+        celular: ativoForm.celular || undefined,
+        logo_url: ativoForm.logo_url || null,
+      }
+    } else {
+      // Cor: manual = hex escolhido; "Automática" = null (limpa); intocada e sem cor
+      // salva = tenta extrair do logo (falha = segue sem cor, hash cobre).
+      let cor: string | null | undefined
+      if (ativoCorTouch === 'manual') cor = ativoForm.cor || null
+      else if (ativoCorTouch === 'clear') cor = null
+      else if (!ativoForm.cor && ativoForm.logo_url) cor = (await extractBrandColor(ativoForm.logo_url)) ?? undefined
+      payload = {
+        nome: ativoForm.nome,
+        status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
+        comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
+        comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
+        valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
+        logo_url: ativoForm.logo_url || null,
+        ...(cor !== undefined ? { cor } : {}),
+      }
+      // Extração veio automática: reflete no form sem marcar como escolha manual.
+      if (typeof cor === 'string' && ativoCorTouch === null) setAtivoForm((current) => ({ ...current, cor }))
+    }
     try {
       await ativoUpdateMutation.mutateAsync({ id, kind, payload })
       // cliente_ecommerce: o % vive na marca principal — só salva após o cliente ok.
@@ -393,10 +496,11 @@ export function ComercialPage() {
           payload: {
             comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
             comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
-            valor_fixo_minimo: Number(ativoForm.valor_fixo_minimo || 0),
+            valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
           },
         })
       }
+      toast.push('Alterações salvas com sucesso.', 'success')
     } catch {
       // erros exibidos via *.isError nas mutations
     }
@@ -410,7 +514,10 @@ export function ComercialPage() {
     const nextStatus = kind === 'cliente'
       ? current === 'ativo' ? 'cancelado' : 'ativo'
       : current === 'ativa' ? 'inativa' : 'ativa'
-    ativoUpdateMutation.mutate({ id, kind, payload: { status: nextStatus } })
+    ativoUpdateMutation.mutate(
+      { id, kind, payload: { status: nextStatus } },
+      { onSuccess: () => toast.push(`Status atualizado para ${statusLabel(nextStatus)}.`, 'success') },
+    )
     setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
   }
 
@@ -424,7 +531,10 @@ export function ComercialPage() {
     const nextStatus = kind === 'cliente'
       ? (arquivado ? 'ativo' : 'arquivado')
       : (arquivado ? 'ativa' : 'arquivada')
-    ativoUpdateMutation.mutate({ id, kind, payload: { status: nextStatus } })
+    ativoUpdateMutation.mutate(
+      { id, kind, payload: { status: nextStatus } },
+      { onSuccess: () => toast.push(arquivado ? 'Cadastro desarquivado.' : 'Cadastro arquivado.', 'success') },
+    )
     setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
   }
 
@@ -432,7 +542,10 @@ export function ComercialPage() {
     if (!selectedAtivo) return
     const id = asString(selectedAtivo.id, '')
     const kind = selectedAtivoKind
-    const ok = window.confirm(`Excluir ${kind === 'cliente' ? 'cliente' : 'afiliado'}? Se houver histórico, a API pode bloquear a exclusão definitiva.`)
+    const ok = window.confirm(
+      `Excluir ${kind === 'cliente' ? 'o cliente' : 'o afiliado'} "${asString(selectedAtivo.nome)}"?\n\n`
+      + 'O cadastro sai da carteira. Se houver histórico de lives ou vídeos, a API pode bloquear a exclusão — nesse caso, prefira Arquivar.',
+    )
     if (!ok) return
     ativoDeleteMutation.mutate({ id, kind })
   }
@@ -541,13 +654,45 @@ export function ComercialPage() {
                   <Button variant="secondary" icon={Download} onClick={exportAtivosCsv}>Exportar CSV</Button>
                 </div>
               </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+                  <input
+                    className="design-input h-10 w-64 pl-9 pr-3"
+                    type="search"
+                    placeholder="Buscar por nome, tipo ou status"
+                    value={busca}
+                    onChange={(event) => { setBusca(event.target.value); setMostrarTodos(false) }}
+                  />
+                </div>
+                <select
+                  className="design-input h-10 px-3"
+                  aria-label="Filtrar por status"
+                  value={filtroStatus}
+                  onChange={(event) => { setFiltroStatus(event.target.value); setMostrarTodos(false) }}
+                >
+                  <option value="todos">Todos os status</option>
+                  {statusDisponiveis.map((status) => (
+                    <option key={status} value={status}>{statusLabel(status)}</option>
+                  ))}
+                </select>
+                {busca || filtroStatus !== 'todos' ? (
+                  <span className="text-xs text-ink-muted">{ativosFiltrados.length} de {ativos.length}</span>
+                ) : null}
+              </div>
             </CardHeader>
           </Card>
 
           <Card>
             <CardBody>
               <DataTable<JsonRecord>
-                data={ativos}
+                data={ativosVisiveis}
+                onRowClick={abrirAtivo}
+                footer={!mostrarTodos && ativosFiltrados.length > LIMITE_LINHAS ? (
+                  <Button variant="secondary" onClick={() => setMostrarTodos(true)}>
+                    Mostrar todos ({ativosFiltrados.length - LIMITE_LINHAS} restantes)
+                  </Button>
+                ) : undefined}
                 columns={[
                   { key: 'tipo_operacional', header: 'Tipo', render: (item) => <Badge tone="brand">{asString(item.tipo_operacional ?? item.tipo)}</Badge> },
                   {
@@ -570,7 +715,7 @@ export function ComercialPage() {
                     },
                   },
                   { key: 'marca_principal', header: 'Marca principal', render: (item) => asString(item.marca_principal) },
-                  { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, 'ativa'))}>{asString(item.status, 'ativa')}</Badge> },
+                  { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, 'ativa'))}>{statusLabel(asString(item.status, 'ativa'))}</Badge> },
                   {
                     key: 'acesso',
                     header: 'Acesso',
@@ -599,7 +744,13 @@ export function ComercialPage() {
                     align: 'right',
                     render: (item) => (
                       <div className="flex justify-end gap-2">
-                        <Button variant="secondary" icon={Eye} onClick={() => openAtivo(item)}>Detalhes</Button>
+                        <Button
+                          variant="secondary"
+                          icon={Eye}
+                          onClick={(event) => { event.stopPropagation(); abrirAtivo(item) }}
+                        >
+                          Detalhes
+                        </Button>
                       </div>
                     ),
                   },
@@ -691,7 +842,20 @@ export function ComercialPage() {
           <input className="design-input h-11 px-4" placeholder="Responsável" value={afiliadoForm.responsavel} onChange={(event) => setAfiliadoField('responsavel', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} />
-          <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value.replace(/@/g, ''))} />
+          <input className="design-input h-11 px-4" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value.replace(/@/g, ''))} />
+          <label className="block">
+            <span className="sr-only">Comissão Franquia (%)</span>
+            <input
+              className="design-input h-11 w-full px-4"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              placeholder="Comissão Franquia (%)"
+              value={afiliadoForm.comissao_franquia_pct}
+              onChange={(event) => setAfiliadoField('comissao_franquia_pct', event.target.value)}
+            />
+          </label>
           <div className="md:col-span-2">
             <ImagePicker
               label="Imagem da marca"
@@ -700,6 +864,14 @@ export function ComercialPage() {
               onFileSelect={(file) => uploadAfiliadoImage.mutate(file)}
               isUploading={uploadAfiliadoImage.isPending}
               helper="Aparece nos rankings de marca, agendas e telas operacionais."
+            />
+          </div>
+          <div className="md:col-span-2">
+            <CorMarcaField
+              cor={afiliadoForm.cor}
+              seed={afiliadoForm.nome}
+              onManual={(hex) => setAfiliadoField('cor', hex)}
+              onAuto={() => setAfiliadoField('cor', '')}
             />
           </div>
           <textarea className="design-input min-h-24 px-4 py-3 md:col-span-2" placeholder="Observações" value={afiliadoForm.observacoes} onChange={(event) => setAfiliadoField('observacoes', event.target.value)} />
@@ -738,12 +910,12 @@ export function ComercialPage() {
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Status</span>
                   <select className="design-input mt-2 h-11 w-full px-4" value={ativoForm.status} onChange={(event) => setAtivoForm((current) => ({ ...current, status: event.target.value }))}>
-                    <option value="ativo">Ativo</option>
-                    <option value="ativa">Ativa</option>
-                    <option value="pausada">Pausada</option>
-                    <option value="inativa">Inativa</option>
-                    <option value="inadimplente">Inadimplente</option>
-                    <option value="cancelado">Cancelado</option>
+                    {(() => {
+                      const options = selectedAtivoKind === 'cliente' ? CLIENTE_STATUS_OPTIONS : MARCA_STATUS_OPTIONS
+                      // status atual fora da lista curta (ex.: funil do CRM) entra como opção para não ser trocado sem querer
+                      const withCurrent = options.includes(ativoForm.status) ? options : [ativoForm.status, ...options]
+                      return withCurrent.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)
+                    })()}
                   </select>
                 </label>
                 <div className="md:col-span-2">
@@ -756,6 +928,16 @@ export function ComercialPage() {
                     helper={selectedAtivoKind === 'cliente' ? 'Aparece nas agendas e rankings de marca quando este cliente for usado.' : 'Aparece nos rankings de marca, agendas e telas operacionais.'}
                   />
                 </div>
+                {selectedAtivoKind === 'marca' ? (
+                  <div className="md:col-span-2">
+                    <CorMarcaField
+                      cor={ativoForm.cor}
+                      seed={selectedAtivoId}
+                      onManual={(hex) => { setAtivoCorTouch('manual'); setAtivoForm((current) => ({ ...current, cor: hex })) }}
+                      onAuto={() => { setAtivoCorTouch('clear'); setAtivoForm((current) => ({ ...current, cor: '' })) }}
+                    />
+                  </div>
+                ) : null}
                 {selectedAtivoKind === 'cliente' ? (
                   <>
                     <label className="block">
@@ -782,14 +964,16 @@ export function ComercialPage() {
                     </label>
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" step="0.01" value={ativoForm.valor_fixo_minimo} onChange={(event) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: event.target.value }))} />
-                      <span className="mt-1 text-[11px] text-ink-muted">≈ {formatMoney(asNumber(ativoForm.valor_fixo_minimo))} / mês quando a marca tiver atividade (em franquia e franqueadora).</span>
+                      <MoneyInput className="design-input mt-2 h-11 w-full px-4" placeholder="0,00" value={ativoForm.valor_fixo_minimo} onChange={(raw) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: raw }))} />
+                      <span className="mt-1 text-[11px] text-ink-muted">≈ {formatMoney(parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo))} / mês quando a marca tiver atividade (em franquia e franqueadora).</span>
                     </label>
                 </>
                 <div className="flex flex-wrap items-end gap-2">
                   <Button type="submit" isLoading={ativoUpdateMutation.isPending}>Salvar alterações</Button>
                   <Button type="button" variant="secondary" onClick={() => toggleAtivoStatus()} disabled={ativoUpdateMutation.isPending}>
-                    {['ativo', 'ativa'].includes(ativoForm.status) ? 'Inativar' : 'Reativar'}
+                    {selectedAtivoKind === 'cliente'
+                      ? (ativoForm.status === 'ativo' ? 'Cancelar cliente' : 'Reativar')
+                      : (ativoForm.status === 'ativa' ? 'Inativar' : 'Reativar')}
                   </Button>
                   <Button type="button" variant="secondary" onClick={() => toggleArquivarAtivo()} disabled={ativoUpdateMutation.isPending}>
                     {['arquivada', 'arquivado'].includes(ativoForm.status) ? 'Desarquivar' : 'Arquivar'}
@@ -809,6 +993,7 @@ export function ComercialPage() {
                 </div>
                 {uploadAtivoImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadAtivoImage.error)}</p> : null}
                 {ativoUpdateMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
+                {updateMarcaPctMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">Comissão da marca principal não foi salva: {extractErrorMessage(updateMarcaPctMutation.error)}</p> : null}
                 {ativoDeleteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoDeleteMutation.error)}</p> : null}
               </form>
 
@@ -847,6 +1032,34 @@ export function ComercialPage() {
         </div>
       </Modal>
 
+      {/* ---- Seletor de cadastro — item mesclado (N cadastros) ---- */}
+      <Modal
+        open={Boolean(dupEscolha)}
+        title="Escolher cadastro"
+        subtitle="Este item agrupa vários cadastros com o mesmo nome. Escolha qual deles editar."
+        onClose={() => setDupEscolha(null)}
+      >
+        <div className="space-y-2">
+          {asArray<JsonRecord>(dupEscolha?.duplicados).map((registro) => (
+            <button
+              key={asString(registro.id)}
+              type="button"
+              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted px-4 py-3 text-left transition hover:border-[var(--border-strong)] hover:bg-surface"
+              onClick={() => { setDupEscolha(null); openAtivo(registro) }}
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-ink">{asString(registro.nome)}</span>
+                <span className="block text-[11px] text-ink-muted">id: {asString(registro.id)}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2">
+                <Badge tone="brand">{asString(registro.tipo_operacional ?? registro.tipo)}</Badge>
+                <Badge tone={statusTone(asString(registro.status))}>{statusLabel(asString(registro.status))}</Badge>
+              </span>
+            </button>
+          ))}
+        </div>
+      </Modal>
+
       {/* ---- Audit history modal — marca ---- */}
       <HistoricoAuditModal
         open={Boolean(auditMarcaId)}
@@ -855,6 +1068,36 @@ export function ComercialPage() {
         entityId={auditMarcaId ?? ''}
         titulo="Histórico de alterações — marca/afiliado"
       />
+    </div>
+  )
+}
+
+// Campo "Cor da marca": picker nativo + preview + botão Automática.
+// cor='' significa automática — o preview mostra a cor resolvida (hash por seed).
+function CorMarcaField({ cor, seed, onManual, onAuto }: {
+  cor: string
+  seed: string
+  onManual: (hex: string) => void
+  onAuto: () => void
+}) {
+  const preview = resolveMarcaCor(cor || null, seed)
+  return (
+    <div>
+      <span className="text-sm font-semibold text-ink">Cor da marca</span>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <input
+          type="color"
+          aria-label="Escolher cor da marca"
+          className="h-11 w-16 cursor-pointer rounded-xl border border-line bg-surface p-1"
+          value={preview}
+          onChange={(event) => onManual(event.target.value)}
+        />
+        <span aria-hidden className="h-6 w-6 shrink-0 rounded-full border border-line" style={{ background: preview }} />
+        <Button type="button" variant="secondary" onClick={onAuto} disabled={!cor}>Automática</Button>
+        <span className="text-[11px] text-ink-muted">
+          {cor ? `Cor manual ${cor}.` : 'Automática — extraída do logo ao salvar; sem logo, gerada a partir do cadastro.'}
+        </span>
+      </div>
     </div>
   )
 }

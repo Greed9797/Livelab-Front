@@ -128,16 +128,17 @@ function DeltaPill({ v }: { v: number }) {
 interface MetaBarProps {
   gmv: number
   meta: number | null
+  metaOrigem: string | null
   diaUtil: number
   diasUteisTotal: number
   ritmo: number | null
 }
 
-function MetaBar({ gmv, meta, diaUtil, diasUteisTotal, ritmo }: MetaBarProps) {
+function MetaBar({ gmv, meta, metaOrigem, diaUtil, diasUteisTotal, ritmo }: MetaBarProps) {
   if (meta === null) {
     return (
       <div className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
-        Meta —
+        Meta não definida · defina em Configurações → Metas
       </div>
     )
   }
@@ -160,6 +161,9 @@ function MetaBar({ gmv, meta, diaUtil, diasUteisTotal, ritmo }: MetaBarProps) {
           <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
             R$ {meta.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </span>
+          {metaOrigem === 'diaria_legada' ? (
+            <span style={{ color: 'var(--text-faint)' }}> · derivada da meta diária antiga</span>
+          ) : null}
         </span>
         <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
           {pct.toFixed(1).replace('.', ',')}% realizado
@@ -698,6 +702,8 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
   // meta — prefer new field names, fallback to legacy (raw.meta_mes ?? raw.meta_gmv)
   const metaRaw = raw.meta_mes ?? raw.meta_gmv
   const meta: number | null = metaRaw != null ? asNumber(metaRaw) || null : null
+  // meta_origem: 'mensal' | 'diaria_legada' | null (payload novo do back)
+  const metaOrigem: string | null = typeof raw.meta_origem === 'string' ? raw.meta_origem : null
 
   // ritmo from payload, or null so MetaBar calculates client-side
   const ritmo: number | null =
@@ -893,6 +899,7 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
       <MetaBar
         gmv={gmv}
         meta={meta}
+        metaOrigem={metaOrigem}
         diaUtil={diaUtil}
         diasUteisTotal={diasUteisTotal}
         ritmo={ritmo}

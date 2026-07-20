@@ -9,6 +9,7 @@ export interface GradeCelula {
   hora_fim: string
   marca_id: string
   marca_nome: string
+  marca_cor?: string | null
   marca_logo_url: string | null
   apresentadora_id: string | null
   apresentadora_nome: string | null
@@ -69,10 +70,10 @@ export function indexCelulas(celulas: GradeCelula[]): Map<string, GradeCelula> {
 }
 
 /** Marcas distintas presentes num conjunto de células (para legenda/chips). */
-export function marcasPresentes(celulas: GradeCelula[]): Array<{ id: string; nome: string }> {
-  const map = new Map<string, string>()
+export function marcasPresentes(celulas: GradeCelula[]): Array<{ id: string; nome: string; cor: string | null }> {
+  const map = new Map<string, { nome: string; cor: string | null }>()
   for (const c of celulas) {
-    if (c.marca_id && !map.has(c.marca_id)) map.set(c.marca_id, c.marca_nome)
+    if (c.marca_id && !map.has(c.marca_id)) map.set(c.marca_id, { nome: c.marca_nome, cor: c.marca_cor ?? null })
   }
-  return [...map.entries()].map(([id, nome]) => ({ id, nome }))
+  return [...map.entries()].map(([id, v]) => ({ id, nome: v.nome, cor: v.cor }))
 }

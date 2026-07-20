@@ -12,24 +12,24 @@ function isoDay(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-/** Segunda→domingo da semana que contém `dateISO`. */
+/** Domingo→sábado da semana que contém `dateISO`. */
 export function weekDays(dateISO: string): string[] {
   const d = new Date(`${dateISO}T00:00:00`)
-  const dow = (d.getDay() + 6) % 7 // segunda = 0
-  const monday = new Date(d)
-  monday.setDate(d.getDate() - dow)
+  const dow = d.getDay() // domingo = 0
+  const sunday = new Date(d)
+  sunday.setDate(d.getDate() - dow)
   return Array.from({ length: 7 }, (_, i) => {
-    const x = new Date(monday)
-    x.setDate(monday.getDate() + i)
+    const x = new Date(sunday)
+    x.setDate(sunday.getDate() + i)
     return isoDay(x)
   })
 }
 
-/** Grade 6×7 (42 dias) do mês de `dateISO`, começando na segunda. */
+/** Grade 6×7 (42 dias) do mês de `dateISO`, começando no domingo. */
 export function monthGridDays(dateISO: string): string[] {
   const d = new Date(`${dateISO}T00:00:00`)
   const first = new Date(d.getFullYear(), d.getMonth(), 1)
-  const dow = (first.getDay() + 6) % 7
+  const dow = first.getDay()
   const start = new Date(first)
   start.setDate(first.getDate() - dow)
   return Array.from({ length: 42 }, (_, i) => {

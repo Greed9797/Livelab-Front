@@ -4,11 +4,31 @@ import {
   eventIntersectsSaoPauloDate,
   formatSaoPauloTime,
   getAgendaEventLayout,
+  monthGridDays,
   publicationStatusLabel,
   publicationStatusTone,
+  weekDays,
 } from './conteudo-helpers'
 
 describe('conteudo helpers', () => {
+  it('week starts on Sunday and ends on Saturday', () => {
+    // 2026-05-20 é uma quarta-feira
+    expect(weekDays('2026-05-20')).toEqual([
+      '2026-05-17', '2026-05-18', '2026-05-19', '2026-05-20', '2026-05-21', '2026-05-22', '2026-05-23',
+    ])
+    // Domingo é o primeiro dia da própria semana
+    expect(weekDays('2026-05-17')[0]).toBe('2026-05-17')
+  })
+
+  it('month grid starts on the Sunday on/before day 1 and has 42 days', () => {
+    const days = monthGridDays('2026-05-20') // 01/05/2026 é sexta → grid começa dom 26/04
+    expect(days).toHaveLength(42)
+    expect(days[0]).toBe('2026-04-26')
+    expect(new Date(`${days[0]}T00:00:00`).getDay()).toBe(0)
+    expect(days).toContain('2026-05-01')
+    expect(days).toContain('2026-05-31')
+  })
+
   it('expands day agenda event height for the full scheduled interval', () => {
     expect(getAgendaEventLayout(
       {
