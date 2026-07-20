@@ -1,16 +1,21 @@
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { Sparkline } from '../charts/Sparkline'
+import { MetricInfo } from '../ui/MetricInfo'
 import { asNumber } from '../../utils/format'
+import type { MetricKey } from '../../utils/metricGlossary'
 import type { JsonRecord } from '../../types/models'
 
 interface KpiItemProps {
   label: string
   value: string
+  /** Chave do glossário central — define o conteúdo do tooltip do KPI. */
+  metric: MetricKey
   delta?: number
   spark?: number[]
   sparkColor?: string
   prefix?: string
   suffix?: string
+  align?: 'left' | 'right'
 }
 
 // undefined = sem base de comparação → não renderiza o pill (evita "+0.0%" falso)
@@ -35,15 +40,16 @@ function DeltaPill({ d }: { d: number }) {
   )
 }
 
-function KpiItem({ label, value, delta: d, spark, sparkColor, prefix, suffix }: KpiItemProps) {
+function KpiItem({ label, value, metric, delta: d, spark, sparkColor, prefix, suffix, align }: KpiItemProps) {
   return (
     <div
       className="flex flex-col justify-between gap-3 rounded-xl p-4"
       style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-          {label}
+        <span className="flex min-w-0 items-center gap-1 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+          <span className="truncate">{label}</span>
+          <MetricInfo metric={metric} align={align} />
         </span>
         {d !== undefined && <DeltaPill d={d} />}
       </div>
@@ -97,8 +103,16 @@ export function KpiStrip({ raw }: KpiStripProps) {
   const horasPrev = asNumber(raw.horas_prev)
   const videosMes = asNumber(raw.videos_mes ?? raw.total_videos)
   const videosPrev = asNumber(raw.videos_prev)
-  // GMV/live e GMV/hora são métricas de live: numerador é o GMV de lives.
-  const gmvPorLive = asNumber(raw.gmv_por_live ?? raw.gmv_por_live_mes) || (livesMes > 0 ? gmvLivesMes / livesMes : 0)
+  // GMV/hora usa só GMV de lives, igual ao backend (home.js:922, mesma
+  // convenção do analytics.js).
+  //
+  // GMV/live NÃO segue essa convenção: o backend faz gmvMes / livesMes
+  // (home.js:920), ou seja, o numerador INCLUI o GMV de vídeos. É inconsistente
+  // com o GMV/hora ao lado, mas o fallback espelha o backend de propósito —
+  // divergir aqui faria o card mostrar fórmula diferente conforme o backend
+  // mandar valor ou zero. Uniformizar as duas métricas é decisão de produto:
+  // muda número exibido em produção.
+  const gmvPorLive = asNumber(raw.gmv_por_live ?? raw.gmv_por_live_mes) || (livesMes > 0 ? gmvMes / livesMes : 0)
   const gmvPorLivePrev = asNumber(raw.gmv_por_live_prev)
   const gmvPorHora = asNumber(raw.gmv_por_hora ?? raw.gmv_por_hora_mes ?? raw.gmv_hora) || (horasLive > 0 ? gmvLivesMes / horasLive : 0)
   const gmvPorHoraPrev = asNumber(raw.gmv_por_hora_prev)
@@ -117,6 +131,7 @@ export function KpiStrip({ raw }: KpiStripProps) {
   const items: KpiItemProps[] = [
     {
       label: 'GMV — Mês',
+      metric: 'home.gmv_total',
       value: fmtCompact(gmvMes),
       prefix: 'R$',
       delta: delta(gmvMes, gmvPrev),
@@ -124,6 +139,7 @@ export function KpiStrip({ raw }: KpiStripProps) {
     },
     {
       label: 'Lives realizadas',
+      metric: 'home.lives',
       value: livesMes.toLocaleString('pt-BR'),
       delta: delta(livesMes, livesPrev),
       spark: livesSpark,
@@ -131,6 +147,7 @@ export function KpiStrip({ raw }: KpiStripProps) {
     },
     {
       label: 'Horas em live',
+      metric: 'home.horas_live',
       value: horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 }),
       suffix: 'h',
       delta: delta(horasLive, horasPrev),
@@ -139,6 +156,7 @@ export function KpiStrip({ raw }: KpiStripProps) {
     },
     {
       label: 'Vídeos gravados',
+      metric: 'home.videos',
       value: videosMes.toLocaleString('pt-BR'),
       delta: delta(videosMes, videosPrev),
       spark: videosSpark,
@@ -146,12 +164,14 @@ export function KpiStrip({ raw }: KpiStripProps) {
     },
     {
       label: 'GMV / live',
+      metric: 'home.gmv_por_live',
       value: fmtCompact(gmvPorLive),
       prefix: 'R$',
       delta: delta(gmvPorLive, gmvPorLivePrev),
     },
     {
       label: 'GMV / hora',
+      metric: 'home.gmv_por_hora',
       value: fmtCompact(gmvPorHora),
       prefix: 'R$',
       delta: delta(gmvPorHora, gmvPorHoraPrev),
@@ -160,8 +180,9 @@ export function KpiStrip({ raw }: KpiStripProps) {
 
   return (
     <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
-      {items.map((item) => (
-        <KpiItem key={item.label} {...item} />
+      {items.map((item, index) => (
+        // Últimas colunas ancoram o popover à direita para não vazar da faixa.
+        <KpiItem key={item.label} {...item} align={index >= 4 ? 'right' : 'left'} />
       ))}
     </div>
   )

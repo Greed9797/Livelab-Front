@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { MetricCard } from '../components/ui/MetricCard'
+import { MetricInfo } from '../components/ui/MetricInfo'
 import { LinePanel } from '../components/charts/Charts'
 import { ReceitaWaterfall } from '../components/charts/ReceitaWaterfall'
 import { FinanceiroHeroPanel } from '../components/dashboard/FinanceiroHeroPanel'
@@ -39,6 +40,7 @@ import {
 import { historyPoints, metric, moneyMetric } from './page-helpers'
 import { BoletosPanel } from './BoletosPage'
 import { QK } from '../services/query-keys'
+import type { MetricKey } from '../utils/metricGlossary'
 import type { JsonRecord } from '../types/models'
 
 type FinanceiroTab = 'operacional' | 'cliente' | 'comissoes' | 'franqueadora'
@@ -198,6 +200,25 @@ export function FinanceiroPage() {
     metric('Comissão ausente', comissaoFaltante, 'lives com GMV sem comissão', comissaoFaltante > 0 ? 'danger' : 'neutral'),
   ]
   const metricIcons = [CircleDollarSign, Percent, Receipt, AlertTriangle]
+  const metricKeys: MetricKey[] = [
+    'financeiro.gmv_total',
+    'financeiro.receita_liquida',
+    'financeiro.total_custos',
+    'financeiro.comissao_faltante',
+  ]
+  // "Neste período": reaproveita a memória de cálculo que /financeiro/resumo já
+  // devolve (gmv_lives, gmv_videos, fixo_mensal). Mostrar o número real que o
+  // backend usou vale mais que repetir a fórmula genérica. Custos e comissão
+  // ausente não têm decomposição no payload → só o glossário.
+  const comissaoVariavel = asNumber(raw.receita_liquida) - comissaoFixo
+  const metricDetails: (string | undefined)[] = [
+    `${formatMoney(raw.gmv_total ?? raw.fat_bruto)} = lives ${formatMoney(raw.gmv_lives)} (${num(raw.total_lives)}) + vídeos ${formatMoney(raw.gmv_videos)} (${num(raw.total_videos)})`,
+    comissaoFixo > 0
+      ? `${formatMoney(raw.receita_liquida)} = variável ${formatMoney(comissaoVariavel)} + fixo mensal ${formatMoney(comissaoFixo)}`
+      : `${formatMoney(raw.receita_liquida)} — só comissão variável; nenhuma marca com fixo mensal no período`,
+    undefined,
+    undefined,
+  ]
 
   const fluxoItems = historyPoints(fluxo.data?.items ?? fluxo.data?.fluxo ?? fluxo.data?.history)
     .map((point) => ({ ...point, label: dmLabel(point.label) }))
@@ -309,7 +330,15 @@ export function FinanceiroPage() {
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {metrics.map((item, index) => (
-              <MetricCard key={item.label} metric={item} icon={metricIcons[index]} />
+              // MetricCard é compartilhado por várias telas e não expõe slot de
+              // ajuda; o ícone é ancorado no canto inferior direito do card (o
+              // superior direito já é do ícone da métrica). Absoluto = não empurra.
+              <div key={item.label} className="relative">
+                <MetricCard metric={item} icon={metricIcons[index]} />
+                <span className="absolute bottom-5 right-5">
+                  <MetricInfo metric={metricKeys[index]} detail={metricDetails[index]} align="right" />
+                </span>
+              </div>
             ))}
           </section>
 
