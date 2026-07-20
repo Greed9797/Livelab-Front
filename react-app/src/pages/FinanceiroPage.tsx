@@ -16,10 +16,10 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { createFinanceiroCusto, deleteFinanceiroCusto, exportarComissoesCSV, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
+import { createFinanceiroCusto, deleteFinanceiroCusto, exportarComissoesCSV, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroOperacional, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
-import { asArray, asNumber, asString, formatDate, formatMoney, getRecord } from '../utils/format'
+import { asArray, asNumber, asString, formatDate, formatMoney, formatPercent, getRecord } from '../utils/format'
 import { parseBRMoneyToDecimal } from '../utils/money'
 import { downloadCsv } from '../utils/exportCsv'
 import {
@@ -63,6 +63,89 @@ function tipoTone(tipo: string): 'brand' | 'info' | 'warning' | 'neutral' {
   if (tipo === 'afiliada') return 'info'
   if (tipo === 'marca') return 'warning'
   return 'neutral'
+}
+
+// ── Resultado operacional (GET /financeiro/operacional) ─────────────────────
+
+const OPERACIONAL_CATEGORIA_LABEL: Record<string, string> = {
+  comissao_franquia: 'Comissão de franquia',
+  fixo_marca: 'Fixo de marca',
+  comissao_apresentadora: 'Comissão apresentadora',
+  fixo_apresentadora: 'Fixo apresentadora',
+  custo_manual: 'Custo manual',
+}
+
+/** Memória de cálculo do lançamento em texto legível. */
+function memoriaText(categoria: string, memoria: JsonRecord): string {
+  switch (categoria) {
+    case 'comissao_franquia':
+      return `GMV ${formatMoney(memoria.gmv)} × ${formatPercent(memoria.pct_medio)} médio · ${num(memoria.lives)} lives`
+    case 'fixo_marca': {
+      const meses = asNumber(memoria.meses_ativos) || 1
+      return `Fixo mensal da marca, somado 1× por mês com atividade${meses > 1 ? ` · ${meses} meses ativos` : ''}`
+    }
+    case 'comissao_apresentadora':
+      return `GMV atribuído ${formatMoney(memoria.gmv_atribuido)} × ${formatPercent(memoria.pct_medio)} médio`
+    case 'fixo_apresentadora':
+      return 'Fixo mensal de apresentadora ativa (valor cadastrado, com teto padrão)'
+    case 'custo_manual':
+      return `Custo lançado manualmente · tipo ${asString(memoria.tipo, 'outros')}`
+    default:
+      return ''
+  }
+}
+
+function ResultadoOperacional({ data }: { data: JsonRecord }) {
+  const totais = getRecord(data.totais)
+  const resultado = asNumber(totais.resultado)
+  const lancamentos: (JsonRecord & { _entrada: boolean })[] = [
+    ...asArray<JsonRecord>(data.entradas).map((l) => ({ ...l, _entrada: true })),
+    ...asArray<JsonRecord>(data.saidas).map((l) => ({ ...l, _entrada: false })),
+  ]
+  lancamentos.sort((a, b) => asNumber(b.valor) - asNumber(a.valor))
+
+  return (
+    <section className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard metric={moneyMetric('Entradas', totais.entradas, 'comissão de franquia + fixos de marca', 'success')} icon={TrendingUp} />
+        <MetricCard metric={moneyMetric('Despesas fixas', totais.despesas_fixas, 'fixos de apresentadoras + custos fixos', 'warning')} icon={Building2} />
+        <MetricCard metric={moneyMetric('Despesas variáveis e comissões', totais.despesas_variaveis, 'comissões de apresentadoras + custos variáveis', 'warning')} icon={Percent} />
+        <MetricCard metric={moneyMetric('Resultado líquido', totais.resultado, 'entradas − despesas', resultado >= 0 ? 'success' : 'danger')} icon={CircleDollarSign} />
+      </div>
+      <Card>
+        <CardHeader>
+          <p className="text-base font-bold text-ink">Resultado operacional — lançamentos</p>
+          <p className="mt-1 text-xs text-ink-muted">Comissões e fixos entram automaticamente; custos manuais somam às saídas. Clique num lançamento para ver a memória de cálculo.</p>
+        </CardHeader>
+        {lancamentos.length === 0 ? (
+          <CardBody>
+            <EmptyState title="Sem lançamentos" description="Nenhuma comissão, fixo ou custo no período selecionado." />
+          </CardBody>
+        ) : (
+          <div>
+            {lancamentos.map((l, index) => (
+              <details key={`${asString(l.categoria)}-${index}`} className="border-b border-line last:border-b-0">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-2.5 hover:bg-surface-muted md:px-6">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Badge tone={l._entrada ? 'success' : 'danger'}>{l._entrada ? 'Entrada' : 'Saída'}</Badge>
+                    <span className="truncate text-sm font-semibold text-ink">{asString(l.descricao)}</span>
+                    <span className="hidden shrink-0 text-xs text-ink-muted sm:inline">{OPERACIONAL_CATEGORIA_LABEL[asString(l.categoria)] ?? asString(l.categoria)}</span>
+                  </div>
+                  <span className={`num shrink-0 text-sm font-bold ${l._entrada ? 'text-[var(--success)]' : 'text-ink'}`}>
+                    {l._entrada ? '+' : '−'} {formatMoney(l.valor, true)}
+                  </span>
+                </summary>
+                <p className="bg-surface-muted px-5 py-2 text-xs text-ink-muted md:px-6">{memoriaText(asString(l.categoria), getRecord(l.memoria))}</p>
+              </details>
+            ))}
+          </div>
+        )}
+        <p className="border-t border-line px-5 py-3 text-xs text-ink-muted md:px-6">
+          Supervisor e demais integrantes da equipe ainda não têm remuneração cadastrada no sistema — lance esses salários como custo manual (tipo salário).
+        </p>
+      </Card>
+    </section>
+  )
 }
 
 function TotalsBar({ items }: { items: { label: string; value: string }[] }) {
@@ -117,6 +200,7 @@ export function FinanceiroPage() {
   const resumo = useQuery({ queryKey: QK.financeiroResumo(pk), queryFn: () => getFinanceiroResumo(fp), enabled: !isCliente, placeholderData: keepPreviousData })
   const resumoPrev = useQuery({ queryKey: QK.financeiroResumo(`${periodKey(prevPeriod)}:prev`), queryFn: () => getFinanceiroResumo(financeiroParams(prevPeriod)), enabled: !isCliente && tab === 'operacional', placeholderData: keepPreviousData })
   const fluxo = useQuery({ queryKey: QK.financeiroFluxo(pk), queryFn: () => getFinanceiroFluxo(fp), enabled: !isCliente, placeholderData: keepPreviousData })
+  const operacional = useQuery({ queryKey: QK.financeiroOperacional(pk), queryFn: () => getFinanceiroOperacional(fp), enabled: !isCliente && tab === 'operacional', placeholderData: keepPreviousData })
   const faturamento = useQuery({ queryKey: QK.financeiroFaturamento(pk), queryFn: () => getFinanceiroFaturamento(fp), enabled: !isCliente, placeholderData: keepPreviousData })
   const custos = useQuery({ queryKey: QK.financeiroCustos(custo.competencia), queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
   const franqueadora = useQuery({ queryKey: QK.financeiroFranqueadora(pk), queryFn: () => getFinanceiroFranqueadora(fp), enabled: isMaster, placeholderData: keepPreviousData })
@@ -144,6 +228,7 @@ export function FinanceiroPage() {
       void client.invalidateQueries({ queryKey: QK.financeiroCustos() })
       void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
       void client.invalidateQueries({ queryKey: QK.financeiroFluxo() })
+      void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
     },
   })
   const deleteCusto = useMutation({
@@ -152,6 +237,7 @@ export function FinanceiroPage() {
       void client.invalidateQueries({ queryKey: QK.financeiroCustos() })
       void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
       void client.invalidateQueries({ queryKey: QK.financeiroFluxo() })
+      void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
     },
   })
   const reprocessar = useMutation({
@@ -160,6 +246,7 @@ export function FinanceiroPage() {
       void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
       void client.invalidateQueries({ queryKey: QK.comissoesApresentadoras })
       void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
+      void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
     },
   })
   const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
@@ -305,6 +392,15 @@ export function FinanceiroPage() {
               resultado={raw.fat_liquido}
             />
           </section>
+
+          {/* Resultado operacional — entradas × saídas automáticas com memória por lançamento */}
+          {operacional.data ? (
+            <ResultadoOperacional data={operacional.data} />
+          ) : operacional.isLoading ? (
+            <LoadingState label="Calculando resultado operacional" />
+          ) : operacional.isError ? (
+            <ErrorState message={extractErrorMessage(operacional.error)} onRetry={() => void operacional.refetch()} />
+          ) : null}
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {metrics.map((item, index) => (

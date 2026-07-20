@@ -509,6 +509,10 @@ export function getFinanceiroFaturamento(filters: Record<string, unknown> = {}) 
   return apiGet<JsonRecord>('/financeiro/faturamento', filters)
 }
 
+export function getFinanceiroOperacional(filters: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>('/financeiro/operacional', filters)
+}
+
 export function getFinanceiroCustos(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/financeiro/custos', filters)
 }
