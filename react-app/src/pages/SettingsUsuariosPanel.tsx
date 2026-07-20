@@ -86,7 +86,6 @@ const emptyForm: CreateFormState = {
   cliente_id: '',
   apresentadora_id: '',
   fixo: '2700',
-  meta_diaria_gmv: '',
   foto_url: '',
   senha_temporaria: '',
 }
@@ -96,7 +95,6 @@ const emptyEditForm = {
   papel: 'gerente',
   ativo: true,
   fixo: '2700',
-  meta_diaria_gmv: '',
   foto_url: '',
 }
 
@@ -214,7 +212,6 @@ export function SettingsUsuariosPanel() {
         presenterPayload.nome = ef.nome
         presenterPayload.ativo = ef.ativo
         if (ef.fixo !== '') presenterPayload.fixo = parseBRMoneyToDecimal(ef.fixo)
-        if (ef.meta_diaria_gmv !== '') presenterPayload.meta_diaria_gmv = parseBRMoneyToDecimal(ef.meta_diaria_gmv)
         presenterPayload.foto_url = ef.foto_url || null
       }
       if (isPresenterProfile(user)) return updateApresentadora(presenterIdResolved, presenterPayload)
@@ -297,7 +294,6 @@ export function SettingsUsuariosPanel() {
       papel: asString(item.papel, 'gerente'),
       ativo: ativoValue(item.ativo),
       fixo: isPresenterUser(item) || isPresenterProfile(item) ? presenterFixedValue(item) : asString(item.fixo_mensal ?? item.fixo, ''),
-      meta_diaria_gmv: asString(item.meta_diaria_gmv, ''),
       foto_url: asString(item.foto_url ?? item.apresentadora_foto_url, ''),
     })
   }
@@ -311,7 +307,6 @@ export function SettingsUsuariosPanel() {
       ...(form.papel === 'cliente_parceiro' ? { cliente_id: form.cliente_id } : {}),
       ...(isPresenterRole(form.papel) && form.apresentadora_id ? { apresentadora_id: form.apresentadora_id } : {}),
       ...(isPresenterRole(form.papel) && form.fixo !== '' ? { fixo: parseBRMoneyToDecimal(form.fixo) } : {}),
-      ...(isPresenterRole(form.papel) && form.meta_diaria_gmv !== '' ? { meta_diaria_gmv: parseBRMoneyToDecimal(form.meta_diaria_gmv) } : {}),
       ...(isPresenterRole(form.papel) && form.foto_url ? { foto_url: form.foto_url } : {}),
       senha_temporaria: form.senha_temporaria,
     })

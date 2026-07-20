@@ -8,7 +8,6 @@ import { extractErrorMessage } from '../../services/api'
 // a fonte é sempre a escada de faixas por GMV (seção "Escada de comissão").
 interface EditFormFields {
   fixo: string
-  meta_diaria_gmv: string
   foto_url: string
 }
 
@@ -25,7 +24,7 @@ export function ApresentadoraRemuneracao({ form, onFieldChange, uploadState, onF
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm font-bold text-ink">Remuneração da apresentadora</p>
-          <p className="mt-1 text-xs text-ink-muted">Foto, fixo e meta ficam juntos para evitar cadastro incompleto.</p>
+          <p className="mt-1 text-xs text-ink-muted">Foto e fixo ficam juntos para evitar cadastro incompleto.</p>
         </div>
         <Badge tone="success">fixo padrão R$ 2.700</Badge>
       </div>
@@ -41,10 +40,6 @@ export function ApresentadoraRemuneracao({ form, onFieldChange, uploadState, onF
         <label className="block">
           <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
           <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.fixo} onChange={(raw) => onFieldChange('fixo', raw)} />
-        </label>
-        <label className="block">
-          <span className="text-sm font-semibold text-ink">Meta diária GMV (R$)</span>
-          <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.meta_diaria_gmv} onChange={(raw) => onFieldChange('meta_diaria_gmv', raw)} />
         </label>
       </div>
       <p className="flex items-start gap-2 rounded-xl border border-dashed border-line bg-surface px-3 py-2.5 text-xs text-ink-muted">

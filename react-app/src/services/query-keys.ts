@@ -86,6 +86,8 @@ export const QK = {
     mes ? ['metas-apresentadoras', mes] as const : ['metas-apresentadoras'] as const,
   metasSupervisor: (mes?: string) =>
     mes ? ['metas-supervisor', mes] as const : ['metas-supervisor'] as const,
+  metasMarcasHora: (anoMes?: string) =>
+    anoMes ? ['metas-marcas-hora', anoMes] as const : ['metas-marcas-hora'] as const,
   analyticsDashboard: (period?: { mes: number; ano: number }) =>
     period ? ['analytics-dashboard', period] as const : ['analytics-dashboard'] as const,
   funilAnalytics: (mesAno: string, marcaId?: string, apresentadoraId?: string) =>

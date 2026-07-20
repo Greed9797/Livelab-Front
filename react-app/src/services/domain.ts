@@ -570,6 +570,10 @@ export function getMetaUnidade(anoMes?: string) {
   return apiGet<JsonRecord>('/meta-unidade', anoMes ? { ano_mes: anoMes } : {})
 }
 
+export function upsertMetaUnidade(anoMes: string, metaGmv: number) {
+  return apiPut<JsonRecord>('/meta-unidade', { ano_mes: anoMes, meta_gmv: metaGmv })
+}
+
 export function getUltimaLiveCabine(cabineId: string): Promise<{
   avg_fat_gerado?: number
   avg_qtd_pedidos?: number
@@ -595,4 +599,12 @@ export function getMetaSupervisor(mes?: string) {
 
 export function upsertMetaSupervisor(mes: string, payload: { gmv_meta_total: number; calculado_automaticamente?: boolean }) {
   return apiPut<JsonRecord>('/metas/supervisor', payload, { mes })
+}
+
+export function getMetasMarcasHora(anoMes?: string) {
+  return apiGet<JsonRecord[]>('/metas/marcas-hora', anoMes ? { ano_mes: anoMes } : undefined)
+}
+
+export function upsertMetaMarcaHora(marcaId: string, anoMes: string, metaGmvHora: number) {
+  return apiPut<JsonRecord>(`/metas/marcas-hora/${marcaId}`, { meta_gmv_hora: metaGmvHora }, { ano_mes: anoMes })
 }

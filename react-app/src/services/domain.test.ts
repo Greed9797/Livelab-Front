@@ -171,7 +171,6 @@ describe('domain live operations', () => {
       ativo: true,
       fixo: 2700,
       comissao_pct: 1.5,
-      meta_diaria_gmv: 9000,
       foto_url: 'https://cdn.example.com/yasmin.jpg',
     })
 
@@ -181,7 +180,6 @@ describe('domain live operations', () => {
       ativo: true,
       fixo: 2700,
       comissao_pct: 1.5,
-      meta_diaria_gmv: 9000,
       foto_url: 'https://cdn.example.com/yasmin.jpg',
     })
   })
