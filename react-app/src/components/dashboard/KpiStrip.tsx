@@ -84,7 +84,12 @@ interface KpiStripProps {
 }
 
 export function KpiStrip({ raw }: KpiStripProps) {
-  const gmvMes = asNumber(raw.gmv_total_mes ?? raw.gmv_mes ?? raw.gmv_lives_mes ?? raw.fat_bruto)
+  // Dois baldes distintos no backend (src/routes/home.js:340-342):
+  //   gmv_total_mes = gmv_mes = gmv_lives_mes + gmv_videos_mes   (lives + vídeos)
+  //   gmv_lives_mes                                              (só lives)
+  // Fallback NUNCA cruza os dois — trocar um pelo outro sub/superestima o KPI.
+  const gmvMes = asNumber(raw.gmv_total_mes ?? raw.gmv_mes ?? raw.fat_bruto)
+  const gmvLivesMes = asNumber(raw.gmv_lives_mes)
   const gmvPrev = asNumber(raw.gmv_mes_prev ?? raw.gmv_prev)
   const livesMes = asNumber(raw.lives_mes ?? raw.total_lives)
   const livesPrev = asNumber(raw.lives_prev)
@@ -92,10 +97,9 @@ export function KpiStrip({ raw }: KpiStripProps) {
   const horasPrev = asNumber(raw.horas_prev)
   const videosMes = asNumber(raw.videos_mes ?? raw.total_videos)
   const videosPrev = asNumber(raw.videos_prev)
-  const gmvPorLive = asNumber(raw.gmv_por_live ?? raw.gmv_por_live_mes) || (livesMes > 0 ? gmvMes / livesMes : 0)
+  // GMV/live e GMV/hora são métricas de live: numerador é o GMV de lives.
+  const gmvPorLive = asNumber(raw.gmv_por_live ?? raw.gmv_por_live_mes) || (livesMes > 0 ? gmvLivesMes / livesMes : 0)
   const gmvPorLivePrev = asNumber(raw.gmv_por_live_prev)
-  // Fallback segue a convenção do Analytics: GMV/hora usa só GMV de lives
-  const gmvLivesMes = asNumber(raw.gmv_lives_mes ?? raw.gmv_total_mes ?? raw.gmv_mes)
   const gmvPorHora = asNumber(raw.gmv_por_hora ?? raw.gmv_por_hora_mes ?? raw.gmv_hora) || (horasLive > 0 ? gmvLivesMes / horasLive : 0)
   const gmvPorHoraPrev = asNumber(raw.gmv_por_hora_prev)
 

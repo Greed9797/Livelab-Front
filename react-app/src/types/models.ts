@@ -4,8 +4,10 @@
  */
 export type Role =
   | 'franqueador_master'
-  | /** @deprecated use franqueador_master */ 'admin_master'
-  | /** @deprecated use franqueador_master */ 'gerente_regional'
+  // Papel real do backend (migration 070 + src/plugins/auth.js). Multi-tenant
+  // Tier 4: enxerga um subset de unidades. No front é normalizado para
+  // franqueador_master até a Fase C ter UI própria.
+  | 'gerente_regional'
   | 'franqueado'
   | /** @deprecated use franqueado or operacional */ 'gerente'
   | /** @deprecated use operacional */ 'gerente_comercial'

@@ -13,6 +13,7 @@ import { HistoricoGmvModal } from './HistoricoGmvModal'
 import { getApresentadoras, getComissaoMemoria, getComissoesApresentadoras, getComissoesPorApresentadora, getLives } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord, unwrapList } from '../utils/format'
+import { officialLiveGmv } from '../utils/live-gmv'
 import type { JsonRecord } from '../types/models'
 
 type DateRange = 'hoje' | '7d' | '30d' | 'mes'
@@ -36,10 +37,6 @@ function dateRangeToWindow(range: DateRange): { data_inicio: string; data_fim: s
   return { data_inicio: toISO(start), data_fim: fim }
 }
 
-// Mesmas regras de resolução de campo que a tabela de lives realizadas (LivesTab).
-function officialLiveGmv(live: JsonRecord): number {
-  return asNumber(live.gmv ?? live.ads_gmv ?? live.manual_gmv ?? live.fat_gerado)
-}
 function liveOrders(live: JsonRecord): number {
   return asNumber(live.manual_orders ?? live.qtd_pedidos ?? live.final_orders_count ?? live.pedidos)
 }

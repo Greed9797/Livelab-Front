@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Calendar,
-  Check,
   ChevronDown,
   ChevronRight,
   Download,
@@ -14,14 +13,13 @@ import {
   Printer,
   Search,
   Trash2,
-  X,
 } from 'lucide-react'
-import { Modal } from '../ui/Modal'
-import { Button } from '../ui/Button'
 import { publicationStatusLabel } from '../../pages/conteudo-helpers'
-import { asNumber, asString, formatDate, formatMoney } from '../../utils/format'
-import { parseBRMoneyToDecimal } from '../../utils/money'
-import { extractErrorMessage } from '../../services/api'
+import { asNumber, asString, formatMoney } from '../../utils/format'
+import { officialLiveGmv } from '../../utils/live-gmv'
+import { calcDuration, fmtTime, type LiveFilterOption } from './live-helpers'
+import { InlineApresentadoraCell, InlineGmvCell, InlinePedidosCell } from './LiveInlineCells'
+import { LiveDetailModal } from './LiveDetailModal'
 import type { JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
 
@@ -33,10 +31,7 @@ const ACTION_MENU_WIDTH = 168
 
 export type DateRange = 'todos' | 'hoje' | '7d' | '30d' | 'mes'
 
-export interface LiveFilterOption {
-  id: string
-  nome: string
-}
+export type { LiveFilterOption } from './live-helpers'
 
 const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: 'todos', label: 'Qualquer data' },
@@ -62,28 +57,6 @@ export function dateRangeToWindow(range: DateRange): { data_inicio?: string; dat
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
-function officialLiveGmv(live: JsonRecord) {
-  return live.gmv ?? live.ads_gmv ?? live.manual_gmv ?? live.fat_gerado
-}
-
-function fmtTime(value: unknown): string {
-  const d = typeof value === 'string' ? new Date(value) : null
-  if (!d || Number.isNaN(d.getTime())) return '—'
-  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(d)
-}
-
-function calcDuration(live: JsonRecord): { text: string; mins: number } {
-  const start = live.iniciado_em ? new Date(live.iniciado_em as string) : null
-  const end = live.encerrado_em ? new Date(live.encerrado_em as string) : null
-  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return { text: '—', mins: 0 }
-  }
-  const mins = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 60000))
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return { text: h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`, mins }
-}
-
 function groupByDay(lives: JsonRecord[]) {
   const map = new Map<string, { label: string; lives: JsonRecord[] }>()
   for (const live of lives) {
@@ -104,40 +77,6 @@ function groupByDay(lives: JsonRecord[]) {
   return [...map.entries()]
     .map(([dateKey, { label, lives }]) => ({ dateKey, label, lives }))
     .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
-}
-
-function getInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((s) => s[0] ?? '')
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
-
-function buildReport(live: JsonRecord): string {
-  const nome = asString(live.marca_nome ?? live.cliente_nome, '')
-  const inicio = live.iniciado_em ? new Date(live.iniciado_em as string) : null
-  if (!inicio || Number.isNaN(inicio.getTime())) return ''
-  const data = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(
-    inicio,
-  )
-  const hFim = fmtTime(live.encerrado_em)
-  const { text: duracao } = calcDuration(live)
-  const lines = [
-    `📊 Relatório de Live${nome ? ` — ${nome}` : ''}`,
-    '',
-    `📅 Data: ${data}`,
-    hFim !== '—'
-      ? `⏰ Horário: ${fmtTime(live.iniciado_em)} às ${hFim}`
-      : `⏰ Horário: ${fmtTime(live.iniciado_em)}`,
-    duracao !== '—' ? `⏱️ Duração: ${duracao}` : null,
-    '',
-    `💰 GMV: ${formatMoney(officialLiveGmv(live))}`,
-    `🛒 Pedidos: ${asNumber(live.manual_orders ?? live.final_orders_count).toLocaleString('pt-BR')}`,
-  ]
-  return lines.filter(Boolean).join('\n')
 }
 
 function doExportCSV(lives: JsonRecord[]) {
@@ -309,379 +248,6 @@ function MenuBtn({
         </span>
       )}
     </button>
-  )
-}
-
-// Célula de GMV editável inline (somente para lives em rascunho).
-// Reusa updateLive (PATCH parcial) via onSave; grava fat_gerado + manual_gmv.
-function InlineGmvCell({
-  gmv,
-  editable,
-  onSave,
-}: {
-  gmv: number
-  editable: boolean
-  onSave: (payload: JsonRecord) => Promise<unknown>
-}) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(false)
-
-  function begin() {
-    setValue(gmv > 0 ? String(gmv).replace('.', ',') : '')
-    setError(false)
-    setEditing(true)
-  }
-  function cancel() {
-    setEditing(false)
-    setError(false)
-  }
-  async function commit() {
-    const decimal = parseBRMoneyToDecimal(value)
-    if (!Number.isFinite(decimal) || decimal < 0) {
-      setError(true)
-      return
-    }
-    setSaving(true)
-    try {
-      await onSave({ fat_gerado: decimal, manual_gmv: decimal })
-      setEditing(false)
-    } catch {
-      setError(true)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const iconBtn = (color: string): React.CSSProperties => ({
-    width: 24,
-    height: 24,
-    display: 'grid',
-    placeItems: 'center',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: 'var(--bg-elev-2)',
-    color,
-    cursor: 'pointer',
-    flexShrink: 0,
-  })
-
-  if (editing) {
-    return (
-      <div
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, paddingRight: 6 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <input
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              void commit()
-            } else if (e.key === 'Escape') {
-              cancel()
-            }
-          }}
-          placeholder="0,00"
-          inputMode="decimal"
-          disabled={saving}
-          style={{
-            width: 86,
-            textAlign: 'right',
-            padding: '4px 6px',
-            borderRadius: 6,
-            border: `1px solid ${error ? 'var(--danger)' : 'var(--primary)'}`,
-            background: 'var(--bg-input)',
-            color: 'var(--text-primary)',
-            fontSize: 12.5,
-            fontFamily: 'inherit',
-            fontVariantNumeric: 'tabular-nums',
-            outline: 'none',
-          }}
-        />
-        <button type="button" title="Salvar GMV" onClick={() => void commit()} disabled={saving} style={iconBtn('var(--success)')}>
-          <Check style={{ width: 13, height: 13 }} />
-        </button>
-        <button type="button" title="Cancelar" onClick={cancel} disabled={saving} style={iconBtn('var(--text-muted)')}>
-          <X style={{ width: 13, height: 13 }} />
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        gap: 6,
-        paddingRight: editable ? 6 : 14,
-        fontVariantNumeric: 'tabular-nums',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {gmv > 0 ? (
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)', letterSpacing: -0.005 }}>{formatMoney(gmv)}</span>
-      ) : (
-        <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>—</span>
-      )}
-      {editable ? (
-        <button
-          type="button"
-          title="Editar GMV (rascunho)"
-          onClick={(e) => {
-            e.stopPropagation()
-            begin()
-          }}
-          style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
-        >
-          <Edit2 style={{ width: 12, height: 12 }} />
-        </button>
-      ) : null}
-    </div>
-  )
-}
-
-// Célula de Pedidos editável inline (rascunho). Grava qtd_pedidos + manual_orders.
-function InlinePedidosCell({
-  pedidos,
-  editable,
-  onSave,
-}: {
-  pedidos: number
-  editable: boolean
-  onSave: (payload: JsonRecord) => Promise<unknown>
-}) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(false)
-
-  function begin() {
-    setValue(pedidos > 0 ? String(pedidos) : '')
-    setError(false)
-    setEditing(true)
-  }
-  function cancel() {
-    setEditing(false)
-    setError(false)
-  }
-  async function commit() {
-    const n = Math.trunc(Number(value.replace(/[^\d]/g, '')))
-    if (!Number.isFinite(n) || n < 0) {
-      setError(true)
-      return
-    }
-    setSaving(true)
-    try {
-      await onSave({ qtd_pedidos: n, manual_orders: n })
-      setEditing(false)
-    } catch {
-      setError(true)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const iconBtn = (color: string): React.CSSProperties => ({
-    width: 24,
-    height: 24,
-    display: 'grid',
-    placeItems: 'center',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: 'var(--bg-elev-2)',
-    color,
-    cursor: 'pointer',
-    flexShrink: 0,
-  })
-
-  if (editing) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }} onClick={(e) => e.stopPropagation()}>
-        <input
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              void commit()
-            } else if (e.key === 'Escape') {
-              cancel()
-            }
-          }}
-          placeholder="0"
-          inputMode="numeric"
-          disabled={saving}
-          style={{
-            width: 56,
-            textAlign: 'right',
-            padding: '4px 6px',
-            borderRadius: 6,
-            border: `1px solid ${error ? 'var(--danger)' : 'var(--primary)'}`,
-            background: 'var(--bg-input)',
-            color: 'var(--text-primary)',
-            fontSize: 12.5,
-            fontFamily: 'inherit',
-            fontVariantNumeric: 'tabular-nums',
-            outline: 'none',
-          }}
-        />
-        <button type="button" title="Salvar pedidos" onClick={() => void commit()} disabled={saving} style={iconBtn('var(--success)')}>
-          <Check style={{ width: 13, height: 13 }} />
-        </button>
-        <button type="button" title="Cancelar" onClick={cancel} disabled={saving} style={iconBtn('var(--text-muted)')}>
-          <X style={{ width: 13, height: 13 }} />
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-      {pedidos > 0 ? (
-        <span style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>{pedidos.toLocaleString('pt-BR')}</span>
-      ) : (
-        <span style={{ color: 'var(--text-faint)', fontSize: 12.5 }}>—</span>
-      )}
-      {editable ? (
-        <button
-          type="button"
-          title="Editar pedidos (rascunho)"
-          onClick={(e) => {
-            e.stopPropagation()
-            begin()
-          }}
-          style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
-        >
-          <Edit2 style={{ width: 12, height: 12 }} />
-        </button>
-      ) : null}
-    </div>
-  )
-}
-
-// Célula de Apresentadora editável inline (rascunho). Grava apresentador_id (= apresentadoras.id).
-function InlineApresentadoraCell({
-  name,
-  editable,
-  options,
-  onSave,
-}: {
-  name: string
-  editable: boolean
-  options: LiveFilterOption[]
-  onSave: (payload: JsonRecord) => Promise<unknown>
-}) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  function begin() {
-    const match = options.find((o) => o.nome === name)
-    setValue(match?.id ?? '')
-    setEditing(true)
-  }
-  function cancel() {
-    setEditing(false)
-  }
-  async function commit() {
-    setSaving(true)
-    try {
-      await onSave({ apresentador_id: value || null })
-      setEditing(false)
-    } catch {
-      /* mantém em edição em caso de erro */
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const iconBtn = (color: string): React.CSSProperties => ({
-    width: 24,
-    height: 24,
-    display: 'grid',
-    placeItems: 'center',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: 'var(--bg-elev-2)',
-    color,
-    cursor: 'pointer',
-    flexShrink: 0,
-  })
-
-  if (editing) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
-        <select
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') cancel()
-          }}
-          disabled={saving}
-          style={{ flex: 1, minWidth: 0, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--primary)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'inherit', outline: 'none' }}
-        >
-          <option value="">— sem apresentadora —</option>
-          {options.map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
-        </select>
-        <button type="button" title="Salvar apresentadora" onClick={() => void commit()} disabled={saving} style={iconBtn('var(--success)')}>
-          <Check style={{ width: 13, height: 13 }} />
-        </button>
-        <button type="button" title="Cancelar" onClick={cancel} disabled={saving} style={iconBtn('var(--text-muted)')}>
-          <X style={{ width: 13, height: 13 }} />
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)', fontSize: 12.5, minWidth: 0 }}>
-      {name ? (
-        <>
-          <span
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: '50%',
-              flexShrink: 0,
-              background: 'linear-gradient(135deg, var(--primary-soft), var(--primary-softer))',
-              color: 'var(--primary)',
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: '0.02em',
-              border: '1px solid var(--primary-soft)',
-            }}
-          >
-            {getInitials(name)}
-          </span>
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
-        </>
-      ) : (
-        <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: 12 }}>Sem apresentadora</span>
-      )}
-      {editable ? (
-        <button
-          type="button"
-          title="Editar apresentadora (rascunho)"
-          onClick={(e) => {
-            e.stopPropagation()
-            begin()
-          }}
-          style={{ marginLeft: 'auto', width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}
-        >
-          <Edit2 style={{ width: 12, height: 12 }} />
-        </button>
-      ) : null}
-    </div>
   )
 }
 
@@ -1755,115 +1321,17 @@ export function LivesTab({
         document.body,
       ) : null}
 
-      {/* ── Detail Modal ── */}
-      <Modal
-        open={liveModalMode === 'detail' && !!selectedLiveRecord}
-        title="Live realizada"
-        subtitle={
-          selectedLiveRecord
-            ? `${asString(selectedLiveRecord.marca_nome ?? selectedLiveRecord.cliente_nome, 'Sem marca')} · Cabine ${asString(selectedLiveRecord.cabine_numero)}`
-            : undefined
-        }
+      <LiveDetailModal
+        open={liveModalMode === 'detail'}
+        live={selectedLiveRecord}
+        canWrite={canWrite}
+        reportCopied={reportCopied}
         onClose={onCloseLiveModal}
-        size="md"
-      >
-        {selectedLiveRecord ? (
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              {(
-                [
-                  [
-                    'Data / Horário',
-                    `${formatDate(asString(selectedLiveRecord.iniciado_em, ''))} ${fmtTime(selectedLiveRecord.iniciado_em)}–${fmtTime(selectedLiveRecord.encerrado_em)}`,
-                  ],
-                  ['Duração', calcDuration(selectedLiveRecord).text],
-                  [
-                    'Apresentadora',
-                    asString(
-                      selectedLiveRecord.apresentadora_nome ??
-                        selectedLiveRecord.apresentador_nome,
-                      '—',
-                    ),
-                  ],
-	                  ['GMV', formatMoney(officialLiveGmv(selectedLiveRecord))],
-                  [
-                    'Pedidos',
-                    asNumber(
-                      selectedLiveRecord.manual_orders ?? selectedLiveRecord.final_orders_count,
-                    ).toLocaleString('pt-BR'),
-                  ],
-                  ['Publicação', publicationStatusLabel(selectedLiveRecord.status_publicacao)],
-                  ['Origem', asString(selectedLiveRecord.origem_dados, 'manual')],
-                ] as [string, string][]
-              ).map(([label, value]) => (
-                <div
-                  key={label}
-                  className="rounded-2xl border border-line bg-surface-muted p-3"
-                >
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">
-                    {label}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
-                </div>
-              ))}
-            </div>
-
-            {selectedLiveRecord.resumo ? (
-              <p className="rounded-2xl border border-line bg-surface-muted p-3 text-sm text-ink">
-                {asString(selectedLiveRecord.resumo)}
-              </p>
-            ) : null}
-
-            {(() => {
-              const report = buildReport(selectedLiveRecord)
-              if (!report) return null
-              return (
-                <div className="rounded-2xl border border-line bg-surface-muted p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">
-                      Relatório para copiar
-                    </p>
-                    <Button
-                      variant="ghost"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => onCopyLiveReport(report)}
-                    >
-                      {reportCopied ? 'Copiado!' : 'Copiar'}
-                    </Button>
-                  </div>
-                  <pre className="whitespace-pre-wrap text-xs text-ink">{report}</pre>
-                </div>
-              )
-            })()}
-
-            {canWrite ? (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="secondary"
-                  icon={Edit2}
-                  onClick={() => onOpenEditLive(selectedLiveRecord)}
-                >
-                  Editar
-                </Button>
-                <Button
-                  variant="danger"
-                  icon={Trash2}
-                  isLoading={deleteLiveMutation.isPending}
-                  onClick={() => onDeleteLive(selectedLiveRecord)}
-                >
-                  Excluir
-                </Button>
-              </div>
-            ) : null}
-
-            {deleteLiveMutation.isError ? (
-              <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
-                {extractErrorMessage(deleteLiveMutation.error)}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-      </Modal>
+        onCopyReport={onCopyLiveReport}
+        onEdit={onOpenEditLive}
+        onDelete={onDeleteLive}
+        deleteLiveMutation={deleteLiveMutation}
+      />
     </section>
   )
 }

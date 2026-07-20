@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { ErrorState } from './States'
+import { captureError, flushSentry } from '../../utils/sentry'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -48,6 +49,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (import.meta.env.DEV) {
       console.error('[ErrorBoundary]', error, info)
     }
+
+    // Reporta antes de qualquer reload. `chunk_error: true` separa "deploy novo
+    // derrubou o chunk do usuário" (esperado, auto-recuperável) de bug de render
+    // de verdade. No-op quando VITE_SENTRY_DSN não está setada.
+    captureError(error, {
+      chunk_error: this.state.isChunkError,
+      component_stack: info.componentStack,
+    })
+
     // Auto-recuperação: um crash de render quase sempre é bundle/index antigo em
     // cache após um deploy novo. Recarrega uma única vez (cache-busted) para puxar
     // a versão atual — sem o usuário precisar limpar cache. O guard de sessão evita
@@ -56,7 +66,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       if (import.meta.env.DEV) return
       if (!sessionStorage.getItem(AUTO_RELOAD_FLAG)) {
         sessionStorage.setItem(AUTO_RELOAD_FLAG, '1')
-        hardReloadCacheBust()
+        // Espera o envio pro Sentry antes de recarregar — reload imediato mata o
+        // transporte assíncrono e o evento nunca chega. Resolve na hora se o
+        // Sentry estiver desligado.
+        void flushSentry().finally(hardReloadCacheBust)
       }
     } catch {
       // sessionStorage indisponível (modo restrito) — mantém o fallback manual.

@@ -6,6 +6,7 @@ import { MoneyInput } from '../ui/MoneyInput'
 import { PresenterSelect } from './PresenterSelect'
 import { extractErrorMessage } from '../../services/api'
 import { asString } from '../../utils/format'
+import { officialLiveGmv } from '../../utils/live-gmv'
 import { formatBRLWithoutSymbol } from '../../utils/money'
 import { buildManualLivePayload, type ManualLiveForm } from '../../utils/live-manual'
 import type { Cabine, JsonRecord } from '../../types/models'
@@ -91,7 +92,7 @@ function formFromLive(live: JsonRecord): MetricsForm {
     data: toDateInput(live.iniciado_em),
     hora_inicio: toTimeInput(live.iniciado_em),
     hora_fim: toTimeInput(live.encerrado_em),
-	    fat_gerado: formatBRLWithoutSymbol(live.gmv ?? live.ads_gmv ?? live.manual_gmv ?? live.fat_gerado ?? 0),
+    fat_gerado: formatBRLWithoutSymbol(officialLiveGmv(live)),
     qtd_pedidos: asString(live.manual_orders ?? live.final_orders_count ?? 0, '0'),
     manual_views: asString(live.manual_views ?? ''),
     manual_likes: asString(live.manual_likes ?? ''),

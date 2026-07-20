@@ -13,7 +13,8 @@ import {
   updateLive,
 } from '../../services/domain'
 import { asArray, asNumber, asString } from '../../utils/format'
-import { QK } from '../../services/query-keys'
+import { officialLiveGmvRaw } from '../../utils/live-gmv'
+import { QK, invalidateOperational } from '../../services/query-keys'
 import type { JsonRecord } from '../../types/models'
 
 type LookupOption = { value: string; label: string }
@@ -154,7 +155,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
       hora_inicio: toTimeInput(live.iniciado_em),
       hora_fim: toTimeInput(live.encerrado_em ?? live.previsto_fim),
       previsto_fim: toDatetimeLocal(live.previsto_fim),
-      fat_gerado: asString(live.gmv ?? live.ads_gmv ?? live.manual_gmv ?? live.fat_gerado, ''),
+      fat_gerado: asString(officialLiveGmvRaw(live), ''),
       manual_gmv: asString(live.manual_gmv, ''),
       qtd_pedidos: asString(live.manual_orders ?? live.qtd_pedidos ?? live.final_orders_count, ''),
       manual_orders: asString(live.manual_orders, ''),
@@ -175,21 +176,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
   const saveMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateLive(id, payload),
     onSuccess: () => {
-      ;[
-        ['cabines'],
-        ['lives'],
-        ['live'],
-        ['home-dashboard'],
-        ['comissoes-resumo'],
-        ['comissoes-pendentes'],
-        ['comissoes-apresentadoras'],
-        ['comissoes-marcas'],
-        ['ranking-apresentadoras'],
-        ['vendas-atribuidas'],
-        ['agenda'],
-      ].forEach((queryKey) => {
-        void client.invalidateQueries({ queryKey })
-      })
+      invalidateOperational(client)
       onSaved?.()
       onClose()
     },

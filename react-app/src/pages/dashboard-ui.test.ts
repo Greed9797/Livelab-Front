@@ -40,11 +40,18 @@ describe('Dashboard presenter ranking UI helpers', () => {
     expect(source).not.toContain('getComissoesApresentadoras')
   })
 
-  it('uses total GMV before live-only GMV in home KPI surfaces', () => {
+  it('uses total GMV in home KPI surfaces, never falling back to live-only GMV', () => {
     const kpiSource = readFileSync(new URL('../components/dashboard/KpiStrip.tsx', import.meta.url), 'utf8')
     const heroSource = readFileSync(new URL('../components/dashboard/GmvHeroPanel.tsx', import.meta.url), 'utf8')
 
-    expect(kpiSource).toContain('raw.gmv_total_mes ?? raw.gmv_mes ?? raw.gmv_lives_mes')
+    // gmv_total_mes/gmv_mes = lives + vídeos; gmv_lives_mes = só lives.
+    // O KPI de total tem que ficar no balde de total: cair para gmv_lives_mes
+    // subestima o valor silenciosamente pelo GMV de vídeos.
+    expect(kpiSource).toContain('raw.gmv_total_mes ?? raw.gmv_mes')
+    expect(kpiSource).not.toContain('raw.gmv_total_mes ?? raw.gmv_mes ?? raw.gmv_lives_mes')
+    // ...e o balde de lives não pode cair para o total (inflaria GMV/hora e GMV/live).
+    expect(kpiSource).toContain('const gmvLivesMes = asNumber(raw.gmv_lives_mes)')
+
     expect(heroSource).toContain('raw.gmv_total_mes ?? raw.gmv_mes')
     expect(heroSource).toContain('raw.meta_mes ?? raw.meta_gmv')
   })

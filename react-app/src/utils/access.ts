@@ -28,8 +28,10 @@ export interface MenuItem {
  */
 export const masterRoles: Role[] = [
   'franqueador_master',
-  // Legacy roles mapped to official: admin_master, gerente_regional
-  // Still accepted in JWTs but normalized to franqueador_master
+  // gerente_regional (Tier 4, migration 070 do backend) também é aceito em JWT e
+  // normalizado para franqueador_master, mas fica FORA desta lista: ele enxerga
+  // só um subset de tenants (auth.js injeta allowedTenantIds), então liberar as
+  // rotas /master inteiras seria escopo demais até a Fase C multi-tenant.
 ]
 
 /**
@@ -105,10 +107,13 @@ export const clienteRoles: Role[] = ['cliente_parceiro']
  * 'operacional', ou seja, daria escrita exatamente aos 6 papéis read-only.
  * Por isso a checagem é feita no papel cru, igual ao writeRoles de BoletosPage.
  */
+// gerente_regional fica FORA daqui de propósito. O papel é real no banco
+// (migration 070, regional_managers.js), mas em src/config/role_groups.js do
+// backend ele não entra em nenhum grupo WRITE_* — está marcado como Tier 4 /
+// Fase C. Incluí-lo renderizaria botões de escrita que o backend responde 403,
+// que é exatamente o problema que este writeRoles existe para resolver.
 export const writeRoles: Role[] = [
   'franqueador_master',
-  'admin_master',
-  'gerente_regional',
   'franqueado',
   'gerente',
   'operacional',
@@ -137,7 +142,6 @@ export const configuracoesRoles: Role[] = Array.from(new Set<Role>([
 export function normalizeRole(role: Role): OfficialRole {
   switch (role) {
     // Master role mapping
-    case 'admin_master':
     case 'gerente_regional':
       return 'franqueador_master'
 
@@ -242,9 +246,10 @@ export function roleLabel(role?: Role): string {
     apresentador: 'Apresentador',
     cliente_parceiro: 'Cliente Parceiro',
 
+    // Papel real do backend (migration 070), ainda sem UI multi-tenant própria.
+    gerente_regional: 'Gerente Regional',
+
     // Legacy roles (marked as deprecated)
-    admin_master: 'Admin Master (legado)',
-    gerente_regional: 'Gerente Regional (legado)',
     gerente: 'Gerente (legado)',
     gerente_comercial: 'Gerente Comercial (legado)',
     financeiro: 'Financeiro (legado)',

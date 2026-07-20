@@ -1,3 +1,5 @@
+import type { QueryClient } from '@tanstack/react-query'
+
 export const QK = {
   cabines: ['cabines'] as const,
   cabineHistorico: (id: string) => ['cabine-historico', id] as const,
@@ -100,4 +102,43 @@ export const QK = {
     offset !== undefined
       ? (['cliente-sessoes', period.ano, period.mes, offset] as const)
       : (['cliente-sessoes', period.ano, period.mes] as const),
+}
+
+/**
+ * Queries invalidadas por qualquer escrita operacional (live, agenda, cabine).
+ *
+ * Cada chave abaixo foi conferida contra um `useQuery` real E contra o fato de
+ * seu resultado derivar de lives/agenda — chave morta invalidada é ruído, chave
+ * faltando é dado velho na tela.
+ *
+ * Chamadas sem argumento devolvem o prefixo puro; o React Query casa por
+ * prefixo, então ['lives'] cobre ['lives', 'encerrada'] e ['lives', 'list', …].
+ *
+ * Fora daqui de propósito:
+ *  - ['videos'] — só muda em escrita de vídeo; ConteudoPage invalida à parte.
+ *  - ['funil-analytics'] / ['relatorio-diario'] — vêm do import de analytics
+ *    (ads), não do CRUD de live; quem importa já invalida.
+ *  - ['apresentadora-detalhe-*'] — escopadas por id em outra rota; staleTime +
+ *    refetchOnWindowFocus cobrem.
+ */
+export function invalidateOperational(client: QueryClient): void {
+  const keys: readonly unknown[][] = [
+    // operação
+    [...QK.cabines],
+    [...QK.agenda()],
+    [...QK.lives],
+    [...QK.livesDuplicatas],
+    ['grade'],
+    // dashboards com GMV/horas agregados
+    [...QK.homeDashboard],
+    ['daily-pulse'],
+    // rankings derivados de GMV de live
+    [...QK.rankingApresentadoras()],
+    [...QK.rankingMarcas()],
+    [...QK.publicRanking],
+    // comissões calculadas sobre GMV de live
+    [...QK.comissoesApresentadoras],
+    [...QK.comissoesMarcas],
+  ]
+  keys.forEach((queryKey) => void client.invalidateQueries({ queryKey }))
 }

@@ -9,6 +9,7 @@ import { KpiStrip } from '../components/dashboard/KpiStrip'
 import { PageHeader } from '../components/ui/PageHeader'
 import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
 import { PresenterLeaderboard } from '../components/dashboard/PresenterLeaderboard'
+import { BrandLeaderboard } from '../components/dashboard/BrandLeaderboard'
 import { getGrade, getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString } from '../utils/format'
@@ -146,6 +147,7 @@ export function DashboardPage() {
   const mesExibido = mesSelecionado ?? asString(raw.mes_referencia, currentMonth).slice(0, 7)
   const cabines = asArray<Cabine>(raw.cabines)
   const rankingApresentadoras = asArray<JsonRecord>(raw.ranking_apresentadoras_mes)
+  const rankingMarcas = asArray<JsonRecord>(raw.ranking_marcas_mes)
 
   const liveCabines = cabines.filter(
     (c) => asString(c.status, '').includes('ao_vivo') || asString(c.status, '') === 'live'
@@ -264,16 +266,15 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Ranking apresentadoras */}
-      <PresenterLeaderboard
-        rows={rankingApresentadoras}
-        title="Ranking de apresentadoras"
-        subtitle="Progresso vs. líder do mês"
-        variant="full"
+      {/* Ranking de marcas — largura total, ordenado por GMV/h */}
+      <BrandLeaderboard
+        rows={rankingMarcas}
+        title="Ranking de marcas"
+        subtitle="Eficiência do mês · GMV por hora no ar"
         limit={6}
         action={
-          <Link className="text-xs font-semibold text-brand hover:underline" to="/ranking-apresentadoras">
-            Ver ranking completo →
+          <Link className="text-xs font-semibold text-brand hover:underline" to="/ranking/marcas">
+            Ver ranking de marcas →
           </Link>
         }
       />

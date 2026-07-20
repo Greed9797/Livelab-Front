@@ -1,0 +1,142 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Deploy automático do front (react-app) para a Vercel — produção.
+#
+# Dispara em push na branch de produção `migration/react-vercel`.
+# Typecheck + testes + build rodam ANTES; qualquer falha aborta sem deployar.
+#
+# ── SECRETS OBRIGATÓRIOS (GitHub → Settings → Secrets and variables → Actions)
+#
+#   VERCEL_TOKEN
+#     Token pessoal da Vercel. Onde: vercel.com → Account Settings → Tokens →
+#     "Create Token" (scope: o time dono do projeto). Copiar na hora — só é
+#     exibido uma vez.
+#
+#   VERCEL_ORG_ID
+#     ID do time/org dono do projeto. Onde: vercel.com → Team Settings → General
+#     → "Team ID"; ou rodando `vercel link` local e lendo `.vercel/project.json`
+#     (campo `orgId`). Valor atual do projeto: team_ncMJZtGdUvp9d9AiSCgWnPCg
+#
+#   VERCEL_PROJECT_ID
+#     ID do projeto `liveshop-saas-frontend-react`. Onde: vercel.com → Projeto →
+#     Settings → General → "Project ID"; ou `.vercel/project.json` (`projectId`).
+#     Valor atual: prj_IPxaQSUF0gWOMt63Wep0fRTkCsXq
+#
+# Sem os 3 secrets o workflow falha logo no primeiro step, dizendo QUAIS faltam,
+# e nada é publicado.
+#
+# ── ATENÇÃO: VITE_API_URL
+# Vite embute as envs `VITE_*` no bundle EM TEMPO DE BUILD. Se ela não estiver
+# presente durante o `vercel build`, o app vai a produção apontando para lugar
+# nenhum — isso já quebrou prod neste projeto. Por isso a URL do backend Railway
+# é fixada aqui embaixo (env do job) E reescrita no arquivo de env que o
+# `vercel build` consome, sobrescrevendo o que vier do `vercel pull`.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Frontend Deploy (Vercel)
+
+on:
+  push:
+    branches: [migration/react-vercel]
+  workflow_dispatch:
+
+# Um deploy por vez; push novo cancela o anterior ainda em fila.
+concurrency:
+  group: frontend-deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Verify + Deploy to Vercel (production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # Backend de produção (Railway). NÃO usar livelabackend.onrender.com — morto.
+      VITE_API_URL: https://liveshop-saas-api-production.up.railway.app/v1
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      # Primeiro step de propósito: falha barato, antes de instalar ou buildar,
+      # e nomeia exatamente o que está faltando.
+      - name: Checar secrets obrigatórios
+        run: |
+          missing=""
+          if [ -z "$VERCEL_TOKEN" ]; then missing="$missing VERCEL_TOKEN"; fi
+          if [ -z "$VERCEL_ORG_ID" ]; then missing="$missing VERCEL_ORG_ID"; fi
+          if [ -z "$VERCEL_PROJECT_ID" ]; then missing="$missing VERCEL_PROJECT_ID"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::Secrets do repositório faltando:$missing"
+            echo "::error::Cadastre em Settings → Secrets and variables → Actions. Instruções no topo de .github/workflows/frontend-deploy.yml. Nenhum deploy foi feito."
+            exit 1
+          fi
+          echo "Secrets da Vercel presentes."
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: react-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: react-app
+        run: npm ci
+
+      # ── Gate de qualidade: nada abaixo roda se algum destes falhar ──────────
+      - name: Type check
+        working-directory: react-app
+        run: npx tsc -b --noEmit
+
+      - name: Unit tests
+        working-directory: react-app
+        run: npx vitest run
+
+      - name: Build (validação, com VITE_API_URL embutida)
+        working-directory: react-app
+        run: npm run build
+
+      # ── Deploy ─────────────────────────────────────────────────────────────
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Vercel pull (config de produção)
+        working-directory: react-app
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Garantir VITE_API_URL no build da Vercel
+        working-directory: react-app
+        run: |
+          # O `vercel build` lê as envs deste arquivo (gerado pelo pull). Se o
+          # projeto na Vercel não tiver VITE_API_URL — ou tiver o valor antigo —
+          # o bundle sai apontando pro backend errado. Sobrescrever aqui torna o
+          # valor correto uma garantia do workflow, não uma config do dashboard.
+          ENV_FILE=.vercel/.env.production.local
+          touch "$ENV_FILE"
+          grep -v '^VITE_API_URL=' "$ENV_FILE" > "$ENV_FILE.tmp" || true
+          mv "$ENV_FILE.tmp" "$ENV_FILE"
+          echo "VITE_API_URL=$VITE_API_URL" >> "$ENV_FILE"
+          echo "VITE_API_URL embutida no build: $VITE_API_URL"
+
+      - name: Vercel build (produção)
+        working-directory: react-app
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Confirmar que a URL do backend entrou no bundle
+        working-directory: react-app
+        run: |
+          # Falha ANTES de publicar se a env não foi embutida — o modo de falha
+          # histórico deste projeto era descobrir isso só com o app no ar.
+          if ! grep -rqF "liveshop-saas-api-production.up.railway.app" .vercel/output/static/assets/; then
+            echo "::error::VITE_API_URL não foi embutida no bundle. Deploy abortado."
+            exit 1
+          fi
+          echo "URL do backend Railway confirmada no bundle."
+
+      - name: Vercel deploy (produção)
+        working-directory: react-app
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

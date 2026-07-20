@@ -125,7 +125,7 @@ function invalidateOperational() {
 `AppRouter.tsx` usa `React.lazy` + `Suspense` para todas as páginas exceto Login, ForgotPassword e NotFound.
 
 Role groups (em `src/utils/access.ts`):
-- `masterRoles` — franqueador_master, admin_master, gerente_regional
+- `masterRoles` — franqueador_master
 - `internalRoles` — franqueado + operação + readonly roles
 - `cabineRoles` — frente live
 - `financeRoles`, `commercialRoles`, `opsRoles`, `clienteRoles`
@@ -165,7 +165,9 @@ Helpers de type-safe: `asString(v, fallback)`, `asNumber(v)`, `asArray<T>(v)` de
 
 15 papéis ativos. O frontend faz guard client-side via `ProtectedRoute` + `allowedRoles[]`. O backend valida com JWT + `requirePapel`. A proteção client-side é só UX.
 
-`admin_master` existe no frontend mas não no backend — role fantasma, não criar usuários com esse papel.
+`admin_master` era papel fantasma (existia só no front) e foi **removido** — não reintroduzir.
+
+`gerente_regional` é real: migration `070_user_tenant_access.sql` o adiciona ao CHECK de `users.papel`, `src/plugins/auth.js` injeta `allowedTenantIds` e `src/routes/regional_managers.js` gerencia os acessos. No front ele é normalizado para `franqueador_master`, mas **não** entra em `masterRoles` — falta a UI multi-tenant da Fase C.
 
 `/conhecimento` não tem `allowedRoles` — qualquer autenticado acessa.
 
