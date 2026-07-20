@@ -32,7 +32,6 @@ export interface CreateFormState {
   cliente_id: string
   apresentadora_id: string
   fixo: string
-  meta_diaria_gmv: string
   foto_url: string
   senha_temporaria: string
 }
@@ -168,14 +167,6 @@ export function UsuarioForm({
                 className="design-input mt-2 h-11 w-full px-4"
                 value={form.fixo}
                 onChange={(raw) => onFieldChange('fixo', raw)}
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">Meta diária GMV (R$)</span>
-              <MoneyInput
-                className="design-input mt-2 h-11 w-full px-4"
-                value={form.meta_diaria_gmv}
-                onChange={(raw) => onFieldChange('meta_diaria_gmv', raw)}
               />
             </label>
           </div>

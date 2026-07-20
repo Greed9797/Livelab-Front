@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   CalendarDays,
   CheckCircle2,
@@ -27,6 +27,7 @@ import {
   weekDays,
 } from '../../pages/conteudo-helpers'
 import { asString, formatDate } from '../../utils/format'
+import { resolveMarcaCor, textColorOn } from '../../utils/brandColor'
 import { isSyntheticLiveEvent } from '../../pages/ConteudoPage'
 import { getBrandImage } from '../../utils/favicon'
 import type { Cabine, JsonRecord } from '../../types/models'
@@ -56,19 +57,12 @@ export function isLiveOnAir(item: JsonRecord) {
   return ['ao_vivo', 'em_andamento'].includes(asString(item.status, ''))
 }
 
-// Turno derivado do horário de início: manhã (08–14h) = âmbar, tarde (15–21h) = laranja.
-// Cores vêm dos tokens do design system (--warning / --primary), não de hex cru.
-type Turn = 'manha' | 'tarde'
-const TURN: Record<Turn, { label: string; range: string; bg: string; fg: string; soft: string; accent: string }> = {
-  manha: { label: 'Manhã', range: '08:00 – 14:00', bg: 'var(--warning)', fg: '#241a05', soft: 'var(--warning-soft)', accent: 'var(--warning)' },
-  tarde: { label: 'Tarde', range: '15:00 – 21:00', bg: 'var(--primary)', fg: '#ffffff', soft: 'var(--primary-soft)', accent: 'var(--primary)' },
-}
-function turnOf(event: JsonRecord): Turn {
-  const h = Number(String(formatSaoPauloTime(event.data_inicio)).slice(0, 2))
-  return Number.isFinite(h) && h >= 14 ? 'tarde' : 'manha'
+// Cor do evento = cor da marca (manual em marcas.cor, senão hash determinístico).
+function eventCor(event: JsonRecord): string {
+  return resolveMarcaCor(event.marca_cor, asString(event.marca_id))
 }
 
-const DOW = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+const DOW = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 8)
 
@@ -98,14 +92,14 @@ function dedupSorted(rows: JsonRecord[]) {
 }
 
 function EventChip({ event, chipH, onOpen }: { event: JsonRecord; chipH: number; onOpen: (e: JsonRecord) => void }) {
-  const turn = TURN[turnOf(event)]
+  const cor = eventCor(event)
   const live = isLiveOnAir(event)
   return (
     <button
       type="button"
       onClick={() => onOpen(event)}
       className="flex w-full items-center gap-2 rounded-lg px-3 text-left font-bold transition hover:brightness-105"
-      style={{ background: turn.bg, color: turn.fg, minHeight: chipH, fontSize: 13 }}
+      style={{ background: cor, color: textColorOn(cor), minHeight: chipH, fontSize: 13 }}
     >
       {live ? <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-[var(--danger)]" title="Ao vivo" /> : null}
       <span className="flex-1 truncate">{eventTitle(event)}</span>
@@ -268,10 +262,6 @@ export function AgendaTab(props: AgendaTabProps) {
               <button type="button" onClick={() => setDensity(compact ? 'comfortable' : 'compacto')} className="h-9 rounded-lg border border-line px-3 text-sm font-bold text-ink-muted hover:text-ink">
                 {compact ? 'Densidade: compacta' : 'Densidade: confortável'}
               </button>
-              <div className="ml-auto flex items-center gap-4 text-xs text-ink-muted">
-                <span className="flex items-center gap-1.5"><span className="h-3.5 w-3.5 rounded" style={{ background: 'var(--warning)' }} /> Manhã</span>
-                <span className="flex items-center gap-1.5"><span className="h-3.5 w-3.5 rounded" style={{ background: 'var(--primary)' }} /> Tarde</span>
-              </div>
             </div>
           </div>
         </CardHeader>
@@ -344,44 +334,32 @@ function WeekView({
   chipH: number
   onOpen: (e: JsonRecord) => void
 }) {
-  const turns: Turn[] = ['manha', 'tarde']
   return (
     <div className="overflow-x-auto">
-      <div className="grid overflow-hidden rounded-xl border border-line" style={{ gridTemplateColumns: '124px repeat(7, minmax(150px, 1fr))', minWidth: 1040 }}>
-        <div className="border-b border-line px-3 py-3">
-          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-ink-muted">Turno</span>
-        </div>
+      <div className="grid overflow-hidden rounded-xl border border-line" style={{ gridTemplateColumns: 'repeat(7, minmax(150px, 1fr))', minWidth: 1040 }}>
         {week.map((day, i) => (
-          <div key={day} className={`border-b border-l border-line px-3 py-3 ${day === today ? 'bg-brand-soft' : ''}`}>
+          <div key={day} className={`border-b border-l border-line px-3 py-3 first:border-l-0 ${day === today ? 'bg-brand-soft' : ''}`}>
             <p className={`text-xs font-black uppercase tracking-[0.08em] ${day === today ? 'text-brand' : 'text-ink'}`}>{DOW[i]}</p>
             <p className="text-xs text-ink-muted">{ddmm(day)}</p>
           </div>
         ))}
 
-        {turns.map((turn) => (
-          <Fragment key={turn}>
-            <div className="flex flex-col justify-center gap-1 border-t border-line px-4 py-3" style={{ background: TURN[turn].soft }}>
-              <span className="text-[12px] font-black uppercase tracking-[0.12em]" style={{ color: TURN[turn].accent }}>{TURN[turn].label}</span>
-              <span className="num text-[11px] text-ink-muted">{TURN[turn].range}</span>
+        {week.map((day) => {
+          const evs = dedupSorted(rows.filter((e) => eventIntersectsSaoPauloDate(e, day)))
+          return (
+            <div
+              key={day}
+              className={`flex flex-col gap-2 border-l border-line px-2.5 py-3 first:border-l-0 ${day === today ? 'bg-brand-soft/40' : ''}`}
+              style={{ minHeight: cellMin * 2 }}
+            >
+              {evs.length === 0 ? (
+                <span className="m-auto rounded-lg border border-dashed border-line px-3 py-1 text-[11px] font-bold text-ink-muted">folga</span>
+              ) : (
+                evs.map((e) => <EventChip key={asString(e.id)} event={e} chipH={chipH} onOpen={onOpen} />)
+              )}
             </div>
-            {week.map((day) => {
-              const evs = dedupSorted(rows.filter((e) => eventIntersectsSaoPauloDate(e, day) && turnOf(e) === turn))
-              return (
-                <div
-                  key={`${turn}-${day}`}
-                  className={`flex flex-col gap-2 border-l border-t border-line px-2.5 py-3 ${day === today ? 'bg-brand-soft/40' : ''}`}
-                  style={{ minHeight: cellMin, background: evs.length === 0 ? undefined : TURN[turn].soft }}
-                >
-                  {evs.length === 0 ? (
-                    <span className="m-auto rounded-lg border border-dashed border-line px-3 py-1 text-[11px] font-bold text-ink-muted">folga</span>
-                  ) : (
-                    evs.map((e) => <EventChip key={asString(e.id)} event={e} chipH={chipH} onOpen={onOpen} />)
-                  )}
-                </div>
-              )
-            })}
-          </Fragment>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -428,7 +406,7 @@ function DayView({
                   const lane = lanes.get(asString(event.id)) ?? { index: 0, total: 1 }
                   const widthPct = 100 / lane.total
                   const leftPct = widthPct * lane.index
-                  const turn = TURN[turnOf(event)]
+                  const cor = eventCor(event)
                   return (
                     <div
                       role="button"
@@ -440,7 +418,7 @@ function DayView({
                         height: `${Math.max(44, layout.height - 8)}px`,
                         left: `calc(${leftPct}% + 4px)`,
                         width: `calc(${widthPct}% - 8px)`,
-                        borderLeft: `3px solid ${turn.accent}`,
+                        borderLeft: `3px solid ${cor}`,
                       }}
                       onClick={() => onOpenEvent(event)}
                       onKeyDown={(ke) => { if (ke.key === 'Enter' || ke.key === ' ') onOpenEvent(event) }}
@@ -448,7 +426,7 @@ function DayView({
                       {isLiveOnAir(event) ? (
                         <div className="absolute right-2 top-2"><TikTokLiveButton username={event.tiktok_username} compact /></div>
                       ) : null}
-                      <p className="font-bold" style={{ color: turn.accent }}>
+                      <p className="font-bold" style={{ color: cor }}>
                         {typeLabel(event.tipo)} · {formatSaoPauloTime(event.data_inicio)}-{formatSaoPauloTime(event.data_fim)}
                       </p>
                       <div className="mt-1 flex items-center gap-2">
@@ -509,16 +487,16 @@ function MonthView({
                     {dayNumber(day)}
                   </button>
                   {evs.slice(0, 3).map((e) => {
-                    const turn = TURN[turnOf(e)]
+                    const cor = eventCor(e)
                     return (
                       <button
                         key={asString(e.id)}
                         type="button"
                         onClick={() => onOpenEvent(e)}
                         className="flex w-full items-center gap-1.5 rounded-r px-1.5 py-0.5 text-left text-[11.5px] font-semibold hover:bg-surface-muted"
-                        style={{ borderLeft: `2px solid ${turn.accent}` }}
+                        style={{ borderLeft: `2px solid ${cor}` }}
                       >
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: turn.accent }} />
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: cor }} />
                         <span className="truncate text-ink-muted">{eventTitle(e)}</span>
                       </button>
                     )
@@ -560,15 +538,15 @@ function EventDrawer({
   onDelete: () => void
   onRegister: () => void
 }) {
-  const turn = TURN[turnOf(event)]
+  const cor = eventCor(event)
   const synthetic = isSyntheticLiveEvent(event)
   return (
     <>
       <div className="fixed inset-0 z-[70] bg-black/55" onClick={onClose} />
       <aside className="fixed right-0 top-0 z-[80] flex h-screen w-[392px] max-w-[92vw] flex-col border-l border-line bg-surface shadow-2xl">
         <div className="relative border-b border-line px-6 py-5">
-          <span className="inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-[10.5px] font-black uppercase tracking-[0.1em]" style={{ background: turn.soft, color: turn.accent }}>
-            {turn.label}
+          <span className="inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-[10.5px] font-black uppercase tracking-[0.1em]" style={{ background: `${cor}26`, color: cor }}>
+            {typeLabel(event.tipo)}
           </span>
           <h3 className="mt-3 text-2xl font-black tracking-[-0.01em] text-ink">{eventTitle(event)}</h3>
           <p className="mt-1 text-sm text-ink-muted">{formatDate(asString(event.data_inicio, ''))}</p>

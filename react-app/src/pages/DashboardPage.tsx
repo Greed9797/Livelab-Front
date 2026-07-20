@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { GradeDiaView } from '../components/conteudo/GradeViews'
-import { corDaMarca, marcasPresentes, type GradeDia } from '../components/conteudo/gradeUtils'
+import { marcasPresentes, type GradeDia } from '../components/conteudo/gradeUtils'
+import { resolveMarcaCor } from '../utils/brandColor'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { KpiStrip } from '../components/dashboard/KpiStrip'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -248,7 +249,7 @@ export function DashboardPage() {
             <div className="flex flex-wrap items-center justify-end gap-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
               {legendaMarcas.slice(0, 5).map((m) => (
                 <span key={m.id} className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-sm" style={{ background: corDaMarca(m.id).solid }} />
+                  <span className="h-2 w-2 rounded-sm" style={{ background: resolveMarcaCor(m.cor, m.id) }} />
                   {m.nome}
                 </span>
               ))}

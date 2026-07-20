@@ -192,7 +192,7 @@ export function UsuariosList({ data, actions, mutations, faixasPorApresentadora 
                 <div className="space-y-1 text-right">
                   <p className="num font-bold text-ink">{formatMoney(item.fixo_mensal ?? item.fixo)}</p>
                   <p className="text-xs text-ink-muted">
-                    base {asNumber(item.comissao_pct).toLocaleString('pt-BR')}% · meta {formatMoney(item.meta_diaria_gmv)}
+                    base {asNumber(item.comissao_pct).toLocaleString('pt-BR')}%
                   </p>
                   {faixas.length > 0 ? (
                     <div className="flex justify-end">

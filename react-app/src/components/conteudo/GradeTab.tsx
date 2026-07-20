@@ -19,12 +19,12 @@ import { extractErrorMessage } from '../../services/api'
 import { asString } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 import {
-  corDaMarca,
   marcasPresentes,
   type GradeCelula,
   type GradeDia,
   type GradePadraoCelula,
 } from './gradeUtils'
+import { resolveMarcaCor } from '../../utils/brandColor'
 import { GradeDiaView, GradeMesView, GradeSemanaView } from './GradeViews'
 import { GradeCellPopover, type GradeCellTarget } from './GradeCellPopover'
 
@@ -293,7 +293,7 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
                 <div className="ml-auto flex flex-wrap items-center gap-3 text-xs text-ink-muted">
                   {legenda.slice(0, 8).map((m) => (
                     <span key={m.id} className="flex items-center gap-1.5">
-                      <span className="h-3 w-3 rounded" style={{ background: corDaMarca(m.id).solid }} />
+                      <span className="h-3 w-3 rounded" style={{ background: resolveMarcaCor(m.cor, m.id) }} />
                       {m.nome}
                     </span>
                   ))}

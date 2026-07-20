@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLiveTiktokStatus, getMasterCrm, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
+import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLiveTiktokStatus, getMasterCrm, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -89,6 +89,14 @@ describe('domain live operations', () => {
     expect(apiGet).toHaveBeenCalledWith('/lives', { status: 'encerrada' })
   })
 
+  it('loads paginated lives with paginado=1 plus search and pagination params', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ items: [], total: 0, page: 0, limit: 25 })
+
+    await getLivesPaginado({ status: 'encerrada', page: 2, limit: 25, q: 'haag' })
+
+    expect(apiGet).toHaveBeenCalledWith('/lives', { status: 'encerrada', page: 2, limit: 25, q: 'haag', paginado: 1 })
+  })
+
   it('loads daily analytics with filters', async () => {
     vi.mocked(apiGet).mockResolvedValue({ rows: [] })
 
@@ -171,7 +179,6 @@ describe('domain live operations', () => {
       ativo: true,
       fixo: 2700,
       comissao_pct: 1.5,
-      meta_diaria_gmv: 9000,
       foto_url: 'https://cdn.example.com/yasmin.jpg',
     })
 
@@ -181,7 +188,6 @@ describe('domain live operations', () => {
       ativo: true,
       fixo: 2700,
       comissao_pct: 1.5,
-      meta_diaria_gmv: 9000,
       foto_url: 'https://cdn.example.com/yasmin.jpg',
     })
   })

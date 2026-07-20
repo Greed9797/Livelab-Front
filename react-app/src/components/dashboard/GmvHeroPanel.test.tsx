@@ -80,13 +80,20 @@ describe('GmvHeroPanel', () => {
     expect(html).toContain('Ritmo projetado')
   })
 
-  it('shows discrete "Meta —" when meta is null (no bar rendered)', () => {
+  it('shows hint to configure when meta is null (no bar rendered)', () => {
     const raw = { ...baseRaw, meta_mes: null }
     const html = renderToStaticMarkup(<GmvHeroPanel raw={raw} />)
 
-    expect(html).toContain('Meta —')
+    expect(html).toContain('Meta não definida')
     expect(html).not.toContain('realizado')
     expect(html).not.toContain('Ritmo projetado')
+  })
+
+  it('marks meta as derived when meta_origem is diaria_legada', () => {
+    const raw = { ...baseRaw, meta_mes: 200000, meta_origem: 'diaria_legada' }
+    const html = renderToStaticMarkup(<GmvHeroPanel raw={raw} />)
+
+    expect(html).toContain('derivada da meta diária antiga')
   })
 
   it('does NOT render chart block when gmv_intraday is absent', () => {

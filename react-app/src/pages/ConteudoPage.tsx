@@ -32,6 +32,7 @@ import {
   getClientes,
   getLivePorId,
   getLives,
+  getLivesPaginado,
   getLivesDuplicatas,
   getMarcas,
   getVideos,
@@ -96,6 +97,7 @@ function buildLiveAgendaFallback(live: JsonRecord, cabines: JsonRecord[]): JsonR
     data_fim: fim.toISOString(),
     marca_id: live.marca_id,
     marca_nome: live.marca_nome ?? live.cliente_nome,
+    marca_cor: live.marca_cor,
     marca_logo_url: live.marca_logo_url,
     marca_site: live.marca_site,
     cliente_nome: live.cliente_nome,
@@ -155,24 +157,63 @@ export function ConteudoPage() {
   const [liveModalMode, setLiveModalMode] = useState<'detail' | null>(null)
   const [selectedLiveRecord, setSelectedLiveRecord] = useState<JsonRecord | null>(null)
   const [reportCopied, setReportCopied] = useState(false)
-  const [livesDateRange, setLivesDateRange] = useState<DateRange>('todos')
-  const [livesMarcaId, setLivesMarcaId] = useState('')
-  const [livesApresentadoraId, setLivesApresentadoraId] = useState('')
   const client = useQueryClient()
+
+  // Filtros/busca/página da aba "Lives realizadas" vivem na URL (searchParams) —
+  // sobrevivem a navegação, abrir/fechar do modal ?live= e deep-links.
+  const rawRange = params.get('periodo') ?? 'todos'
+  const livesDateRange: DateRange = (['todos', 'hoje', '7d', '30d', 'mes'] as const).includes(rawRange as DateRange)
+    ? (rawRange as DateRange)
+    : 'todos'
+  const livesMarcaId = params.get('marca') ?? ''
+  const livesApresentadoraId = params.get('apres') ?? ''
+  const livesQ = params.get('q') ?? ''
+  const livesStatus = params.get('st') ?? 'encerrada' // 'todas' = sem filtro de status
+  const livesPage = Math.max(0, Number.parseInt(params.get('page') ?? '0', 10) || 0)
+  const rawPp = Number.parseInt(params.get('pp') ?? '', 10)
+  const livesLimit = [10, 25, 50, 100].includes(rawPp) ? rawPp : 25
+
+  // Aplica um patch nos searchParams das lives; mudança de filtro/busca reseta a página.
+  function setLivesParams(patch: Record<string, string | null>, { resetPage = true } = {}) {
+    const next = new URLSearchParams(params)
+    if (resetPage) next.delete('page')
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null || value === '') next.delete(key)
+      else next.set(key, value)
+    }
+    setParams(next, { replace: true })
+  }
 
   const range = agendaFetchRange(agendaDate, agendaView)
   const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }), placeholderData: (prev) => prev })
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
   const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada', limit: 200 }), placeholderData: (prev) => prev })
-  // Lista da aba "Lives realizadas" — filtrada server-side (separada da query `lives`
-  // acima, que segue completa para alimentar a Agenda e o lookup por ?live=).
+  // Lista da aba "Lives realizadas" — paginada e filtrada server-side (separada da
+  // query `lives` acima, que segue completa para alimentar a Agenda e o lookup por ?live=).
   const livesWindow = dateRangeToWindow(livesDateRange)
   const livesList = useQuery({
-    queryKey: ['lives', 'list', livesDateRange, livesMarcaId, livesApresentadoraId],
-    queryFn: () => getLives({ status: 'encerrada', limit: 200, ...livesWindow, marca_id: livesMarcaId || undefined, apresentadora_id: livesApresentadoraId || undefined }),
+    queryKey: ['lives', 'list', livesStatus, livesDateRange, livesMarcaId, livesApresentadoraId, livesQ, livesPage, livesLimit],
+    queryFn: () => getLivesPaginado({
+      status: livesStatus === 'todas' ? undefined : livesStatus,
+      page: livesPage,
+      limit: livesLimit,
+      q: livesQ || undefined,
+      ...livesWindow,
+      marca_id: livesMarcaId || undefined,
+      apresentadora_id: livesApresentadoraId || undefined,
+    }),
     enabled: tab === 'lives',
     placeholderData: (prev) => prev,
   })
+  const livesItems = livesList.data?.items ?? []
+  const livesTotal = livesList.data?.total ?? 0
+
+  // Página fora do alcance (deep-link antigo, filtro que encolheu o total) → volta à primeira.
+  useEffect(() => {
+    if (!livesList.data || livesList.isPlaceholderData) return
+    if (livesList.data.items.length === 0 && livesPage > 0) setLivesParams({}, { resetPage: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livesList.data, livesList.isPlaceholderData, livesPage])
   const duplicatas = useQuery({ queryKey: ['lives-duplicatas'], queryFn: getLivesDuplicatas, enabled: tab === 'lives', staleTime: 5 * 60_000 })
   const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos(), enabled: tab === 'videos' })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
@@ -375,16 +416,25 @@ export function ConteudoPage() {
         <Suspense fallback={<LoadingState />}>
         <LivesTab
           canWrite={podeEscrever}
-          livesData={livesList.data ?? []}
+          livesData={livesItems}
           dateRange={livesDateRange}
-          onDateRangeChange={setLivesDateRange}
+          onDateRangeChange={(range) => setLivesParams({ periodo: range === 'todos' ? null : range })}
           marcaFilterId={livesMarcaId}
           apresentadoraFilterId={livesApresentadoraId}
-          onMarcaFilterChange={setLivesMarcaId}
-          onApresentadoraFilterChange={setLivesApresentadoraId}
+          onMarcaFilterChange={(id) => setLivesParams({ marca: id })}
+          onApresentadoraFilterChange={(id) => setLivesParams({ apres: id })}
           marcaFilterOptions={marcaFilterOptions}
           apresentadoraFilterOptions={apresentadoraFilterOptions}
-          onClearFilters={() => { setLivesDateRange('todos'); setLivesMarcaId(''); setLivesApresentadoraId('') }}
+          onClearFilters={() => setLivesParams({ periodo: null, marca: null, apres: null, q: null, st: null })}
+          searchQuery={livesQ}
+          onSearchChange={(q) => setLivesParams({ q })}
+          statusFilter={livesStatus}
+          onStatusFilterChange={(st) => setLivesParams({ st: st === 'encerrada' ? null : st })}
+          page={livesPage}
+          pageSize={livesLimit}
+          total={livesTotal}
+          onPageChange={(page) => setLivesParams({ page: page > 0 ? String(page) : null }, { resetPage: false })}
+          onPageSizeChange={(size) => setLivesParams({ pp: size === 25 ? null : String(size) })}
           liveModalMode={liveModalMode}
           selectedLiveRecord={selectedLiveRecord}
           reportCopied={reportCopied}

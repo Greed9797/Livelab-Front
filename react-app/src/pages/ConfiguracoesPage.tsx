@@ -7,7 +7,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { getClienteMeta, getClientePerfil, getConfiguracoes, getMetaUnidade, getMetasApresentadoras, getMetaSupervisor, getRankingPublicoConfig, trocarSenha, updateConfiguracoes, updateRankingPublicoConfig, upsertMetaApresentadora, upsertMetaSupervisor } from '../services/domain'
+import { getClienteMeta, getClientePerfil, getConfiguracoes, getMetasMarcasHora, getMetaUnidade, getMetasApresentadoras, getMetaSupervisor, getRankingPublicoConfig, trocarSenha, updateConfiguracoes, updateRankingPublicoConfig, upsertMetaApresentadora, upsertMetaMarcaHora, upsertMetaSupervisor, upsertMetaUnidade } from '../services/domain'
 import { useToast } from '../components/ui/Toast'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, currentPeriod, formatMoney, periodLabel } from '../utils/format'
@@ -61,15 +61,13 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     mutationFn: updateRankingPublicoConfig,
     onSuccess: () => client.invalidateQueries({ queryKey: QK.configuracoeRankingPublico }),
   })
-  const [metaAnoMes] = useState(new Date().toISOString().slice(0, 7))
-  const metaUnidadeQuery = useQuery({
-    queryKey: QK.metaUnidade(metaAnoMes),
-    queryFn: () => getMetaUnidade(metaAnoMes),
-    enabled: !clienteMode && isAdmin,
-  })
-
-  // ── Metas apresentadoras + supervisor ──────────────────────────────────────
+  // ── Metas: unidade + apresentadoras + supervisor + GMV/h por marca ────────
   const [metasMes, setMetasMes] = useState(new Date().toISOString().slice(0, 7))
+  const metaUnidadeQuery = useQuery({
+    queryKey: QK.metaUnidade(metasMes),
+    queryFn: () => getMetaUnidade(metasMes),
+    enabled: !clienteMode && isAdmin && settingsTab === 'metas',
+  })
   const metasApresentadorasQuery = useQuery({
     queryKey: QK.metasApresentadoras(metasMes),
     queryFn: () => getMetasApresentadoras(metasMes),
@@ -82,6 +80,34 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   })
   const [metasSupervisorInput, setMetasSupervisorInput] = useState('')
   const [metasApresentadorasInputs, setMetasApresentadorasInputs] = useState<Record<string, string>>({})
+  const [metaUnidadeInput, setMetaUnidadeInput] = useState('')
+
+  const metasMarcasHoraQuery = useQuery({
+    queryKey: QK.metasMarcasHora(metasMes),
+    queryFn: () => getMetasMarcasHora(metasMes),
+    enabled: !clienteMode && isAdmin && settingsTab === 'metas',
+  })
+  const [metasMarcasHoraInputs, setMetasMarcasHoraInputs] = useState<Record<string, string>>({})
+
+  const metaUnidadeMutation = useMutation({
+    mutationFn: ({ meta_gmv }: { meta_gmv: number }) => upsertMetaUnidade(metasMes, meta_gmv),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: QK.metaUnidade(metasMes) })
+      void client.invalidateQueries({ queryKey: QK.homeDashboard })
+      toast.push('Meta da unidade salva.', 'success')
+    },
+    onError: (err: unknown) => toast.push(extractErrorMessage(err), 'error'),
+  })
+
+  const marcaHoraMutation = useMutation({
+    mutationFn: ({ id, meta_gmv_hora }: { id: string; meta_gmv_hora: number }) =>
+      upsertMetaMarcaHora(id, metasMes, meta_gmv_hora),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: QK.metasMarcasHora(metasMes) })
+      toast.push('Meta GMV/hora salva.', 'success')
+    },
+    onError: (err: unknown) => toast.push(extractErrorMessage(err), 'error'),
+  })
 
   const supervisorMutation = useMutation({
     mutationFn: ({ gmv_meta_total }: { gmv_meta_total: number }) =>
@@ -155,8 +181,19 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     setMetasApresentadorasInputs(inputs)
   }, [metasApresentadorasQuery.data])
 
-  // metaUnidadeQuery kept for possible future use (meta_unidade tab)
-  void metaUnidadeQuery
+  useEffect(() => {
+    if (!metaUnidadeQuery.data) return
+    setMetaUnidadeInput(formatBRLWithoutSymbol(metaUnidadeQuery.data.meta_gmv ?? 0))
+  }, [metaUnidadeQuery.data])
+
+  useEffect(() => {
+    if (!metasMarcasHoraQuery.data) return
+    const inputs: Record<string, string> = {}
+    for (const row of metasMarcasHoraQuery.data) {
+      inputs[String(row.marca_id)] = formatBRLWithoutSymbol(row.meta_gmv_hora ?? 0)
+    }
+    setMetasMarcasHoraInputs(inputs)
+  }, [metasMarcasHoraQuery.data])
 
   if (clienteMode) {
     if (perfilQuery.isLoading || metaQuery.isLoading) return <LoadingState />
@@ -340,6 +377,56 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
             />
           </div>
 
+          {/* Card: Meta mensal da unidade (fonte da meta do dashboard) */}
+          <Card>
+            <CardHeader>
+              <p className="text-sm font-bold text-ink">Meta mensal da unidade</p>
+              <p className="mt-1 text-xs text-ink-muted">Meta de GMV da franquia exibida no dashboard. A meta diária é derivada automaticamente: meta mensal ÷ dias úteis (seg–sex) do mês.</p>
+            </CardHeader>
+            <CardBody>
+              {metaUnidadeQuery.isLoading ? <LoadingState label="Carregando…" /> : null}
+              {metaUnidadeQuery.isError ? <ErrorState message={extractErrorMessage(metaUnidadeQuery.error)} onRetry={() => void metaUnidadeQuery.refetch()} /> : null}
+              {metaUnidadeQuery.data ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-line bg-surface-muted p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">Meta do mês</p>
+                      <p className="num mt-2 text-xl font-bold text-ink">
+                        {asNumber(metaUnidadeQuery.data.meta_gmv, 0) > 0 ? formatMoney(asNumber(metaUnidadeQuery.data.meta_gmv, 0)) : 'Não definida'}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-line bg-surface-muted p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">Meta diária derivada</p>
+                      <p className="num mt-2 text-xl font-bold text-ink">
+                        {metaUnidadeQuery.data.meta_diaria != null ? formatMoney(asNumber(metaUnidadeQuery.data.meta_diaria, 0)) : '—'}
+                      </p>
+                      <p className="mt-1 text-xs text-ink-muted">{asNumber(metaUnidadeQuery.data.dias_uteis, 0)} dias úteis no mês</p>
+                    </div>
+                  </div>
+                  <form
+                    className="flex flex-col gap-3 sm:flex-row sm:items-end"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      metaUnidadeMutation.mutate({ meta_gmv: parseBRMoneyToDecimal(metaUnidadeInput) })
+                    }}
+                  >
+                    <label className="block flex-1">
+                      <span className="text-sm font-semibold text-ink">Meta mensal de GMV</span>
+                      <MoneyInput
+                        className="design-input mt-2 h-11 w-full px-4"
+                        value={metaUnidadeInput}
+                        onChange={(raw) => setMetaUnidadeInput(raw)}
+                      />
+                    </label>
+                    <Button type="submit" icon={BarChart2} isLoading={metaUnidadeMutation.isPending}>
+                      Salvar
+                    </Button>
+                  </form>
+                </div>
+              ) : null}
+            </CardBody>
+          </Card>
+
           {/* Card: Meta supervisor */}
           <Card>
             <CardHeader>
@@ -485,6 +572,70 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
                       Salvar todas
                     </Button>
                   </div>
+                </div>
+              ) : null}
+            </CardBody>
+          </Card>
+
+          {/* Card: Meta GMV/hora por marca */}
+          <Card>
+            <CardHeader>
+              <p className="text-sm font-bold text-ink">Meta de GMV/hora por marca</p>
+              <p className="mt-1 text-xs text-ink-muted">Referência de GMV por hora de live usada no status operacional, definida por marca para o mês selecionado.</p>
+            </CardHeader>
+            <CardBody>
+              {metasMarcasHoraQuery.isLoading ? <LoadingState label="Carregando marcas…" /> : null}
+              {metasMarcasHoraQuery.isError ? <ErrorState message={extractErrorMessage(metasMarcasHoraQuery.error)} onRetry={() => void metasMarcasHoraQuery.refetch()} /> : null}
+              {metasMarcasHoraQuery.data && metasMarcasHoraQuery.data.length === 0 ? (
+                <p className="text-sm text-ink-muted">Nenhuma marca ativa encontrada.</p>
+              ) : null}
+              {metasMarcasHoraQuery.data && metasMarcasHoraQuery.data.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-line">
+                        <th className="pb-2 text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">Marca</th>
+                        <th className="pb-2 text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">Tipo</th>
+                        <th className="pb-2 pl-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">Meta GMV/hora</th>
+                        <th className="pb-2 text-right text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {metasMarcasHoraQuery.data.map((row) => {
+                        const id = String(row.marca_id)
+                        const semMetaDoMes = asNumber(row.meta_gmv_hora, 0) <= 0
+                        const legada = asNumber(row.meta_legada, 0)
+                        return (
+                          <tr key={id} className="align-middle">
+                            <td className="py-3 font-medium text-ink">{asString(row.nome, '—')}</td>
+                            <td className="py-3 text-ink-muted">{asString(row.tipo, '—')}</td>
+                            <td className="py-3 pl-4">
+                              <div className="flex flex-col gap-1">
+                                <MoneyInput
+                                  className="design-input h-9 w-36 px-3 text-sm"
+                                  value={metasMarcasHoraInputs[id] ?? ''}
+                                  onChange={(raw) => setMetasMarcasHoraInputs((current) => ({ ...current, [id]: raw }))}
+                                />
+                                {semMetaDoMes && legada > 0 ? (
+                                  <span className="text-xs text-ink-muted">em uso: {formatMoney(legada)} (legado do cliente)</span>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td className="py-3 text-right">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                isLoading={marcaHoraMutation.isPending && marcaHoraMutation.variables?.id === id}
+                                onClick={() => marcaHoraMutation.mutate({ id, meta_gmv_hora: parseBRMoneyToDecimal(metasMarcasHoraInputs[id] ?? '0') })}
+                              >
+                                Salvar
+                              </Button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               ) : null}
             </CardBody>
