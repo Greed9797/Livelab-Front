@@ -3,12 +3,12 @@ import type { Cabine, JsonRecord } from '../../types/models'
 import { asString } from '../../utils/format'
 import {
   GRADE_SLOTS,
-  corDaMarca,
   gradeCellKey,
   indexCelulas,
   type GradeCelula,
   type GradeDia,
 } from './gradeUtils'
+import { resolveMarcaCor } from '../../utils/brandColor'
 import type { GradeCellTarget } from './GradeCellPopover'
 
 const WEEK_DAY_SHORT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
@@ -61,7 +61,7 @@ export function GradeDiaView({
             {cabines.map((cabine) => {
               const cabineId = asString(cabine.id)
               const celula = porCelula.get(gradeCellKey(cabineId, slot.inicio)) ?? null
-              const cor = celula ? corDaMarca(celula.marca_id) : null
+              const cor = celula ? resolveMarcaCor(celula.marca_cor, celula.marca_id) : null
               const isExcecao = marcarExcecoes && celula?.origem === 'excecao'
               return (
                 <button
@@ -73,7 +73,7 @@ export function GradeDiaView({
                       ? isExcecao ? 'border-dashed' : 'border-transparent'
                       : 'border-line bg-surface hover:bg-surface-muted'
                   }`}
-                  style={cor ? { background: cor.soft, borderLeftColor: cor.solid, borderLeftWidth: 3, ...(isExcecao ? { borderColor: cor.solid } : {}) } : undefined}
+                  style={cor ? { background: `${cor}26`, borderLeftColor: cor, borderLeftWidth: 3, ...(isExcecao ? { borderColor: cor } : {}) } : undefined}
                   title={celula?.observacao ?? undefined}
                 >
                   {celula ? (
@@ -131,12 +131,12 @@ export function GradeSemanaView({
               return (
                 <div key={dia.data} className="min-h-[56px] space-y-1 rounded-lg border border-line bg-surface p-1">
                   {noSlot.map((c) => {
-                    const cor = corDaMarca(c.marca_id)
+                    const cor = resolveMarcaCor(c.marca_cor, c.marca_id)
                     return (
                       <div
                         key={gradeCellKey(c.cabine_id, c.hora_inicio)}
                         className="truncate rounded px-1.5 py-0.5 text-[11px] font-semibold text-ink"
-                        style={{ background: cor.soft, borderLeft: `3px solid ${cor.solid}` }}
+                        style={{ background: `${cor}26`, borderLeft: `3px solid ${cor}` }}
                         title={`Cabine ${c.cabine_numero ?? '—'} · ${c.marca_nome}${c.apresentadora_nome ? ` – ${c.apresentadora_nome}` : ''}`}
                       >
                         C{c.cabine_numero ?? '?'} · {c.marca_nome}{c.apresentadora_nome ? ` – ${c.apresentadora_nome}` : ''}
@@ -174,14 +174,14 @@ export function GradeMesView({
   return (
     <div className="overflow-x-auto">
       <div className="grid min-w-[720px] grid-cols-7 gap-1">
-        {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((label) => (
+        {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((label) => (
           <div key={label} className="px-2 py-1 text-center text-xs font-bold uppercase tracking-wide text-ink-muted">{label}</div>
         ))}
         {monthDays.map((data) => {
           const celulas = gradePorData.get(data) ?? []
           // Uma entrada por marca (a visão mês responde "quais marcas nesse dia")
-          const marcas = new Map<string, string>()
-          for (const c of celulas) marcas.set(c.marca_id, c.marca_nome)
+          const marcas = new Map<string, { nome: string; cor: string | null }>()
+          for (const c of celulas) marcas.set(c.marca_id, { nome: c.marca_nome, cor: c.marca_cor ?? null })
           const chips = [...marcas.entries()].slice(0, 3)
           const extras = marcas.size - chips.length
           const foraDoMes = !data.startsWith(mesRef)
@@ -197,11 +197,11 @@ export function GradeMesView({
                 {Number(data.slice(8, 10))}
               </span>
               <div className="mt-1 space-y-0.5">
-                {chips.map(([marcaId, nome]) => {
-                  const cor = corDaMarca(marcaId)
+                {chips.map(([marcaId, marca]) => {
+                  const cor = resolveMarcaCor(marca.cor, marcaId)
                   return (
-                    <span key={marcaId} className="block truncate rounded px-1 py-px text-[10px] font-semibold text-ink" style={{ background: cor.soft, borderLeft: `2px solid ${cor.solid}` }}>
-                      {nome}
+                    <span key={marcaId} className="block truncate rounded px-1 py-px text-[10px] font-semibold text-ink" style={{ background: `${cor}26`, borderLeft: `2px solid ${cor}` }}>
+                      {marca.nome}
                     </span>
                   )
                 })}

@@ -411,6 +411,18 @@ export function getLives(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/lives', params)
 }
 
+export interface LivesPaginadoResponse {
+  items: JsonRecord[]
+  total: number
+  page: number
+  limit: number
+}
+
+// Mesmo endpoint de getLives, mas com paginado=1 → { items, total, page, limit }.
+export function getLivesPaginado(params: Record<string, unknown> = {}) {
+  return apiGet<LivesPaginadoResponse>('/lives', { ...params, paginado: 1 })
+}
+
 export function getLivesDuplicatas() {
   return apiGet<JsonRecord>('/lives/duplicatas')
 }

@@ -129,11 +129,13 @@ export function FinanceiroPage() {
     ? asString(selectedCliente?.marca_id ?? selectedCliente?.id, '')
     : asString(selectedCliente?.cliente_id ?? selectedCliente?.id, '')
   const selectedClienteDetail = useQuery({
-    queryKey: QK.financeiroClienteOperacional({ clienteKind: selectedClienteKind, clienteId: selectedClienteId }),
+    // Segue o período do PeriodRangeControl (inicio/fim YYYY-MM) — sem isso o
+    // backend cai no mês corrente e as comissões do modal divergem da tela.
+    queryKey: QK.financeiroClienteOperacional({ clienteKind: selectedClienteKind, clienteId: selectedClienteId, periodo: pk }),
     enabled: Boolean(selectedClienteId),
     queryFn: () => selectedClienteKind === 'marca'
-      ? getMarcaOperacional(selectedClienteId)
-      : getClienteOperacional(selectedClienteId),
+      ? getMarcaOperacional(selectedClienteId, fp)
+      : getClienteOperacional(selectedClienteId, fp),
   })
   const createCusto = useMutation({
     mutationFn: createFinanceiroCusto,

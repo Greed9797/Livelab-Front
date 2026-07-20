@@ -4,7 +4,10 @@ import {
   Calendar,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Download,
   Edit2,
   ExternalLink,
@@ -711,7 +714,26 @@ export interface LivesTabProps {
   marcaFilterOptions: LiveFilterOption[]
   apresentadoraFilterOptions: LiveFilterOption[]
   onClearFilters: () => void
+  // Busca/status server-side + paginação real
+  searchQuery: string
+  onSearchChange: (q: string) => void
+  statusFilter: string
+  onStatusFilterChange: (status: string) => void
+  page: number
+  pageSize: number
+  total: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
 }
+
+const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
+  { value: 'encerrada', label: 'Encerradas' },
+  { value: 'faturada', label: 'Faturadas' },
+  { value: 'em_andamento', label: 'Em andamento' },
+  { value: 'todas', label: 'Todos os status' },
+]
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
 // ─── main component ────────────────────────────────────────────────────────
 
@@ -739,8 +761,17 @@ export function LivesTab({
   marcaFilterOptions,
   apresentadoraFilterOptions,
   onClearFilters,
+  searchQuery,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+  onPageSizeChange,
 }: LivesTabProps) {
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(searchQuery)
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
   const [kebabMenu, setKebabMenu] = useState<{ liveId: string; live: JsonRecord; top: number; left: number } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
@@ -788,22 +819,38 @@ export function LivesTab({
     return () => document.removeEventListener('keydown', handle)
   }, [])
 
-  // Data/marca/apresentadora já vêm filtrados do servidor; aqui só busca textual + duplicatas.
-  const filteredLives = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return livesData.filter((live) => {
-      if (showDuplicatesOnly && duplicateIdSet.size > 0 && !duplicateIdSet.has(asString(live.id))) return false
-      if (q) {
-        const client = asString(live.marca_nome ?? live.cliente_nome).toLowerCase()
-        const cabine = asString(live.cabine_numero).toLowerCase()
-        const presenter = asString(live.apresentadora_nome ?? live.apresentador_nome).toLowerCase()
-        if (!(client.includes(q) || cabine.includes(q) || presenter.includes(q))) return false
-      }
-      return true
-    })
-  }, [livesData, search, showDuplicatesOnly, duplicateIdSet])
+  // Busca server-side com debounce: o input é local; ~400ms depois propaga via
+  // onSearchChange (que atualiza a URL e refaz a query). lastSentRef distingue
+  // mudança externa (limpar filtros, back/forward) — que ressincroniza o input —
+  // de eco da própria digitação, que não pode sobrescrever o que o usuário digita.
+  const lastSentRef = useRef(searchQuery)
+  useEffect(() => {
+    if (searchQuery !== lastSentRef.current) {
+      lastSentRef.current = searchQuery
+      setSearch(searchQuery)
+    }
+  }, [searchQuery])
+  useEffect(() => {
+    if (search === searchQuery) return
+    const timer = setTimeout(() => {
+      lastSentRef.current = search
+      onSearchChange(search)
+    }, 400)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, searchQuery])
 
-  const activeFilterCount = (dateRange !== 'todos' ? 1 : 0) + (marcaFilter ? 1 : 0) + (apresentadoraFilter ? 1 : 0)
+  // Busca/data/marca/apresentadora/status já vêm filtrados do servidor; aqui só duplicatas.
+  const filteredLives = useMemo(() => {
+    if (!showDuplicatesOnly || duplicateIdSet.size === 0) return livesData
+    return livesData.filter((live) => duplicateIdSet.has(asString(live.id)))
+  }, [livesData, showDuplicatesOnly, duplicateIdSet])
+
+  const activeFilterCount =
+    (dateRange !== 'todos' ? 1 : 0) +
+    (marcaFilter ? 1 : 0) +
+    (apresentadoraFilter ? 1 : 0) +
+    (statusFilter !== 'encerrada' ? 1 : 0)
   const hasAnyFilter = Boolean(search.trim()) || activeFilterCount > 0 || showDuplicatesOnly
   const clearFilters = onClearFilters
 
@@ -830,7 +877,10 @@ export function LivesTab({
       }),
     [dayGroups],
   )
-  const totalCount = filteredLives.length
+  // Paginação server-side
+  const pageCount = Math.max(1, Math.ceil(total / Math.max(1, pageSize)))
+  const rangeFrom = total === 0 ? 0 : page * pageSize + 1
+  const rangeTo = Math.min(total, page * pageSize + livesData.length)
 
   function toggleDay(key: string) {
     setCollapsedDays((prev) => {
@@ -962,7 +1012,7 @@ export function LivesTab({
               fontWeight: 500,
             }}
           >
-            {totalCount}
+            {total}
           </span>
         </span>
 
@@ -984,7 +1034,7 @@ export function LivesTab({
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por cliente, cabine, apresentadora…"
+            placeholder="Buscar por marca, cliente, apresentadora, observações…"
             style={{
               width: '100%',
               padding: '8px 40px 8px 34px',
@@ -1071,6 +1121,12 @@ export function LivesTab({
                 <select value={apresentadoraFilter} onChange={(e) => setApresentadoraFilter(e.target.value)} style={{ ...tbtn, width: '100%', justifyContent: 'flex-start' }}>
                   <option value="">Todas as apresentadoras</option>
                   {apresentadoraOptions.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                </select>
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px' }}>
+                <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Status</span>
+                <select value={statusFilter} onChange={(e) => onStatusFilterChange(e.target.value)} style={{ ...tbtn, width: '100%', justifyContent: 'flex-start' }}>
+                  {STATUS_FILTER_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </label>
               {activeFilterCount > 0 ? (
@@ -1679,14 +1735,16 @@ export function LivesTab({
           })
         )}
 
-        {/* Footer */}
+        {/* Footer — paginação server-side */}
         <div
           style={{
-            padding: '12px 22px',
+            padding: '10px 22px',
             borderTop: '1px solid var(--border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
             color: 'var(--text-muted)',
             fontSize: 12,
             fontFamily: 'var(--font-mono)',
@@ -1695,9 +1753,44 @@ export function LivesTab({
           }}
         >
           <span>
-            {totalCount} live{totalCount !== 1 ? 's' : ''}
-            {hasAnyFilter ? ` · filtrado de ${livesData.length}` : ''}
+            {total === 0
+              ? '0 lives'
+              : `${rangeFrom}–${rangeTo} de ${total} live${total !== 1 ? 's' : ''}`}
+            {showDuplicatesOnly ? ` · ${filteredLives.length} nesta página (duplicatas)` : ''}
           </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span>Por página</span>
+              <select
+                value={pageSize}
+                onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                aria-label="Itens por página"
+                style={{ ...tbtn, padding: '4px 8px', fontSize: 12, fontFamily: 'var(--font-mono)' }}
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+
+            <span style={{ whiteSpace: 'nowrap' }}>
+              Página {Math.min(page + 1, pageCount)} de {pageCount}
+            </span>
+
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Button variant="ghost" className="h-7 w-7 p-0" aria-label="Primeira página" disabled={page <= 0} onClick={() => onPageChange(0)}>
+                <ChevronsLeft style={{ width: 14, height: 14 }} />
+              </Button>
+              <Button variant="ghost" className="h-7 w-7 p-0" aria-label="Página anterior" disabled={page <= 0} onClick={() => onPageChange(page - 1)}>
+                <ChevronLeft style={{ width: 14, height: 14 }} />
+              </Button>
+              <Button variant="ghost" className="h-7 w-7 p-0" aria-label="Próxima página" disabled={page + 1 >= pageCount} onClick={() => onPageChange(page + 1)}>
+                <ChevronRight style={{ width: 14, height: 14 }} />
+              </Button>
+              <Button variant="ghost" className="h-7 w-7 p-0" aria-label="Última página" disabled={page + 1 >= pageCount} onClick={() => onPageChange(pageCount - 1)}>
+                <ChevronsRight style={{ width: 14, height: 14 }} />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 

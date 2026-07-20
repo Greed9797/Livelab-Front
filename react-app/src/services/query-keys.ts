@@ -58,7 +58,7 @@ export const QK = {
   financeiroFaturamento: (key?: string) => (key ? ['financeiro-faturamento', key] as const : ['financeiro-faturamento'] as const),
   financeiroFluxo: (key?: string) => (key ? ['financeiro-fluxo', key] as const : ['financeiro-fluxo'] as const),
   financeiroFranqueadora: (key?: string) => (key ? ['financeiro-franqueadora', key] as const : ['financeiro-franqueadora'] as const),
-  financeiroClienteOperacional: (params?: { clienteKind?: string; clienteId?: string }) =>
+  financeiroClienteOperacional: (params?: { clienteKind?: string; clienteId?: string; periodo?: string }) =>
     params ? ['financeiro-cliente-operacional', params] as const : ['financeiro-cliente-operacional'] as const,
   masterDashboard: (period?: { mes: number; ano: number }) =>
     period ? ['master-dashboard', period] as const : ['master-dashboard'] as const,
