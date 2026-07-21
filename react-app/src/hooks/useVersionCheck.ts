@@ -2,6 +2,18 @@ import { useEffect, useRef } from 'react'
 
 const CHECK_INTERVAL_MS = 5 * 60_000 // 5 min
 
+// Usuário digitando num campo? Não sequestrar a página com reload — deixa pro
+// próximo ciclo. Evita apagar form em preenchimento (supervisor troca de aba e
+// volta com o campo ainda focado).
+// ponytail: cobre campo FOCADO. Dado sujo sem foco (digitou, clicou fora, não
+// salvou) ainda pode se perder num reload — raro, não vale dirty-state global.
+function isEditing(): boolean {
+  const el = document.activeElement as HTMLElement | null
+  if (!el) return false
+  const tag = el.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
+}
+
 /**
  * Detecta deploy de versão nova e recarrega automaticamente (silencioso).
  *
@@ -46,7 +58,7 @@ export function useVersionCheck(): void {
 
         const data = (await res.json()) as { v?: string }
         const latest = String(data?.v ?? '')
-        if (latest && current && latest !== current) {
+        if (latest && current && latest !== current && !isEditing()) {
           reloadingRef.current = true
           window.location.reload()
         }
