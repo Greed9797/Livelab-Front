@@ -102,7 +102,7 @@ export function ComercialPage() {
   const [clienteForm, setClienteForm] = useState(emptyClienteForm)
   const [afiliadoForm, setAfiliadoForm] = useState(emptyAfiliadoForm)
   const [selectedAtivo, setSelectedAtivo] = useState<JsonRecord | null>(null)
-  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', logo_url: '', cor: '' })
+  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', tipo_cobranca: 'fixo_mais_comissao', logo_url: '', cor: '' })
   // Cor da marca no modal de edição: null = intocada (mantém/extrai), 'manual' = hex
   // escolhido no picker, 'clear' = botão "Automática" (PATCH cor: null).
   const [ativoCorTouch, setAtivoCorTouch] = useState<'manual' | 'clear' | null>(null)
@@ -328,6 +328,7 @@ export function ComercialPage() {
       comissao_franquia_pct: asString(principal.comissao_franquia_pct ?? 0, '0'),
       comissao_franqueadora_pct: asString(principal.comissao_franqueadora_pct ?? 0, '0'),
       valor_fixo_minimo: normalizeMoneyInputText(asString(principal.valor_fixo_minimo ?? 0, '0')),
+      tipo_cobranca: asString(principal.tipo_cobranca ?? 'fixo_mais_comissao', 'fixo_mais_comissao'),
     }))
   }, [ativoDetailQuery.data, selectedAtivoKind, selectedAtivoId])
 
@@ -397,6 +398,7 @@ export function ComercialPage() {
       comissao_franquia_pct: asString(item.comissao_franquia_pct ?? 0, '0'),
       comissao_franqueadora_pct: asString(item.comissao_franqueadora_pct ?? 0, '0'),
       valor_fixo_minimo: normalizeMoneyInputText(asString(item.valor_fixo_minimo ?? 0, '0')),
+      tipo_cobranca: asString(item.tipo_cobranca ?? 'fixo_mais_comissao', 'fixo_mais_comissao'),
       logo_url: asString(item.logo_url, ''),
       cor: asString(item.cor, ''),
     })
@@ -482,6 +484,7 @@ export function ComercialPage() {
         comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
         comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
         valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
+        tipo_cobranca: ativoForm.tipo_cobranca,
         logo_url: ativoForm.logo_url || null,
         ...(cor !== undefined ? { cor } : {}),
       }
@@ -498,6 +501,7 @@ export function ComercialPage() {
             comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
             comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
             valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
+            tipo_cobranca: ativoForm.tipo_cobranca,
           },
         })
       }
@@ -968,6 +972,26 @@ export function ComercialPage() {
                       <MoneyInput className="design-input mt-2 h-11 w-full px-4" placeholder="0,00" value={ativoForm.valor_fixo_minimo} onChange={(raw) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: raw }))} />
                       <span className="mt-1 text-[11px] text-ink-muted">≈ {formatMoney(parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo))} / mês quando a marca tiver atividade (em franquia e franqueadora).</span>
                     </label>
+                    <div className="col-span-full">
+                      <span className="text-sm font-semibold text-ink">Tipo de cobrança</span>
+                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {([
+                          { v: 'fixo_mais_comissao', label: 'Fixo + comissão', hint: 'Soma o fixo mensal e a comissão sobre GMV.' },
+                          { v: 'fixo_ou_comissao', label: 'Fixo OU comissão', hint: 'Entra só o maior: o fixo ou a comissão.' },
+                        ] as const).map((opt) => (
+                          <button
+                            key={opt.v}
+                            type="button"
+                            onClick={() => setAtivoForm((current) => ({ ...current, tipo_cobranca: opt.v }))}
+                            className={`rounded-xl border px-4 py-3 text-left transition ${ativoForm.tipo_cobranca === opt.v ? 'border-brand bg-brand-soft text-ink' : 'border-border text-ink-muted hover:border-border-strong'}`}
+                            aria-pressed={ativoForm.tipo_cobranca === opt.v}
+                          >
+                            <span className="block text-sm font-semibold">{opt.label}</span>
+                            <span className="mt-0.5 block text-[11px] text-ink-muted">{opt.hint}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                 </>
                 <div className="flex flex-wrap items-end gap-2">
                   <Button type="submit" isLoading={ativoUpdateMutation.isPending}>Salvar alterações</Button>
