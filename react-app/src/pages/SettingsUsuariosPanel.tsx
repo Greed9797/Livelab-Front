@@ -96,6 +96,8 @@ const emptyEditForm = {
   ativo: true,
   fixo: '2700',
   foto_url: '',
+  data_inicio: '',
+  data_fim: '',
 }
 
 const emptyFaixaForm = { gmv_inicio: '0', gmv_fim: '', comissao_pct: '0' }
@@ -213,6 +215,8 @@ export function SettingsUsuariosPanel() {
         presenterPayload.ativo = ef.ativo
         if (ef.fixo !== '') presenterPayload.fixo = parseBRMoneyToDecimal(ef.fixo)
         presenterPayload.foto_url = ef.foto_url || null
+        presenterPayload.data_inicio = ef.data_inicio || null
+        presenterPayload.data_fim = ef.data_fim || null
       }
       if (isPresenterProfile(user)) return updateApresentadora(presenterIdResolved, presenterPayload)
       return updateUsuario(asString(user.id, ''), {
@@ -295,6 +299,8 @@ export function SettingsUsuariosPanel() {
       ativo: ativoValue(item.ativo),
       fixo: isPresenterUser(item) || isPresenterProfile(item) ? presenterFixedValue(item) : asString(item.fixo_mensal ?? item.fixo, ''),
       foto_url: asString(item.foto_url ?? item.apresentadora_foto_url, ''),
+      data_inicio: asString(item.data_inicio ?? '', '').slice(0, 10),
+      data_fim: asString(item.data_fim ?? '', '').slice(0, 10),
     })
   }
 

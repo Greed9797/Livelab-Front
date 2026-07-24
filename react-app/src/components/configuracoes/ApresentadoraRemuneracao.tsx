@@ -9,6 +9,8 @@ import { extractErrorMessage } from '../../services/api'
 interface EditFormFields {
   fixo: string
   foto_url: string
+  data_inicio: string
+  data_fim: string
 }
 
 interface Props {
@@ -40,6 +42,15 @@ export function ApresentadoraRemuneracao({ form, onFieldChange, uploadState, onF
         <label className="block">
           <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
           <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.fixo} onChange={(raw) => onFieldChange('fixo', raw)} />
+        </label>
+        <label className="block">
+          <span className="text-sm font-semibold text-ink">Início do contrato</span>
+          <input type="date" className="design-input mt-2 h-11 w-full px-4" value={form.data_inicio} onChange={(e) => onFieldChange('data_inicio', e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="text-sm font-semibold text-ink">Fim do contrato</span>
+          <input type="date" className="design-input mt-2 h-11 w-full px-4" value={form.data_fim} onChange={(e) => onFieldChange('data_fim', e.target.value)} />
+          <span className="mt-1 block text-[11px] text-ink-muted">Rateia o fixo por dias no mês de saída. Vazio = sem recorte.</span>
         </label>
       </div>
       <p className="flex items-start gap-2 rounded-xl border border-dashed border-line bg-surface px-3 py-2.5 text-xs text-ink-muted">

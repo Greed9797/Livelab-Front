@@ -102,7 +102,7 @@ export function ComercialPage() {
   const [clienteForm, setClienteForm] = useState(emptyClienteForm)
   const [afiliadoForm, setAfiliadoForm] = useState(emptyAfiliadoForm)
   const [selectedAtivo, setSelectedAtivo] = useState<JsonRecord | null>(null)
-  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', tipo_cobranca: 'fixo_mais_comissao', logo_url: '', cor: '' })
+  const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', tipo_cobranca: 'fixo_mais_comissao', data_inicio: '', data_fim: '', logo_url: '', cor: '' })
   // Cor da marca no modal de edição: null = intocada (mantém/extrai), 'manual' = hex
   // escolhido no picker, 'clear' = botão "Automática" (PATCH cor: null).
   const [ativoCorTouch, setAtivoCorTouch] = useState<'manual' | 'clear' | null>(null)
@@ -329,6 +329,8 @@ export function ComercialPage() {
       comissao_franqueadora_pct: asString(principal.comissao_franqueadora_pct ?? 0, '0'),
       valor_fixo_minimo: normalizeMoneyInputText(asString(principal.valor_fixo_minimo ?? 0, '0')),
       tipo_cobranca: asString(principal.tipo_cobranca ?? 'fixo_mais_comissao', 'fixo_mais_comissao'),
+      data_inicio: asString(principal.data_inicio ?? '', '').slice(0, 10),
+      data_fim: asString(principal.data_fim ?? '', '').slice(0, 10),
     }))
   }, [ativoDetailQuery.data, selectedAtivoKind, selectedAtivoId])
 
@@ -399,6 +401,8 @@ export function ComercialPage() {
       comissao_franqueadora_pct: asString(item.comissao_franqueadora_pct ?? 0, '0'),
       valor_fixo_minimo: normalizeMoneyInputText(asString(item.valor_fixo_minimo ?? 0, '0')),
       tipo_cobranca: asString(item.tipo_cobranca ?? 'fixo_mais_comissao', 'fixo_mais_comissao'),
+      data_inicio: asString(item.data_inicio ?? '', '').slice(0, 10),
+      data_fim: asString(item.data_fim ?? '', '').slice(0, 10),
       logo_url: asString(item.logo_url, ''),
       cor: asString(item.cor, ''),
     })
@@ -488,6 +492,8 @@ export function ComercialPage() {
         comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
         valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
         tipo_cobranca: ativoForm.tipo_cobranca,
+        data_inicio: ativoForm.data_inicio || null,
+        data_fim: ativoForm.data_fim || null,
         logo_url: ativoForm.logo_url || null,
         ...(cor !== undefined ? { cor } : {}),
       }
@@ -503,6 +509,8 @@ export function ComercialPage() {
             comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
             valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
             tipo_cobranca: ativoForm.tipo_cobranca,
+            data_inicio: ativoForm.data_inicio || null,
+            data_fim: ativoForm.data_fim || null,
             ...(cor !== undefined ? { cor } : {}),
           },
         })
@@ -996,6 +1004,17 @@ export function ComercialPage() {
                           </button>
                         ))}
                       </div>
+                    </div>
+                    <div className="col-span-full grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="text-sm font-semibold text-ink">Início do contrato</span>
+                        <input type="date" className="design-input mt-2 h-11 w-full px-4" value={ativoForm.data_inicio} onChange={(e) => setAtivoForm((current) => ({ ...current, data_inicio: e.target.value }))} />
+                      </label>
+                      <label className="block">
+                        <span className="text-sm font-semibold text-ink">Fim do contrato</span>
+                        <input type="date" className="design-input mt-2 h-11 w-full px-4" value={ativoForm.data_fim} onChange={(e) => setAtivoForm((current) => ({ ...current, data_fim: e.target.value }))} />
+                        <span className="mt-1 text-[11px] text-ink-muted">Rateia o fixo por dias no mês de entrada/saída. Vazio = sem recorte.</span>
+                      </label>
                     </div>
                 </>
                 <div className="flex flex-wrap items-end gap-2">
