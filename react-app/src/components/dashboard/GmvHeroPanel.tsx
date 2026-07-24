@@ -736,7 +736,11 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
         pedidos: asNumber(p.pedidos),
         prev: asNumber(p.prev),
       }))
-    return pts.some((p) => p.gmv > 0) ? pts : null
+    // Série mensal não-vazia qualifica mesmo se todo o GMV for 0 — um mês sem venda
+    // ainda é uma linha do mês (reta em zero), honesta. Antes exigia `gmv > 0`, o que
+    // reprovava mais que a série intradiária (que aceita só `prev`): no início do mês,
+    // ou mês sem live encerrada, o card do MÊS caía pra série de HOJE. Ver effectiveView.
+    return pts.length > 0 ? pts : null
   }, [raw.gmv_diario_mes])
 
   const mesReferencia = raw.mes_referencia != null ? String(raw.mes_referencia) : null
@@ -766,7 +770,9 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
         : 'mes'
       : hasDaily
         ? 'mes'
-        : 'hoje'
+        // Card do MÊS nunca renderiza a série de HOJE por baixo do título "desempenho
+        // do mês" (bug recorrente). Sem série mensal → null (sem gráfico), não 'hoje'.
+        : null
 
   // legend: adapts to the chart actually being shown
   const showIntradayLegend = effectiveView === 'hoje'
