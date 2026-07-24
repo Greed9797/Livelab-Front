@@ -458,18 +458,23 @@ function buildDailyPaths(data: DailyPoint[], todayDia: number, isCurrentMonth: b
   const innerW = CHART_W - PAD.l - PAD.r
   const innerH = CHART_H - PAD.t - PAD.b
 
-  // For current month: clip points to todayDia; for past months: use all
-  const visibleData = isCurrentMonth ? data.filter((p) => p.dia <= todayDia) : data
-  if (visibleData.length === 0) return null
+  // For current month: clip points to todayDia; for past months: use all.
+  // Se o clip esvaziar (todayDia antes do 1º dia com dado), cai para todos os dias —
+  // o card do mês NUNCA deve ficar sem série.
+  const clipped = isCurrentMonth ? data.filter((p) => p.dia <= todayDia) : data
+  const visibleData = clipped.length > 0 ? clipped : data
+  if (visibleData.length === 0) return null // só se o mês inteiro vier vazio do back (não ocorre)
 
   // A escala considera as duas séries — senão a linha do mês anterior sai do gráfico.
+  // BUG RECORRENTE: quando o mês exibido E o comparativo têm GMV diário todo zero
+  // (mês quieto ou início de mês), o gráfico SUMIA (retornava null → card em branco).
+  // Agora desenha a linha reta no zero + eixo com um teto default — nunca em branco.
   const allVals = [
     ...visibleData.map((p) => p.gmv),
     ...data.map((p) => p.prev ?? 0),
   ].filter((v) => v > 0)
-  if (allVals.length === 0) return null
 
-  const maxV = Math.max(...allVals)
+  const maxV = allVals.length > 0 ? Math.max(...allVals) : 0
   const niceMax = Math.ceil(maxV / 500) * 500 || 1000
 
   // Total days in month for x-axis scaling
