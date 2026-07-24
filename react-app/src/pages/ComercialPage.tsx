@@ -243,6 +243,9 @@ export function ComercialPage() {
       tipo_operacional: 'cliente_ecommerce',
       marca_principal: asString(marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.nome, asString(cliente.nome)),
       apresentadoras: marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.apresentadoras,
+      // cor vive na marca principal do cliente (getMarcas traz cor), não no /clientes.
+      // Sem isto o avatar da lista do cliente cai no hash em vez da cor salva.
+      cor: asString(marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.cor, ''),
     }))
     const marcasSemCliente = marcas
       .filter((marca) => !marca.cliente_id)
@@ -331,6 +334,8 @@ export function ComercialPage() {
       tipo_cobranca: asString(principal.tipo_cobranca ?? 'fixo_mais_comissao', 'fixo_mais_comissao'),
       data_inicio: asString(principal.data_inicio ?? '', '').slice(0, 10),
       data_fim: asString(principal.data_fim ?? '', '').slice(0, 10),
+      // cor da marca principal (não vem no /clientes) — reflete a cor salva no picker.
+      cor: asString(principal.cor ?? current.cor, ''),
     }))
   }, [ativoDetailQuery.data, selectedAtivoKind, selectedAtivoId])
 
