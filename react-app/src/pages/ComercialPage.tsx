@@ -515,7 +515,13 @@ export function ComercialPage() {
           },
         })
       }
-      toast.push('Alterações salvas com sucesso.', 'success')
+      if (kind === 'cliente' && !marcaPctId) {
+        // Comissão/fixo/tipo/cor vivem na marca principal; sem ela nada disso persiste.
+        // Não fingir sucesso: avisar honestamente o que foi (e não foi) salvo.
+        toast.push('Cliente salvo. Comissão, fixo e cor precisam de uma marca principal vinculada.', 'info')
+      } else {
+        toast.push('Alterações salvas com sucesso.', 'success')
+      }
     } catch {
       // erros exibidos via *.isError nas mutations
     }
@@ -786,11 +792,11 @@ export function ComercialPage() {
         onClose={() => setShowClienteForm(false)}
       >
         <form className="grid gap-3 md:grid-cols-2" onSubmit={onClienteSubmit}>
-          <input className="design-input h-11 px-4" placeholder="Nome da empresa/marca" value={clienteForm.nome} onChange={(event) => setClienteField('nome', event.target.value)} required />
-          <input className="design-input h-11 px-4" placeholder="Responsável" value={clienteForm.responsavel} onChange={(event) => setClienteField('responsavel', event.target.value)} />
-          <input className="design-input h-11 px-4" placeholder="WhatsApp" value={clienteForm.whatsapp} onChange={(event) => setClienteField('whatsapp', event.target.value)} required />
-          <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={clienteForm.email} onChange={(event) => setClienteField('email', event.target.value)} />
-          <input className="design-input h-11 px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} />
+          <input aria-label="Nome da empresa/marca" className="design-input h-11 px-4" placeholder="Nome da empresa/marca" value={clienteForm.nome} onChange={(event) => setClienteField('nome', event.target.value)} required />
+          <input aria-label="Responsável" className="design-input h-11 px-4" placeholder="Responsável" value={clienteForm.responsavel} onChange={(event) => setClienteField('responsavel', event.target.value)} />
+          <input aria-label="WhatsApp" className="design-input h-11 px-4" placeholder="WhatsApp" value={clienteForm.whatsapp} onChange={(event) => setClienteField('whatsapp', event.target.value)} required />
+          <input aria-label="E-mail" className="design-input h-11 px-4" placeholder="E-mail" type="email" value={clienteForm.email} onChange={(event) => setClienteField('email', event.target.value)} />
+          <input aria-label="CNPJ" className="design-input h-11 px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="Nicho" value={clienteForm.nicho} onChange={(event) => setClienteField('nicho', event.target.value)} />
           <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value.replace(/@/g, ''))} />
           <section className="space-y-3 rounded-2xl border border-line bg-surface-muted p-4 md:col-span-2">
@@ -822,6 +828,8 @@ export function ComercialPage() {
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Senha temporária</span>
                   <input
+                    type="password"
+                    autoComplete="new-password"
                     className="design-input mt-2 h-11 w-full px-4"
                     value={clienteForm.senha_temporaria}
                     onChange={(event) => setClienteField('senha_temporaria', event.target.value)}
@@ -856,10 +864,10 @@ export function ComercialPage() {
         onClose={() => setShowAfiliadoForm(false)}
       >
         <form className="grid gap-3 md:grid-cols-2" onSubmit={onAfiliadoSubmit}>
-          <input className="design-input h-11 px-4" placeholder="Nome da marca afiliada" value={afiliadoForm.nome} onChange={(event) => setAfiliadoField('nome', event.target.value)} required />
-          <input className="design-input h-11 px-4" placeholder="Responsável" value={afiliadoForm.responsavel} onChange={(event) => setAfiliadoField('responsavel', event.target.value)} />
-          <input className="design-input h-11 px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} />
-          <input className="design-input h-11 px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} />
+          <input aria-label="Nome da marca afiliada" className="design-input h-11 px-4" placeholder="Nome da marca afiliada" value={afiliadoForm.nome} onChange={(event) => setAfiliadoField('nome', event.target.value)} required />
+          <input aria-label="Responsável" className="design-input h-11 px-4" placeholder="Responsável" value={afiliadoForm.responsavel} onChange={(event) => setAfiliadoField('responsavel', event.target.value)} />
+          <input aria-label="WhatsApp" className="design-input h-11 px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} />
+          <input aria-label="E-mail" className="design-input h-11 px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} />
           <input className="design-input h-11 px-4" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value.replace(/@/g, ''))} />
           <label className="block">
             <span className="sr-only">Comissão Franquia (%)</span>
