@@ -463,6 +463,15 @@ export function ComercialPage() {
     const id = asString(selectedAtivo.id, '')
     const kind = selectedAtivoKind
     let payload: JsonRecord
+    // Cor: manual = hex escolhido; "Automática" = null (limpa); intocada e sem cor
+    // salva = tenta extrair do logo (falha = segue sem cor, hash cobre). A cor vive na
+    // MARCA — para cliente_ecommerce ela vai na marca principal (marcaPct), não no cliente.
+    let cor: string | null | undefined
+    if (ativoCorTouch === 'manual') cor = ativoForm.cor || null
+    else if (ativoCorTouch === 'clear') cor = null
+    else if (!ativoForm.cor && ativoForm.logo_url) cor = (await extractBrandColor(ativoForm.logo_url)) ?? undefined
+    // Extração veio automática: reflete no form sem marcar como escolha manual.
+    if (typeof cor === 'string' && ativoCorTouch === null) setAtivoForm((current) => ({ ...current, cor }))
     if (kind === 'cliente') {
       payload = {
         nome: ativoForm.nome,
@@ -472,12 +481,6 @@ export function ComercialPage() {
         logo_url: ativoForm.logo_url || null,
       }
     } else {
-      // Cor: manual = hex escolhido; "Automática" = null (limpa); intocada e sem cor
-      // salva = tenta extrair do logo (falha = segue sem cor, hash cobre).
-      let cor: string | null | undefined
-      if (ativoCorTouch === 'manual') cor = ativoForm.cor || null
-      else if (ativoCorTouch === 'clear') cor = null
-      else if (!ativoForm.cor && ativoForm.logo_url) cor = (await extractBrandColor(ativoForm.logo_url)) ?? undefined
       payload = {
         nome: ativoForm.nome,
         status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
@@ -488,8 +491,6 @@ export function ComercialPage() {
         logo_url: ativoForm.logo_url || null,
         ...(cor !== undefined ? { cor } : {}),
       }
-      // Extração veio automática: reflete no form sem marcar como escolha manual.
-      if (typeof cor === 'string' && ativoCorTouch === null) setAtivoForm((current) => ({ ...current, cor }))
     }
     try {
       await ativoUpdateMutation.mutateAsync({ id, kind, payload })
@@ -502,6 +503,7 @@ export function ComercialPage() {
             comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
             valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
             tipo_cobranca: ativoForm.tipo_cobranca,
+            ...(cor !== undefined ? { cor } : {}),
           },
         })
       }
@@ -708,7 +710,10 @@ export function ComercialPage() {
                       const initials = asString(item.nome, 'CL').slice(0, 2).toUpperCase()
                       return (
                         <div className="flex min-w-56 items-center gap-3">
-                          <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border border-line bg-surface-muted text-xs font-black text-ink-muted">
+                          <div
+                            className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border-2 bg-surface-muted text-xs font-black text-ink-muted"
+                            style={{ borderColor: resolveMarcaCor(asString(item.cor) || null, asString(item.id)) }}
+                          >
                             {image ? <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : initials}
                           </div>
                           <div className="min-w-0">
@@ -933,7 +938,7 @@ export function ComercialPage() {
                     helper={selectedAtivoKind === 'cliente' ? 'Aparece nas agendas e rankings de marca quando este cliente for usado.' : 'Aparece nos rankings de marca, agendas e telas operacionais.'}
                   />
                 </div>
-                {selectedAtivoKind === 'marca' ? (
+                {(selectedAtivoKind === 'marca' || (selectedAtivoKind === 'cliente' && Boolean(marcaPctId))) ? (
                   <div className="md:col-span-2">
                     <CorMarcaField
                       cor={ativoForm.cor}
