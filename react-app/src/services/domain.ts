@@ -507,8 +507,47 @@ export function getDailyAnalytics(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/analytics/diario', filters)
 }
 
-export function previewAnalyticsImport(file: File) {
-  return apiUpload<JsonRecord>('/analytics/imports/preview', file)
+export interface ImportApresentadoraRateio {
+  apresentadora_id: string
+  percentual: number
+}
+
+export type ImportDecisao = 'pendente' | 'vincular' | 'criar' | 'ignorar'
+
+/**
+ * O relatório do TikTok Studio não traz a marca: ela e a apresentadora são escolhidas na tela
+ * e viajam como query params (o backend também aceita como campos do multipart).
+ */
+export function previewAnalyticsImport(
+  file: File,
+  context: { marca_id?: string; apresentadora_id?: string } = {},
+) {
+  return apiUpload<JsonRecord>('/analytics/imports/preview', file, context)
+}
+
+export function getAnalyticsImports(limit = 20) {
+  return apiGet<JsonRecord[]>('/analytics/imports', { limit })
+}
+
+export function getAnalyticsImport(batchId: string) {
+  return apiGet<JsonRecord>(`/analytics/imports/${batchId}`)
+}
+
+export function updateAnalyticsImportRow(
+  batchId: string,
+  rowId: string,
+  patch: {
+    decisao?: ImportDecisao
+    marca_id?: string
+    matched_live_id?: string | null
+    apresentadoras?: ImportApresentadoraRateio[]
+  },
+) {
+  return apiPatch<JsonRecord>(`/analytics/imports/${batchId}/rows/${rowId}`, patch)
+}
+
+export function cancelAnalyticsImport(batchId: string) {
+  return apiDelete<JsonRecord>(`/analytics/imports/${batchId}`)
 }
 
 export function applyAnalyticsImport(batchId: string) {

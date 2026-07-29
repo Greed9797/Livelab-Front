@@ -33,6 +33,7 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
 
   const data = getRecord(query.data)
   const etapas = asArray<JsonRecord>(data.etapas)
+  const resumo = getRecord(data.resumo)
   const temDadosAds = Boolean(data.tem_dados_ads)
   const maxValor = etapas.reduce((max, etapa) => Math.max(max, asNumber(etapa.valor)), 0)
 
@@ -87,10 +88,23 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
               })}
             </div>
 
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                ['Likes', asNumber(resumo.likes).toLocaleString('pt-BR')],
+                ['% de likes', resumo.like_rate_medio == null ? '—' : `${asNumber(resumo.like_rate_medio).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`],
+                ['Novos seguidores', asNumber(resumo.novos_seguidores).toLocaleString('pt-BR')],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-line bg-surface-muted p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-ink-muted">{label}</p>
+                  <p className="mt-1 text-xl font-black tabular-nums text-ink">{value}</p>
+                </div>
+              ))}
+            </div>
+
             {!temDadosAds ? (
               <p className="rounded-xl border border-dashed border-line bg-surface-muted/50 p-3 text-xs text-ink-muted">
-                As etapas de impressões e cliques dependem do import do TikTok Ads Manager. Sem esses dados, o
-                funil mostra só visualizações → pedidos. Use a seção “Importar dados do TikTok Ads” acima.
+                As etapas de impressões e cliques dependem do import do TikTok. Sem esses dados, o funil
+                mostra só visualizações → pedidos. Use a seção “Importar relatório do TikTok” acima.
               </p>
             ) : null}
           </div>

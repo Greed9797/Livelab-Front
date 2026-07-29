@@ -52,3 +52,4 @@ app.*.map.json
 
 # Metadados de ferramentas locais
 .serena/
+.vercel
