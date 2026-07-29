@@ -136,7 +136,10 @@ export function DashboardPage() {
   })
 
   if (homeQuery.isLoading) return <LoadingState />
-  if (homeQuery.isError) return (
+  // Só troca a tela inteira por erro quando não há NADA para mostrar. A home refaz a
+  // cada 30s; uma falha de rede num refetch de background não pode apagar os dados que
+  // já estão na tela — era isso que fazia o painel sumir e só voltar no ciclo seguinte.
+  if (homeQuery.isError && !homeQuery.data) return (
     <ErrorState
       message={extractErrorMessage(homeQuery.error)}
       onRetry={() => void homeQuery.refetch()}
@@ -144,6 +147,7 @@ export function DashboardPage() {
   )
 
   const raw = (homeQuery.data ?? {}) as JsonRecord
+  const atualizacaoFalhou = homeQuery.isError && Boolean(homeQuery.data)
   // Mês exibido: seleção manual > mes_referencia do backend > mês corrente
   const mesExibido = mesSelecionado ?? asString(raw.mes_referencia, currentMonth).slice(0, 7)
   const cabines = asArray<Cabine>(raw.cabines)
@@ -163,6 +167,19 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHead liveCount={liveCabines.length} />
+
+      {atualizacaoFalhou ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-ink">
+          <span>Não foi possível atualizar agora — os números abaixo são da última atualização.</span>
+          <button
+            type="button"
+            onClick={() => void homeQuery.refetch()}
+            className="rounded-full border border-line px-3 py-1 text-xs font-semibold hover:bg-surface-muted"
+          >
+            Tentar de novo
+          </button>
+        </div>
+      ) : null}
 
       {/* Seletor de mês — mesmo período rege todos os números da página */}
       <div className="flex flex-wrap items-center gap-2">

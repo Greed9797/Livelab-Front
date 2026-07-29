@@ -34,7 +34,9 @@ export function ClienteDashboardPage() {
   })
 
   if (query.isLoading) return <LoadingState />
-  if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+  // Com polling de 30s, uma falha de rede num refetch não pode apagar o painel já
+  // carregado — só troca por erro quando não há nada em tela.
+  if (query.isError && !query.data) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
   const raw = getRecord(query.data)
   const fin = getRecord(raw.financeiro_cliente)

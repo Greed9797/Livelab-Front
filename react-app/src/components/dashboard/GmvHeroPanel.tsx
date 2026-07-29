@@ -775,9 +775,17 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
         : 'mes'
       : hasDaily
         ? 'mes'
-        // Card do MÊS nunca renderiza a série de HOJE por baixo do título "desempenho
-        // do mês" (bug recorrente). Sem série mensal → null (sem gráfico), não 'hoje'.
-        : null
+        // Sem série mensal, cai para a de hoje — mas o TÍTULO acompanha (ver tituloCard).
+        // O que não pode é desenhar a série de hoje sob o título "desempenho do mês"
+        // (bug recorrente); antes isso virava null e o card ficava sem gráfico nenhum.
+        : hasIntraday
+          ? 'hoje'
+          : null
+
+  // O título segue o que está desenhado — nunca dizer "mês" mostrando a série de hoje.
+  const tituloCard = effectiveView === 'hoje' && !hasDaily
+    ? 'GMV — desempenho de hoje'
+    : 'GMV — desempenho do mês'
 
   // legend: adapts to the chart actually being shown
   const showIntradayLegend = effectiveView === 'hoje'
@@ -794,7 +802,7 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
           className="text-[11px] font-semibold uppercase tracking-[0.1em]"
           style={{ color: 'var(--text-muted)' }}
         >
-          GMV — desempenho do mês
+          {tituloCard}
         </span>
         <div className="flex items-center gap-3 shrink-0">
           {/* segmented toggle: Hoje | Mês (only when a chart can render) */}

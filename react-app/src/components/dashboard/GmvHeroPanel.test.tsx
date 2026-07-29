@@ -208,13 +208,32 @@ describe('GmvHeroPanel', () => {
     expect(html).not.toContain('stroke-dasharray="3 4"')
   })
 
-  it('does NOT render daily chart when gmv_diario_mes is all zeros', () => {
+  // Regra invertida de propósito: o gráfico do mês SEMPRE aparece, mesmo com GMV zerado
+  // (linha reta no zero). Antes ele sumia em mês quieto / início de mês — era o card
+  // "GMV — desempenho do mês" em branco que voltava e parava do nada.
+  it('renders the daily chart even when gmv_diario_mes is all zeros', () => {
     const allZero = Array.from({ length: 30 }, (_, i) => ({ dia: i + 1, gmv: 0 }))
     const html = renderToStaticMarkup(
       <GmvHeroPanel raw={{ ...baseRaw, gmv_diario_mes: allZero }} />,
     )
-    expect(html).not.toContain('gmv-chart-daily')
+    expect(html).toContain('gmv-chart-daily')
     expect(html).not.toContain('gmv-chart-intraday')
+  })
+
+  // Sem série mensal, o card cai para a série de hoje E troca o título — em vez de
+  // ficar sem gráfico nenhum, que era como o painel "quebrava" ao carregar.
+  it('falls back to the intraday chart and renames the card when there is no monthly series', () => {
+    const intraday = Array.from({ length: 16 }, (_, i) => ({
+      h: String(8 + i).padStart(2, '0'), // o backend manda a hora como string ("08")
+      v: i === 0 ? 100 : null,
+      prev: 50,
+    }))
+    const html = renderToStaticMarkup(
+      <GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: intraday, gmv_diario_mes: [] }} />,
+    )
+    expect(html).toContain('gmv-chart-intraday')
+    expect(html).toContain('GMV — desempenho de hoje')
+    expect(html).not.toContain('GMV — desempenho do mês')
   })
 
   it('defaults to the month (daily) chart when both intraday and daily qualify', () => {
