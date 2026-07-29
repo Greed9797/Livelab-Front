@@ -246,6 +246,9 @@ export function ComercialPage() {
       // cor vive na marca principal do cliente (getMarcas traz cor), não no /clientes.
       // Sem isto o avatar da lista do cliente cai no hash em vez da cor salva.
       cor: asString(marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.cor, ''),
+      // Seed do fallback por hash: precisa ser o id da MARCA, que é o que a agenda usa.
+      // Com o id do cliente, a mesma marca ganhava cores diferentes nas duas telas.
+      cor_seed_id: asString(marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.id, asString(cliente.id, '')),
     }))
     const marcasSemCliente = marcas
       .filter((marca) => !marca.cliente_id)
@@ -731,7 +734,7 @@ export function ComercialPage() {
                         <div className="flex min-w-56 items-center gap-3">
                           <div
                             className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border-2 bg-surface-muted text-xs font-black text-ink-muted"
-                            style={{ borderColor: resolveMarcaCor(asString(item.cor) || null, asString(item.id)) }}
+                            style={{ borderColor: resolveMarcaCor(asString(item.cor) || null, asString(item.cor_seed_id) || asString(item.id)) }}
                           >
                             {image ? <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : initials}
                           </div>
@@ -963,7 +966,10 @@ export function ComercialPage() {
                   <div className="md:col-span-2">
                     <CorMarcaField
                       cor={ativoForm.cor}
-                      seed={selectedAtivoId}
+                      // Sem cor salva, a cor vem de um hash do seed — e a agenda usa o
+                      // marca_id. Semear com o id do CLIENTE dava uma cor aqui e outra lá
+                      // (Posthaus aparecia azul no comercial e laranja na agenda).
+                      seed={selectedAtivoKind === 'cliente' ? (marcaPctId || selectedAtivoId) : selectedAtivoId}
                       onManual={(hex) => { setAtivoCorTouch('manual'); setAtivoForm((current) => ({ ...current, cor: hex })) }}
                       onAuto={() => { setAtivoCorTouch('clear'); setAtivoForm((current) => ({ ...current, cor: '' })) }}
                     />

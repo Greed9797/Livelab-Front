@@ -61,4 +61,25 @@ describe('resolveMarcaCor', () => {
     expect(resolveMarcaCor(undefined, 'marca-1')).toBe(fallback)
     expect(resolveMarcaCor('azul', 'marca-1')).toBe(fallback)
   })
+
+  // Sem cor salva a cor vem de um hash do seed. Se uma tela semeia com o id do CLIENTE
+  // e outra com o id da MARCA, a mesma marca ganha cores diferentes — foi assim que a
+  // Posthaus apareceu azul no comercial e laranja na agenda. O seed tem que ser sempre
+  // o id da marca. Estes são os ids reais do caso relatado.
+  it('gives the same brand the same color across screens only when seeded by marca_id', () => {
+    const clienteId = 'b565e9d6-3a1f-4450-8b1f-55757fc82437'
+    const marcaId = 'a35ad0db-c67f-4d9d-8f07-60ddc1e94afe'
+
+    // o defeito: seeds diferentes produzem cores diferentes
+    expect(resolveMarcaCor(null, clienteId)).not.toBe(resolveMarcaCor(null, marcaId))
+
+    // a regra: comercial e agenda usando marca_id convergem
+    const naAgenda = resolveMarcaCor(null, marcaId)
+    const noComercial = resolveMarcaCor(null, marcaId)
+    expect(noComercial).toBe(naAgenda)
+  })
+
+  it('keeps the saved color regardless of the seed', () => {
+    expect(resolveMarcaCor('#1E63E9', 'seed-a')).toBe(resolveMarcaCor('#1E63E9', 'seed-b'))
+  })
 })
