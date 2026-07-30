@@ -262,9 +262,11 @@ export function DashboardPage() {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               Grade de hoje
             </h3>
-            {/* Legenda por marca — espelha a aba Agenda (cor determinística por marca_id) */}
-            <div className="flex flex-wrap items-center justify-end gap-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              {legendaMarcas.slice(0, 5).map((m) => (
+            {/* Legenda por marca — espelha a aba Agenda. Mostra TODAS as marcas da grade:
+                cortar a lista escondia marcas sem avisar, e a legenda existe justamente
+                para dizer de quem é cada cor. */}
+            <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              {legendaMarcas.map((m) => (
                 <span key={m.id} className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-sm" style={{ background: resolveMarcaCor(m.cor, m.id) }} />
                   {m.nome}

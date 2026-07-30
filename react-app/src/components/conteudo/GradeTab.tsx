@@ -289,9 +289,10 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
                   <option key={asString(a.id)} value={asString(a.id)}>{asString(a.nome, 'Sem nome')}</option>
                 ))}
               </select>
+              {/* Todas as marcas da grade — sem corte: a legenda é o que traduz a cor. */}
               {legenda.length > 0 ? (
-                <div className="ml-auto flex flex-wrap items-center gap-3 text-xs text-ink-muted">
-                  {legenda.slice(0, 8).map((m) => (
+                <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+                  {legenda.map((m) => (
                     <span key={m.id} className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded" style={{ background: resolveMarcaCor(m.cor, m.id) }} />
                       {m.nome}
