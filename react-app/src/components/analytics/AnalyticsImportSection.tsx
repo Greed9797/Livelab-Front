@@ -13,7 +13,7 @@ import {
   getAnalyticsImport,
   getApresentadoras,
   getCabines,
-  getLives,
+  getLivesPaginado,
   getMarcas,
   previewAnalyticsImport,
   updateAnalyticsImportRow,
@@ -83,10 +83,32 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
     queryKey: QK.cabines,
     queryFn: () => getCabines(),
   })
-  // Mesma lista da aba "Lives realizadas" — é entre estas que a vinculação escolhe.
+  /**
+   * TODAS as lives do tenant, para a vinculação escolher entre elas.
+   *
+   * GET /v1/lives limita cada resposta a 200 (src/routes/lives.js), então uma chamada só
+   * devolvia as 200 encerradas mais recentes — num tenant com 445 lives, 245 simplesmente não
+   * existiam na tela nem na busca, e procurar por elas devolvia "Nenhuma live encontrada",
+   * indistinguível de "essa live não existe". Aqui pagina até acabar.
+   *
+   * Sem filtro de status de propósito: o matcher casa contra qualquer live que não seja
+   * cancelada (src/services/analytics-import.js), incluindo em_andamento e faturada — filtrar
+   * por 'encerrada' escondia justamente as lives mais recentes, que são as mais prováveis.
+   */
   const livesQuery = useQuery({
-    queryKey: ['lives', 'encerrada'],
-    queryFn: () => getLives({ status: 'encerrada', limit: 200 }),
+    queryKey: ['lives', 'todas-para-vincular'],
+    queryFn: async () => {
+      const todas: JsonRecord[] = []
+      // Teto de segurança: 25 páginas ≅ 5.000 lives. Acima disso a busca por texto é o caminho,
+      // não a lista inteira — mas nenhum tenant chega perto hoje.
+      for (let page = 0; page < 25; page += 1) {
+        const res = await getLivesPaginado({ page, limit: 200 })
+        const itens = asArray<JsonRecord>(res?.items)
+        todas.push(...itens)
+        if (itens.length < 200 || todas.length >= asNumber(res?.total)) break
+      }
+      return todas.filter((live) => asString(live.status) !== 'cancelada')
+    },
   })
 
   // Relê o lote do backend: o preview sobrevive a recarregar a página.
@@ -194,6 +216,14 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
   }
 
   function setDecisao(row: JsonRecord, decisao: ImportDecisao) {
+    // "Vincular" sem live escolhida é rejeitado pelo backend ('Escolha a live antes de marcar a
+    // linha como vincular'), e o botão que abre a lista só aparecia DEPOIS da linha estar em
+    // 'vincular' — uma coisa dependia da outra e o fluxo nunca saía do lugar. Escolher
+    // "Vincular" agora abre a lista; a decisão é gravada junto com a live, num PATCH só.
+    if (decisao === 'vincular' && !asString(row.matched_live_id, '')) {
+      setVincularRow(row)
+      return
+    }
     rowMutation.mutate({ rowId: asString(row.id), patch: { decisao } })
   }
 
@@ -333,8 +363,15 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                   const rateio = asArray<JsonRecord>(row.apresentadoras)
                   const gmv = row.attributed_gmv ?? row.ads_gmv
                   const erro = asString(row.error, '')
-                  const liveVinculada = asString(row.matched_live_id, '')
-                    ? livesLista.find((live) => asString(live.id) === asString(row.matched_live_id))
+                  // O rótulo do botão precisa dizer QUAL live está vinculada. A lista completa
+                  // resolve o caso normal; os candidatos que a própria linha carrega cobrem a
+                  // live que, por qualquer motivo, não esteja na lista — sem esse fallback o
+                  // botão dizia "Escolher live…" numa linha já vinculada, e o operador
+                  // desvinculava achando que tinha se perdido.
+                  const matchedId = asString(row.matched_live_id, '')
+                  const liveVinculada = matchedId
+                    ? livesLista.find((live) => asString(live.id) === matchedId)
+                      ?? asArray<JsonRecord>(row.candidates).find((c) => asString(c.live_id) === matchedId)
                     : undefined
 
                   return (
@@ -365,7 +402,10 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                             <option key={option.value} value={option.value}>{option.label}</option>
                           ))}
                         </select>
-                        {decisao === 'vincular' ? (
+                        {/* Também em 'pendente': é o estado em que nascem as linhas sem match,
+                            justamente as que precisam de vinculação manual — e é para onde
+                            "Desvincular" devolve a linha. Escondê-lo aqui trancava as duas. */}
+                        {decisao === 'vincular' || decisao === 'pendente' ? (
                           <button
                             type="button"
                             className="mt-1 flex w-full items-center gap-1 rounded-lg border border-line px-2 py-1.5 text-left text-[11px] font-semibold text-ink-muted hover:bg-surface-muted disabled:opacity-50"
@@ -376,7 +416,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                             <span className="truncate">
                               {liveVinculada
                                 ? `${asString(liveVinculada.marca_nome, 'Live')} · ${new Date(asString(liveVinculada.iniciado_em)).toLocaleDateString('pt-BR')}`
-                                : 'Escolher live…'}
+                                : matchedId ? 'Live selecionada' : 'Escolher live…'}
                             </span>
                           </button>
                         ) : null}

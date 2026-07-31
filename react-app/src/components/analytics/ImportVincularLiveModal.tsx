@@ -50,12 +50,33 @@ export function ImportVincularLiveModal({
     [row.candidates],
   )
 
+  /**
+   * A live já vinculada tem que estar na lista mesmo que não venha em `lives` — senão o modal
+   * abre sem nada marcado e parece que a vinculação se perdeu. Os candidatos que a linha carrega
+   * têm nome e horário suficientes para o card.
+   */
+  const listaCompleta = useMemo(() => {
+    if (!selecionada || lives.some((live) => asString(live.id) === selecionada)) return lives
+    const doCandidato = asArray<JsonRecord>(row.candidates).find((c) => asString(c.live_id) === selecionada)
+    if (!doCandidato) return lives
+    return [{
+      id: doCandidato.live_id,
+      marca_nome: doCandidato.marca_nome,
+      iniciado_em: doCandidato.iniciado_em,
+      encerrado_em: doCandidato.encerrado_em,
+    } as JsonRecord, ...lives]
+  }, [lives, selecionada, row.candidates])
+
   const ordenadas = useMemo(() => {
     const termo = busca.trim().toLowerCase()
     const filtradas = termo
-      ? lives.filter((live) => [live.marca_nome, live.cliente_nome, live.apresentadora_nome, live.iniciado_em]
-        .some((campo) => asString(campo, '').toLowerCase().includes(termo)))
-      : lives
+      // dataHora entra no que é comparado porque é o que a pessoa lê no card: procurar por
+      // "14/06/2026" não podia falhar só porque o campo cru é "2026-06-14T22:00:00.000Z".
+      ? listaCompleta.filter((live) => [
+        live.marca_nome, live.cliente_nome, live.apresentadora_nome,
+        live.iniciado_em, dataHora(live.iniciado_em), live.status,
+      ].some((campo) => asString(campo, '').toLowerCase().includes(termo)))
+      : listaCompleta
     // Sugestão do matcher primeiro; dentro de cada grupo, a mais recente antes.
     return [...filtradas].sort((a, b) => {
       const sugA = sugeridas.has(asString(a.id)) ? 1 : 0
@@ -63,7 +84,7 @@ export function ImportVincularLiveModal({
       if (sugA !== sugB) return sugB - sugA
       return asString(b.iniciado_em, '').localeCompare(asString(a.iniciado_em, ''))
     })
-  }, [lives, busca, sugeridas])
+  }, [listaCompleta, busca, sugeridas])
 
   const dataPlanilha = asString(row.live_date, '—')
   const horaPlanilha = asString(row.start_time, '')
@@ -138,6 +159,11 @@ export function ImportVincularLiveModal({
                   {dataHora(live.iniciado_em)}
                   {duracao ? ` · ${formatDuracao(duracao)}` : ''}
                   {live.apresentadora_nome ? ` · ${asString(live.apresentadora_nome)}` : ''}
+                  {/* A lista traz todas as lives, não só as encerradas: dizer o status evita
+                      vincular a planilha a uma live que ainda está no ar sem perceber. */}
+                  {asString(live.status) && asString(live.status) !== 'encerrada'
+                    ? ` · ${asString(live.status).replace('_', ' ')}`
+                    : ''}
                 </p>
                 {bloqueada ? (
                   <p className="mt-1 text-[11px] font-semibold text-amber-600">
