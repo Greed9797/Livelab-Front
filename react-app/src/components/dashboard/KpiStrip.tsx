@@ -87,9 +87,16 @@ function KpiItem({ label, value, metric, delta: d, spark, sparkColor, prefix, su
 
 interface KpiStripProps {
   raw: JsonRecord
+  /**
+   * Primeiro carregamento — ainda não há resposta do backend.
+   * Sem isso os cards caem em asNumber(undefined) = 0 e a tela AFIRMA que não houve
+   * live nenhuma no mês, quando na verdade ainda não sabe. Era o que fazia "GMV/hora"
+   * e "Horas em live" aparecerem zerados ao abrir a Home e "encherem" segundos depois.
+   */
+  loading?: boolean
 }
 
-export function KpiStrip({ raw }: KpiStripProps) {
+export function KpiStrip({ raw, loading = false }: KpiStripProps) {
   // Dois baldes distintos no backend (src/routes/home.js:340-342):
   //   gmv_total_mes = gmv_mes = gmv_lives_mes + gmv_videos_mes   (lives + vídeos)
   //   gmv_lives_mes                                              (só lives)
@@ -182,7 +189,15 @@ export function KpiStrip({ raw }: KpiStripProps) {
     <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
       {items.map((item, index) => (
         // Últimas colunas ancoram o popover à direita para não vazar da faixa.
-        <KpiItem key={item.label} {...item} align={index >= 4 ? 'right' : 'left'} />
+        <KpiItem
+          key={item.label}
+          {...item}
+          // Delta e sparkline sairiam de um zero inventado — some com eles junto do valor.
+          value={loading ? '—' : item.value}
+          delta={loading ? undefined : item.delta}
+          spark={loading ? undefined : item.spark}
+          align={index >= 4 ? 'right' : 'left'}
+        />
       ))}
     </div>
   )

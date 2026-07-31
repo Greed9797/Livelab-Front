@@ -4,7 +4,6 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { BarPanel } from '../components/charts/Charts'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { FunilAnalyticsSection } from '../components/analytics/FunilAnalyticsSection'
-import { AnalyticsImportSection } from '../components/analytics/AnalyticsImportSection'
 import { RelatorioEntidadeSection } from '../components/analytics/RelatorioEntidadeSection'
 import { PulsoDiarioSection } from '../components/analytics/PulsoDiarioSection'
 import { AnalyticsFilterBar, presetRange, ymd, type Preset } from '../components/analytics/AnalyticsFilterBar'
@@ -307,8 +306,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
           <FunilAnalyticsSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
 
-          {/* Ferramenta de operação — fim da página, fora do fluxo de consulta. */}
-          <AnalyticsImportSection mesAno={mes} />
+          {/* A importação de planilha mudou para Conteúdo › Lives realizadas, ao lado da
+              exportação: é lá que as lives que ela preenche são geridas. */}
         </>
       )}
     </div>

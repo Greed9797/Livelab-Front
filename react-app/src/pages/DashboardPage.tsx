@@ -229,7 +229,7 @@ export function DashboardPage() {
       {/* KPI strip */}
       <div className="overflow-x-auto">
         <div style={{ minWidth: 720 }}>
-          <KpiStrip raw={raw} />
+          <KpiStrip raw={raw} loading={homeQuery.isPending && !homeQuery.data} />
         </div>
       </div>
 

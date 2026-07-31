@@ -507,9 +507,16 @@ export function getDailyAnalytics(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/analytics/diario', filters)
 }
 
+/**
+ * Rateio de uma live entre apresentadoras. `gmv` e `segundos` são os valores exatos digitados
+ * na revisão e o formato preferido — quem opera pensa em "4h e R$ 3.000", não em porcentagem.
+ * `percentual` só aparece em lotes salvos antes dessa mudança; o backend aceita os dois.
+ */
 export interface ImportApresentadoraRateio {
   apresentadora_id: string
-  percentual: number
+  gmv?: number
+  segundos?: number
+  percentual?: number
 }
 
 export type ImportDecisao = 'pendente' | 'vincular' | 'criar' | 'ignorar'
@@ -539,6 +546,7 @@ export function updateAnalyticsImportRow(
   patch: {
     decisao?: ImportDecisao
     marca_id?: string
+    cabine_id?: string | null
     matched_live_id?: string | null
     apresentadoras?: ImportApresentadoraRateio[]
   },

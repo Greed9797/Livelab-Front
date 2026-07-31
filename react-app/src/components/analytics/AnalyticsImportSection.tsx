@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Upload, Users, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Link2, Upload, Users, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardBody, CardHeader } from '../ui/Card'
@@ -12,18 +12,24 @@ import {
   cancelAnalyticsImport,
   getAnalyticsImport,
   getApresentadoras,
+  getCabines,
+  getLives,
   getMarcas,
   previewAnalyticsImport,
   updateAnalyticsImportRow,
 } from '../../services/domain'
-import type { ImportApresentadoraRateio, ImportDecisao } from '../../services/domain'
+import type { ImportDecisao } from '../../services/domain'
 import { QK } from '../../services/query-keys'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../../utils/format'
+import { formatDuracao } from '../../utils/duracao'
 import { useToast } from '../ui/Toast'
+import { ImportRateioModal } from './ImportRateioModal'
+import { ImportVincularLiveModal } from './ImportVincularLiveModal'
 import type { JsonRecord } from '../../types/models'
 
 interface AnalyticsImportSectionProps {
-  mesAno: string
+  /** Mês do funil a invalidar depois do apply. Opcional: fora da Analytics não há filtro de mês. */
+  mesAno?: string
 }
 
 const DECISOES: Array<{ value: ImportDecisao; label: string }> = [
@@ -54,13 +60,6 @@ function decisaoClass(decisao: string) {
   return 'border-line bg-surface'
 }
 
-function candidateLabel(candidate: JsonRecord) {
-  const inicio = asString(candidate.iniciado_em, '')
-  const hora = inicio ? new Date(inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'
-  const score = Math.round(asNumber(candidate.score) * 100)
-  return `${asString(candidate.marca_nome, 'Live')} · ${hora} · ${score}%`
-}
-
 export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) {
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -70,6 +69,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
   const [apresentadoraId, setApresentadoraId] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [rateioRow, setRateioRow] = useState<JsonRecord | null>(null)
+  const [vincularRow, setVincularRow] = useState<JsonRecord | null>(null)
 
   const marcasQuery = useQuery({
     queryKey: QK.marcas('analytics-import'),
@@ -78,6 +78,15 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
   const apresentadorasQuery = useQuery({
     queryKey: QK.apresentadoras('analytics-import'),
     queryFn: () => getApresentadoras(),
+  })
+  const cabinesQuery = useQuery({
+    queryKey: QK.cabines,
+    queryFn: () => getCabines(),
+  })
+  // Mesma lista da aba "Lives realizadas" — é entre estas que a vinculação escolhe.
+  const livesQuery = useQuery({
+    queryKey: ['lives', 'encerrada'],
+    queryFn: () => getLives({ status: 'encerrada', limit: 200 }),
   })
 
   // Relê o lote do backend: o preview sobrevive a recarregar a página.
@@ -91,6 +100,8 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
   const rows = asArray<JsonRecord>(batch?.rows)
   const summary = getRecord(batch?.summary)
   const isApplied = asString(batch?.status) === 'applied'
+  const cabinesLista = asArray<JsonRecord>(cabinesQuery.data)
+  const livesLista = asArray<JsonRecord>(livesQuery.data)
 
   const decisionCounts = useMemo(() => {
     const counts = { vincular: 0, criar: 0, ignorar: 0, pendente: 0 }
@@ -99,6 +110,17 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
       if (decisao in counts) counts[decisao] += 1
     }
     return counts
+  }, [rows])
+
+  // Uma live só pode receber uma linha do arquivo — o backend devolve 409, então a tela já
+  // mostra qual linha reservou cada live em vez de deixar o usuário descobrir no erro.
+  const livesReservadas = useMemo(() => {
+    const mapa = new Map<string, number>()
+    for (const row of rows) {
+      const liveId = asString(row.matched_live_id, '')
+      if (liveId && asString(row.decisao) === 'vincular') mapa.set(liveId, asNumber(row.row_index))
+    }
+    return mapa
   }, [rows])
 
   const aplicaveis = decisionCounts.vincular + decisionCounts.criar
@@ -151,7 +173,8 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
         queryClient.invalidateQueries({ queryKey: ['analytics-import', batchId] }),
         queryClient.invalidateQueries({ queryKey: QK.analyticsDashboard() }),
         queryClient.invalidateQueries({ queryKey: QK.homeDashboard }),
-        queryClient.invalidateQueries({ queryKey: ['funil-analytics', mesAno] }),
+        // Sem mês definido o prefixo invalida o funil de qualquer período.
+        queryClient.invalidateQueries({ queryKey: mesAno ? ['funil-analytics', mesAno] : ['funil-analytics'] }),
         queryClient.invalidateQueries({ queryKey: QK.lives }),
       ])
     },
@@ -175,10 +198,17 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
   }
 
   function setMatchedLive(row: JsonRecord, liveId: string) {
-    rowMutation.mutate({
-      rowId: asString(row.id),
-      patch: { matched_live_id: liveId || null, decisao: liveId ? 'vincular' : 'pendente' },
-    })
+    rowMutation.mutate(
+      {
+        rowId: asString(row.id),
+        patch: { matched_live_id: liveId || null, decisao: liveId ? 'vincular' : 'pendente' },
+      },
+      { onSuccess: () => setVincularRow(null) },
+    )
+  }
+
+  function setCabine(row: JsonRecord, cabineId: string) {
+    rowMutation.mutate({ rowId: asString(row.id), patch: { cabine_id: cabineId || null } })
   }
 
   return (
@@ -300,10 +330,12 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                 {rows.map((row) => {
                   const status = asString(row.match_status)
                   const decisao = asString(row.decisao, 'pendente')
-                  const candidates = asArray<JsonRecord>(row.candidates)
                   const rateio = asArray<JsonRecord>(row.apresentadoras)
                   const gmv = row.attributed_gmv ?? row.ads_gmv
                   const erro = asString(row.error, '')
+                  const liveVinculada = asString(row.matched_live_id, '')
+                    ? livesLista.find((live) => asString(live.id) === asString(row.matched_live_id))
+                    : undefined
 
                   return (
                     <tr key={asString(row.id) || asNumber(row.row_index)} className={decisaoClass(decisao)}>
@@ -334,16 +366,31 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                           ))}
                         </select>
                         {decisao === 'vincular' ? (
+                          <button
+                            type="button"
+                            className="mt-1 flex w-full items-center gap-1 rounded-lg border border-line px-2 py-1.5 text-left text-[11px] font-semibold text-ink-muted hover:bg-surface-muted disabled:opacity-50"
+                            disabled={isApplied || rowMutation.isPending}
+                            onClick={() => setVincularRow(row)}
+                          >
+                            <Link2 className="h-3 w-3 shrink-0" />
+                            <span className="truncate">
+                              {liveVinculada
+                                ? `${asString(liveVinculada.marca_nome, 'Live')} · ${new Date(asString(liveVinculada.iniciado_em)).toLocaleDateString('pt-BR')}`
+                                : 'Escolher live…'}
+                            </span>
+                          </button>
+                        ) : null}
+                        {decisao === 'criar' ? (
                           <select
                             className="design-input mt-1 h-9 w-full px-2 text-xs"
-                            value={asString(row.matched_live_id, '')}
+                            value={asString(row.cabine_id, '')}
                             disabled={isApplied || rowMutation.isPending}
-                            onChange={(event) => setMatchedLive(row, event.target.value)}
+                            onChange={(event) => setCabine(row, event.target.value)}
                           >
-                            <option value="">Escolher live…</option>
-                            {candidates.map((candidate) => (
-                              <option key={asString(candidate.live_id)} value={asString(candidate.live_id)}>
-                                {candidateLabel(candidate)}
+                            <option value="">Cabine: automática</option>
+                            {cabinesLista.map((cabine) => (
+                              <option key={asString(cabine.id)} value={asString(cabine.id)}>
+                                Cabine {asString(cabine.numero, '—')}
                               </option>
                             ))}
                           </select>
@@ -357,8 +404,15 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                           onClick={() => setRateioRow(row)}
                         >
                           <Users className="h-3 w-3" />
-                          {rateio.length > 1 ? `${rateio.length} · rateio` : '1 apresentadora'}
+                          {rateio.length > 1
+                            ? `${rateio.length} · dividido`
+                            : rateio.length === 1 ? '1 apresentadora' : 'Definir'}
                         </button>
+                        {rateio.length > 1 ? (
+                          <p className="mt-1 text-[10px] leading-tight text-ink-muted">
+                            {rateio.map((item) => formatDuracao(asNumber(item.segundos))).join(' · ')}
+                          </p>
+                        ) : null}
                       </td>
                     </tr>
                   )
@@ -391,7 +445,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
       </Modal>
 
       {rateioRow ? (
-        <RateioModal
+        <ImportRateioModal
           row={rateioRow}
           apresentadoras={apresentadorasQuery.data ?? []}
           onClose={() => setRateioRow(null)}
@@ -404,129 +458,18 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
           isSaving={rowMutation.isPending}
         />
       ) : null}
+
+      {vincularRow ? (
+        <ImportVincularLiveModal
+          row={vincularRow}
+          lives={livesLista}
+          // A própria linha não conta como conflito: reescolher a mesma live é permitido.
+          usadas={new Map([...livesReservadas].filter(([, index]) => index !== asNumber(vincularRow.row_index)))}
+          onClose={() => setVincularRow(null)}
+          onSelect={(liveId) => setMatchedLive(vincularRow, liveId)}
+          isSaving={rowMutation.isPending}
+        />
+      ) : null}
     </Card>
-  )
-}
-
-interface RateioModalProps {
-  row: JsonRecord
-  apresentadoras: JsonRecord[]
-  onClose: () => void
-  onSave: (lista: ImportApresentadoraRateio[]) => void
-  isSaving: boolean
-}
-
-/**
- * Desmembra a live entre apresentadoras. Horas e GMV saem do percentual, e a soma tem que
- * fechar 100% — o backend recusa qualquer outra coisa.
- */
-function RateioModal({ row, apresentadoras, onClose, onSave, isSaving }: RateioModalProps) {
-  const [lista, setLista] = useState<ImportApresentadoraRateio[]>(() => {
-    const atual = asArray<JsonRecord>(row.apresentadoras)
-      .map((item) => ({
-        apresentadora_id: asString(item.apresentadora_id, ''),
-        percentual: asNumber(item.percentual),
-      }))
-      .filter((item) => item.apresentadora_id)
-    return atual.length > 0 ? atual : []
-  })
-
-  const totalSegundos = asNumber(row.duration_seconds)
-  const gmvTotal = asNumber(row.attributed_gmv ?? row.ads_gmv)
-  const soma = lista.reduce((acc, item) => acc + Number(item.percentual || 0), 0)
-  const fecha = Math.abs(soma - 100) <= 0.01
-  const semVazio = lista.length > 0 && lista.every((item) => item.apresentadora_id)
-  const semRepetida = new Set(lista.map((item) => item.apresentadora_id)).size === lista.length
-
-  function update(index: number, patch: Partial<ImportApresentadoraRateio>) {
-    setLista((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)))
-  }
-
-  function distribuirIgual(base: ImportApresentadoraRateio[]) {
-    if (base.length === 0) return base
-    const fatia = Math.floor((100 / base.length) * 100) / 100
-    return base.map((item, index) => ({
-      ...item,
-      // A última absorve o arredondamento para a soma fechar exatamente 100.
-      percentual: index === base.length - 1
-        ? Number((100 - fatia * (base.length - 1)).toFixed(2))
-        : fatia,
-    }))
-  }
-
-  return (
-    <Modal
-      open
-      title="Apresentadoras da live"
-      subtitle={`${(totalSegundos / 3600).toFixed(1)}h · ${formatMoney(gmvTotal)} a dividir`}
-      onClose={onClose}
-      footer={(
-        <div className="flex items-center justify-between gap-2">
-          <span className={`text-sm font-semibold ${fecha ? 'text-emerald-600' : 'text-red-600'}`}>
-            Soma: {soma.toFixed(2)}%
-          </span>
-          <div className="flex gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button
-              type="button"
-              disabled={!fecha || !semVazio || !semRepetida}
-              isLoading={isSaving}
-              onClick={() => onSave(lista)}
-            >
-              Salvar rateio
-            </Button>
-          </div>
-        </div>
-      )}
-    >
-      <div className="space-y-3">
-        {lista.map((item, index) => (
-          <div key={index} className="flex flex-wrap items-end gap-2 rounded-2xl border border-line p-3">
-            <PresenterSelect
-              className="min-w-[220px] flex-1"
-              label={index === 0 ? 'Principal' : 'Apoio'}
-              value={item.apresentadora_id}
-              rows={apresentadoras}
-              onChange={(value) => update(index, { apresentadora_id: value })}
-            />
-            <label className="block w-28">
-              <span className="text-sm font-semibold text-ink">%</span>
-              <input
-                className="design-input mt-2 h-11 w-full px-3 text-right"
-                type="number"
-                min={0.01}
-                max={100}
-                step={0.01}
-                value={item.percentual}
-                onChange={(event) => update(index, { percentual: Number(event.target.value) })}
-              />
-            </label>
-            <div className="w-32 pb-1 text-xs text-ink-muted">
-              <p>{((totalSegundos * (Number(item.percentual) || 0)) / 100 / 3600).toFixed(1)}h</p>
-              <p>{formatMoney((gmvTotal * (Number(item.percentual) || 0)) / 100)}</p>
-            </div>
-            <button
-              type="button"
-              className="mb-1 rounded-full border border-line p-2 text-ink-muted hover:bg-surface-muted"
-              aria-label="Remover apresentadora"
-              onClick={() => setLista((prev) => distribuirIgual(prev.filter((_, i) => i !== index)))}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
-
-        {!semRepetida ? <p className="text-sm text-red-600">Há apresentadora repetida no rateio.</p> : null}
-
-        <Button
-          type="button"
-          variant="secondary"
-          icon={Users}
-          onClick={() => setLista((prev) => distribuirIgual([...prev, { apresentadora_id: '', percentual: 0 }]))}
-        >
-          Adicionar apresentadora
-        </Button>
-      </div>
-    </Modal>
   )
 }

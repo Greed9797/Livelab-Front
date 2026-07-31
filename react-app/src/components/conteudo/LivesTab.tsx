@@ -16,8 +16,10 @@ import {
   Printer,
   Search,
   Trash2,
+  Upload,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
+import { AnalyticsImportSection } from '../analytics/AnalyticsImportSection'
 import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
@@ -341,6 +343,7 @@ export function LivesTab({
   onPageChange,
   onPageSizeChange,
 }: LivesTabProps) {
+  const [importOpen, setImportOpen] = useState(false)
   const [search, setSearch] = useState(searchQuery)
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
   const [kebabMenu, setKebabMenu] = useState<{ liveId: string; live: JsonRecord; top: number; left: number } | null>(null)
@@ -767,6 +770,19 @@ export function LivesTab({
           )}
         </div>
 
+        {/* import — contraparte da exportação: entra planilha do TikTok, sai live preenchida */}
+        {canWrite ? (
+          <button
+            type="button"
+            style={{ ...tbtn, ...(importOpen ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : {}) }}
+            aria-expanded={importOpen}
+            onClick={() => setImportOpen((v) => !v)}
+          >
+            <Upload style={{ width: 14, height: 14 }} />
+            Importar
+          </button>
+        ) : null}
+
         {/* add button */}
         {canWrite ? (
         <button
@@ -794,6 +810,12 @@ export function LivesTab({
         </button>
         ) : null}
       </div>
+
+      {/* ── Importação de planilha (TikTok Studio / Ads) ──
+          Fica aqui e não na Analytics porque é onde as lives realizadas são geridas: o que a
+          planilha preenche é exatamente esta lista. Colapsado por padrão — é ferramenta de
+          operação eventual, não parte da consulta do dia a dia. */}
+      {importOpen ? <AnalyticsImportSection /> : null}
 
       {/* ── Table ── */}
       <div
