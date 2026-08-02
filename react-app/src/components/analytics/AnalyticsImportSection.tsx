@@ -420,7 +420,14 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                             </span>
                           </button>
                         ) : null}
-                        {decisao === 'criar' ? (
+                        {/* Também em 'pendente', pelo mesmo motivo do botão de vincular acima: é o
+                            estado em que as linhas nascem. Preso a 'criar', o seletor só existia
+                            depois de uma escolha que o usuário ainda não tinha feito — a confirmação
+                            de cabine ficava invisível na tela em que ela deveria ser óbvia.
+                            Em 'vincular' fica escondido de propósito: ali a live já existe e tem
+                            cabine própria; o apply ignora este campo (resolveTargetLive só usa
+                            cabine_id quando cria a live). Mostrá-lo prometeria algo que não acontece. */}
+                        {decisao === 'criar' || decisao === 'pendente' ? (
                           <select
                             className="design-input mt-1 h-9 w-full px-2 text-xs"
                             value={asString(row.cabine_id, '')}
