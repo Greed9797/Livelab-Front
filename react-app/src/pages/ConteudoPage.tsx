@@ -259,6 +259,20 @@ export function ConteudoPage() {
     setLiveModalMode('detail')
   }, [liveModalMode, metricsModalMode, selectedLive])
 
+  // O modal de detalhe lia direto de selectedLiveRecord, que é uma CÓPIA da linha tirada no
+  // momento da abertura. Depois de salvar, invalidateOperational atualiza a tabela atrás do
+  // modal, mas a cópia continua com o valor antigo — e era ela que alimentava o prefill da
+  // edição. Aqui a live é re-derivada da lista já atualizada, caindo na cópia só como fallback.
+  //
+  // Deriva de livesItems (a lista paginada realmente exibida) e não de lives.data, que é um
+  // top-200 de encerradas: uma live de 33 dias pode estar fora dele e o detalhe abriria vazio.
+  const selectedLiveFresco = useMemo(() => {
+    if (!selectedLiveRecord) return null
+    const id = asString(selectedLiveRecord.id, '')
+    if (!id) return selectedLiveRecord
+    return livesItems.find((live) => asString(live.id, '') === id) ?? selectedLiveRecord
+  }, [livesItems, selectedLiveRecord])
+
   // Bloqueia o primeiro paint apenas no que a aba ATUAL precisa.
   // Agenda (default) só precisa de agenda + cabines; marcas/clientes/apresentadoras/
   // videos/lives seguem buscando em background sem segurar o spinner de página inteira.
@@ -298,7 +312,7 @@ export function ConteudoPage() {
   function openEditAgendaModal(event: JsonRecord) {
     if (isSyntheticLiveEvent(event)) {
       const live = (lives.data ?? []).find((item) => asString(item.id, '') === asString(event.live_id, ''))
-      if (live) { setSelectedLiveRecord(live); setLiveModalMode('detail'); setParams({ tab: 'lives', live: asString(live.id, '') }, { replace: true }) }
+      if (live) { setSelectedLiveRecord(live); setLiveModalMode('detail'); setLivesParams({ live: asString(live.id, '') }, { resetPage: false }) }
       return
     }
     if (asString(event.status) === 'ao_vivo' && event.live_id) {
@@ -436,12 +450,26 @@ export function ConteudoPage() {
           onPageChange={(page) => setLivesParams({ page: page > 0 ? String(page) : null }, { resetPage: false })}
           onPageSizeChange={(size) => setLivesParams({ pp: size === 25 ? null : String(size) })}
           liveModalMode={liveModalMode}
-          selectedLiveRecord={selectedLiveRecord}
+          selectedLiveRecord={selectedLiveFresco}
           reportCopied={reportCopied}
           deleteLiveMutation={deleteLiveMutation}
           onOpenCreateLiveModal={() => { setMetricsAgendaEvent(null); setSelectedLiveRecord(null); setMetricsModalMode('manual') }}
-          onOpenLiveDetail={(live) => { setSelectedLiveRecord(live); setLiveModalMode('detail'); setParams({ tab: 'lives', live: asString(live.id, '') }, { replace: true }) }}
-          onOpenEditLive={(live) => setEditLiveData(live)}
+          // setLivesParams, não setParams com objeto literal: o literal reescrevia a query
+          // string inteira e apagava periodo/marca/apres/q/st/page/pp — que é onde os filtros
+          // moram. O usuário só percebia ao fechar o modal, porque ele cobre a tabela.
+          onOpenLiveDetail={(live) => { setSelectedLiveRecord(live); setLiveModalMode('detail'); setLivesParams({ live: asString(live.id, '') }, { resetPage: false }) }}
+          // Busca a live fresca por id em vez de reusar a linha da tabela. A cópia da linha
+          // envelhece: depois de um save ela ainda carrega o GMV antigo, e como o modal de
+          // edição é prefillado a partir dela, o save seguinte REGRAVA o valor velho por cima.
+          // Aconteceu 3x em produção (ex.: 1817 → 2419 e, 378s depois, de volta para 1817).
+          // Mesmo padrão já usado no caminho da Agenda logo acima.
+          onOpenEditLive={(live) => {
+            const id = asString(live.id, '')
+            if (!id) { setEditLiveData(live); return }
+            getLivePorId(id)
+              .then((fullLive) => setEditLiveData(fullLive as unknown as JsonRecord))
+              .catch(() => setEditLiveData(live)) // sem rede, editar com o que temos é melhor que travar
+          }}
           onDeleteLive={(live) => {
             const label = asString(live.marca_nome ?? live.cliente_nome ?? live.id, 'live')
             if (!window.confirm(`Excluir a live "${label}"?`)) return

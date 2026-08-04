@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -114,9 +114,67 @@ type Props = {
   onSaved?: () => void
 }
 
+const CAMPOS_NUMERICOS: Array<[keyof EditForm, string]> = [
+  ['fat_gerado', 'fat_gerado'],
+  ['manual_gmv', 'manual_gmv'],
+  ['qtd_pedidos', 'qtd_pedidos'],
+  ['manual_orders', 'manual_orders'],
+  ['manual_views', 'manual_views'],
+  ['manual_likes', 'manual_likes'],
+  ['manual_comments', 'manual_comments'],
+  ['manual_shares', 'manual_shares'],
+  ['manual_diamonds', 'manual_diamonds'],
+]
+
+/**
+ * Monta a parte numérica do PATCH, enviando SÓ o que o usuário alterou em relação ao
+ * formulário como ele nasceu.
+ *
+ * Antes o loop mandava todo campo numérico preenchido, tocado ou não. Junto com um prefill
+ * vindo de uma cópia envelhecida da linha, isso fazia o save regravar o valor antigo por cima
+ * do novo — três lives em produção tiveram o GMV revertido minutos depois de editado
+ * (ex.: 1817 → 2419 e, 378s depois, de volta para 1817).
+ *
+ * Campo vazio segue sendo ignorado (comportamento preservado: não dá para zerar o GMV por
+ * aqui — isso é decisão de produto à parte, não regressão introduzida agora).
+ */
+export function montarCamposNumericos(form: EditForm, prefill: EditForm): JsonRecord {
+  const out: JsonRecord = {}
+  for (const [formKey, payloadKey] of CAMPOS_NUMERICOS) {
+    const raw = form[formKey]
+    if (raw === '') continue
+    if (raw === prefill[formKey]) continue
+    const value = asNumber(raw)
+    out[payloadKey] = payloadKey === 'fat_gerado' || payloadKey === 'manual_gmv'
+      ? value
+      : Math.trunc(value)
+  }
+
+  // Espelha os dois campos de GMV quando só um foi editado.
+  //
+  // O backend exibe COALESCE(ads_gmv, manual_gmv, fat_gerado): manual_gmv GANHA de
+  // fat_gerado. Então mudar só "GMV faturado" grava no banco e não muda nada na tela —
+  // é a outra metade do "não salva" que o usuário relatou, verificada clicando.
+  //
+  // Na prática os dois carregam o mesmo número: das 475 lives com ambos preenchidos, só 4
+  // divergem. Espelhar mantém o comportamento visível que existia antes (quando todo save
+  // mandava os dois) sem trazer de volta a reversão, porque agora isto só dispara quando o
+  // usuário REALMENTE mexeu num dos dois. Se ele editou os dois com valores diferentes,
+  // respeitamos o que ele digitou em cada um.
+  const mudouFat = 'fat_gerado' in out
+  const mudouManual = 'manual_gmv' in out
+  if (mudouFat && !mudouManual) out.manual_gmv = out.fat_gerado
+  else if (mudouManual && !mudouFat) out.fat_gerado = out.manual_gmv
+
+  return out
+}
+
 export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
   const client = useQueryClient()
   const [form, setForm] = useState<EditForm>(emptyForm)
+  // Snapshot do formulário como ele nasceu. Serve de referência para decidir o que o usuário
+  // realmente alterou — sem isso o save reenvia campos numéricos intocados (ver handleSubmit).
+  const prefillRef = useRef<EditForm>(emptyForm)
   const [error, setError] = useState<string | null>(null)
 
   const [cabinesQuery, clientesQuery, marcasQuery, apresentadorasQuery] = useQueries({
@@ -136,9 +194,10 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
   useEffect(() => {
     if (!live) {
       setForm(emptyForm)
+      prefillRef.current = emptyForm
       return
     }
-    setForm({
+    const prefill: EditForm = {
       cabine_id: asString(live.cabine_id, ''),
       cliente_id: asString(live.cliente_id, ''),
       marca_id: asString(live.marca_id, ''),
@@ -165,9 +224,20 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
       manual_shares: asString(live.manual_shares, ''),
       manual_diamonds: asString(live.manual_diamonds, ''),
       resumo: asString(live.resumo, ''),
-    })
+    }
+    setForm(prefill)
+    // Guarda o prefill para o save saber o que o usuário REALMENTE mexeu. Ver o loop
+    // numérico em handleSubmit.
+    prefillRef.current = prefill
     setError(null)
   }, [live])
+
+  // Live importada do TikTok Studio grava em ads_gmv, que é o TOPO de
+  // COALESCE(ads_gmv, manual_gmv, fat_gerado) em src/lib/metric-sql.js. Enquanto ads_gmv
+  // existir, editar os outros dois campos grava no banco mas NENHUM relatório enxerga —
+  // o usuário digita, salva, e nada muda na tela. Bloquear é honesto; deixar editável seria
+  // repetir o bug do GMV que "não salva" com outra roupa.
+  const gmvVeioDoTikTok = live?.ads_gmv !== null && live?.ads_gmv !== undefined
 
   function setField<K extends keyof EditForm>(key: K, value: string) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -221,27 +291,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
     if (form.hora_fim) payload.hora_fim = form.hora_fim
     if (form.previsto_fim) payload.previsto_fim = new Date(form.previsto_fim).toISOString()
 
-    const numFields: Array<[keyof EditForm, string]> = [
-      ['fat_gerado', 'fat_gerado'],
-      ['manual_gmv', 'manual_gmv'],
-      ['qtd_pedidos', 'qtd_pedidos'],
-      ['manual_orders', 'manual_orders'],
-      ['manual_views', 'manual_views'],
-      ['manual_likes', 'manual_likes'],
-      ['manual_comments', 'manual_comments'],
-      ['manual_shares', 'manual_shares'],
-      ['manual_diamonds', 'manual_diamonds'],
-    ]
-    for (const [formKey, payloadKey] of numFields) {
-      const raw = form[formKey]
-      if (raw === '') continue
-      const value = asNumber(raw)
-      if (payloadKey === 'fat_gerado' || payloadKey === 'manual_gmv') {
-        payload[payloadKey] = value
-      } else {
-        payload[payloadKey] = Math.trunc(value)
-      }
-    }
+    Object.assign(payload, montarCamposNumericos(form, prefillRef.current))
 
     if (Object.keys(payload).length === 0) {
       setError('Nenhum campo modificado.')
@@ -355,7 +405,16 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
 	              <span className="text-xs text-ink-muted">GMV faturado</span>
-              <MoneyInput value={form.fat_gerado} onChange={(v) => setField('fat_gerado', v)} />
+              <MoneyInput
+                value={form.fat_gerado}
+                onChange={(v) => setField('fat_gerado', v)}
+                disabled={gmvVeioDoTikTok}
+              />
+              {gmvVeioDoTikTok ? (
+                <span className="mt-1 block text-[11px] leading-tight text-ink-muted">
+                  Importado do TikTok Studio — este valor manda nos relatórios e não é editável aqui.
+                </span>
+              ) : null}
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">GMV manual</span>
