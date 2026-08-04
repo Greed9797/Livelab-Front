@@ -101,6 +101,17 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
   //   gmv_total_mes = gmv_mes = gmv_lives_mes + gmv_videos_mes   (lives + vídeos)
   //   gmv_lives_mes                                              (só lives)
   // Fallback NUNCA cruza os dois — trocar um pelo outro sub/superestima o KPI.
+  // "zero" e "não sei" não são a mesma coisa.
+  //
+  // asNumber(undefined) devolve 0, então um campo AUSENTE na resposta virava um card
+  // afirmando "R$ 0" — indistinguível de um mês sem faturamento. Foi exatamente assim que o
+  // bug do tenant na conexão apareceu na tela: o backend devolvia 200 com alguns agregados
+  // vazios e a Home afirmava que não houve GMV nem horas, enquanto ranking e gráfico
+  // mostravam dinheiro. O dono leu como "os dados não carregam".
+  //
+  // A causa daquele caso está corrigida no backend, mas a regra fica: campo que não veio
+  // vira "—". Se algum agregado sumir de novo, a tela admite que não sabe em vez de mentir.
+  const ausente = (...chaves: string[]) => chaves.every((k) => raw[k] === undefined || raw[k] === null)
   const gmvMes = asNumber(raw.gmv_total_mes ?? raw.gmv_mes ?? raw.fat_bruto)
   const gmvLivesMes = asNumber(raw.gmv_lives_mes)
   const gmvPrev = asNumber(raw.gmv_mes_prev ?? raw.gmv_prev)
@@ -139,7 +150,7 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
     {
       label: 'GMV — Mês',
       metric: 'home.gmv_total',
-      value: fmtCompact(gmvMes),
+      value: ausente('gmv_total_mes', 'gmv_mes', 'fat_bruto') ? '—' : fmtCompact(gmvMes),
       prefix: 'R$',
       delta: delta(gmvMes, gmvPrev),
       spark: gmvSpark,
@@ -147,7 +158,7 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
     {
       label: 'Lives realizadas',
       metric: 'home.lives',
-      value: livesMes.toLocaleString('pt-BR'),
+      value: ausente('lives_mes','total_lives') ? '—' : livesMes.toLocaleString('pt-BR'),
       delta: delta(livesMes, livesPrev),
       spark: livesSpark,
       sparkColor: 'var(--info)',
@@ -155,7 +166,7 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
     {
       label: 'Horas em live',
       metric: 'home.horas_live',
-      value: horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 }),
+      value: ausente('horas_live','horas_live_mes') ? '—' : horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 }),
       suffix: 'h',
       delta: delta(horasLive, horasPrev),
       spark: horasSpark,
@@ -164,7 +175,7 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
     {
       label: 'Vídeos gravados',
       metric: 'home.videos',
-      value: videosMes.toLocaleString('pt-BR'),
+      value: ausente('videos_mes','total_videos') ? '—' : videosMes.toLocaleString('pt-BR'),
       delta: delta(videosMes, videosPrev),
       spark: videosSpark,
       sparkColor: 'var(--warning)',
@@ -172,14 +183,14 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
     {
       label: 'GMV / live',
       metric: 'home.gmv_por_live',
-      value: fmtCompact(gmvPorLive),
+      value: ausente('gmv_por_live','gmv_por_live_mes') && ausente('gmv_total_mes','gmv_mes') ? '—' : fmtCompact(gmvPorLive),
       prefix: 'R$',
       delta: delta(gmvPorLive, gmvPorLivePrev),
     },
     {
       label: 'GMV / hora',
       metric: 'home.gmv_por_hora',
-      value: fmtCompact(gmvPorHora),
+      value: ausente('gmv_por_hora','gmv_por_hora_mes','gmv_hora') && ausente('gmv_lives_mes') ? '—' : fmtCompact(gmvPorHora),
       prefix: 'R$',
       delta: delta(gmvPorHora, gmvPorHoraPrev),
     },
