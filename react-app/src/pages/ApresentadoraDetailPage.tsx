@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, FileDown, Info } from 'lucide-react'
+import { ArrowLeft, CalendarDays, FileDown, Info } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { Badge, statusTone } from '../components/ui/Badge'
@@ -16,25 +16,55 @@ import { asArray, asNumber, asString, formatMoney, getRecord, unwrapList } from 
 import { officialLiveGmv } from '../utils/live-gmv'
 import type { JsonRecord } from '../types/models'
 
-type DateRange = 'hoje' | '7d' | '30d' | 'mes'
+export type DateRange = 'hoje' | '7d' | '30d' | 'mes' | 'mes_anterior' | 'custom'
 
 const RANGES: { value: DateRange; label: string }[] = [
   { value: 'hoje', label: 'Hoje' },
   { value: '7d', label: '7 dias' },
   { value: '30d', label: '30 dias' },
   { value: 'mes', label: 'Mês' },
+  { value: 'mes_anterior', label: 'Mês anterior' },
+  { value: 'custom', label: 'Personalizado' },
 ]
 
+const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+// Primeiro e último dia do mês anterior ao de referência (fecha o mês inteiro,
+// não "até hoje" — é o período do fechamento de comissão).
+export function mesAnteriorWindow(ref = new Date()): { data_inicio: string; data_fim: string } {
+  const inicio = new Date(ref.getFullYear(), ref.getMonth() - 1, 1)
+  const fim = new Date(ref.getFullYear(), ref.getMonth(), 0)
+  return { data_inicio: toISO(inicio), data_fim: toISO(fim) }
+}
+
 // Preset de período → janela de datas (YYYY-MM-DD) para o servidor.
-function dateRangeToWindow(range: DateRange): { data_inicio: string; data_fim: string } {
+export function dateRangeToWindow(range: DateRange, custom: { from: string; to: string }): { data_inicio: string; data_fim: string } {
   const now = new Date()
-  const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const fim = toISO(now)
   if (range === 'hoje') return { data_inicio: fim, data_fim: fim }
   if (range === 'mes') return { data_inicio: toISO(new Date(now.getFullYear(), now.getMonth(), 1)), data_fim: fim }
+  if (range === 'mes_anterior') return mesAnteriorWindow(now)
+  if (range === 'custom') {
+    // Intervalo incompleto cai no mês anterior em vez de mandar '' pro servidor
+    // (que devolveria o período inteiro sem filtro, silenciosamente).
+    if (!custom.from || !custom.to) return mesAnteriorWindow(now)
+    const [ini, end] = custom.from <= custom.to ? [custom.from, custom.to] : [custom.to, custom.from]
+    return { data_inicio: ini, data_fim: end }
+  }
   const start = new Date(now)
   start.setDate(now.getDate() - (range === '7d' ? 6 : 29))
   return { data_inicio: toISO(start), data_fim: fim }
+}
+
+// Rótulo do período no cabeçalho e no nome do arquivo do PDF. Mês fechado vira
+// 'YYYY-MM'; qualquer outro intervalo mostra as duas pontas. Sem '/' — o valor
+// também é usado em doc.save().
+export function periodoLabel(data_inicio: string, data_fim: string): string {
+  if (data_inicio === data_fim) return data_inicio
+  const [y, m] = data_inicio.split('-').map(Number)
+  const ultimoDia = toISO(new Date(y, m, 0))
+  if (data_inicio.endsWith('-01') && data_fim === ultimoDia) return data_inicio.slice(0, 7)
+  return `${data_inicio}_a_${data_fim}`
 }
 
 function liveOrders(live: JsonRecord): number {
@@ -59,6 +89,11 @@ function fmtDay(value: unknown): string {
   const d = value ? new Date(raw) : null
   if (!d || Number.isNaN(d.getTime())) return '—'
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(d)
+}
+// 'YYYY-MM-DD' → 'DD/MM/YYYY' sem passar por Date (evita o -1 dia de fuso).
+function fmtDiaMesAno(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
 }
 function pctLabel(value: unknown): string {
   const n = asNumber(value)
@@ -100,33 +135,42 @@ export function ApresentadoraDetailPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const [range, setRange] = useState<DateRange>('mes')
+  // Padrão do intervalo manual = mês anterior fechado, que é o caso de uso real
+  // (fechamento). Evita abrir 'Personalizado' com os campos vazios.
+  const [custom, setCustom] = useState(() => {
+    const w = mesAnteriorWindow()
+    return { from: w.data_inicio, to: w.data_fim }
+  })
   const [liveDetailId, setLiveDetailId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
-  const periodWindow = dateRangeToWindow(range)
+  const periodWindow = dateRangeToWindow(range, custom)
+  // As queries são chaveadas pela JANELA, não pelo preset: em 'Personalizado' o
+  // preset não muda quando as datas mudam, e o React Query serviria cache velho.
+  const { data_inicio: winIni, data_fim: winFim } = periodWindow
 
   // Fonte única dos KPIs e da comissão: o mesmo /comissoes/apresentadoras do
   // Financeiro, filtrado pela apresentadora (a engine já suporta apresentadora_id).
   const comissaoQ = useQuery({
-    queryKey: ['apresentadora-detalhe-comissao', id, range],
+    queryKey: ['apresentadora-detalhe-comissao', id, winIni, winFim],
     queryFn: () => getComissoesApresentadoras({ ...periodWindow, apresentadora_id: id }),
     enabled: Boolean(id),
   })
   // Histórico live-a-live: /v1/lives já filtra por apresentadora e inclui lives
   // sem venda atribuída (ao contrário do operacional por marca).
   const livesQ = useQuery({
-    queryKey: ['apresentadora-detalhe-lives', id, range],
+    queryKey: ['apresentadora-detalhe-lives', id, winIni, winFim],
     queryFn: () => getLives({ apresentadora_id: id, status: 'encerrada', limit: 200, ...periodWindow }),
     enabled: Boolean(id),
   })
   // Onda 1 — comissão por live (coluna "Comissão" do histórico, sem N+1).
   const comissaoLivesQ = useQuery({
-    queryKey: ['apresentadora-detalhe-comissao-lives', id, range],
+    queryKey: ['apresentadora-detalhe-comissao-lives', id, winIni, winFim],
     queryFn: () => getComissoesPorApresentadora(id, periodWindow),
     enabled: Boolean(id),
   })
   // Onda 1 — memória de cálculo detalhada (faixa, base do mês, 2% fds).
   const memoriaQ = useQuery({
-    queryKey: ['apresentadora-detalhe-memoria', id, range],
+    queryKey: ['apresentadora-detalhe-memoria', id, winIni, winFim],
     queryFn: () => getComissaoMemoria({ apresentadora_id: id, ...periodWindow }),
     enabled: Boolean(id),
   })
@@ -205,7 +249,7 @@ export function ApresentadoraDetailPage() {
       buildRelatorioPdf({
         titulo: nome,
         subtitulo: 'Relatório da apresentadora',
-        mes: data_inicio === data_fim ? data_inicio : `${data_inicio}_a_${data_fim}`,
+        mes: periodoLabel(data_inicio, data_fim),
         metrics: [
           { label: 'GMV total', value: formatMoney(gmv) },
           { label: 'GMV / hora', value: formatMoney(gmvHora) },
@@ -245,30 +289,57 @@ export function ApresentadoraDetailPage() {
             <h1 className="text-2xl font-bold tracking-[-0.02em] text-ink sm:text-3xl">{nome}</h1>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {RANGES.map((r) => (
-            <button
-              key={r.value}
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+            {RANGES.map((r) => (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => setRange(r.value)}
+                className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${
+                  range === r.value ? 'bg-brand text-white' : 'border border-line text-ink-muted hover:bg-surface-muted hover:text-ink'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+            <Button
               type="button"
-              onClick={() => setRange(r.value)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${
-                range === r.value ? 'bg-brand text-white' : 'border border-line text-ink-muted hover:bg-surface-muted hover:text-ink'
-              }`}
+              icon={FileDown}
+              onClick={exportPdf}
+              isLoading={exporting}
+              // memoriaQ/comissaoLivesQ também: sem elas o PDF sairia sem a memória
+              // de cálculo e com '—' nas comissões por live, silenciosamente.
+              disabled={isLoading || isError || memoriaQ.isLoading || comissaoLivesQ.isLoading}
             >
-              {r.label}
-            </button>
-          ))}
-          <Button
-            type="button"
-            icon={FileDown}
-            onClick={exportPdf}
-            isLoading={exporting}
-            // memoriaQ/comissaoLivesQ também: sem elas o PDF sairia sem a memória
-            // de cálculo e com '—' nas comissões por live, silenciosamente.
-            disabled={isLoading || isError || memoriaQ.isLoading || comissaoLivesQ.isLoading}
-          >
-            Exportar PDF
-          </Button>
+              Exportar PDF
+            </Button>
+          </div>
+          {range === 'custom' ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-ink-muted" />
+              <input
+                type="date"
+                aria-label="Data inicial do período"
+                value={custom.from}
+                max={custom.to}
+                onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))}
+                className="h-9 cursor-pointer rounded-full border border-line bg-surface px-3 text-sm font-semibold text-ink transition hover:border-[var(--border-strong)] focus:border-brand focus:outline-none"
+              />
+              <span className="text-sm text-ink-muted">até</span>
+              <input
+                type="date"
+                aria-label="Data final do período"
+                value={custom.to}
+                min={custom.from}
+                onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))}
+                className="h-9 cursor-pointer rounded-full border border-line bg-surface px-3 text-sm font-semibold text-ink transition hover:border-[var(--border-strong)] focus:border-brand focus:outline-none"
+              />
+            </div>
+          ) : null}
+          <p className="text-xs text-ink-muted">
+            Período do relatório: {fmtDiaMesAno(winIni)} a {fmtDiaMesAno(winFim)}
+          </p>
         </div>
       </div>
 
