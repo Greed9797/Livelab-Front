@@ -525,11 +525,18 @@ export type ImportDecisao = 'pendente' | 'vincular' | 'criar' | 'ignorar'
  * O relatório do TikTok Studio não traz a marca: ela e a apresentadora são escolhidas na tela
  * e viajam como query params (o backend também aceita como campos do multipart).
  */
+// Importação grava uma live, o rateio e a comissão de cada linha da planilha, uma a uma.
+// Os 15s que valem para o resto do app cortam o navegador no meio de um trabalho que o
+// servidor conclui — o erro aparece na tela e o dado entra no banco assim mesmo.
+const TIMEOUT_IMPORTACAO_MS = 180_000
+
 export function previewAnalyticsImport(
   file: File,
   context: { marca_id?: string; apresentadora_id?: string } = {},
 ) {
-  return apiUpload<JsonRecord>('/analytics/imports/preview', file, context)
+  return apiUpload<JsonRecord>('/analytics/imports/preview', file, context, {
+    timeout: TIMEOUT_IMPORTACAO_MS,
+  })
 }
 
 export function getAnalyticsImports(limit = 20) {
@@ -559,7 +566,9 @@ export function cancelAnalyticsImport(batchId: string) {
 }
 
 export function applyAnalyticsImport(batchId: string) {
-  return apiPost<JsonRecord>(`/analytics/imports/${batchId}/apply`, {})
+  return apiPost<JsonRecord>(`/analytics/imports/${batchId}/apply`, {}, {
+    timeout: TIMEOUT_IMPORTACAO_MS,
+  })
 }
 
 export function getFinanceiroResumo(filters: Record<string, unknown> = {}) {

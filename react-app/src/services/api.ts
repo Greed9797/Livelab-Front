@@ -121,8 +121,8 @@ export async function apiGet<T>(path: string, params?: Record<string, unknown>):
   return response.data
 }
 
-export async function apiPost<T>(path: string, data?: unknown): Promise<T> {
-  const response = await api.post<T>(path, data)
+export async function apiPost<T>(path: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  const response = await api.post<T>(path, data, config)
   return response.data
 }
 
@@ -141,10 +141,16 @@ export async function apiPut<T>(path: string, body?: unknown, params?: Record<st
   return response.data
 }
 
-export async function apiUpload<T>(path: string, file: File, params?: Record<string, unknown>): Promise<T> {
+export async function apiUpload<T>(
+  path: string,
+  file: File,
+  params?: Record<string, unknown>,
+  config?: AxiosRequestConfig,
+): Promise<T> {
   const formData = new FormData()
   formData.append('file', file)
   const response = await api.post<T>(path, formData, {
+    ...config,
     params,
     headers: { 'Content-Type': 'multipart/form-data' },
   })

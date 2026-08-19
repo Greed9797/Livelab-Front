@@ -200,7 +200,36 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
         queryClient.invalidateQueries({ queryKey: QK.lives }),
       ])
     },
-    onError: (err) => toast.push(extractErrorMessage(err), 'error'),
+    // O navegador desistir NÃO quer dizer que a importação falhou: o servidor não é
+    // interrompido e costuma terminar depois. Antes, a tela mostrava erro, mantinha o
+    // lote como pendente e devolvia o botão — convidando a clicar de novo enquanto o
+    // trabalho ainda corria. Agora perguntamos ao servidor como o lote realmente ficou.
+    onError: async (err) => {
+      setConfirmOpen(false)
+      const lote = await queryClient
+        .fetchQuery({
+          queryKey: ['analytics-import', batchId],
+          queryFn: () => getAnalyticsImport(batchId as string),
+        })
+        .catch(() => null)
+
+      if (lote && asString(getRecord(lote).status) === 'applied') {
+        toast.push('A importação foi concluída no servidor — a tela é que demorou a responder.', 'success')
+      } else {
+        const gravadas = asArray<JsonRecord>(getRecord(lote ?? {}).rows).filter((r) => r.applied_at).length
+        toast.push(
+          gravadas > 0
+            ? `${extractErrorMessage(err)} ${gravadas} linha(s) já gravadas — reaplicar continua de onde parou.`
+            : extractErrorMessage(err),
+          'error',
+        )
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QK.analyticsDashboard() }),
+        queryClient.invalidateQueries({ queryKey: QK.homeDashboard }),
+        queryClient.invalidateQueries({ queryKey: QK.lives }),
+      ])
+    },
   })
 
   function handlePreview() {
