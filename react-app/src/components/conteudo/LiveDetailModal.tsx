@@ -1,4 +1,4 @@
-import { Edit2, Trash2 } from 'lucide-react'
+import { Edit2, Trash2, Users } from 'lucide-react'
 import type { UseMutationResult } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
@@ -41,6 +41,7 @@ interface LiveDetailModalProps {
   onClose: () => void
   onCopyReport: (report: string) => void
   onEdit: (live: JsonRecord) => void
+  onSplitApresentadoras: (live: JsonRecord) => void
   onDelete: (live: JsonRecord) => void
   deleteLiveMutation: UseMutationResult<unknown, Error, string>
 }
@@ -53,6 +54,7 @@ export function LiveDetailModal({
   onClose,
   onCopyReport,
   onEdit,
+  onSplitApresentadoras,
   onDelete,
   deleteLiveMutation,
 }: LiveDetailModalProps) {
@@ -132,6 +134,11 @@ export function LiveDetailModal({
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" icon={Edit2} onClick={() => onEdit(live)}>
                 Editar
+              </Button>
+              {/* Lives em sequência de apresentadoras: sem esta ação a comissão inteira ia
+                  para uma só, e o operador não tinha por onde separar quem fez o quê. */}
+              <Button variant="secondary" icon={Users} onClick={() => onSplitApresentadoras(live)}>
+                Dividir entre apresentadoras
               </Button>
               <Button
                 variant="danger"

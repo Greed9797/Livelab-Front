@@ -185,10 +185,17 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
     mutationFn: () => applyAnalyticsImport(batchId as string),
     onSuccess: async (data) => {
       const falhas = asArray<JsonRecord>(data.failed_rows)
+      // Live com GMV corrigido à mão mantém o valor corrigido: o da planilha é descartado.
+      // Dizer quantas foram é obrigatório — preservar em silêncio esconde que o número do
+      // arquivo não entrou.
+      const preservadas = asNumber(data.gmv_preservado_rows)
+      const nota = preservadas > 0
+        ? ` ${preservadas} manteve${preservadas > 1 ? 'ram' : ''} o GMV corrigido à mão.`
+        : ''
       if (falhas.length > 0) {
-        toast.push(`${asNumber(data.applied_rows)} linhas aplicadas, ${falhas.length} com erro.`, 'error')
+        toast.push(`${asNumber(data.applied_rows)} linhas aplicadas, ${falhas.length} com erro.${nota}`, 'error')
       } else {
-        toast.push(`${asNumber(data.applied_rows)} linhas aplicadas nas lives.`, 'success')
+        toast.push(`${asNumber(data.applied_rows)} linhas aplicadas nas lives.${nota}`, 'success')
       }
       setConfirmOpen(false)
       await Promise.all([

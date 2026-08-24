@@ -81,4 +81,32 @@ describe('montarCamposNumericos — não regravar dinheiro que ninguém tocou', 
     const atual = form({ fat_gerado: '' })
     expect(montarCamposNumericos(atual, prefill)).toEqual({})
   })
+  // Live importada do TikTok Studio guarda o GMV em ads_gmv, o topo de
+  // COALESCE(ads_gmv, manual_gmv, fat_gerado). Corrigir sem mandar ads_gmv grava no banco e
+  // não muda um único relatório — foi por isso que o campo chegou a ficar desabilitado, e por
+  // isso 157 lives ficaram sem como ser corrigidas.
+  it('live vinda do import: a correção do GMV vai também para ads_gmv', () => {
+    const prefill = form({ fat_gerado: '1817', manual_gmv: '1817' })
+    const atual = form({ fat_gerado: '2419', manual_gmv: '1817' })
+    expect(montarCamposNumericos(atual, prefill, true)).toEqual({
+      fat_gerado: 2419,
+      manual_gmv: 2419,
+      ads_gmv: 2419,
+    })
+  })
+
+  it('live manual não ganha ads_gmv — o campo continua NULL e o COALESCE segue caindo', () => {
+    const prefill = form({ fat_gerado: '1817', manual_gmv: '1817' })
+    const atual = form({ fat_gerado: '2419', manual_gmv: '1817' })
+    expect(montarCamposNumericos(atual, prefill, false)).toEqual({
+      fat_gerado: 2419,
+      manual_gmv: 2419,
+    })
+  })
+
+  it('sem tocar no GMV, live importada não reenvia ads_gmv', () => {
+    const prefill = form({ fat_gerado: '1817', manual_gmv: '1817', manual_likes: '10' })
+    const atual = form({ fat_gerado: '1817', manual_gmv: '1817', manual_likes: '42' })
+    expect(montarCamposNumericos(atual, prefill, true)).toEqual({ manual_likes: 42 })
+  })
 })

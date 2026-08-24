@@ -270,6 +270,7 @@ export interface LivesTabProps {
   onOpenCreateLiveModal: () => void
   onOpenLiveDetail: (live: JsonRecord) => void
   onOpenEditLive: (live: JsonRecord) => void
+  onSplitApresentadoras: (live: JsonRecord) => void
   onDeleteLive: (live: JsonRecord) => void
   onCloseLiveModal: () => void
   onCopyLiveReport: (text: string) => void
@@ -318,6 +319,7 @@ export function LivesTab({
   onOpenCreateLiveModal,
   onOpenLiveDetail,
   onOpenEditLive,
+  onSplitApresentadoras,
   onDeleteLive,
   onCloseLiveModal,
   onCopyLiveReport,
@@ -1445,6 +1447,7 @@ export function LivesTab({
         onClose={onCloseLiveModal}
         onCopyReport={onCopyLiveReport}
         onEdit={onOpenEditLive}
+        onSplitApresentadoras={onSplitApresentadoras}
         onDelete={onDeleteLive}
         deleteLiveMutation={deleteLiveMutation}
       />

@@ -3,6 +3,10 @@ import { FormEvent, Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
+import { useToast } from '../components/ui/Toast'
+import { ImportRateioModal } from '../components/analytics/ImportRateioModal'
+import { calcDuration } from '../components/conteudo/live-helpers'
+import { officialLiveGmv } from '../utils/live-gmv'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { RegistrarMetricasLiveModal, type RegistrarMetricasLiveMode } from '../components/forms/RegistrarMetricasLiveModal'
 import { EditarLiveModal } from '../components/forms/EditarLiveModal'
@@ -34,6 +38,7 @@ import {
   getLives,
   getLivesPaginado,
   getLivesDuplicatas,
+  type ImportApresentadoraRateio,
   getMarcas,
   getVideos,
   updateAgendaEvento,
@@ -157,7 +162,11 @@ export function ConteudoPage() {
   const [liveModalMode, setLiveModalMode] = useState<'detail' | null>(null)
   const [selectedLiveRecord, setSelectedLiveRecord] = useState<JsonRecord | null>(null)
   const [reportCopied, setReportCopied] = useState(false)
+  // Live aberta no modal de rateio, já hidratada por getLivePorId (a linha da tabela não traz
+  // o array `apresentadoras`, e abrir sem ele apagaria a divisão anterior ao salvar).
+  const [rateioLive, setRateioLive] = useState<JsonRecord | null>(null)
   const client = useQueryClient()
+  const toast = useToast()
 
   // Filtros/busca/página da aba "Lives realizadas" vivem na URL (searchParams) —
   // sobrevivem a navegação, abrir/fechar do modal ?live= e deep-links.
@@ -239,6 +248,18 @@ export function ConteudoPage() {
   const updateLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setSelectedLiveRecord(null); invalidateOperational() } })
   const encerrarLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => encerrarLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setMetricsAgendaEvent(null); invalidateOperational() } })
   const deleteLiveMutation = useMutation({ mutationFn: deleteLive, onSuccess: closeLiveRecord })
+  // Rateio da live entre apresentadoras. Salva pelo mesmo PATCH da live, então o recálculo de
+  // comissão pós-commit do backend roda sozinho.
+  const rateioMutation = useMutation({
+    mutationFn: ({ id, lista }: { id: string; lista: ImportApresentadoraRateio[] }) =>
+      updateLive(id, { apresentadoras: lista }),
+    onSuccess: () => {
+      setRateioLive(null)
+      invalidateOperational()
+      toast.push('Divisão salva. As comissões estão sendo recalculadas.', 'success')
+    },
+    onError: (err) => toast.push(extractErrorMessage(err), 'error'),
+  })
 
   useEffect(() => { setTab(requestedTab) }, [requestedTab])
   useEffect(() => {
@@ -247,11 +268,26 @@ export function ConteudoPage() {
   }, [requestedCabineId, requestedDate])
 
   const selectedLiveId = params.get('live') ?? ''
-  const selectedLive = useMemo(() => {
-    const rows = lives.data ?? []
+  const selectedLiveLocal = useMemo(() => {
     if (!selectedLiveId) return null
-    return rows.find((live) => asString(live.id, '') === selectedLiveId) ?? null
-  }, [lives.data, selectedLiveId])
+    const rows = (lives.data ?? []) as unknown as JsonRecord[]
+    return rows.find((live) => asString(live.id, '') === selectedLiveId)
+      ?? livesItems.find((live) => asString(live.id, '') === selectedLiveId)
+      ?? null
+  }, [lives.data, livesItems, selectedLiveId])
+
+  // A live do ?live= pode não estar em NENHUMA das duas listas: `lives.data` é o top-200 de
+  // encerradas (medido em produção, esse corte começa em 11/08 e anda sozinho conforme lives
+  // novas entram) e `livesItems` é só a página aberta. Clicar na tabela funcionava porque o
+  // handler passa a linha inteira, mas abrir por link ou dar F5 numa live mais antiga que o
+  // corte não abria nada — a tela ficava na listagem, sem erro nenhum. Buscar por id cobre o
+  // caso sem endpoint novo.
+  const selectedLiveRemota = useQuery({
+    queryKey: ['live', selectedLiveId],
+    queryFn: () => getLivePorId(selectedLiveId),
+    enabled: Boolean(selectedLiveId) && !selectedLiveLocal,
+  })
+  const selectedLive = selectedLiveLocal ?? ((selectedLiveRemota.data ?? null) as JsonRecord | null)
 
   useEffect(() => {
     if (!selectedLive || liveModalMode || metricsModalMode) return
@@ -481,6 +517,13 @@ export function ConteudoPage() {
           }}
           onCopyLiveReport={(text) => void navigator.clipboard.writeText(text).then(() => { setReportCopied(true); setTimeout(() => setReportCopied(false), 2000) })}
           onInlineSaveLive={podeEscrever ? (id, payload) => updateLiveMutation.mutateAsync({ id, payload }) : undefined}
+          onSplitApresentadoras={(live) => {
+            const id = asString(live.id, '')
+            if (!id) return
+            void getLivePorId(id)
+              .then((fullLive) => setRateioLive(fullLive as unknown as JsonRecord))
+              .catch((err) => toast.push(extractErrorMessage(err), 'error'))
+          }}
           duplicateLiveIds={duplicateLiveIds}
           duplicateClusterCount={dupClusters.length}
         />
@@ -488,6 +531,23 @@ export function ConteudoPage() {
       ) : null}
 
       <EditarLiveModal open={Boolean(editLiveData)} live={editLiveData} onClose={() => setEditLiveData(null)} />
+
+      {/* Mesma tela de rateio da revisão do import — o contrato é o mesmo (R$ e tempo por
+          apresentadora, fechando o total da live), então não existe um segundo componente
+          com uma segunda regra para o mesmo dinheiro. */}
+      {rateioLive ? (
+        <ImportRateioModal
+          row={{
+            duration_seconds: calcDuration(rateioLive).mins * 60,
+            attributed_gmv: officialLiveGmv(rateioLive),
+            apresentadoras: rateioLive.apresentadoras,
+          }}
+          apresentadoras={apresentadoraRows as unknown as JsonRecord[]}
+          onClose={() => setRateioLive(null)}
+          onSave={(lista) => rateioMutation.mutate({ id: asString(rateioLive.id, ''), lista })}
+          isSaving={rateioMutation.isPending}
+        />
+      ) : null}
 
       <RegistrarMetricasLiveModal
         open={metricsModalMode !== null}

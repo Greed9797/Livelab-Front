@@ -138,7 +138,7 @@ const CAMPOS_NUMERICOS: Array<[keyof EditForm, string]> = [
  * Campo vazio segue sendo ignorado (comportamento preservado: não dá para zerar o GMV por
  * aqui — isso é decisão de produto à parte, não regressão introduzida agora).
  */
-export function montarCamposNumericos(form: EditForm, prefill: EditForm): JsonRecord {
+export function montarCamposNumericos(form: EditForm, prefill: EditForm, temAdsGmv = false): JsonRecord {
   const out: JsonRecord = {}
   for (const [formKey, payloadKey] of CAMPOS_NUMERICOS) {
     const raw = form[formKey]
@@ -165,6 +165,15 @@ export function montarCamposNumericos(form: EditForm, prefill: EditForm): JsonRe
   const mudouManual = 'manual_gmv' in out
   if (mudouFat && !mudouManual) out.manual_gmv = out.fat_gerado
   else if (mudouManual && !mudouFat) out.fat_gerado = out.manual_gmv
+
+  // Live importada do TikTok Studio guarda o GMV em ads_gmv, que é o TOPO de
+  // COALESCE(ads_gmv, manual_gmv, fat_gerado) (src/lib/metric-sql.js). Sem mandar ads_gmv, a
+  // correção grava nos outros dois campos e NENHUM relatório enxerga — o operador digita,
+  // salva e nada muda. Por isso o campo ficou desabilitado por um tempo; travar resolvia a
+  // mentira e criava outra, porque 157 lives ficaram sem como ser corrigidas.
+  // O campo visível "GMV faturado" já nasce com o valor oficial (officialLiveGmvRaw), então
+  // quando a live veio do import é ads_gmv que o usuário está editando.
+  if (temAdsGmv && 'fat_gerado' in out) out.ads_gmv = out.fat_gerado
 
   return out
 }
@@ -291,7 +300,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
     if (form.hora_fim) payload.hora_fim = form.hora_fim
     if (form.previsto_fim) payload.previsto_fim = new Date(form.previsto_fim).toISOString()
 
-    Object.assign(payload, montarCamposNumericos(form, prefillRef.current))
+    Object.assign(payload, montarCamposNumericos(form, prefillRef.current, gmvVeioDoTikTok))
 
     if (Object.keys(payload).length === 0) {
       setError('Nenhum campo modificado.')
@@ -404,15 +413,15 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
           <h3 className="text-sm font-bold text-ink">Financeiro</h3>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-	              <span className="text-xs text-ink-muted">GMV faturado</span>
+              <span className="text-xs text-ink-muted">GMV faturado</span>
               <MoneyInput
                 value={form.fat_gerado}
                 onChange={(v) => setField('fat_gerado', v)}
-                disabled={gmvVeioDoTikTok}
               />
               {gmvVeioDoTikTok ? (
                 <span className="mt-1 block text-[11px] leading-tight text-ink-muted">
-                  Importado do TikTok Studio — este valor manda nos relatórios e não é editável aqui.
+                  Veio do TikTok Studio. Sua correção substitui o valor, vale nos relatórios e fica
+                  registrada no histórico de GMV — reimportar a planilha não desfaz.
                 </span>
               ) : null}
             </label>
