@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const localChromiumExecutable = process.env.E2E_CHROMIUM_EXECUTABLE_PATH
+
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: /.*\.e2e\.ts/,
@@ -22,6 +24,9 @@ export default defineConfig({
     video: 'off',
     actionTimeout: 15_000,
     navigationTimeout: 45_000,
+    launchOptions: localChromiumExecutable
+      ? { executablePath: localChromiumExecutable }
+      : undefined,
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 960 } } },

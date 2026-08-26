@@ -254,15 +254,15 @@ export function ConteudoPage() {
   const updateLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setSelectedLiveRecord(null); invalidateOperational() } })
   const encerrarLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => encerrarLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setMetricsAgendaEvent(null); invalidateOperational() } })
   const deleteLiveMutation = useMutation({ mutationFn: deleteLive, onSuccess: closeLiveRecord })
-  // Rateio da live entre apresentadoras. Salva pelo mesmo PATCH da live, então o recálculo de
-  // comissão pós-commit do backend roda sozinho.
+  // Rateio da live entre apresentadoras. O backend salva rateio e atribuições/comissões na
+  // mesma transação, então a invalidação abaixo nunca expõe uma leitura híbrida.
   const rateioMutation = useMutation({
     mutationFn: ({ id, lista }: { id: string; lista: ImportApresentadoraRateio[] }) =>
       updateLive(id, { apresentadoras: lista }),
     onSuccess: () => {
       setRateioLive(null)
       invalidateOperational()
-      toast.push('Divisão salva. As comissões estão sendo recalculadas.', 'success')
+      toast.push('Divisão salva. As comissões foram recalculadas.', 'success')
     },
     onError: (err) => toast.push(extractErrorMessage(err), 'error'),
   })
