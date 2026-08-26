@@ -13,7 +13,7 @@ import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { AgendaTab } from '../components/conteudo/AgendaTab'
 import { GradeTab } from '../components/conteudo/GradeTab'
 import { agendaFetchRange } from './conteudo-helpers'
-import { invalidateOperational as invalidateOperationalQueries } from '../services/query-keys'
+import { invalidateOperational as invalidateOperationalQueries, QK } from '../services/query-keys'
 // Tipos/helpers leves importados estaticamente; os componentes pesados das abas
 // são carregados sob demanda via React.lazy (ver abaixo) para reduzir o chunk inicial.
 import { dateRangeToWindow, isValidCustomDateRange, type DateRange } from '../components/conteudo/LivesTab'
@@ -289,7 +289,7 @@ export function ConteudoPage() {
   // corte não abria nada — a tela ficava na listagem, sem erro nenhum. Buscar por id cobre o
   // caso sem endpoint novo.
   const selectedLiveRemota = useQuery({
-    queryKey: ['live', selectedLiveId],
+    queryKey: QK.live(selectedLiveId),
     queryFn: () => getLivePorId(selectedLiveId),
     enabled: Boolean(selectedLiveId),
   })

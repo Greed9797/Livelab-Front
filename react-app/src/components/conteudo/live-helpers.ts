@@ -20,6 +20,23 @@ export function livePresenterNames(live: JsonRecord): string[] {
   return [...new Set(legacy)]
 }
 
+export function livePresenterCellModel(
+  live: JsonRecord,
+  canInlineSave: boolean,
+): { name: string; editable: boolean } {
+  const names = livePresenterNames(live)
+  return {
+    name: names.join(' + '),
+    // A edição inline só representa uma apresentadora. Em uma live dividida, permitir a
+    // troca por esse atalho apagaria a semântica do rateio; nesse caso a edição pertence ao
+    // modal "Dividir entre apresentadoras".
+    editable:
+      canInlineSave
+      && names.length <= 1
+      && String(live.status_publicacao ?? 'rascunho').toLowerCase() === 'rascunho',
+  }
+}
+
 export function fmtTime(value: unknown): string {
   const d = typeof value === 'string' ? new Date(value) : null
   if (!d || Number.isNaN(d.getTime())) return '—'

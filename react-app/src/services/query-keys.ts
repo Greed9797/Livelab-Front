@@ -7,6 +7,7 @@ export const QK = {
   agenda: (params?: { start?: string; end?: string; date?: string; view?: string }) =>
     params ? ['agenda', params] as const : ['agenda'] as const,
   lives: ['lives'] as const,
+  live: (id?: string) => (id ? ['live', id] as const : ['live'] as const),
   livesByStatus: (status: string) => ['lives', status] as const,
   livesDuplicatas: ['lives-duplicatas'] as const,
   homeDashboard: ['home-dashboard'] as const,
@@ -130,6 +131,7 @@ export function invalidateOperational(client: QueryClient): void {
     [...QK.cabines],
     [...QK.agenda()],
     [...QK.lives],
+    [...QK.live()],
     [...QK.livesDuplicatas],
     ['grade'],
     // dashboards com GMV/horas agregados

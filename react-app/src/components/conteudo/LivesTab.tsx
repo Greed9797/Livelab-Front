@@ -23,7 +23,7 @@ import { AnalyticsImportSection } from '../analytics/AnalyticsImportSection'
 import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
-import { calcDuration, fmtTime, livePresenterNames, type LiveFilterOption } from './live-helpers'
+import { calcDuration, fmtTime, livePresenterCellModel, livePresenterNames, type LiveFilterOption } from './live-helpers'
 import { InlineApresentadoraCell, InlineGmvCell, InlinePedidosCell } from './LiveInlineCells'
 import { LiveDetailModal } from './LiveDetailModal'
 import type { JsonRecord } from '../../types/models'
@@ -1065,9 +1065,7 @@ export function LivesTab({
                     const liveId = asString(live.id)
                     const { text: durText, mins: durMins } = calcDuration(live)
                     const durPct = Math.min(100, (durMins / MAX_DUR_MINS) * 100)
-                    const presenterName = asString(
-                      live.apresentadora_nome ?? live.apresentador_nome,
-                    )
+                    const presenterCell = livePresenterCellModel(live, Boolean(onInlineSaveLive))
                     const clientName = asString(live.marca_nome ?? live.cliente_nome)
 	                    const gmv = asNumber(officialLiveGmv(live))
                     const isKebabOpen = kebabOpenId === liveId
@@ -1307,8 +1305,8 @@ export function LivesTab({
 
                         {/* Apresentadora — editável inline quando rascunho */}
                         <InlineApresentadoraCell
-                          name={presenterName}
-                          editable={Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
+                          name={presenterCell.name}
+                          editable={presenterCell.editable}
                           options={apresentadoraFilterOptions}
                           onSave={(payload) => onInlineSaveLive!(liveId, payload)}
                         />
