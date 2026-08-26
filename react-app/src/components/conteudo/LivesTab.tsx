@@ -23,7 +23,7 @@ import { AnalyticsImportSection } from '../analytics/AnalyticsImportSection'
 import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
-import { calcDuration, fmtTime, type LiveFilterOption } from './live-helpers'
+import { calcDuration, fmtTime, livePresenterNames, type LiveFilterOption } from './live-helpers'
 import { InlineApresentadoraCell, InlineGmvCell, InlinePedidosCell } from './LiveInlineCells'
 import { LiveDetailModal } from './LiveDetailModal'
 import type { JsonRecord } from '../../types/models'
@@ -35,7 +35,7 @@ const COLS = '80px minmax(180px,1.4fr) 90px 110px 115px 80px 100px minmax(115px,
 const MAX_DUR_MINS = 480
 const ACTION_MENU_WIDTH = 168
 
-export type DateRange = 'todos' | 'hoje' | '7d' | '30d' | 'mes'
+export type DateRange = 'todos' | 'hoje' | '7d' | '30d' | 'mes' | 'custom'
 
 export type { LiveFilterOption } from './live-helpers'
 
@@ -45,20 +45,38 @@ const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: '7d', label: 'Últimos 7 dias' },
   { value: '30d', label: 'Últimos 30 dias' },
   { value: 'mes', label: 'Este mês' },
+  { value: 'custom', label: 'Personalizado' },
 ]
 
+function localIsoDate(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function isIsoCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const parsed = new Date(`${value}T00:00:00.000Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}
+
+export function isValidCustomDateRange(from: string, to: string, today = localIsoDate(new Date())): boolean {
+  return isIsoCalendarDate(from) && isIsoCalendarDate(to) && from <= to && to <= today
+}
+
 // Converte o preset de período em janela de datas (YYYY-MM-DD) para o servidor.
-export function dateRangeToWindow(range: DateRange): { data_inicio?: string; data_fim?: string } {
+export function dateRangeToWindow(range: DateRange, customFrom = '', customTo = ''): { data_inicio?: string; data_fim?: string } {
   if (range === 'todos') return {}
+  if (range === 'custom') {
+    return isValidCustomDateRange(customFrom, customTo)
+      ? { data_inicio: customFrom, data_fim: customTo }
+      : {}
+  }
   const now = new Date()
-  const toISO = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  const fim = toISO(now)
+  const fim = localIsoDate(now)
   if (range === 'hoje') return { data_inicio: fim, data_fim: fim }
-  if (range === 'mes') return { data_inicio: toISO(new Date(now.getFullYear(), now.getMonth(), 1)), data_fim: fim }
+  if (range === 'mes') return { data_inicio: localIsoDate(new Date(now.getFullYear(), now.getMonth(), 1)), data_fim: fim }
   const start = new Date(now)
   start.setDate(now.getDate() - (range === '7d' ? 6 : 29))
-  return { data_inicio: toISO(start), data_fim: fim }
+  return { data_inicio: localIsoDate(start), data_fim: fim }
 }
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -112,7 +130,7 @@ function doExportCSV(lives: JsonRecord[]) {
         dur,
         asString(l.marca_nome ?? l.cliente_nome),
         `Cabine ${asString(l.cabine_numero)}`,
-        asString(l.apresentadora_nome ?? l.apresentador_nome),
+        livePresenterNames(l).join(' + ') || '—',
         publicationStatusLabel(l.status_publicacao),
         asString(l.origem_dados, 'manual'),
         asNumber(officialLiveGmv(l))
@@ -279,6 +297,11 @@ export interface LivesTabProps {
   duplicateClusterCount?: number
   dateRange: DateRange
   onDateRangeChange: (range: DateRange) => void
+  customDateFrom: string
+  customDateTo: string
+  customDateError?: string
+  onCustomDateFromChange: (value: string) => void
+  onCustomDateToChange: (value: string) => void
   marcaFilterId: string
   apresentadoraFilterId: string
   onMarcaFilterChange: (id: string) => void
@@ -328,6 +351,11 @@ export function LivesTab({
   duplicateClusterCount = 0,
   dateRange,
   onDateRangeChange,
+  customDateFrom,
+  customDateTo,
+  customDateError,
+  onCustomDateFromChange,
+  onCustomDateToChange,
   marcaFilterId,
   apresentadoraFilterId,
   onMarcaFilterChange,
@@ -363,6 +391,7 @@ export function LivesTab({
   const marcaOptions = marcaFilterOptions
   const apresentadoraOptions = apresentadoraFilterOptions
   const kebabOpenId = kebabMenu?.liveId ?? null
+  const todayIso = localIsoDate(new Date())
 
   // Close overlay menus on outside click
   useEffect(() => {
@@ -667,6 +696,34 @@ export function LivesTab({
           </select>
           <ChevronDown style={{ position: 'absolute', right: 9, width: 14, height: 14, color: 'var(--text-muted)', pointerEvents: 'none' }} />
         </div>
+
+        {dateRange === 'custom' ? (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <input
+              type="date"
+              aria-label="Data inicial"
+              value={customDateFrom}
+              max={customDateTo || todayIso}
+              onChange={(event) => onCustomDateFromChange(event.target.value)}
+              style={{ ...tbtn, color: 'var(--text-primary)', colorScheme: 'dark' }}
+            />
+            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>até</span>
+            <input
+              type="date"
+              aria-label="Data final"
+              value={customDateTo}
+              min={customDateFrom || undefined}
+              max={todayIso}
+              onChange={(event) => onCustomDateToChange(event.target.value)}
+              style={{ ...tbtn, color: 'var(--text-primary)', colorScheme: 'dark' }}
+            />
+            {customDateError ? (
+              <span role="alert" style={{ color: 'var(--danger)', fontSize: 12, fontWeight: 600 }}>
+                {customDateError}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* filters popover (marca / apresentadora) */}
         <div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
@@ -1375,16 +1432,16 @@ export function LivesTab({
             </span>
 
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Button variant="ghost" className="h-7 w-7 p-0" aria-label="Primeira página" disabled={page <= 0} onClick={() => onPageChange(0)}>
+              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Primeira página" disabled={page <= 0} onClick={() => onPageChange(0)}>
                 <ChevronsLeft style={{ width: 14, height: 14 }} />
               </Button>
-              <Button variant="ghost" className="h-7 w-7 p-0" aria-label="Página anterior" disabled={page <= 0} onClick={() => onPageChange(page - 1)}>
+              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Página anterior" disabled={page <= 0} onClick={() => onPageChange(page - 1)}>
                 <ChevronLeft style={{ width: 14, height: 14 }} />
               </Button>
-              <Button variant="ghost" className="h-7 w-7 p-0" aria-label="Próxima página" disabled={page + 1 >= pageCount} onClick={() => onPageChange(page + 1)}>
+              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Próxima página" disabled={page + 1 >= pageCount} onClick={() => onPageChange(page + 1)}>
                 <ChevronRight style={{ width: 14, height: 14 }} />
               </Button>
-              <Button variant="ghost" className="h-7 w-7 p-0" aria-label="Última página" disabled={page + 1 >= pageCount} onClick={() => onPageChange(pageCount - 1)}>
+              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Última página" disabled={page + 1 >= pageCount} onClick={() => onPageChange(pageCount - 1)}>
                 <ChevronsRight style={{ width: 14, height: 14 }} />
               </Button>
             </div>

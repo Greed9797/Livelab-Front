@@ -6,7 +6,7 @@ import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatDate, formatMoney } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
 import { extractErrorMessage } from '../../services/api'
-import { calcDuration, fmtTime } from './live-helpers'
+import { calcDuration, fmtTime, livePresenterNames } from './live-helpers'
 import type { JsonRecord } from '../../types/models'
 
 function buildReport(live: JsonRecord): string {
@@ -18,6 +18,7 @@ function buildReport(live: JsonRecord): string {
   )
   const hFim = fmtTime(live.encerrado_em)
   const { text: duracao } = calcDuration(live)
+  const presenters = livePresenterNames(live)
   const lines = [
     `📊 Relatório de Live${nome ? ` — ${nome}` : ''}`,
     '',
@@ -26,6 +27,7 @@ function buildReport(live: JsonRecord): string {
       ? `⏰ Horário: ${fmtTime(live.iniciado_em)} às ${hFim}`
       : `⏰ Horário: ${fmtTime(live.iniciado_em)}`,
     duracao !== '—' ? `⏱️ Duração: ${duracao}` : null,
+    presenters.length ? `🎤 Apresentadoras: ${presenters.join(' + ')}` : null,
     '',
     `💰 GMV: ${formatMoney(officialLiveGmv(live))}`,
     `🛒 Pedidos: ${asNumber(live.manual_orders ?? live.final_orders_count).toLocaleString('pt-BR')}`,
@@ -58,6 +60,7 @@ export function LiveDetailModal({
   onDelete,
   deleteLiveMutation,
 }: LiveDetailModalProps) {
+  const presenterNames = live ? livePresenterNames(live) : []
   return (
     <Modal
       open={open && !!live}
@@ -81,8 +84,8 @@ export function LiveDetailModal({
                 ],
                 ['Duração', calcDuration(live).text],
                 [
-                  'Apresentadora',
-                  asString(live.apresentadora_nome ?? live.apresentador_nome, '—'),
+                  presenterNames.length > 1 ? 'Apresentadoras' : 'Apresentadora',
+                  presenterNames.join(' · ') || '—',
                 ],
                 ['GMV', formatMoney(officialLiveGmv(live))],
                 [

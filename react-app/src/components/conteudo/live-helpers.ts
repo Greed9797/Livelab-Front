@@ -7,6 +7,19 @@ export interface LiveFilterOption {
   nome: string
 }
 
+export function livePresenterNames(live: JsonRecord): string[] {
+  const rateio = Array.isArray(live.apresentadoras) ? live.apresentadoras : []
+  const fromRateio = rateio
+    .map((item) => (item && typeof item === 'object' ? String((item as JsonRecord).nome ?? '').trim() : ''))
+    .filter(Boolean)
+  if (fromRateio.length > 0) return [...new Set(fromRateio)]
+
+  const legacy = [live.apresentadora_nome ?? live.apresentador_nome, live.apresentadora2_nome]
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean)
+  return [...new Set(legacy)]
+}
+
 export function fmtTime(value: unknown): string {
   const d = typeof value === 'string' ? new Date(value) : null
   if (!d || Number.isNaN(d.getTime())) return '—'

@@ -77,6 +77,17 @@ const emptyForm: EditForm = {
   resumo: '',
 }
 
+export function presenterIdsFromLive(live: JsonRecord): { principalId: string; supportId: string } {
+  const rateio = asArray<JsonRecord>(live.apresentadoras)
+    .filter((item) => asString(item.apresentadora_id, ''))
+  const principal = rateio.find((item) => asString(item.papel) === 'principal') ?? rateio[0]
+  const support = rateio.find((item) => item !== principal)
+  return {
+    principalId: asString(principal?.apresentadora_id ?? live.apresentadora_id ?? live.apresentador_id, ''),
+    supportId: asString(support?.apresentadora_id ?? live.apresentadora2_id ?? live.apresentador2_id, ''),
+  }
+}
+
 function toLookupOptions(rows: JsonRecord[], labelKey = 'nome'): LookupOption[] {
   return rows
     .map((r) => ({ value: asString(r.id), label: asString(r[labelKey] ?? r.nome ?? r.email, '—') }))
@@ -206,12 +217,13 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
       prefillRef.current = emptyForm
       return
     }
+    const presenterIds = presenterIdsFromLive(live)
     const prefill: EditForm = {
       cabine_id: asString(live.cabine_id, ''),
       cliente_id: asString(live.cliente_id, ''),
       marca_id: asString(live.marca_id, ''),
-      apresentador_id: asString(live.apresentadora_id ?? live.apresentador_id, ''),
-      apresentador2_id: asString(live.apresentadora2_id ?? live.apresentador2_id, ''),
+      apresentador_id: presenterIds.principalId,
+      apresentador2_id: presenterIds.supportId,
       gestor_id: asString(live.gestor_id, ''),
       agenda_evento_id: asString(live.agenda_evento_id, ''),
       tiktok_username: asString(live.tiktok_username, ''),
@@ -284,8 +296,9 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
     if (form.cabine_id && form.cabine_id !== asString(live.cabine_id, '')) payload.cabine_id = form.cabine_id
     setIfChanged('cliente_id', form.cliente_id, live.cliente_id)
     setIfChanged('marca_id', form.marca_id, live.marca_id)
-    setIfChanged('apresentador_id', form.apresentador_id, live.apresentadora_id ?? live.apresentador_id)
-    setIfChanged('apresentador2_id', form.apresentador2_id, live.apresentadora2_id ?? live.apresentador2_id)
+    const presenterIds = presenterIdsFromLive(live)
+    setIfChanged('apresentador_id', form.apresentador_id, presenterIds.principalId)
+    setIfChanged('apresentador2_id', form.apresentador2_id, presenterIds.supportId)
     setIfChanged('gestor_id', form.gestor_id, live.gestor_id)
     setIfChanged('agenda_evento_id', form.agenda_evento_id, live.agenda_evento_id)
     setIfChanged('tiktok_username', form.tiktok_username, live.tiktok_username)
@@ -346,6 +359,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
               value={form.apresentador_id}
               onChange={(value) => setField('apresentador_id', value)}
               placeholder="Sem apresentadora definida"
+              disabled={asArray<JsonRecord>(live.apresentadoras).length > 1}
             />
             <PresenterSelect
               rows={apresentadoraRows}
@@ -353,7 +367,13 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
               value={form.apresentador2_id}
               onChange={(value) => setField('apresentador2_id', value)}
               placeholder="Sem segunda apresentadora"
+              disabled={asArray<JsonRecord>(live.apresentadoras).length > 1}
             />
+            {asArray<JsonRecord>(live.apresentadoras).length > 1 ? (
+              <p className="col-span-2 text-xs font-medium text-ink-muted">
+                Esta live tem rateio salvo. Altere nomes, tempo e GMV em “Dividir entre apresentadoras”.
+              </p>
+            ) : null}
             <label className="block">
               <span className="text-xs text-ink-muted">Status</span>
               <select className="design-input mt-1 h-11 w-full px-3" value={form.status} onChange={(e) => setField('status', e.target.value)}>

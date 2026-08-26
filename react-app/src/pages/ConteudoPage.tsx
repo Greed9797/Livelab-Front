@@ -16,7 +16,7 @@ import { agendaFetchRange } from './conteudo-helpers'
 import { invalidateOperational as invalidateOperationalQueries } from '../services/query-keys'
 // Tipos/helpers leves importados estaticamente; os componentes pesados das abas
 // são carregados sob demanda via React.lazy (ver abaixo) para reduzir o chunk inicial.
-import { dateRangeToWindow, type DateRange } from '../components/conteudo/LivesTab'
+import { dateRangeToWindow, isValidCustomDateRange, type DateRange } from '../components/conteudo/LivesTab'
 import { emptyVideo, type VideoForm } from '../components/conteudo/VideosTab'
 
 // Abas pesadas carregadas sob demanda — só baixam o chunk quando a aba é aberta.
@@ -171,9 +171,15 @@ export function ConteudoPage() {
   // Filtros/busca/página da aba "Lives realizadas" vivem na URL (searchParams) —
   // sobrevivem a navegação, abrir/fechar do modal ?live= e deep-links.
   const rawRange = params.get('periodo') ?? 'todos'
-  const livesDateRange: DateRange = (['todos', 'hoje', '7d', '30d', 'mes'] as const).includes(rawRange as DateRange)
+  const livesDateRange: DateRange = (['todos', 'hoje', '7d', '30d', 'mes', 'custom'] as const).includes(rawRange as DateRange)
     ? (rawRange as DateRange)
     : 'todos'
+  const livesCustomFrom = params.get('data_inicio') ?? ''
+  const livesCustomTo = params.get('data_fim') ?? ''
+  const livesCustomRangeValid = isValidCustomDateRange(livesCustomFrom, livesCustomTo, today())
+  const livesCustomRangeError = livesDateRange === 'custom' && !livesCustomRangeValid
+    ? 'Selecione uma data inicial e final válidas.'
+    : undefined
   const livesMarcaId = params.get('marca') ?? ''
   const livesApresentadoraId = params.get('apres') ?? ''
   const livesQ = params.get('q') ?? ''
@@ -199,9 +205,9 @@ export function ConteudoPage() {
   const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada', limit: 200 }), placeholderData: (prev) => prev })
   // Lista da aba "Lives realizadas" — paginada e filtrada server-side (separada da
   // query `lives` acima, que segue completa para alimentar a Agenda e o lookup por ?live=).
-  const livesWindow = dateRangeToWindow(livesDateRange)
+  const livesWindow = dateRangeToWindow(livesDateRange, livesCustomFrom, livesCustomTo)
   const livesList = useQuery({
-    queryKey: ['lives', 'list', livesStatus, livesDateRange, livesMarcaId, livesApresentadoraId, livesQ, livesPage, livesLimit],
+    queryKey: ['lives', 'list', livesStatus, livesDateRange, livesCustomFrom, livesCustomTo, livesMarcaId, livesApresentadoraId, livesQ, livesPage, livesLimit],
     queryFn: () => getLivesPaginado({
       status: livesStatus === 'todas' ? undefined : livesStatus,
       page: livesPage,
@@ -211,7 +217,7 @@ export function ConteudoPage() {
       marca_id: livesMarcaId || undefined,
       apresentadora_id: livesApresentadoraId || undefined,
     }),
-    enabled: tab === 'lives',
+    enabled: tab === 'lives' && (livesDateRange !== 'custom' || livesCustomRangeValid),
     placeholderData: (prev) => prev,
   })
   const livesItems = livesList.data?.items ?? []
@@ -285,9 +291,9 @@ export function ConteudoPage() {
   const selectedLiveRemota = useQuery({
     queryKey: ['live', selectedLiveId],
     queryFn: () => getLivePorId(selectedLiveId),
-    enabled: Boolean(selectedLiveId) && !selectedLiveLocal,
+    enabled: Boolean(selectedLiveId),
   })
-  const selectedLive = selectedLiveLocal ?? ((selectedLiveRemota.data ?? null) as JsonRecord | null)
+  const selectedLive = ((selectedLiveRemota.data ?? null) as JsonRecord | null) ?? selectedLiveLocal
 
   useEffect(() => {
     if (!selectedLive || liveModalMode || metricsModalMode) return
@@ -306,8 +312,10 @@ export function ConteudoPage() {
     if (!selectedLiveRecord) return null
     const id = asString(selectedLiveRecord.id, '')
     if (!id) return selectedLiveRecord
+    const remote = (selectedLiveRemota.data ?? null) as JsonRecord | null
+    if (remote && asString(remote.id, '') === id) return remote
     return livesItems.find((live) => asString(live.id, '') === id) ?? selectedLiveRecord
-  }, [livesItems, selectedLiveRecord])
+  }, [livesItems, selectedLiveRecord, selectedLiveRemota.data])
 
   // Bloqueia o primeiro paint apenas no que a aba ATUAL precisa.
   // Agenda (default) só precisa de agenda + cabines; marcas/clientes/apresentadoras/
@@ -468,14 +476,26 @@ export function ConteudoPage() {
           canWrite={podeEscrever}
           livesData={livesItems}
           dateRange={livesDateRange}
-          onDateRangeChange={(range) => setLivesParams({ periodo: range === 'todos' ? null : range })}
+          onDateRangeChange={(range) => {
+            if (range === 'custom') {
+              const currentToday = today()
+              setLivesParams({ periodo: range, data_inicio: currentToday, data_fim: currentToday })
+              return
+            }
+            setLivesParams({ periodo: range === 'todos' ? null : range, data_inicio: null, data_fim: null })
+          }}
+          customDateFrom={livesCustomFrom}
+          customDateTo={livesCustomTo}
+          customDateError={livesCustomRangeError}
+          onCustomDateFromChange={(value) => setLivesParams({ data_inicio: value || null })}
+          onCustomDateToChange={(value) => setLivesParams({ data_fim: value || null })}
           marcaFilterId={livesMarcaId}
           apresentadoraFilterId={livesApresentadoraId}
           onMarcaFilterChange={(id) => setLivesParams({ marca: id })}
           onApresentadoraFilterChange={(id) => setLivesParams({ apres: id })}
           marcaFilterOptions={marcaFilterOptions}
           apresentadoraFilterOptions={apresentadoraFilterOptions}
-          onClearFilters={() => setLivesParams({ periodo: null, marca: null, apres: null, q: null, st: null })}
+          onClearFilters={() => setLivesParams({ periodo: null, data_inicio: null, data_fim: null, marca: null, apres: null, q: null, st: null })}
           searchQuery={livesQ}
           onSearchChange={(q) => setLivesParams({ q })}
           statusFilter={livesStatus}
