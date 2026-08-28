@@ -4,6 +4,9 @@
   --color-brand: #ff5a1f;
   --color-brand-hover: #e64a0f;
   --color-brand-soft: var(--primary-soft);
+  --color-button-primary: oklch(0.592 0.249 0.584);
+  --color-button-primary-hover: oklch(0.525 0.223 3.958);
+  --shadow-button-primary: 0 6px 14px -4px color-mix(in oklch, var(--color-button-primary) 45%, transparent);
   --color-canvas: var(--bg-base);
   --color-surface: var(--bg-elev-1);
   --color-surface-muted: var(--bg-elev-3);
