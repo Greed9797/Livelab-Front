@@ -12,6 +12,8 @@ type PresenterSelectProps = {
   disabled?: boolean
   includeInactive?: boolean
   className?: string
+  /** id do <span> de erro da linha — liga a mensagem ao controle no leitor de tela. */
+  describedBy?: string
 }
 
 export function PresenterSelect({
@@ -24,6 +26,7 @@ export function PresenterSelect({
   disabled = false,
   includeInactive = true,
   className = '',
+  describedBy,
 }: PresenterSelectProps) {
   const options = useMemo(() => toPresenterOptions(rows, { includeInactive }), [includeInactive, rows])
 
@@ -36,6 +39,8 @@ export function PresenterSelect({
         onChange={(event) => onChange(event.target.value)}
         required={required}
         disabled={disabled}
+        aria-describedby={describedBy}
+        aria-invalid={describedBy ? true : undefined}
       >
         <option value="">{placeholder}</option>
         {options.map((option) => (

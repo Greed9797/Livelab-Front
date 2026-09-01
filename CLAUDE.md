@@ -137,6 +137,14 @@ All charts use `fl_chart 0.68.0`. Template: `heatmap_horarios_chart.dart` (BarCh
 
 O projeto está migrando Flutter → React/Vite. O React app é o frontend principal ativo.
 
+### Branch e deploy (produção)
+
+- **Branch de produção: `migration/react-vercel`** — partir dela para qualquer mudança. Push NÃO promove para produção; deploy é manual.
+- Publicar: seguir `react-app/DEPLOY-HANDOFF.md` — projeto Vercel `liveshop-saas-frontend-react`, scope `greed9797s-projects`, token em `$VERCEL_TOKEN` (definido no `~/.zshrc`).
+- Gates antes de publicar: `npm run typecheck` + `npm run test` em `react-app/`.
+- Conferir que foi ao ar: `curl -s https://app.grupolivelab.com.br/version.json` — o timestamp `v` deve ser recente (é o ts do build).
+- `livelab-3601f.web.app` é o app antigo (Flutter/Firebase); produção real = `app.grupolivelab.com.br`.
+
 ### Stack React
 - **Framework:** React 18 + TypeScript + Vite
 - **Roteamento:** react-router-dom v6

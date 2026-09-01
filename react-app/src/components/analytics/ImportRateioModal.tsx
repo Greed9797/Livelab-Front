@@ -33,6 +33,36 @@ function novaLinha(): LinhaRateio {
 }
 
 /**
+ * O que sai daqui fecha o tempo da live no segundo: a tela trabalha em minutos cheios, então
+ * a última linha COM TEMPO DIGITADO leva a sobra. O GMV não é ajustado — dinheiro sai
+ * exatamente como digitado.
+ *
+ * Linha sem tempo digitado sai SEM a chave `segundos`, nunca com zero. Nos rollups o
+ * COALESCE(ap_v2.segundos_rateio / 3600.0, ...) casa no PRIMEIRO degrau quando o valor é 0 —
+ * 0 não é NULL — e a apresentadora fica com zero horas naquela live para sempre (meta de
+ * horas, ranking e GMV/h junto). Ausente, o rollup cai no degrau seguinte e usa a duração da
+ * live. Acontece de verdade quando a live ainda está em andamento: sem `encerrado_em` o
+ * chamador manda duration_seconds = 0 e a tela não tem tempo nenhum para distribuir.
+ */
+export function montarPayloadRateio(
+  lista: { apresentadora_id: string; tempoTexto: string; gmv: number }[],
+  totalSegundos: number,
+): ImportApresentadoraRateio[] {
+  const digitou = lista.map((item) => item.tempoTexto.trim() !== '')
+  const segundos = lista.map((item) => parseDuracao(item.tempoTexto) ?? 0)
+  const soma = segundos.reduce((acc, valor) => acc + valor, 0)
+  const ultimaDigitada = digitou.lastIndexOf(true)
+  if (totalSegundos > 0 && soma !== totalSegundos && ultimaDigitada >= 0) {
+    segundos[ultimaDigitada] += totalSegundos - soma
+  }
+  return lista.map((item, index) => ({
+    apresentadora_id: item.apresentadora_id,
+    ...(digitou[index] ? { segundos: Math.max(0, segundos[index]) } : {}),
+    gmv: Math.round(Number(item.gmv) * 100) / 100,
+  }))
+}
+
+/**
  * Divide a live entre apresentadoras por VALOR, não por porcentagem: "a Ana fez 4h e vendeu
  * R$ 3.000". A soma tem que fechar o tempo e o GMV da live — é o mesmo contrato que o backend
  * cobra em normalizarRateio (src/routes/analytics.js).
@@ -89,22 +119,6 @@ export function ImportRateioModal({ row, apresentadoras, onClose, onSave, isSavi
     })
   }
 
-  /**
-   * O que sai daqui fecha o tempo da live no segundo: a tela trabalha em minutos cheios, então
-   * a última linha leva a sobra. O GMV não é ajustado — dinheiro sai exatamente como digitado.
-   */
-  function montarPayload(): ImportApresentadoraRateio[] {
-    const segundos = lista.map(segundosDe)
-    const soma = segundos.reduce((acc, valor) => acc + valor, 0)
-    if (totalSegundos > 0 && soma !== totalSegundos) {
-      segundos[segundos.length - 1] += totalSegundos - soma
-    }
-    return lista.map((item, index) => ({
-      apresentadora_id: item.apresentadora_id,
-      segundos: Math.max(0, segundos[index]),
-      gmv: Math.round(Number(item.gmv) * 100) / 100,
-    }))
-  }
 
   return (
     <Modal
@@ -127,7 +141,7 @@ export function ImportRateioModal({ row, apresentadoras, onClose, onSave, isSavi
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button type="button" disabled={!podeSalvar} isLoading={isSaving} onClick={() => onSave(montarPayload())}>
+            <Button type="button" disabled={!podeSalvar} isLoading={isSaving} onClick={() => onSave(montarPayloadRateio(lista, totalSegundos))}>
               Salvar rateio
             </Button>
           </div>
@@ -180,6 +194,12 @@ export function ImportRateioModal({ row, apresentadoras, onClose, onSave, isSavi
           </div>
         ))}
 
+        {totalSegundos === 0 ? (
+          <p className="text-sm text-ink-muted">
+            Esta live ainda não tem duração fechada (não foi encerrada). O GMV é dividido agora; o tempo
+            de cada uma só é gravado se você digitar — em branco, as horas seguem valendo o planejado.
+          </p>
+        ) : null}
         {tempoInvalido ? (
           <p className="text-sm text-red-600">Tempo não reconhecido. Use 4h30, 4:30 ou 4,5.</p>
         ) : null}

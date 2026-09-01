@@ -1,4 +1,4 @@
-import type { Cabine, JsonRecord, Lead, LiveAtual, Period } from '../types/models'
+import type { AgendaTurno, Cabine, JsonRecord, Lead, LiveAtual, Period } from '../types/models'
 import { api, apiDelete, apiGet, apiGetBlob, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
 
@@ -232,6 +232,16 @@ export function deleteAgendaEvento(id: string, params: Record<string, unknown> =
     if (value !== undefined && value !== null && value !== '') search.set(key, String(value))
   })
   return apiDelete(`/agenda/${id}${search.toString() ? `?${search.toString()}` : ''}`)
+}
+
+/**
+ * Substitui TODOS os turnos de revezamento do evento (replace-all).
+ * Sub-rota própria de propósito: um back sem essa rota devolve 404 e o front
+ * avisa o operador, em vez de o Zod não-strict do PATCH aceitar e descartar
+ * os turnos em silêncio. Lista vazia = desfazer o revezamento.
+ */
+export function putAgendaTurnos(id: string, apresentadoras: AgendaTurno[]) {
+  return apiPut<JsonRecord>(`/agenda/${id}/apresentadoras`, { apresentadoras })
 }
 
 export function getAgendaConflitos(

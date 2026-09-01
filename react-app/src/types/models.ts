@@ -191,3 +191,15 @@ export interface LiveAtual {
   manual_shares?: number
   manual_gmv?: number
 }
+
+/**
+ * Turno de apresentadora dentro de um evento de agenda (revezamento).
+ * O evento continua com `apresentadora_id` escalar — ela é o ESPELHO da
+ * apresentadora principal do revezamento, não uma fonte concorrente.
+ */
+export interface AgendaTurno {
+  apresentadora_id: string
+  apresentadora_nome?: string | null
+  data_inicio: string
+  data_fim: string
+}

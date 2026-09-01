@@ -135,8 +135,10 @@ export interface AgendaTabProps {
   onOpenEditAgendaModal: (event: JsonRecord) => void
   onOpenRegisterResult: (event: JsonRecord) => void
   onCloseAgendaModal: () => void
-  onCreateAgenda: (payload: JsonRecord) => void
-  onUpdateAgenda: (id: string, payload: JsonRecord) => void
+  // Promise obrigatória (mutateAsync): sem ela o AgendarLiveModal não consegue
+  // executar o segundo passo do revezamento e os turnos somem em silêncio.
+  onCreateAgenda: (payload: JsonRecord) => Promise<JsonRecord | null | undefined | void>
+  onUpdateAgenda: (id: string, payload: JsonRecord) => Promise<unknown>
   onDeleteAgenda: (id: string, modoRecorrencia: string) => void
 }
 

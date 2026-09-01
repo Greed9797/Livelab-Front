@@ -244,8 +244,11 @@ export function ConteudoPage() {
   function closeMetrics() { setMetricsModalMode(null); setMetricsAgendaEvent(null); setSelectedLiveRecord(null); invalidateOperational() }
   function closeLiveRecord() { setLiveModalMode(null); setSelectedLiveRecord(null); invalidateOperational() }
 
-  const createAgendaMutation = useMutation({ mutationFn: createAgendaEvento, onSuccess: closeAgendaModal })
-  const updateAgendaMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateAgendaEvento(id, payload), onSuccess: closeAgendaModal })
+  // Estas duas NÃO fecham o modal: quem fecha é o próprio AgendarLiveModal, e só
+  // depois de gravar os turnos do revezamento (PUT em segundo passo). Fechar aqui
+  // descartava o revezamento com toast de sucesso — mesmo contrato da GradeTab.
+  const createAgendaMutation = useMutation({ mutationFn: createAgendaEvento, onSuccess: invalidateOperational })
+  const updateAgendaMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateAgendaEvento(id, payload), onSuccess: invalidateOperational })
   const deleteAgendaMutation = useMutation({ mutationFn: ({ id, modoRecorrencia }: { id: string; modoRecorrencia: string }) => deleteAgendaEvento(id, { modo_recorrencia: modoRecorrencia }), onSuccess: closeAgendaModal })
   const createVideoMutation = useMutation({ mutationFn: createVideo, onSuccess: () => closeVideoModal() })
   const updateVideoMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateVideo(id, payload), onSuccess: () => closeVideoModal() })
@@ -463,9 +466,11 @@ export function ConteudoPage() {
           onOpenCreateAgendaModal={() => { setSelectedAgendaEvent(null); setAgendaModalMode('create') }}
           onOpenEditAgendaModal={openEditAgendaModal}
           onOpenRegisterResult={(event) => { setMetricsAgendaEvent(event); setSelectedLiveRecord(null); setMetricsModalMode('result') }}
-          onCloseAgendaModal={() => { setAgendaModalMode(null); setSelectedAgendaEvent(null) }}
-          onCreateAgenda={(payload) => createAgendaMutation.mutate(payload)}
-          onUpdateAgenda={(id, payload) => updateAgendaMutation.mutate({ id, payload })}
+          onCloseAgendaModal={closeAgendaModal}
+          // mutateAsync (não mutate): é a Promise que habilita o segundo passo do
+          // revezamento dentro do modal. Com mutate o turno era descartado calado.
+          onCreateAgenda={(payload) => createAgendaMutation.mutateAsync(payload)}
+          onUpdateAgenda={(id, payload) => updateAgendaMutation.mutateAsync({ id, payload })}
           onDeleteAgenda={(id, modoRecorrencia) => deleteAgendaMutation.mutate({ id, modoRecorrencia })}
         />
       ) : null}

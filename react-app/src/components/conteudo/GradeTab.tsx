@@ -8,16 +8,20 @@ import { LoadingState, ErrorState } from '../ui/States'
 import { monthGridDays, weekDays } from '../../pages/conteudo-helpers'
 import {
   copiarGradeDia,
+  createAgendaEvento,
+  deleteAgendaEvento,
   deleteGradeExcecao,
   deleteGradePadraoCell,
+  getClientes,
   getGrade,
   getGradePadrao,
   saveGradeExcecao,
   saveGradePadraoCell,
+  updateAgendaEvento,
 } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
 import { asString } from '../../utils/format'
-import type { JsonRecord } from '../../types/models'
+import type { Cabine, JsonRecord } from '../../types/models'
 import {
   marcasPresentes,
   type GradeCelula,
@@ -27,6 +31,7 @@ import {
 import { resolveMarcaCor } from '../../utils/brandColor'
 import { GradeDiaView, GradeMesView, GradeSemanaView } from './GradeViews'
 import { GradeCellPopover, type GradeCellTarget } from './GradeCellPopover'
+import { AgendarLiveModal } from '../forms/AgendarLiveModal'
 
 type GradeView = 'dia' | 'semana' | 'mes'
 
@@ -83,6 +88,8 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
   const [popoverTarget, setPopoverTarget] = useState<GradeCellTarget | null>(null)
   const [copiarDiaOpen, setCopiarDiaOpen] = useState(false)
   const [copiarDestino, setCopiarDestino] = useState('')
+  // Agendamento real (agenda_eventos) aberto a partir da célula do slot.
+  const [agendaModal, setAgendaModal] = useState<{ mode: 'create' | 'edit'; evento: JsonRecord | null } | null>(null)
   const client = useQueryClient()
 
   const cabinesOrdenadas = useMemo(
@@ -113,6 +120,10 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
     enabled: editPadrao,
   })
 
+  // Mesma queryKey da ConteudoPage: o React Query compartilha o cache, não é
+  // uma segunda ida ao servidor. O AgendarLiveModal exige a lista de clientes.
+  const clientes = useQuery({ queryKey: ['clientes'], queryFn: () => getClientes(), enabled: agendaModal !== null })
+
   function invalidateGrade() {
     void client.invalidateQueries({ queryKey: ['grade'] })
     void client.invalidateQueries({ queryKey: ['grade-padrao'] })
@@ -125,6 +136,36 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
   const saveExcecaoMutation = useMutation({ mutationFn: saveGradeExcecao, onSuccess: () => { invalidateGrade(); closePopover() } })
   const deleteExcecaoMutation = useMutation({ mutationFn: deleteGradeExcecao, onSuccess: () => { invalidateGrade(); closePopover() } })
   const copiarDiaMutation = useMutation({ mutationFn: copiarGradeDia, onSuccess: () => { invalidateGrade(); setCopiarDiaOpen(false); setCopiarDestino('') } })
+
+  function invalidateAgenda() {
+    void client.invalidateQueries({ queryKey: ['agenda-slot'] })
+    void client.invalidateQueries({ queryKey: ['agenda'] })
+  }
+
+  // As mutations NÃO fecham o modal: quem fecha é o próprio AgendarLiveModal, e só
+  // depois de gravar os turnos. Fechar aqui esconderia o aviso de "backend sem
+  // revezamento" antes de o operador poder desfazer.
+  const createAgendaMutation = useMutation({ mutationFn: createAgendaEvento, onSuccess: invalidateAgenda })
+  const updateAgendaMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateAgendaEvento(id, payload),
+    onSuccess: invalidateAgenda,
+  })
+  const deleteAgendaMutation = useMutation({
+    mutationFn: ({ id, modoRecorrencia }: { id: string; modoRecorrencia: string }) => deleteAgendaEvento(id, { modo_recorrencia: modoRecorrencia }),
+    onSuccess: invalidateAgenda,
+  })
+
+  function abrirAgendaModal(mode: 'create' | 'edit', evento: JsonRecord | null) {
+    createAgendaMutation.reset(); updateAgendaMutation.reset(); deleteAgendaMutation.reset()
+    setAgendaModal({ mode, evento })
+  }
+
+  function fecharAgendaModal() {
+    setAgendaModal(null)
+    // O PUT de turnos sai do modal, sem mutation própria — invalidar aqui garante
+    // que a lista do popover volte com o revezamento recém-gravado.
+    invalidateAgenda()
+  }
 
   const isSaving = savePadraoMutation.isPending || deletePadraoMutation.isPending
     || saveExcecaoMutation.isPending || deleteExcecaoMutation.isPending
@@ -337,6 +378,39 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
         onClose={closePopover}
         onSave={onPopoverSave}
         onClear={onPopoverClear}
+        onAgendarLive={canWrite ? () => abrirAgendaModal('create', null) : undefined}
+        onEditarLive={(evento) => abrirAgendaModal('edit', evento)}
+        onExcluirLive={(evento) => {
+          const id = asString(evento.id, '')
+          if (id) deleteAgendaMutation.mutate({ id, modoRecorrencia: 'apenas_este' })
+        }}
+        isExcluindoLive={deleteAgendaMutation.isPending}
+        agendaErrorMessage={deleteAgendaMutation.error ? extractErrorMessage(deleteAgendaMutation.error) : null}
+      />
+
+      <AgendarLiveModal
+        open={agendaModal !== null}
+        mode={agendaModal?.mode ?? 'create'}
+        event={agendaModal?.evento ?? null}
+        // O slot clicado é o contexto: data, cabine, faixa de horário e a marca
+        // que o template já reserva ali.
+        defaultDate={popoverTarget?.data}
+        defaultCabineId={popoverTarget?.cabineId}
+        defaultHoraInicio={popoverTarget?.horaInicio}
+        defaultHoraFim={popoverTarget?.horaFim}
+        defaultMarcaId={popoverTarget?.celula?.marca_id}
+        cabines={cabinesOrdenadas as unknown as Cabine[]}
+        marcas={marcaRows}
+        clientes={clientes.data ?? []}
+        apresentadoras={apresentadoraRows}
+        isSaving={createAgendaMutation.isPending || updateAgendaMutation.isPending || deleteAgendaMutation.isPending}
+        error={createAgendaMutation.error ?? updateAgendaMutation.error ?? deleteAgendaMutation.error}
+        onClose={fecharAgendaModal}
+        // mutateAsync devolve o evento criado — é o que habilita o segundo passo
+        // (PUT dos turnos) dentro do modal.
+        onCreate={(payload) => createAgendaMutation.mutateAsync(payload)}
+        onUpdate={(id, payload) => updateAgendaMutation.mutateAsync({ id, payload })}
+        onDelete={(id, modoRecorrencia) => deleteAgendaMutation.mutate({ id, modoRecorrencia }, { onSuccess: fecharAgendaModal })}
       />
 
       <Modal open={copiarDiaOpen} title="Copiar dia" subtitle={`Copia a grade de ${date.split('-').reverse().join('/')} para outra data (sobrescreve o destino).`} size="sm" onClose={() => setCopiarDiaOpen(false)}>

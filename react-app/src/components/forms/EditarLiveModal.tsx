@@ -12,7 +12,7 @@ import {
   getMarcas,
   updateLive,
 } from '../../services/domain'
-import { asArray, asNumber, asString } from '../../utils/format'
+import { asArray, asNumber, asString, formatPercent } from '../../utils/format'
 import { officialLiveGmvRaw } from '../../utils/live-gmv'
 import { QK, invalidateOperational } from '../../services/query-keys'
 import type { JsonRecord } from '../../types/models'
@@ -86,6 +86,25 @@ export function presenterIdsFromLive(live: JsonRecord): { principalId: string; s
     principalId: asString(principal?.apresentadora_id ?? live.apresentadora_id ?? live.apresentador_id, ''),
     supportId: asString(support?.apresentadora_id ?? live.apresentadora2_id ?? live.apresentador2_id, ''),
   }
+}
+
+/**
+ * Distingue rateio PLANEJADO de rateio confirmado, sem campo novo no backend.
+ * Assinatura do plano: mais de uma apresentadora e nenhuma com GMV rateado —
+ * o seed dos turnos da agenda grava percentual e deixa gmv_rateado NULL de
+ * propósito. Quando alguém confirma o rateio real, gmv deixa de ser null.
+ * Devolve o resumo "Ana 25,0% · Bia 75,0%", ou null se o rateio já é real.
+ */
+export function resumoRateioPlanejado(live: JsonRecord): string | null {
+  const rows = asArray<JsonRecord>(live.apresentadoras)
+  if (rows.length <= 1) return null
+  if (!rows.every((row) => row.gmv == null)) return null
+  return rows
+    .map((row) => {
+      const nome = asString(row.nome, 'Apresentadora')
+      return row.percentual == null ? nome : `${nome} ${formatPercent(row.percentual)}`
+    })
+    .join(' · ')
 }
 
 function toLookupOptions(rows: JsonRecord[], labelKey = 'nome'): LookupOption[] {
@@ -325,6 +344,8 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
 
   if (!open || !live) return null
 
+  const rateioPlanejado = resumoRateioPlanejado(live)
+
   return (
     <Modal open={open} onClose={onClose} title="Editar live" size="xl">
       <form onSubmit={onSubmit} className="space-y-6">
@@ -370,9 +391,15 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
               disabled={asArray<JsonRecord>(live.apresentadoras).length > 1}
             />
             {asArray<JsonRecord>(live.apresentadoras).length > 1 ? (
-              <p className="col-span-2 text-xs font-medium text-ink-muted">
-                Esta live tem rateio salvo. Altere nomes, tempo e GMV em “Dividir entre apresentadoras”.
-              </p>
+              rateioPlanejado ? (
+                <p className="col-span-2 text-xs font-semibold text-[color:var(--warning)]">
+                  Rateio ainda é o PLANEJADO ({rateioPlanejado}). Confirme quem realmente apresentou em “Dividir entre apresentadoras”.
+                </p>
+              ) : (
+                <p className="col-span-2 text-xs font-medium text-ink-muted">
+                  Esta live tem rateio salvo. Altere nomes, tempo e GMV em “Dividir entre apresentadoras”.
+                </p>
+              )
             ) : null}
             <label className="block">
               <span className="text-xs text-ink-muted">Status</span>
