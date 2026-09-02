@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
+import { Users } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { MoneyInput } from '../ui/MoneyInput'
@@ -142,6 +143,13 @@ type Props = {
   onClose: () => void
   live: JsonRecord | null
   onSaved?: () => void
+  /**
+   * Abre "Dividir entre apresentadoras" para esta live. Sem isto, a tela cobrava a ação
+   * ("altere em Dividir entre apresentadoras") sem oferecer caminho nenhum até ela: o
+   * operador tinha que fechar a edição e reencontrar o botão no modal anterior, que também
+   * mostra o relatório para copiar — daí a impressão de que ratear é coisa de compartilhar.
+   */
+  onDividir?: (live: JsonRecord) => void
 }
 
 const CAMPOS_NUMERICOS: Array<[keyof EditForm, string]> = [
@@ -208,7 +216,7 @@ export function montarCamposNumericos(form: EditForm, prefill: EditForm, temAdsG
   return out
 }
 
-export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
+export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Props) {
   const client = useQueryClient()
   const [form, setForm] = useState<EditForm>(emptyForm)
   // Snapshot do formulário como ele nasceu. Serve de referência para decidir o que o usuário
@@ -390,17 +398,31 @@ export function EditarLiveModal({ open, onClose, live, onSaved }: Props) {
               placeholder="Sem segunda apresentadora"
               disabled={asArray<JsonRecord>(live.apresentadoras).length > 1}
             />
-            {asArray<JsonRecord>(live.apresentadoras).length > 1 ? (
-              rateioPlanejado ? (
-                <p className="col-span-2 text-xs font-semibold text-[color:var(--warning)]">
-                  Rateio ainda é o PLANEJADO ({rateioPlanejado}). Confirme quem realmente apresentou em “Dividir entre apresentadoras”.
-                </p>
+            {/* A ação vive AQUI, junto dos campos que ela substitui. Antes o texto mandava o
+                operador para "Dividir entre apresentadoras" sem link nenhum, e o único botão
+                estava no modal de detalhe — o mesmo que mostra o relatório para copiar. */}
+            <div className="col-span-2 flex flex-wrap items-center gap-2">
+              {asArray<JsonRecord>(live.apresentadoras).length > 1 ? (
+                rateioPlanejado ? (
+                  <p className="text-xs font-semibold text-[color:var(--warning)]">
+                    Rateio ainda é o PLANEJADO ({rateioPlanejado}). Confirme quem realmente apresentou:
+                  </p>
+                ) : (
+                  <p className="text-xs font-medium text-ink-muted">
+                    Esta live tem rateio salvo. Nomes, tempo e GMV se alteram aqui:
+                  </p>
+                )
               ) : (
-                <p className="col-span-2 text-xs font-medium text-ink-muted">
-                  Esta live tem rateio salvo. Altere nomes, tempo e GMV em “Dividir entre apresentadoras”.
+                <p className="text-xs font-medium text-ink-muted">
+                  Mais de uma apresentadora se revezou nesta live?
                 </p>
-              )
-            ) : null}
+              )}
+              {onDividir ? (
+                <Button type="button" variant="secondary" icon={Users} onClick={() => onDividir(live)}>
+                  Dividir entre apresentadoras
+                </Button>
+              ) : null}
+            </div>
             <label className="block">
               <span className="text-xs text-ink-muted">Status</span>
               <select className="design-input mt-1 h-11 w-full px-3" value={form.status} onChange={(e) => setField('status', e.target.value)}>

@@ -57,3 +57,37 @@ describe('resumoRateioPlanejado', () => {
     expect(resumoRateioPlanejado({})).toBeNull()
   })
 })
+
+/**
+ * O rateio era alcançável só pelo modal de detalhe — o mesmo que mostra o "Relatório para
+ * copiar". Quem abria "Editar" lia "altere em Dividir entre apresentadoras" e não tinha
+ * como chegar lá, o que fazia ratear parecer função de compartilhar.
+ */
+describe('acesso ao rateio a partir da edição', () => {
+  const modal = readFileSync(new URL('./EditarLiveModal.tsx', import.meta.url), 'utf8')
+  const page = readFileSync(new URL('../../pages/ConteudoPage.tsx', import.meta.url), 'utf8')
+
+  it('oferece o botão de dividir dentro do próprio modal de edição', () => {
+    expect(modal).toContain('onDividir?: (live: JsonRecord) => void')
+    expect(modal).toContain('onClick={() => onDividir(live)}')
+    expect(modal).toContain('Dividir entre apresentadoras')
+  })
+
+  it('mostra o convite mesmo quando a live ainda tem uma apresentadora só', () => {
+    // Sem isto o botão só apareceria em live já dividida — e dividir uma live de uma
+    // apresentadora só continuaria escondido no modal de detalhe.
+    expect(modal).toContain('Mais de uma apresentadora se revezou nesta live?')
+  })
+
+  it('fecha a edição antes de abrir o rateio, para os dois não salvarem por cima', () => {
+    expect(page).toContain('onDividir={(live) => { setEditLiveData(null); abrirRateio(live) }}')
+  })
+
+  it('usa o mesmo caminho hidratado nas duas entradas', () => {
+    expect(page).toContain('function abrirRateio(live: JsonRecord)')
+    expect(page).toContain('onSplitApresentadoras={abrirRateio}')
+    // getLivePorId é o que traz o array `apresentadoras`; abrir sem ele apagaria a
+    // divisão anterior ao salvar.
+    expect(page).toMatch(/function abrirRateio[\s\S]{0,400}getLivePorId/)
+  })
+})

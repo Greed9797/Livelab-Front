@@ -168,6 +168,17 @@ export function ConteudoPage() {
   const client = useQueryClient()
   const toast = useToast()
 
+  // Um único ponto de entrada do rateio: o modal de detalhe e o de edição chamam o MESMO
+  // caminho, então a live sempre chega hidratada por getLivePorId. Duas portas com regras
+  // próprias para o mesmo dinheiro é como a divisão anterior era apagada ao salvar.
+  function abrirRateio(live: JsonRecord) {
+    const id = asString(live.id, '')
+    if (!id) return
+    void getLivePorId(id)
+      .then((fullLive) => setRateioLive(fullLive as unknown as JsonRecord))
+      .catch((err) => toast.push(extractErrorMessage(err), 'error'))
+  }
+
   // Filtros/busca/página da aba "Lives realizadas" vivem na URL (searchParams) —
   // sobrevivem a navegação, abrir/fechar do modal ?live= e deep-links.
   const rawRange = params.get('periodo') ?? 'todos'
@@ -542,20 +553,21 @@ export function ConteudoPage() {
           }}
           onCopyLiveReport={(text) => void navigator.clipboard.writeText(text).then(() => { setReportCopied(true); setTimeout(() => setReportCopied(false), 2000) })}
           onInlineSaveLive={podeEscrever ? (id, payload) => updateLiveMutation.mutateAsync({ id, payload }) : undefined}
-          onSplitApresentadoras={(live) => {
-            const id = asString(live.id, '')
-            if (!id) return
-            void getLivePorId(id)
-              .then((fullLive) => setRateioLive(fullLive as unknown as JsonRecord))
-              .catch((err) => toast.push(extractErrorMessage(err), 'error'))
-          }}
+          onSplitApresentadoras={abrirRateio}
           duplicateLiveIds={duplicateLiveIds}
           duplicateClusterCount={dupClusters.length}
         />
         </Suspense>
       ) : null}
 
-      <EditarLiveModal open={Boolean(editLiveData)} live={editLiveData} onClose={() => setEditLiveData(null)} />
+      {/* Fecha a edição antes de abrir o rateio: os dois mexem na mesma live, e deixar os
+          dois abertos deixaria um salvar por cima do outro sem o operador ver. */}
+      <EditarLiveModal
+        open={Boolean(editLiveData)}
+        live={editLiveData}
+        onClose={() => setEditLiveData(null)}
+        onDividir={(live) => { setEditLiveData(null); abrirRateio(live) }}
+      />
 
       {/* Mesma tela de rateio da revisão do import — o contrato é o mesmo (R$ e tempo por
           apresentadora, fechando o total da live), então não existe um segundo componente
