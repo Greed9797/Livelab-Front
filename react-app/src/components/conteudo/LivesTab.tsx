@@ -563,8 +563,12 @@ export function LivesTab({
             ⚠ {duplicateClusterCount}{' '}
             {duplicateClusterCount === 1 ? 'grupo de possível duplicata' : 'grupos de possíveis duplicatas'}
           </span>
+          {/* O texto tem que descrever a regra que roda de verdade. Antes citava também
+              "mesma marca + apresentadora no mesmo dia", que era a operação normal e fazia o
+              aviso acender todo dia — a regra saiu do backend e a frase saiu junto. */}
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Mesma cabine com horário sobreposto, ou mesma marca + apresentadora no mesmo dia.
+            Mesma cabine, ocupada nos dois casos ao mesmo tempo — nos últimos 90 dias.
+            Duas lives não acontecem na mesma cabine simultaneamente.
           </span>
           <button
             type="button"
