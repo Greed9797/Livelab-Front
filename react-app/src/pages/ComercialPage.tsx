@@ -7,6 +7,7 @@ import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
 import { MetricCard } from '../components/ui/MetricCard'
 import { Badge, statusTone } from '../components/ui/Badge'
+import { BotBadge } from '../components/ui/BotBadge'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -739,7 +740,10 @@ export function ComercialPage() {
                             {image ? <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : initials}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate font-semibold text-ink">{asString(item.nome)}</p>
+                            <p className="truncate font-semibold text-ink">
+                              {asString(item.nome)}
+                              <BotBadge origem={item.origem_dados} className="ml-2 align-middle" />
+                            </p>
                             {asNumber(item.duplicado_count) > 1 ? <Badge className="mt-1" tone="warning">{asNumber(item.duplicado_count)} cadastros</Badge> : null}
                           </div>
                         </div>
