@@ -162,7 +162,7 @@ export interface LiveAtual {
   status: 'em_andamento' | 'encerrada' | 'cancelada'
   tipo: 'cliente' | 'afiliado' | 'teste'
   status_publicacao: 'rascunho' | 'revisado' | 'publicado'
-  origem_dados: 'manual' | 'api'
+  origem_dados: 'manual' | 'api' | 'bot'
   cabine_id: string
   cabine_numero?: number
   cliente_id?: string | null
