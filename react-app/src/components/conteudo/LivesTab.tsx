@@ -19,6 +19,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
+import { BotBadge } from '../ui/BotBadge'
 import { AnalyticsImportSection } from '../analytics/AnalyticsImportSection'
 import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
@@ -1161,6 +1162,7 @@ export function LivesTab({
                             }}
                           >
                             {clientName || '—'}
+                            <BotBadge origem={live.origem_dados} className="ml-2 align-middle" />
                           </span>
                           <span
                             style={{

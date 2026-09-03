@@ -8,6 +8,9 @@ import { officialLiveGmv } from '../../utils/live-gmv'
 import { extractErrorMessage } from '../../services/api'
 import { calcDuration, fmtTime, livePresenterNames } from './live-helpers'
 import type { JsonRecord } from '../../types/models'
+import { BotBadge } from '../ui/BotBadge'
+
+const ORIGEM_LABEL: Record<string, string> = { manual: 'Manual', api: 'API TikTok', bot: 'BOT (automação)' }
 
 function buildReport(live: JsonRecord): string {
   const nome = asString(live.marca_nome ?? live.cliente_nome, '')
@@ -75,6 +78,7 @@ export function LiveDetailModal({
     >
       {live ? (
         <div className="space-y-4">
+          <BotBadge origem={live.origem_dados} />
           <div className="grid gap-3 md:grid-cols-2">
             {(
               [
@@ -93,7 +97,7 @@ export function LiveDetailModal({
                   asNumber(live.manual_orders ?? live.final_orders_count).toLocaleString('pt-BR'),
                 ],
                 ['Publicação', publicationStatusLabel(live.status_publicacao)],
-                ['Origem', asString(live.origem_dados, 'manual')],
+                ['Origem', ORIGEM_LABEL[asString(live.origem_dados, 'manual')] ?? asString(live.origem_dados)],
               ] as [string, string][]
             ).map(([label, value]) => (
               <div key={label} className="rounded-2xl border border-line bg-surface-muted p-3">
