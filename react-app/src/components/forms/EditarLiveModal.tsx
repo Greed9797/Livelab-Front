@@ -538,6 +538,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               <select className="design-input mt-1 h-11 w-full px-3" value={form.origem_dados} onChange={(e) => setField('origem_dados', e.target.value)}>
                 <option value="manual">Manual</option>
                 <option value="api">API TikTok</option>
+                <option value="bot" disabled>BOT (automação)</option>
               </select>
             </label>
           </div>
