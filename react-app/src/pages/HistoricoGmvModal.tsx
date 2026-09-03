@@ -7,6 +7,7 @@ import { DataTable } from '../components/ui/DataTable'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
+import { isBot } from '../components/ui/BotBadge'
 
 interface HistoricoGmvModalProps {
   liveId: string | null
@@ -44,7 +45,7 @@ export function HistoricoGmvModal({ liveId, onClose }: HistoricoGmvModalProps) {
             { key: 'campo', header: 'Campo', render: (item) => asString(item.campo, '—') },
             { key: 'valor_anterior', header: 'Valor anterior', align: 'right', render: (item) => <span className="text-ink-muted">{asString(item.valor_anterior, '—')}</span> },
             { key: 'valor_novo', header: 'Valor novo', align: 'right', render: (item) => <span className="font-semibold text-ink">{asString(item.valor_novo, '—')}</span> },
-            { key: 'alterado_por', header: 'Alterado por', render: (item) => asString(item.alterado_por ?? item.usuario_nome, '—') },
+            { key: 'alterado_por', header: 'Alterado por', render: (item) => (isBot(item.origem_dados) ? 'BOT' : asString(item.alterado_por_nome ?? item.alterado_por ?? item.usuario_nome, '—')) },
             { key: 'motivo', header: 'Motivo', render: (item) => asString(item.motivo, '—') },
           ]}
         />
