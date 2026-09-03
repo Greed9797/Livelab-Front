@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { Button } from '../ui/Button'
+import { BotBadge } from '../ui/BotBadge'
 import { Modal } from '../ui/Modal'
 import { MarcaSelect } from '../forms/MarcaSelect'
 import { PresenterSelect } from '../forms/PresenterSelect'
@@ -346,6 +347,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
       {batchId ? (
         <CardBody>
           {batchQuery.isLoading ? <p className="text-sm text-ink-muted">Carregando revisão…</p> : null}
+          <BotBadge origem={batch?.origem_dados} className="mb-3" />
 
           <div className="grid gap-3 md:grid-cols-5">
             {[
