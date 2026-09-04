@@ -184,11 +184,16 @@ describe('contrato de origem do indicador', () => {
     expect(strip).not.toMatch(/#[0-9a-fA-F]{6}\b/)
   })
 
-  it('a Home usa janela fixa de 30 dias e o Analytics obedece o filtro da tela', () => {
+  it('as duas telas seguem o filtro de período que já existe nelas', () => {
     const home = readFileSync(new URL('../../pages/DashboardPage.tsx', import.meta.url), 'utf8')
     const analytics = readFileSync(new URL('../../pages/AnalyticsPage.tsx', import.meta.url), 'utf8')
 
-    expect(home).toContain('somarDias(today, -29)')
+    // A Home segue o seletor de mês do topo. Uma janela fixa de 30 dias fazia o indicador falar
+    // de um período diferente do resto da página — o operador compararia dois recortes sem
+    // perceber que são dois.
+    expect(home).toContain('primeiroDiaDoMes(mesExibido)')
+    expect(home).toContain('ultimoDiaVisivel(mesExibido, today)')
+    expect(home).not.toContain('somarDias(today, -29)')
     expect(analytics).toContain('inicio={from}')
     expect(analytics).toContain('fim={to}')
     // marcaId envenenaria o indicador: quem fez live de outra marca no dia sumiria da resposta.
@@ -378,5 +383,37 @@ describe('limitarJanela', () => {
 
   it('não mexe na janela padrão de 30 dias da Home', () => {
     expect(limitarJanela('2026-08-05', '2026-09-03')).toEqual({ inicio: '2026-08-05', fim: '2026-09-03', truncada: false })
+  })
+})
+
+/**
+ * Hover tem que responder na hora. O `title` nativo existia, mas o navegador só o revela depois
+ * de ~1s e sem estilo: na prática o mouse parecia morto e sobrava clicar e desviar o olho para o
+ * painel abaixo da fileira.
+ */
+describe('tooltip de hover', () => {
+  const strip = readFileSync(new URL('./AssiduidadeStrip.tsx', import.meta.url), 'utf8')
+
+  it('mostra o dia ao apontar, sem depender do title nativo', () => {
+    expect(strip).toContain('onMouseEnter')
+    expect(strip).toContain('onMouseLeave')
+    expect(strip).toContain('function TooltipDia')
+  })
+
+  it('usa position fixed — absolute seria recortado pela rolagem horizontal da fileira', () => {
+    expect(strip).toMatch(/className="[^"]*\bfixed\b[^"]*"/)
+    expect(strip).toContain('overflow-x-auto')
+  })
+
+  it('apontar não altera o dia fixado por clique', () => {
+    // São dois canais separados: passar o mouse pela fileira não pode apagar o que a pessoa
+    // clicou para ler com calma.
+    expect(strip).toContain('setApontado')
+    expect(strip).toContain('setSelecao')
+    expect(strip).not.toMatch(/onApontar=\{[^}]*setSelecao/)
+  })
+
+  it('fecha ao rolar — as coordenadas são de viewport e o conteúdo se move por baixo', () => {
+    expect(strip).toContain('onScroll={() => setApontado(null)}')
   })
 })

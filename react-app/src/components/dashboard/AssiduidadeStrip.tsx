@@ -303,6 +303,39 @@ function estiloPalito(status: AssiduidadeStatus, altura: number) {
   }
 }
 
+/**
+ * Tooltip do hover. `position: fixed` NÃO é preciosismo: a fileira vive dentro de um
+ * `overflow-x: auto` e um overlay `absolute` seria recortado pelo container no exato momento em
+ * que o dia interessante está perto da borda. Fixed sai do fluxo e escapa do clip.
+ *
+ * Fica acima do palitinho, e cola nas bordas da viewport quando não cabe — o primeiro e o último
+ * dia da fileira são justamente os mais consultados.
+ */
+function TooltipDia({ texto, rect }: { texto: string; rect: DOMRect }) {
+  const MARGEM = 8
+  const x = Math.min(Math.max(rect.left + rect.width / 2, 140), window.innerWidth - 140)
+  const acima = rect.top > 90
+  return (
+    <div
+      role="presentation"
+      className="pointer-events-none fixed z-50 max-w-[260px] rounded-lg px-2.5 py-1.5 text-[11px] leading-snug"
+      style={{
+        left: x,
+        top: acima ? rect.top - MARGEM : rect.bottom + MARGEM,
+        transform: `translate(-50%, ${acima ? '-100%' : '0'})`,
+        background: 'var(--bg-elev-3)',
+        color: 'var(--text-primary)',
+        border: '1px solid var(--border-strong)',
+        // Offset + blur de verdade: halo sem deslocamento é decoração, não profundidade.
+        boxShadow: '0 4px 14px rgb(0 0 0 / 0.28)',
+        fontVariantNumeric: 'tabular-nums',
+      }}
+    >
+      {texto}
+    </div>
+  )
+}
+
 /** Palitinho decorativo da legenda — mesma silhueta da fileira, para o olho mapear um no outro. */
 function Palito({ status, altura }: { status: AssiduidadeStatus; altura: number }) {
   return <span aria-hidden className="block w-[9px] shrink-0 rounded-[2px]" style={estiloPalito(status, altura)} />
@@ -325,6 +358,7 @@ function PalitoDia({
   tabbable,
   onSelecionar,
   onNavegar,
+  onApontar,
 }: {
   label: string
   status: AssiduidadeStatus
@@ -333,6 +367,7 @@ function PalitoDia({
   tabbable: boolean
   onSelecionar: () => void
   onNavegar: (passo: number | 'inicio' | 'fim') => void
+  onApontar?: (rect: DOMRect | null) => void
 }) {
   return (
     <button
@@ -343,6 +378,11 @@ function PalitoDia({
       tabIndex={tabbable ? 0 : -1}
       onFocus={onSelecionar}
       onClick={onSelecionar}
+      // Hover mostra o dia na hora, junto do cursor. O `title` nativo até existia, mas o
+      // navegador só o revela depois de ~1s e sem estilo — na prática o mouse parecia morto e
+      // só restava clicar e desviar o olho para o painel lá embaixo.
+      onMouseEnter={(e) => onApontar?.(e.currentTarget.getBoundingClientRect())}
+      onMouseLeave={() => onApontar?.(null)}
       onKeyDown={(e) => {
         const passo = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : e.key === 'Home' ? 'inicio' : e.key === 'End' ? 'fim' : null
         if (passo === null) return
@@ -399,6 +439,9 @@ export function AssiduidadeStrip({
   // Dia selecionado por clique/toque/teclado. É o que substitui o hover: o motivo do palitinho
   // aparece em texto, abaixo da fileira, num região aria-live que o leitor de tela anuncia.
   const [selecao, setSelecao] = useState<{ linhaId: string; indice: number } | null>(null)
+  // Hover é um canal SEPARADO da seleção: apontar não pode alterar o que está fixado no painel
+  // de leitura abaixo, senão passar o mouse pela fileira apagaria o dia que a pessoa clicou.
+  const [apontado, setApontado] = useState<{ texto: string; rect: DOMRect } | null>(null)
   const linhaSelecionada = linhas.find((l) => l.id === selecao?.linhaId)
   const diaSelecionado = selecao ? linhaSelecionada?.dias[selecao.indice] : undefined
 
@@ -480,7 +523,13 @@ export function AssiduidadeStrip({
           />
         ) : (
           <>
-            <div className="overflow-x-auto scrollbar-thin">
+            {apontado ? <TooltipDia texto={apontado.texto} rect={apontado.rect} /> : null}
+            <div
+              className="overflow-x-auto scrollbar-thin"
+              // Rolar com o tooltip aberto o deixaria parado no ar, longe do palitinho: as
+              // coordenadas são de viewport e o conteúdo se moveu por baixo delas.
+              onScroll={() => setApontado(null)}
+            >
               <div className="w-max min-w-full space-y-2">
                 {linhas.map((linha) => {
                   // Roving tabindex: a fileira inteira é UMA parada de Tab e as setas percorrem os
@@ -534,6 +583,9 @@ export function AssiduidadeStrip({
                             tabbable={i === focado}
                             onSelecionar={() => setSelecao({ linhaId: linha.id, indice: i })}
                             onNavegar={(passo) => navegar(linha, i, passo)}
+                            onApontar={(rect) =>
+                              setApontado(rect ? { texto: `${linha.nome} · ${descreverDia(dia, metas)}`, rect } : null)
+                            }
                           />
                         ))}
                       </div>

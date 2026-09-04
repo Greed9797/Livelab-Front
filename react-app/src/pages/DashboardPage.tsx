@@ -11,7 +11,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
 import { PresenterLeaderboard } from '../components/dashboard/PresenterLeaderboard'
 import { BrandLeaderboard } from '../components/dashboard/BrandLeaderboard'
-import { AssiduidadeStrip, somarDias } from '../components/dashboard/AssiduidadeStrip'
+import { AssiduidadeStrip } from '../components/dashboard/AssiduidadeStrip'
 import { getGrade, getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString } from '../utils/format'
@@ -99,6 +99,25 @@ function monthLabel(mesISO: string): string {
   // deixaria "Julho De 2026" (De maiúsculo, errado em pt-BR).
   const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+/** Primeiro dia do mês 'YYYY-MM', como 'YYYY-MM-DD'. */
+function primeiroDiaDoMes(mesISO: string): string {
+  return `${mesISO}-01`
+}
+
+/**
+ * Último dia que faz sentido mostrar do mês exibido.
+ *
+ * No mês corrente para em HOJE: os dias que ainda não aconteceram não são presença nem falta, e
+ * desenhá-los sugeriria um mês inteiro medido. Em mês passado vai até o fim do mês.
+ * O `new Date(y, m, 0)` devolve o último dia do mês m — inclusive 29/02 em ano bissexto.
+ */
+function ultimoDiaVisivel(mesISO: string, hoje: string): string {
+  if (hoje.slice(0, 7) === mesISO) return hoje
+  const [y, m] = mesISO.split('-').map(Number)
+  const ultimo = new Date(y, m, 0).getDate()
+  return `${mesISO}-${String(ultimo).padStart(2, '0')}`
 }
 
 /** Últimos 12 meses (incluindo o corrente), mais recente primeiro. */
@@ -253,14 +272,6 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* Assiduidade — janela FIXA de 30 dias, deliberadamente independente do seletor de mês
-          acima: presença é hábito, e um mês recém-começado mostraria 2 palitinhos. */}
-      <AssiduidadeStrip
-        inicio={somarDias(today, -29)}
-        fim={today}
-        subtitulo="Últimos 30 dias · presença física, sem recorte por marca"
-      />
-
       {/* Grade de hoje — largura total */}
       <div className="grid gap-4">
         <div
@@ -306,6 +317,16 @@ export function DashboardPage() {
             Ver ranking de marcas →
           </Link>
         }
+      />
+
+      {/* Assiduidade fecha a página: é leitura de acompanhamento, não número de decisão — quem
+          abre a Home quer primeiro o GMV do mês e a grade de hoje. E segue o MESMO seletor de mês
+          do topo, como todo o resto da tela: um indicador que ignora o filtro da página faz o
+          operador comparar dois períodos sem perceber. */}
+      <AssiduidadeStrip
+        inicio={primeiroDiaDoMes(mesExibido)}
+        fim={ultimoDiaVisivel(mesExibido, today)}
+        subtitulo={`${monthLabel(mesExibido)} · presença física, sem recorte por marca`}
       />
     </div>
   )
