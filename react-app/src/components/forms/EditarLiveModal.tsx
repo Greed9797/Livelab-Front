@@ -28,7 +28,6 @@ type EditForm = {
   apresentador2_id: string
   gestor_id: string
   agenda_evento_id: string
-  tiktok_username: string
   status: string
   tipo: string
   status_publicacao: string
@@ -36,7 +35,6 @@ type EditForm = {
   data: string
   hora_inicio: string
   hora_fim: string
-  previsto_fim: string
   fat_gerado: string
   manual_gmv: string
   qtd_pedidos: string
@@ -46,6 +44,12 @@ type EditForm = {
   manual_comments: string
   manual_shares: string
   manual_diamonds: string
+  ads_cost: string
+  live_impressions: string
+  product_impressions: string
+  product_clicks: string
+  avg_viewing_duration: string
+  new_followers: string
   resumo: string
 }
 
@@ -57,7 +61,6 @@ const emptyForm: EditForm = {
   apresentador2_id: '',
   gestor_id: '',
   agenda_evento_id: '',
-  tiktok_username: '',
   status: '',
   tipo: '',
   status_publicacao: '',
@@ -65,7 +68,6 @@ const emptyForm: EditForm = {
   data: '',
   hora_inicio: '',
   hora_fim: '',
-  previsto_fim: '',
   fat_gerado: '',
   manual_gmv: '',
   qtd_pedidos: '',
@@ -75,6 +77,12 @@ const emptyForm: EditForm = {
   manual_comments: '',
   manual_shares: '',
   manual_diamonds: '',
+  ads_cost: '',
+  live_impressions: '',
+  product_impressions: '',
+  product_clicks: '',
+  avg_viewing_duration: '',
+  new_followers: '',
   resumo: '',
 }
 
@@ -130,13 +138,6 @@ function toTimeInput(value: unknown): string {
   return new Date(d.getTime() - off).toISOString().slice(11, 16)
 }
 
-function toDatetimeLocal(value: unknown): string {
-  if (!value) return ''
-  const d = new Date(asString(value))
-  if (Number.isNaN(d.getTime())) return ''
-  const off = d.getTimezoneOffset() * 60_000
-  return new Date(d.getTime() - off).toISOString().slice(0, 16)
-}
 
 type Props = {
   open: boolean
@@ -162,7 +163,15 @@ const CAMPOS_NUMERICOS: Array<[keyof EditForm, string]> = [
   ['manual_comments', 'manual_comments'],
   ['manual_shares', 'manual_shares'],
   ['manual_diamonds', 'manual_diamonds'],
+  ['ads_cost', 'ads_cost'],
+  ['live_impressions', 'live_impressions'],
+  ['product_impressions', 'product_impressions'],
+  ['product_clicks', 'product_clicks'],
+  ['avg_viewing_duration', 'avg_viewing_duration'],
+  ['new_followers', 'new_followers'],
 ]
+
+const CAMPOS_DINHEIRO = new Set<string>(['fat_gerado', 'manual_gmv', 'ads_cost'])
 
 /**
  * Monta a parte numérica do PATCH, enviando SÓ o que o usuário alterou em relação ao
@@ -183,9 +192,7 @@ export function montarCamposNumericos(form: EditForm, prefill: EditForm, temAdsG
     if (raw === '') continue
     if (raw === prefill[formKey]) continue
     const value = asNumber(raw)
-    out[payloadKey] = payloadKey === 'fat_gerado' || payloadKey === 'manual_gmv'
-      ? value
-      : Math.trunc(value)
+    out[payloadKey] = CAMPOS_DINHEIRO.has(payloadKey) ? value : Math.trunc(value)
   }
 
   // Espelha os dois campos de GMV quando só um foi editado.
@@ -253,7 +260,6 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
       apresentador2_id: presenterIds.supportId,
       gestor_id: asString(live.gestor_id, ''),
       agenda_evento_id: asString(live.agenda_evento_id, ''),
-      tiktok_username: asString(live.tiktok_username, ''),
       status: asString(live.status, 'em_andamento'),
       tipo: asString(live.tipo, 'cliente'),
       status_publicacao: asString(live.status_publicacao, 'rascunho'),
@@ -261,7 +267,6 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
       data: toDateInput(live.iniciado_em ?? live.data),
       hora_inicio: toTimeInput(live.iniciado_em),
       hora_fim: toTimeInput(live.encerrado_em ?? live.previsto_fim),
-      previsto_fim: toDatetimeLocal(live.previsto_fim),
       fat_gerado: asString(officialLiveGmvRaw(live), ''),
       manual_gmv: asString(live.manual_gmv, ''),
       qtd_pedidos: asString(live.manual_orders ?? live.qtd_pedidos ?? live.final_orders_count, ''),
@@ -271,6 +276,12 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
       manual_comments: asString(live.manual_comments, ''),
       manual_shares: asString(live.manual_shares, ''),
       manual_diamonds: asString(live.manual_diamonds, ''),
+      ads_cost: asString(live.ads_cost, ''),
+      live_impressions: asString(live.live_impressions, ''),
+      product_impressions: asString(live.product_impressions, ''),
+      product_clicks: asString(live.product_clicks, ''),
+      avg_viewing_duration: asString(live.avg_viewing_duration, ''),
+      new_followers: asString(live.new_followers, ''),
       resumo: asString(live.resumo, ''),
     }
     setForm(prefill)
@@ -328,7 +339,6 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     setIfChanged('apresentador2_id', form.apresentador2_id, presenterIds.supportId)
     setIfChanged('gestor_id', form.gestor_id, live.gestor_id)
     setIfChanged('agenda_evento_id', form.agenda_evento_id, live.agenda_evento_id)
-    setIfChanged('tiktok_username', form.tiktok_username, live.tiktok_username)
     setIfChanged('status', form.status, live.status)
     setIfChanged('tipo', form.tipo, live.tipo)
     setIfChanged('status_publicacao', form.status_publicacao, live.status_publicacao)
@@ -338,7 +348,6 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     if (form.data) payload.data = form.data
     if (form.hora_inicio) payload.hora_inicio = form.hora_inicio
     if (form.hora_fim) payload.hora_fim = form.hora_fim
-    if (form.previsto_fim) payload.previsto_fim = new Date(form.previsto_fim).toISOString()
 
     Object.assign(payload, montarCamposNumericos(form, prefillRef.current, gmvVeioDoTikTok))
 
@@ -450,9 +459,9 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
           </div>
         </section>
 
-        {/* Tempo + TikTok */}
+        {/* Tempo */}
         <section className="space-y-3">
-          <h3 className="text-sm font-bold text-ink">Tempo e TikTok</h3>
+          <h3 className="text-sm font-bold text-ink">Tempo</h3>
           <div className="grid grid-cols-3 gap-3">
             <label className="block">
               <span className="text-xs text-ink-muted">Data</span>
@@ -465,14 +474,6 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
             <label className="block">
               <span className="text-xs text-ink-muted">Hora fim</span>
               <input type="time" className="design-input mt-1 h-11 w-full px-3" value={form.hora_fim} onChange={(e) => setField('hora_fim', e.target.value)} />
-            </label>
-            <label className="block col-span-2">
-              <span className="text-xs text-ink-muted">Previsto fim</span>
-              <input type="datetime-local" className="design-input mt-1 h-11 w-full px-3" value={form.previsto_fim} onChange={(e) => setField('previsto_fim', e.target.value)} />
-            </label>
-            <label className="block">
-              <span className="text-xs text-ink-muted">TikTok username</span>
-              <input className="design-input mt-1 h-11 w-full px-3" value={form.tiktok_username} onChange={(e) => setField('tiktok_username', e.target.value.trim().replace(/@/g, ''))} />
             </label>
           </div>
         </section>
@@ -506,23 +507,49 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               <span className="text-xs text-ink-muted">Pedidos manuais</span>
               <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_orders} onChange={(e) => setField('manual_orders', e.target.value)} />
             </label>
+            <label className="block">
+              <span className="text-xs text-ink-muted">Verba Ads investida</span>
+              <MoneyInput value={form.ads_cost} onChange={(v) => setField('ads_cost', v)} />
+            </label>
           </div>
         </section>
 
-        {/* Métricas TikTok */}
+        {/* Métricas TikTok — mesma ordem de importância do CSV do TikTok Studio */}
         <section className="space-y-3">
           <h3 className="text-sm font-bold text-ink">Métricas TikTok</h3>
           <div className="grid grid-cols-3 gap-3">
             <label className="block">
-              <span className="text-xs text-ink-muted">Views</span>
+              <span className="text-xs text-ink-muted">Impressões da live</span>
+              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.live_impressions} onChange={(e) => setField('live_impressions', e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="text-xs text-ink-muted">Impressões de produto</span>
+              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.product_impressions} onChange={(e) => setField('product_impressions', e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="text-xs text-ink-muted">Cliques em produto</span>
+              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.product_clicks} onChange={(e) => setField('product_clicks', e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="text-xs text-ink-muted">Visualizações</span>
               <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_views} onChange={(e) => setField('manual_views', e.target.value)} />
             </label>
+            <label className="block">
+              <span className="text-xs text-ink-muted">Novos seguidores</span>
+              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.new_followers} onChange={(e) => setField('new_followers', e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="text-xs text-ink-muted">Retenção média (segundos)</span>
+              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.avg_viewing_duration} onChange={(e) => setField('avg_viewing_duration', e.target.value)} />
+            </label>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
             <label className="block">
               <span className="text-xs text-ink-muted">Likes</span>
               <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_likes} onChange={(e) => setField('manual_likes', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Comments</span>
+              <span className="text-xs text-ink-muted">Comentários</span>
               <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_comments} onChange={(e) => setField('manual_comments', e.target.value)} />
             </label>
             <label className="block">

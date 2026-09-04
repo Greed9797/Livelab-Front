@@ -16,6 +16,8 @@ import { montarCamposNumericos } from './EditarLiveModal'
 const vazio = {
   fat_gerado: '', manual_gmv: '', qtd_pedidos: '', manual_orders: '', manual_views: '',
   manual_likes: '', manual_comments: '', manual_shares: '', manual_diamonds: '',
+  ads_cost: '', live_impressions: '', product_impressions: '', product_clicks: '',
+  avg_viewing_duration: '', new_followers: '',
 } as never
 
 const form = (patch: Record<string, string>) => ({ ...(vazio as object), ...patch } as never)
@@ -108,5 +110,15 @@ describe('montarCamposNumericos — não regravar dinheiro que ninguém tocou', 
     const prefill = form({ fat_gerado: '1817', manual_gmv: '1817', manual_likes: '10' })
     const atual = form({ fat_gerado: '1817', manual_gmv: '1817', manual_likes: '42' })
     expect(montarCamposNumericos(atual, prefill, true)).toEqual({ manual_likes: 42 })
+  })
+
+  it('envia as métricas de funil do CSV do TikTok (impressões inteiras, verba em dinheiro)', () => {
+    const prefill = form({ live_impressions: '1000', ads_cost: '10.50' })
+    const atual = form({ live_impressions: '2500.9', product_clicks: '77', ads_cost: '99.90' })
+    expect(montarCamposNumericos(atual, prefill)).toEqual({
+      live_impressions: 2500,
+      product_clicks: 77,
+      ads_cost: 99.9,
+    })
   })
 })
