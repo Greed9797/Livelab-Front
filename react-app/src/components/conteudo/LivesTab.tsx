@@ -15,6 +15,7 @@ import {
   Plus,
   Printer,
   Search,
+  SlidersHorizontal,
   Trash2,
   Upload,
 } from 'lucide-react'
@@ -30,8 +31,71 @@ import { LiveDetailModal } from './LiveDetailModal'
 import type { JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
 
-// Grid template shared between header + every row
-const COLS = '80px minmax(180px,1.4fr) 90px 110px 115px 80px 100px minmax(115px,1fr) 90px 76px 76px'
+// ─── colunas opcionais ─────────────────────────────────────────────────────
+// A tabela nasce enxuta (Horário, Live, Duração, GMV, GMV/h, Pedidos, Comissão, Apresentadora,
+// Status). O que é contexto raro — cabine, barra de duração, origem — e o funil do TikTok
+// ligam pelo botão "Colunas"; a escolha fica no navegador (localStorage).
+export type LiveColumnKey =
+  | 'cabine' | 'duracao_barra' | 'gmv_hora' | 'impressoes' | 'visualizacoes' | 'cliques' | 'seguidores' | 'tipo'
+
+export const LIVE_COLUMN_OPTIONS: ReadonlyArray<{ key: LiveColumnKey; label: string; hint: string }> = [
+  { key: 'gmv_hora', label: 'GMV/h', hint: 'GMV dividido pelas horas registradas' },
+  { key: 'impressoes', label: 'Impressões', hint: 'impressões da live no feed (CSV do TikTok)' },
+  { key: 'visualizacoes', label: 'Visualizações', hint: 'views da live' },
+  { key: 'cliques', label: 'Cliques em produto', hint: 'CSV do TikTok' },
+  { key: 'seguidores', label: 'Novos seguidores', hint: 'CSV do TikTok' },
+  { key: 'cabine', label: 'Cabine', hint: 'número da cabine' },
+  { key: 'duracao_barra', label: 'Barra de duração', hint: 'barra proporcional a 8h ao lado da duração' },
+  { key: 'tipo', label: 'Origem (Manual / API / Bot)', hint: 'o chip BOT ao lado do nome já cobre o caso mais comum' },
+]
+
+export const DEFAULT_LIVE_COLUMNS: ReadonlyArray<LiveColumnKey> = ['gmv_hora']
+const LIVE_COLUMNS_STORAGE_KEY = 'livelab.lives.colunas.v1'
+
+// Grid template shared between header + every row — segue exatamente a ordem das células.
+export function buildLivesGridTemplate(visiveis: ReadonlySet<LiveColumnKey>): string {
+  const cols = ['80px', 'minmax(180px,1.4fr)']
+  if (visiveis.has('cabine')) cols.push('90px')
+  cols.push(visiveis.has('duracao_barra') ? '110px' : '72px')
+  cols.push('115px') // GMV
+  if (visiveis.has('gmv_hora')) cols.push('92px')
+  cols.push('80px') // Pedidos
+  for (const key of ['impressoes', 'visualizacoes', 'cliques', 'seguidores'] as const) {
+    if (visiveis.has(key)) cols.push('92px')
+  }
+  cols.push('100px', 'minmax(115px,1fr)', '90px') // Comissão, Apresentadora, Status
+  if (visiveis.has('tipo')) cols.push('76px')
+  cols.push('76px') // ações
+  return cols.join(' ')
+}
+
+/** GMV por hora registrada; null quando não há duração ou GMV para dividir. */
+export function gmvPorHora(gmv: number, mins: number): number | null {
+  if (!(mins > 0) || !(gmv > 0)) return null
+  return gmv / (mins / 60)
+}
+
+function loadLiveColumns(): Set<LiveColumnKey> {
+  try {
+    const raw = localStorage.getItem(LIVE_COLUMNS_STORAGE_KEY)
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        const validas = parsed.filter((k): k is LiveColumnKey => LIVE_COLUMN_OPTIONS.some((o) => o.key === k))
+        return new Set(validas)
+      }
+    }
+  } catch {
+    // localStorage indisponível (modo privado, sandbox): cai no padrão
+  }
+  return new Set(DEFAULT_LIVE_COLUMNS)
+}
+
+function saveLiveColumns(cols: ReadonlySet<LiveColumnKey>) {
+  try { localStorage.setItem(LIVE_COLUMNS_STORAGE_KEY, JSON.stringify([...cols])) } catch { /* idem */ }
+}
+
+const fmtInt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 })
 // Reference max duration (8 h) for the duration bar width
 const MAX_DUR_MINS = 480
 const ACTION_MENU_WIDTH = 168
@@ -117,12 +181,14 @@ function doExportCSV(lives: JsonRecord[]) {
     'Status',
     'Tipo',
     'GMV (R$)',
+    'GMV/h (R$)',
   ]
   const groups = groupByDay(lives)
   const rows: string[][] = [header]
   for (const g of groups) {
     for (const l of g.lives) {
-      const { text: dur } = calcDuration(l)
+      const { text: dur, mins } = calcDuration(l)
+      const gmvHora = gmvPorHora(asNumber(officialLiveGmv(l)), mins)
       rows.push([
         asString(l.id),
         g.dateKey,
@@ -137,6 +203,7 @@ function doExportCSV(lives: JsonRecord[]) {
         asNumber(officialLiveGmv(l))
           .toFixed(2)
           .replace('.', ','),
+        gmvHora == null ? '' : gmvHora.toFixed(2).replace('.', ','),
       ])
     }
   }
@@ -199,9 +266,26 @@ function StatusBadge({ status }: { status: unknown }) {
   )
 }
 
+// Célula numérica alinhada à direita; "—" quando não há valor (0 e ausente são iguais aqui:
+// nenhum dos dois é informação).
+function MetricaCell({ valor, dinheiro = false }: { valor: number | null; dinheiro?: boolean }) {
+  const temValor = valor != null && Number.isFinite(valor) && valor > 0
+  return (
+    <div style={{ textAlign: 'right', paddingRight: 10, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontSize: 12 }}>
+      {temValor ? (
+        <span style={{ color: 'var(--text-secondary)' }}>{dinheiro ? formatMoney(valor) : fmtInt.format(valor)}</span>
+      ) : (
+        <span style={{ color: 'var(--text-faint)' }}>—</span>
+      )}
+    </div>
+  )
+}
+
 function TipoBadge({ tipo }: { tipo: unknown }) {
   const t = asString(tipo, 'manual').toLowerCase()
-  const isAuto = ['api', 'auto', 'tiktok', 'sync'].includes(t)
+  // 'bot' é automação também: antes caía em MANUAL e brigava com o chip BOT ao lado do nome.
+  const isAuto = ['api', 'auto', 'tiktok', 'sync', 'bot'].includes(t)
+  const rotulo = t === 'bot' ? 'BOT' : isAuto ? 'AUTO' : 'MANUAL'
   return (
     <span
       style={{
@@ -220,7 +304,7 @@ function TipoBadge({ tipo }: { tipo: unknown }) {
         color: isAuto ? 'var(--info)' : 'var(--text-muted)',
       }}
     >
-      {isAuto ? 'AUTO' : 'MANUAL'}
+      {rotulo}
     </span>
   )
 }
@@ -380,6 +464,18 @@ export function LivesTab({
   const [kebabMenu, setKebabMenu] = useState<{ liveId: string; live: JsonRecord; top: number; left: number } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [colunasOpen, setColunasOpen] = useState(false)
+  const [colunas, setColunas] = useState<Set<LiveColumnKey>>(loadLiveColumns)
+  const gridCols = useMemo(() => buildLivesGridTemplate(colunas), [colunas])
+  function toggleColuna(key: LiveColumnKey) {
+    setColunas((atual) => {
+      const proximo = new Set(atual)
+      if (proximo.has(key)) proximo.delete(key)
+      else proximo.add(key)
+      saveLiveColumns(proximo)
+      return proximo
+    })
+  }
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const duplicateIdSet = useMemo(() => new Set(duplicateLiveIds ?? []), [duplicateLiveIds])
@@ -400,6 +496,7 @@ export function LivesTab({
       setKebabMenu(null)
       setExportOpen(false)
       setFiltersOpen(false)
+      setColunasOpen(false)
     }
     document.addEventListener('click', close)
     window.addEventListener('resize', close)
@@ -779,6 +876,36 @@ export function LivesTab({
           ) : null}
         </div>
 
+        {/* colunas visíveis */}
+        <div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            aria-label="Escolher colunas"
+            style={tbtn}
+            onClick={() => { setColunasOpen((v) => !v); setFiltersOpen(false); setExportOpen(false) }}
+          >
+            <SlidersHorizontal style={{ width: 14, height: 14 }} />
+            Colunas
+            <ChevronDown style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />
+          </button>
+          {colunasOpen ? (
+            <div style={{ ...menuPopover, right: 'auto', left: 0, minWidth: 250, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ padding: '4px 6px 6px', fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                Mostrar na tabela
+              </span>
+              {LIVE_COLUMN_OPTIONS.map((opt) => (
+                <label
+                  key={opt.key}
+                  title={opt.hint}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 6px', borderRadius: 6, fontSize: 12.5, color: 'var(--text-primary)', cursor: 'pointer' }}
+                >
+                  <input type="checkbox" checked={colunas.has(opt.key)} onChange={() => toggleColuna(opt.key)} />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          ) : null}
+        </div>
         {/* divider */}
         <div
           style={{
@@ -894,7 +1021,7 @@ export function LivesTab({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: COLS,
+            gridTemplateColumns: gridCols,
             padding: '11px 18px 11px 22px',
             borderBottom: '1px solid var(--border)',
             background: 'var(--bg-elev-2)',
@@ -912,14 +1039,19 @@ export function LivesTab({
         >
           <div>Horário</div>
           <div>Live</div>
-          <div>Cabine</div>
+          {colunas.has('cabine') ? <div>Cabine</div> : null}
           <div>Duração</div>
           <div style={{ textAlign: 'right', paddingRight: 14 }}>GMV</div>
+          {colunas.has('gmv_hora') ? <div style={{ textAlign: 'right', paddingRight: 10 }}>GMV/h</div> : null}
           <div style={{ textAlign: 'right', paddingRight: 10 }}>Pedidos</div>
+          {colunas.has('impressoes') ? <div style={{ textAlign: 'right', paddingRight: 10 }}>Impressões</div> : null}
+          {colunas.has('visualizacoes') ? <div style={{ textAlign: 'right', paddingRight: 10 }}>Views</div> : null}
+          {colunas.has('cliques') ? <div style={{ textAlign: 'right', paddingRight: 10 }}>Cliques</div> : null}
+          {colunas.has('seguidores') ? <div style={{ textAlign: 'right', paddingRight: 10 }}>Seguidores</div> : null}
           <div style={{ textAlign: 'right', paddingRight: 8 }}>Comissão</div>
           <div>Apresentadora</div>
           <div>Status</div>
-          <div>Tipo</div>
+          {colunas.has('tipo') ? <div>Tipo</div> : null}
           <div />
         </div>
 
@@ -1070,6 +1202,7 @@ export function LivesTab({
                     const liveId = asString(live.id)
                     const { text: durText, mins: durMins } = calcDuration(live)
                     const durPct = Math.min(100, (durMins / MAX_DUR_MINS) * 100)
+                    const gmvHora = gmvPorHora(asNumber(officialLiveGmv(live)), durMins)
                     const presenterCell = livePresenterCellModel(live, Boolean(onInlineSaveLive))
                     const clientName = asString(live.marca_nome ?? live.cliente_nome)
 	                    const gmv = asNumber(officialLiveGmv(live))
@@ -1082,7 +1215,7 @@ export function LivesTab({
                         className="lives-table-row"
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: COLS,
+                          gridTemplateColumns: gridCols,
                           alignItems: 'center',
                           padding: '0 18px 0 22px',
                           minHeight: 52,
@@ -1196,7 +1329,8 @@ export function LivesTab({
                           ) : null}
                         </div>
 
-                        {/* Cabine */}
+                        {/* Cabine — opcional */}
+                        {colunas.has('cabine') ? (
                         <div>
                           <span
                             style={{
@@ -1223,6 +1357,7 @@ export function LivesTab({
                             Cabine
                           </span>
                         </div>
+                        ) : null}
 
                         {/* Duração + bar */}
                         <div
@@ -1239,6 +1374,7 @@ export function LivesTab({
                           >
                             {durText}
                           </span>
+                          {colunas.has('duracao_barra') ? (
                           <div
                             style={{
                               position: 'relative',
@@ -1261,6 +1397,7 @@ export function LivesTab({
                               }}
                             />
                           </div>
+                          ) : null}
                         </div>
 
                         {/* GMV — editável inline quando rascunho */}
@@ -1270,12 +1407,22 @@ export function LivesTab({
                           onSave={(payload) => onInlineSaveLive!(liveId, payload)}
                         />
 
+                        {/* GMV/h — gmv / horas registradas */}
+                        {colunas.has('gmv_hora') ? (
+                          <MetricaCell valor={gmvHora} dinheiro />
+                        ) : null}
+
                         {/* Pedidos — editável inline quando rascunho */}
                         <InlinePedidosCell
                           pedidos={asNumber(live.manual_orders ?? live.final_orders_count)}
                           editable={Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
                           onSave={(payload) => onInlineSaveLive!(liveId, payload)}
                         />
+
+                        {colunas.has('impressoes') ? <MetricaCell valor={asNumber(live.live_impressions)} /> : null}
+                        {colunas.has('visualizacoes') ? <MetricaCell valor={asNumber(live.manual_views ?? live.final_peak_viewers)} /> : null}
+                        {colunas.has('cliques') ? <MetricaCell valor={asNumber(live.product_clicks)} /> : null}
+                        {colunas.has('seguidores') ? <MetricaCell valor={asNumber(live.new_followers)} /> : null}
 
                         {/* Comissão apresentadora */}
                         {(() => {
@@ -1322,10 +1469,12 @@ export function LivesTab({
                           <StatusBadge status={live.status_publicacao} />
                         </div>
 
-                        {/* Tipo */}
-                        <div>
-                          <TipoBadge tipo={live.origem_dados} />
-                        </div>
+                        {/* Tipo (origem) — opcional; o chip BOT ao lado do nome já cobre o caso comum */}
+                        {colunas.has('tipo') ? (
+                          <div>
+                            <TipoBadge tipo={live.origem_dados} />
+                          </div>
+                        ) : null}
 
                         {/* Actions (hover-reveal) */}
                         <div
