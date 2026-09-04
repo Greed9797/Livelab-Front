@@ -6,6 +6,7 @@ import { ErrorState, LoadingState } from '../components/ui/States'
 import { FunilAnalyticsSection } from '../components/analytics/FunilAnalyticsSection'
 import { RelatorioEntidadeSection } from '../components/analytics/RelatorioEntidadeSection'
 import { PulsoDiarioSection } from '../components/analytics/PulsoDiarioSection'
+import { AssiduidadeStrip } from '../components/dashboard/AssiduidadeStrip'
 import { AnalyticsFilterBar, presetRange, ymd, type Preset } from '../components/analytics/AnalyticsFilterBar'
 import {
   exportarComissoesCSV,
@@ -254,6 +255,16 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
       )}
 
       <PulsoDiarioSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
+
+      {/* Assiduidade obedece o filtro de período da página (decisão do dono). marcaId NÃO entra:
+          presença é física — com recorte por marca, quem naquele dia fez live de outra marca
+          sumiria e viraria falta. apresentadoraId só estreita a lista, não muda a classificação. */}
+      <AssiduidadeStrip
+        inicio={from}
+        fim={to}
+        apresentadoraId={apresentadoraId || undefined}
+        subtitulo={`Período do filtro · ${periodNoun}`}
+      />
 
       {query.isLoading ? (
         <LoadingState />

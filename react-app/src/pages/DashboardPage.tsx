@@ -11,6 +11,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
 import { PresenterLeaderboard } from '../components/dashboard/PresenterLeaderboard'
 import { BrandLeaderboard } from '../components/dashboard/BrandLeaderboard'
+import { AssiduidadeStrip, somarDias } from '../components/dashboard/AssiduidadeStrip'
 import { getGrade, getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString } from '../utils/format'
@@ -251,6 +252,14 @@ export function DashboardPage() {
           }
         />
       </div>
+
+      {/* Assiduidade — janela FIXA de 30 dias, deliberadamente independente do seletor de mês
+          acima: presença é hábito, e um mês recém-começado mostraria 2 palitinhos. */}
+      <AssiduidadeStrip
+        inicio={somarDias(today, -29)}
+        fim={today}
+        subtitulo="Últimos 30 dias · presença física, sem recorte por marca"
+      />
 
       {/* Grade de hoje — largura total */}
       <div className="grid gap-4">

@@ -518,6 +518,21 @@ export function getDailyAnalytics(filters: Record<string, unknown> = {}) {
 }
 
 /**
+ * Assiduidade das apresentadoras — um status por apresentadora por dia da janela.
+ *
+ * O status (verde/amarelo/vermelho/cinza) vem CLASSIFICADO do backend de propósito: o calendário
+ * de feriados de Blumenau mora lá, e Home e Analytics precisam pintar o mesmo dia da mesma cor.
+ * Classificar no front criaria duas verdades e um feriado municipal viraria folga numa tela e
+ * falta na outra.
+ *
+ * Sem `inicio`/`fim` o endpoint assume os últimos 30 dias. Ele também corta `fim` em hoje —
+ * a resposta traz o `fim` efetivo, não o pedido, porque dia que não aconteceu não é falta.
+ */
+export function getAssiduidade(params: { inicio?: string; fim?: string } = {}) {
+  return apiGet<JsonRecord>('/analytics/assiduidade', params)
+}
+
+/**
  * Rateio de uma live entre apresentadoras. `gmv` e `segundos` são os valores exatos digitados
  * na revisão e o formato preferido — quem opera pensa em "4h e R$ 3.000", não em porcentagem.
  * `percentual` só aparece em lotes salvos antes dessa mudança; o backend aceita os dois.
