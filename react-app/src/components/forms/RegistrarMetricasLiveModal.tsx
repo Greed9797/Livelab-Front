@@ -8,7 +8,7 @@ import { extractErrorMessage } from '../../services/api'
 import { asString } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
 import { formatBRLWithoutSymbol } from '../../utils/money'
-import { buildManualLivePayload, type ManualLiveForm } from '../../utils/live-manual'
+import { buildFunilPayload, buildManualLivePayload, type ManualLiveForm } from '../../utils/live-manual'
 import type { Cabine, JsonRecord } from '../../types/models'
 
 export type RegistrarMetricasLiveMode = 'manual' | 'edit' | 'result'
@@ -36,6 +36,12 @@ const emptyForm: MetricsForm = {
   manual_comments: '',
   manual_shares: '',
   manual_diamonds: '',
+  live_impressions: '',
+  product_impressions: '',
+  product_clicks: '',
+  new_followers: '',
+  avg_viewing_duration: '',
+  ads_cost: '',
   resumo: '',
   status_publicacao: 'rascunho',
   tipo: 'cliente',
@@ -99,6 +105,12 @@ function formFromLive(live: JsonRecord): MetricsForm {
     manual_comments: asString(live.manual_comments ?? ''),
     manual_shares: asString(live.manual_shares ?? ''),
     manual_diamonds: asString(live.manual_diamonds ?? ''),
+    live_impressions: asString(live.live_impressions ?? ''),
+    product_impressions: asString(live.product_impressions ?? ''),
+    product_clicks: asString(live.product_clicks ?? ''),
+    new_followers: asString(live.new_followers ?? ''),
+    avg_viewing_duration: asString(live.avg_viewing_duration ?? ''),
+    ads_cost: asString(live.ads_cost ?? ''),
     resumo: asString(live.resumo, ''),
     status_publicacao: asString(live.status_publicacao, 'rascunho'),
     tipo: asString(live.tipo, 'cliente'),
@@ -223,6 +235,7 @@ export function RegistrarMetricasLiveModal({
       manual_comments: payload.manual_comments,
       manual_shares: payload.manual_shares,
       manual_diamonds: payload.manual_diamonds,
+      ...buildFunilPayload(form),
       apresentadora_id: form.apresentador_id || null,
       encerrado_em: toDatetimeLocal(form.data, form.hora_fim),
       origem_dados: form.origem_dados,
@@ -300,9 +313,18 @@ export function RegistrarMetricasLiveModal({
           <span className="text-sm font-semibold text-ink">GMV</span>
           <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.fat_gerado} onChange={(raw) => setField('fat_gerado', raw)} required />
         </label>
+        <label className="block">
+          <span className="text-sm font-semibold text-ink">Verba Ads investida</span>
+          <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.ads_cost ?? ''} onChange={(raw) => setField('ads_cost', raw)} />
+        </label>
         {[
           ['qtd_pedidos', 'Pedidos'],
-          ['manual_views', 'Viewers'],
+          ['live_impressions', 'Impressões da live'],
+          ['product_impressions', 'Impressões de produto'],
+          ['product_clicks', 'Cliques em produto'],
+          ['manual_views', 'Visualizações'],
+          ['new_followers', 'Novos seguidores'],
+          ['avg_viewing_duration', 'Retenção média (segundos)'],
           ['manual_likes', 'Likes'],
           ['manual_comments', 'Comentários'],
           ['manual_shares', 'Shares'],

@@ -17,9 +17,32 @@ export type ManualLiveForm = {
   manual_comments?: string
   manual_shares?: string
   manual_diamonds?: string
+  ads_cost?: string
+  live_impressions?: string
+  product_impressions?: string
+  product_clicks?: string
+  avg_viewing_duration?: string
+  new_followers?: string
   resumo: string
   status_publicacao: string
   tipo: string
+}
+
+/** Funil do CSV do TikTok Studio — contadores inteiros; ads_cost é dinheiro e vai à parte. */
+export const CAMPOS_FUNIL = ['live_impressions', 'product_impressions', 'product_clicks', 'new_followers', 'avg_viewing_duration'] as const
+
+function counterOrUndefined(value: string | undefined): number | undefined {
+  return value ? parseManualCounter(value) : undefined
+}
+
+export function buildFunilPayload(form: ManualLiveForm): JsonRecord {
+  const out: JsonRecord = {}
+  for (const key of CAMPOS_FUNIL) {
+    const parsed = counterOrUndefined(form[key])
+    if (parsed !== undefined) out[key] = parsed
+  }
+  if (form.ads_cost) out.ads_cost = parseBRMoneyToDecimal(form.ads_cost)
+  return out
 }
 
 function parseManualCounter(value: unknown): number {
@@ -70,6 +93,7 @@ export function buildManualLivePayload(form: ManualLiveForm): JsonRecord {
     manual_shares: form.manual_shares ? parseManualCounter(form.manual_shares) : undefined,
     manual_diamonds: form.manual_diamonds ? parseManualCounter(form.manual_diamonds) : undefined,
     manual_gmv: gmv,
+    ...buildFunilPayload(form),
     resumo: form.resumo || undefined,
     status_publicacao: form.status_publicacao,
     tipo: form.tipo,

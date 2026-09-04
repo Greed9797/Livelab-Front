@@ -68,4 +68,15 @@ describe('buildManualLivePayload', () => {
       manual_comments: 1250,
     })
   })
+
+  it('sends TikTok funnel metrics as integers and ads cost as decimal money', () => {
+    expect(buildManualLivePayload({
+      ...baseForm,
+      live_impressions: '12.500',
+      product_clicks: '410',
+      ads_cost: '150,00',
+    })).toMatchObject({ live_impressions: 12500, product_clicks: 410, ads_cost: 150 })
+    expect(buildManualLivePayload(baseForm)).not.toHaveProperty('live_impressions')
+    expect(buildManualLivePayload(baseForm)).not.toHaveProperty('ads_cost')
+  })
 })
