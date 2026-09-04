@@ -29,3 +29,18 @@ export function isSameSaoPauloDate(value: unknown, dateInput: string): boolean {
   if (Number.isNaN(date.getTime())) return false
   return getSaoPauloDateInput(date) === dateInput
 }
+
+/**
+ * Soma dias a uma data-calendário 'YYYY-MM-DD' sem tocar em fuso nenhum.
+ *
+ * A aritmética é em UTC de propósito: a string já É um dia-calendário (de São Paulo), então
+ * reparseá-la com `new Date(iso)` e mexer com setDate reintroduziria o fuso do cliente — e é
+ * exatamente essa reintrodução que fazia o preset "Hoje" do Analytics pedir amanhã.
+ */
+export function somarDias(iso: string, dias: number): string {
+  const [ano, mes, dia] = iso.split('-').map(Number)
+  const t = new Date(Date.UTC(ano, mes - 1, dia) + dias * 86_400_000)
+  const mm = String(t.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(t.getUTCDate()).padStart(2, '0')
+  return `${t.getUTCFullYear()}-${mm}-${dd}`
+}

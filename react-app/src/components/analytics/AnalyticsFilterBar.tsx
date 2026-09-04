@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { CalendarDays, ChevronDown, Download, RefreshCw, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { asString } from '../../utils/format'
+import { getSaoPauloDateInput, somarDias } from '../../utils/sao-paulo-date'
 import type { JsonRecord } from '../../types/models'
 
 export type Preset = 'hoje' | 'ontem' | '7d' | '30d' | 'mes' | 'custom'
@@ -15,21 +16,25 @@ const PRESETS: { key: Preset; label: string }[] = [
   { key: 'custom', label: 'Personalizado' },
 ]
 
+/**
+ * Data-calendário de SÃO PAULO, não do relógio do cliente.
+ *
+ * Antes isto usava getFullYear/getMonth/getDate, ou seja o fuso do laptop. Toda a página de
+ * Analytics (inclusive a tira de assiduidade) manda esse `YYYY-MM-DD` para um backend que define
+ * "hoje" em São Paulo: numa máquina em UTC, às 21h30 de SP o preset "Hoje" pedia AMANHÃ, o
+ * backend cortava o fim em hoje e a janela voltava invertida — fileira vazia afirmando
+ * "sem faltas" para todo mundo. A Home já resolvia assim; o Analytics é que estava fora de
+ * sintonia.
+ */
 export function ymd(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+  return getSaoPauloDateInput(d)
 }
 
 export function presetRange(preset: Preset, customFrom: string, customTo: string): { from: string; to: string } {
-  const today = new Date()
-  const todayStr = ymd(today)
-  const shift = (days: number) => {
-    const d = new Date(today)
-    d.setDate(d.getDate() - days)
-    return ymd(d)
-  }
+  const todayStr = ymd(new Date())
+  // Aritmética na STRING do dia-calendário, não em Date: subtrair dias de um Date usa o fuso do
+  // cliente e, num cliente com horário de verão, o shift de 24h pode cair no dia errado de SP.
+  const shift = (days: number) => somarDias(todayStr, -days)
   switch (preset) {
     case 'hoje':
       return { from: todayStr, to: todayStr }
