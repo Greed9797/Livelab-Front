@@ -42,7 +42,7 @@ async function setup(page: Page, onWrite?: (route: Route) => Promise<void>, them
     if (url.pathname === '/v1/lives') return json(url.searchParams.get('paginado') === '1' ? { items: [live], total: 1, page: 0, limit: 50 } : [live])
     if (url.pathname === '/v1/cabines') return json([{ id: cabineId, numero: 1, status: 'disponivel' }])
     if (url.pathname === '/v1/marcas') return json([marca])
-    if (url.pathname === '/v1/clientes') return json([cliente])
+    if (url.pathname === '/v1/clientes') return json(url.searchParams.get('status') === 'arquivado' ? [] : [cliente])
     if (url.pathname === '/v1/apresentadoras') return json([{ id: presenterId, nome: 'Ana', status: 'ativa' }])
     if (url.pathname === `/v1/clientes/${clienteId}/operacional`) return json({ cliente, marcas: [marca], metrics: {}, lives: [], videos: [] })
     if (url.pathname === '/v1/crm/summary') return json({ summary: {}, totals: {} })

@@ -61,7 +61,7 @@ async function setup(page: Page) {
   })
 }
 
-test('Agenda mantém a grade sem painel removido nem consultas legadas', async ({ page }, info) => {
+test('Agenda mantém a grade e consulta reservas somente para a disponibilidade do dia', async ({ page }, info) => {
   await setup(page)
   const calls: string[] = []
   page.on('request', request => { calls.push(new URL(request.url()).pathname) })
@@ -75,7 +75,8 @@ test('Agenda mantém a grade sem painel removido nem consultas legadas', async (
   expect(calls).not.toContain('/v1/grade/acompanhamento')
   expect(calls).not.toContain('/v1/videos')
   expect(calls).not.toContain('/v1/lives')
-  expect(calls).not.toContain('/v1/agenda')
+  await expect(page.getByRole('region', { name: 'Escala registrada no dia' })).toBeVisible()
+  expect(calls.filter(path => path === '/v1/agenda')).toHaveLength(1)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: info.outputPath('agenda-simplificada.png'), fullPage: true })
 })

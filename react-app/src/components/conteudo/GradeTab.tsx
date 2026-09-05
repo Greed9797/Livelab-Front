@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Copy, Pencil } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '../ui/Card'
@@ -12,6 +12,7 @@ import {
   deleteAgendaEvento,
   deleteGradeExcecao,
   deleteGradePadraoCell,
+  getAgenda,
   getClientes,
   getGrade,
   getGradePadrao,
@@ -34,6 +35,8 @@ import { GradeDiaView, GradeMesView, GradeSemanaView } from './GradeViews'
 import { GradeCellPopover, type GradeCellTarget } from './GradeCellPopover'
 import { AgendarLiveModal } from '../forms/AgendarLiveModal'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
+import { AgendaAvailabilityPanel } from './AgendaAvailabilityPanel'
+import { summarizeAgendaAvailability } from './agendaAvailability'
 
 type GradeView = 'dia' | 'semana' | 'mes'
 
@@ -73,17 +76,22 @@ interface GradeTabProps {
   activeCabines: JsonRecord[]
   marcaRows: JsonRecord[]
   apresentadoraRows: JsonRecord[]
+  catalogsReady: boolean
+  catalogsError: boolean
+  onRetryCatalogs: () => void
   /** false = papel read-only: grade visível, ações de escrita escondidas. */
   canWrite?: boolean
   initialDate?: string
   initialMarcaId?: string
 }
 
-export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite = true, initialDate = '', initialMarcaId = '' }: GradeTabProps) {
+export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, catalogsReady, catalogsError, onRetryCatalogs, canWrite = true, initialDate = '', initialMarcaId = '' }: GradeTabProps) {
   const [view, setView] = useState<GradeView>('dia')
   const [date, setDate] = useState(() => gradeDateFromLink(initialDate, todayISO()))
   const [filtroMarca, setFiltroMarca] = useState(initialMarcaId)
   const [filtroApresentadora, setFiltroApresentadora] = useState('')
+  const [availabilityDate, setAvailabilityDate] = useState(date)
+  const availabilityRangeRef = useRef('')
   const [editPadrao, setEditPadrao] = useState(false)
   const [padraoScope, setPadraoScope] = useState<PadraoScope>('uteis')
   const [popoverTarget, setPopoverTarget] = useState<GradeCellTarget | null>(null)
@@ -103,13 +111,26 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
     return { start: days[0], end: days[days.length - 1] }
   }, [date, view])
 
+  const availabilityDays = useMemo(
+    () => view === 'dia' ? [date] : view === 'semana' ? weekDays(date) : monthGridDays(date),
+    [date, view],
+  )
+  const selectedAvailabilityDate = view === 'dia' ? date : availabilityDate
+  const availabilityRangeKey = `${view}:${range.start}:${range.end}`
+
+  useEffect(() => {
+    if (availabilityRangeRef.current === availabilityRangeKey && availabilityDays.includes(availabilityDate)) return
+    availabilityRangeRef.current = availabilityRangeKey
+    setAvailabilityDate(availabilityDays.includes(todayISO()) ? todayISO() : availabilityDays[0])
+  }, [availabilityDate, availabilityDays, availabilityRangeKey])
+
   const grade = useQuery({
-    queryKey: ['grade', range.start, range.end, filtroMarca, filtroApresentadora],
+    // A fonte da escala precisa ser integral. Os filtros abaixo são só visuais;
+    // usá-los na consulta esconderia reservas do painel de disponibilidade.
+    queryKey: ['grade', range.start, range.end],
     queryFn: () => getGrade({
       data_inicio: range.start,
       data_fim: range.end,
-      marca_id: filtroMarca || undefined,
-      apresentadora_id: filtroApresentadora || undefined,
     }),
     enabled: !editPadrao,
     placeholderData: (prev) => prev,
@@ -124,6 +145,11 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
   // Mesma queryKey da ConteudoPage: o React Query compartilha o cache, não é
   // uma segunda ida ao servidor. O AgendarLiveModal exige a lista de clientes.
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: () => getClientes(), enabled: agendaModal !== null })
+  const agendaAvailability = useQuery({
+    queryKey: ['agenda', 'availability', selectedAvailabilityDate],
+    queryFn: () => getAgenda({ data: selectedAvailabilityDate, tipo: 'live' }),
+    enabled: !editPadrao,
+  })
 
   function invalidateGrade() {
     void client.invalidateQueries({ queryKey: ['grade'] })
@@ -174,7 +200,14 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
   const popoverError = savePadraoMutation.error ?? deletePadraoMutation.error
     ?? saveExcecaoMutation.error ?? deleteExcecaoMutation.error
 
-  const dias = ((grade.data?.dias ?? []) as unknown as GradeDia[])
+  const completeDias = ((grade.data?.dias ?? []) as unknown as GradeDia[])
+  const dias = useMemo(() => completeDias.map((dia) => ({
+    ...dia,
+    celulas: dia.celulas.filter((cell) => (
+      (!filtroMarca || cell.marca_id === filtroMarca)
+      && (!filtroApresentadora || cell.apresentadora_id === filtroApresentadora)
+    )),
+  })), [completeDias, filtroApresentadora, filtroMarca])
   const gradePorData = useMemo(() => {
     const map = new Map<string, GradeCelula[]>()
     for (const dia of dias) map.set(dia.data, dia.celulas)
@@ -191,6 +224,23 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
 
   const celulasVisiveis = editPadrao ? padraoDoDow : dias.flatMap((d) => d.celulas)
   const legenda = marcasPresentes(celulasVisiveis)
+  const availabilityDay = completeDias.find((dia) => dia.data === selectedAvailabilityDate) ?? null
+  const availabilitySummary = useMemo(() => {
+    if (!agendaAvailability.data || !selectedAvailabilityDate || !availabilityDay) return null
+    return summarizeAgendaAvailability({
+      date: selectedAvailabilityDate,
+      gradeCells: availabilityDay.celulas,
+      agendaRows: agendaAvailability.data,
+      marcaRows,
+      apresentadoraRows,
+    })
+  }, [agendaAvailability.data, apresentadoraRows, availabilityDay, marcaRows, selectedAvailabilityDate])
+  const availabilityState = (agendaAvailability.isPending || grade.isPending || (!catalogsReady && !catalogsError))
+    ? 'loading'
+    : agendaAvailability.isError || grade.isError || grade.isPlaceholderData || catalogsError || !availabilityDay
+      || (agendaAvailability.data?.length ?? 0) >= 500 || availabilitySummary?.hasUnknownSchedule
+      ? 'incomplete'
+      : 'ready'
 
   const today = todayISO()
   const periodLabel = view === 'dia'
@@ -371,6 +421,16 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
             onOpenDia={(d) => { setDate(d); setView('dia') }}
           />
         )}
+        {!editPadrao ? (
+          <AgendaAvailabilityPanel
+            date={selectedAvailabilityDate}
+            dates={availabilityDays}
+            onDateChange={setAvailabilityDate}
+            state={availabilityState}
+            value={availabilitySummary}
+            onRetry={() => { void agendaAvailability.refetch(); void grade.refetch(); onRetryCatalogs() }}
+          />
+        ) : null}
       </CardBody>
 
       <GradeCellPopover

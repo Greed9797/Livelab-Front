@@ -25,6 +25,7 @@ import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
 import { getBrandImage } from '../utils/favicon'
 import { downloadCsv } from '../utils/exportCsv'
+import { chaveAgrupamentoCarteira, isCarteiraAtiva, resolverLinkCarteira, selecionarCarteiraPorVisibilidade, type CarteiraVisibilidade } from '../utils/carteira'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 
@@ -104,24 +105,6 @@ function officialOperationalGmv(item: JsonRecord) {
   return item.gmv_mes ?? item.gmv ?? item.ads_gmv ?? item.manual_gmv ?? 0
 }
 
-export type ResumoCarteira = {
-  total: number
-  clientes: number
-  afiliados: number
-  gmvMes: number
-  livesMes: number
-}
-
-export function resumirCarteira(ativos: JsonRecord[]): ResumoCarteira {
-  return ativos.reduce<ResumoCarteira>((resumo, item) => ({
-    total: resumo.total + 1,
-    clientes: resumo.clientes + (asString(item.tipo_operacional) === 'cliente_ecommerce' ? 1 : 0),
-    afiliados: resumo.afiliados + (asString(item.tipo_operacional) === 'afiliada' ? 1 : 0),
-    gmvMes: resumo.gmvMes + asNumber(item.gmv_mes),
-    livesMes: resumo.livesMes + asNumber(item.lives_mes),
-  }), { total: 0, clientes: 0, afiliados: 0, gmvMes: 0, livesMes: 0 })
-}
-
 export function ComercialPage() {
   const ativoFormId = useId()
   const [showClienteForm, setShowClienteForm] = useState(false)
@@ -139,6 +122,7 @@ export function ComercialPage() {
   const [auditMarcaId, setAuditMarcaId] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('todos')
+  const [visibilidade, setVisibilidade] = useState<CarteiraVisibilidade>('ativos')
   const [mostrarTodos, setMostrarTodos] = useState(false)
   // Linha mesclada (N cadastros) clicada: guarda o item para o seletor de registro.
   const [dupEscolha, setDupEscolha] = useState<JsonRecord | null>(null)
@@ -148,10 +132,18 @@ export function ComercialPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const toast = useToast()
-  const [verArquivados, setVerArquivados] = useState(false)
-
-  const clientesQuery = useQuery({ queryKey: QK.clientes(verArquivados ? 'arquivados' : 'ativos'), queryFn: () => getClientes(verArquivados ? { status: 'arquivado' } : {}) })
-  const marcasQuery = useQuery({ queryKey: QK.marcas(verArquivados ? 'arquivadas' : 'ativas'), queryFn: () => getMarcas({ status: verArquivados ? 'arquivada' : 'ativa' }) })
+  const carregarInativos = visibilidade !== 'ativos'
+  // O endpoint de clientes separa arquivados; só pede essa lista ao abrir Todos/Inativos.
+  const clientesQuery = useQuery({ queryKey: QK.clientes('operacionais'), queryFn: () => getClientes() })
+  const clientesArquivadosQuery = useQuery({
+    queryKey: QK.clientes('arquivados'),
+    queryFn: () => getClientes({ status: 'arquivado' }),
+    enabled: carregarInativos,
+  })
+  const marcasQuery = useQuery({
+    queryKey: QK.marcas(visibilidade === 'ativos' ? 'ativas' : 'todos'),
+    queryFn: () => getMarcas({ status: visibilidade === 'ativos' ? 'ativa' : 'all' }),
+  })
   const selectedAtivoId = asString(selectedAtivo?.id, '')
   const selectedAtivoKind = asString(selectedAtivo?.tipo_operacional) === 'cliente_ecommerce' ? 'cliente' : 'marca'
   const ativoDetailQuery = useQuery({
@@ -237,12 +229,15 @@ export function ComercialPage() {
     onSuccess: (data) => setAtivoForm((current) => ({ ...current, logo_url: asString(data.url, '') })),
   })
 
-  const isLoading = clientesQuery.isLoading || marcasQuery.isLoading
-  const error = clientesQuery.error ?? marcasQuery.error
-  const clientes = clientesQuery.data ?? []
-  const marcas = marcasQuery.data ?? []
+  const isLoading = clientesQuery.isLoading || marcasQuery.isLoading || (carregarInativos && clientesArquivadosQuery.isLoading)
+  const error = clientesQuery.error ?? marcasQuery.error ?? (carregarInativos ? clientesArquivadosQuery.error : null)
+  const clientes = useMemo(
+    () => [...(clientesQuery.data ?? []), ...(carregarInativos ? (clientesArquivadosQuery.data ?? []) : [])],
+    [clientesQuery.data, clientesArquivadosQuery.data, carregarInativos],
+  )
+  const marcas = useMemo(() => marcasQuery.data ?? [], [marcasQuery.data])
 
-  const ativos = useMemo(() => {
+  const ativosCarregados = useMemo(() => {
     const marcasPorCliente = new Map<string, JsonRecord[]>()
     marcas.forEach((marca) => {
       const clienteId = asString(marca.cliente_id, '')
@@ -275,7 +270,9 @@ export function ComercialPage() {
     const unique = new Map<string, JsonRecord>()
     for (const itemRaw of [...clientesRows, ...marcasSemCliente]) {
       const item = itemRaw as JsonRecord
-      const key = `${asString(item.tipo_operacional)}:${asString(item.nome).trim().toLowerCase()}`
+      // Cadastros de mesmo nome, porém status diferentes, precisam continuar separados:
+      // esconderia um ativo se a cópia inativa fosse o primeiro registro mesclado.
+      const key = chaveAgrupamentoCarteira(item)
       const existing = unique.get(key)
       if (!existing) {
         // duplicados = registros originais por trás da linha mesclada (seletor de edição)
@@ -297,6 +294,15 @@ export function ComercialPage() {
     return [...unique.values()]
   }, [clientes, marcas])
 
+  const ativos = useMemo(
+    () => selecionarCarteiraPorVisibilidade(ativosCarregados, visibilidade),
+    [ativosCarregados, visibilidade],
+  )
+  const quantidadeCadastros = useMemo(
+    () => ativos.reduce((total, item) => total + asNumber(item.duplicado_count, 1), 0),
+    [ativos],
+  )
+
   const statusDisponiveis = useMemo(
     () => [...new Set(ativos.map((item) => asString(item.status)).filter(Boolean))].sort(),
     [ativos],
@@ -311,12 +317,15 @@ export function ComercialPage() {
         .some((value) => normalizarBusca(asString(value)).includes(q))
     })
   }, [ativos, busca, filtroStatus])
+  const quantidadeCadastrosFiltrados = useMemo(
+    () => ativosFiltrados.reduce((total, item) => total + asNumber(item.duplicado_count, 1), 0),
+    [ativosFiltrados],
+  )
 
   // ponytail: paginação simples — mostra 50 e um "Mostrar todos"; troque por paginação real se a carteira passar de centenas.
   const LIMITE_LINHAS = 50
   const ativosVisiveis = mostrarTodos ? ativosFiltrados : ativosFiltrados.slice(0, LIMITE_LINHAS)
-  const resumoCarteira = useMemo(() => resumirCarteira(ativos), [ativos])
-  const periodoCarteira = verArquivados ? 'cadastros arquivados' : 'carteira atual'
+  const temFiltros = Boolean(busca) || filtroStatus !== 'todos'
 
   // Atualiza % de comissão na marca principal (usado quando o item é cliente_ecommerce).
   const updateMarcaPctMutation = useMutation({
@@ -361,21 +370,38 @@ export function ComercialPage() {
     ativoInitialRef.current = hydrated
   }, [ativoDetailQuery.data, selectedAtivoKind, selectedAtivoId])
 
-  // Deep-link: /comercial?ativo=<nome> abre a aba e o item direto (vindo do relatório).
+  // Deep-link: /comercial?ativo=<nome> abre o item após ampliar o catálogo se necessário.
   useEffect(() => {
     const alvo = searchParams.get('ativo')
     if (!alvo) return
-    // espera as listas carregarem antes de decidir (senão perde o deep-link)
-    if (clientesQuery.isLoading || marcasQuery.isLoading) return
-    const found = ativos.find((r) => asString(r.nome).trim().toLowerCase() === alvo.trim().toLowerCase())
-    if (found) {
-      openAtivo(found)
+    // Em carga ou erro, mantém o parâmetro: o usuário pode recarregar ou voltar aos ativos.
+    if (isLoading || error) return
+
+    const alvoNormalizado = normalizarBusca(alvo.trim())
+    const encontrados = ativosCarregados.filter((registro) => normalizarBusca(asString(registro.nome).trim()) === alvoNormalizado)
+    const resolucao = resolverLinkCarteira(encontrados, visibilidade === 'todos')
+
+    if (resolucao === 'todos' && visibilidade !== 'todos') {
+      setVisibilidade('todos')
+      setFiltroStatus('todos')
+      setMostrarTodos(false)
+      return
     }
-    // limpa o param sempre (achando ou não) para não ficar preso no URL
+
+    if (resolucao !== 'ausente') {
+      const candidatos = encontrados.flatMap((registro) => asArray<JsonRecord>(registro.duplicados))
+      if (candidatos.length > 1) {
+        setDupEscolha({ ...encontrados[0], duplicado_count: candidatos.length, duplicados: candidatos })
+      } else if (encontrados[0]) {
+        abrirAtivo(encontrados[0])
+      }
+    }
+
+    // O catálogo atual foi consultado até uma conclusão; só então remove o parâmetro.
     const next = new URLSearchParams(searchParams)
     next.delete('ativo')
     setSearchParams(next, { replace: true })
-  }, [searchParams, ativos, clientesQuery.isLoading, marcasQuery.isLoading])
+  }, [searchParams, ativosCarregados, error, isLoading, visibilidade])
 
   const clienteBusy = clienteMutation.isPending || uploadClienteImage.isPending
   const afiliadoBusy = afiliadoMutation.isPending || uploadAfiliadoImage.isPending
@@ -384,11 +410,11 @@ export function ComercialPage() {
   const afiliadoClose = useUnsavedChanges({ open: showAfiliadoForm, dirty: JSON.stringify(afiliadoForm) !== JSON.stringify(emptyAfiliadoForm), busy: afiliadoBusy, onClose: () => { setShowAfiliadoForm(false); setAfiliadoForm(emptyAfiliadoForm) } })
   const ativoClose = useUnsavedChanges({ open: Boolean(selectedAtivo), dirty: JSON.stringify(ativoForm) !== JSON.stringify(ativoInitialRef.current) || ativoCorTouch !== null, busy: ativoBusy, onClose: () => setSelectedAtivo(null) })
 
-  if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
+  function recarregarCarteira() {
     void clientesQuery.refetch()
+    if (carregarInativos) void clientesArquivadosQuery.refetch()
     void marcasQuery.refetch()
-  }} />
+  }
 
   function setClienteField(key: keyof typeof emptyClienteForm, value: string | boolean) {
     setClienteForm((current) => ({ ...current, [key]: value }))
@@ -399,7 +425,7 @@ export function ComercialPage() {
   }
 
   function exportAtivosCsv() {
-    downloadCsv('clientes-afiliados.csv', ativos, [
+    downloadCsv('clientes-afiliados.csv', ativosFiltrados, [
       { key: 'tipo_operacional', header: 'tipo' },
       { key: 'nome', header: 'nome' },
       { key: 'marca_principal', header: 'marca_principal' },
@@ -622,44 +648,55 @@ export function ComercialPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Carteira de clientes" subtitle="Cadastros, atividade do mês e acesso em uma única visão." />
-
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumo da carteira">
-        {[
-          ['Clientes', resumoCarteira.clientes.toLocaleString('pt-BR'), periodoCarteira],
-          ['Afiliados', resumoCarteira.afiliados.toLocaleString('pt-BR'), 'marcas sem cliente vinculado'],
-          ['GMV no mês', formatMoney(resumoCarteira.gmvMes), 'atividade registrada'],
-          ['Lives no mês', resumoCarteira.livesMes.toLocaleString('pt-BR'), 'na carteira atual'],
-        ].map(([label, value, description]) => (
-          <Card key={label} className="p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
-            <p className="num mt-2 text-2xl font-bold text-ink">{value}</p>
-            <p className="mt-1 text-xs text-ink-muted">{description}</p>
-          </Card>
-        ))}
-      </section>
+      <PageHeader title="Carteira de clientes" subtitle="Encontre, consulte e atualize os cadastros que sustentam a operação." />
 
       <div className="space-y-4">
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-base font-bold text-ink">Clientes e afiliados</p>
+                <div>
+                  <p className="text-base font-bold text-ink">Clientes e afiliados</p>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    {isLoading
+                      ? 'Carregando registros…'
+                      : error
+                        ? 'Não foi possível atualizar a contagem.'
+                        : `${quantidadeCadastros.toLocaleString('pt-BR')} ${quantidadeCadastros === 1 ? 'cadastro' : 'cadastros'} nesta visão`}
+                  </p>
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant={verArquivados ? 'primary' : 'secondary'} onClick={() => setVerArquivados((v) => !v)}>
-                    {verArquivados ? 'Ver ativos' : 'Ver arquivados'}
-                  </Button>
                   <Button icon={Plus} onClick={() => setShowClienteForm((value) => !value)}>Novo cliente</Button>
                   <Button variant="secondary" icon={Plus} onClick={() => setShowAfiliadoForm((value) => !value)}>Novo afiliado</Button>
-                  <Button variant="secondary" icon={Download} onClick={exportAtivosCsv}>Exportar CSV</Button>
+                  <Button variant="secondary" icon={Download} onClick={exportAtivosCsv} disabled={isLoading || Boolean(error) || ativosFiltrados.length === 0}>Exportar CSV</Button>
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap gap-2" aria-label="Visibilidade da carteira">
+                  {([
+                    ['ativos', 'Ativos'],
+                    ['todos', 'Todos'],
+                    ['inativos', 'Inativos'],
+                  ] as const).map(([value, label]) => (
+                    <Button
+                      key={value}
+                      variant={visibilidade === value ? 'primary' : 'secondary'}
+                      aria-pressed={visibilidade === value}
+                      onClick={() => {
+                        setVisibilidade(value)
+                        setFiltroStatus('todos')
+                        setMostrarTodos(false)
+                      }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
                   <input
                     className="design-input h-10 w-64 pl-9 pr-3"
                     type="search"
-                    placeholder="Buscar por nome, tipo ou status"
+                    placeholder="Buscar cliente ou marca"
                     value={busca}
                     onChange={(event) => { setBusca(event.target.value); setMostrarTodos(false) }}
                   />
@@ -675,8 +712,8 @@ export function ComercialPage() {
                     <option key={status} value={status}>{statusLabel(status)}</option>
                   ))}
                 </select>
-                {busca || filtroStatus !== 'todos' ? (
-                  <span className="text-xs text-ink-muted">{ativosFiltrados.length} de {ativos.length}</span>
+                {!isLoading && !error && temFiltros ? (
+                  <span className="text-xs text-ink-muted">{quantidadeCadastrosFiltrados} de {quantidadeCadastros} cadastros</span>
                 ) : null}
               </div>
             </CardHeader>
@@ -684,15 +721,42 @@ export function ComercialPage() {
 
           <Card>
             <CardBody>
-              <DataTable<JsonRecord>
-                data={ativosVisiveis}
-                onRowClick={abrirAtivo}
-                footer={!mostrarTodos && ativosFiltrados.length > LIMITE_LINHAS ? (
-                  <Button variant="secondary" onClick={() => setMostrarTodos(true)}>
-                    Mostrar todos ({ativosFiltrados.length - LIMITE_LINHAS} restantes)
-                  </Button>
-                ) : undefined}
-                columns={[
+              {isLoading ? (
+                <LoadingState label="Atualizando a carteira…" />
+              ) : error ? (
+                <ErrorState message={extractErrorMessage(error)} onRetry={recarregarCarteira} />
+              ) : ativosFiltrados.length === 0 ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 py-8">
+                  <div>
+                    <p className="font-semibold text-ink">
+                      {temFiltros ? 'Nenhum cadastro encontrado' : visibilidade === 'inativos' ? 'Nenhum cadastro inativo' : 'Nenhum cadastro nesta visão'}
+                    </p>
+                    <p className="mt-1 text-sm text-ink-muted">
+                      {temFiltros
+                        ? 'Ajuste a busca ou os filtros para continuar.'
+                        : visibilidade === 'inativos'
+                          ? 'Os cadastros desativados aparecerão aqui.'
+                          : 'Crie um cliente ou afiliado para iniciar a carteira.'}
+                    </p>
+                  </div>
+                  {temFiltros ? (
+                    <Button variant="secondary" onClick={() => { setBusca(''); setFiltroStatus('todos') }}>Limpar filtros</Button>
+                  ) : visibilidade === 'inativos' ? (
+                    <Button variant="secondary" onClick={() => { setVisibilidade('ativos'); setMostrarTodos(false) }}>Ver ativos</Button>
+                  ) : (
+                    <Button icon={Plus} onClick={() => setShowClienteForm(true)}>Novo cliente</Button>
+                  )}
+                </div>
+              ) : (
+                <DataTable<JsonRecord>
+                  data={ativosVisiveis}
+                  onRowClick={abrirAtivo}
+                  footer={!mostrarTodos && ativosFiltrados.length > LIMITE_LINHAS ? (
+                    <Button variant="secondary" onClick={() => setMostrarTodos(true)}>
+                      Mostrar todos ({ativosFiltrados.length - LIMITE_LINHAS} restantes)
+                    </Button>
+                  ) : undefined}
+                  columns={[
                   {
                     key: 'nome',
                     header: 'Cliente / marca',
@@ -702,6 +766,7 @@ export function ComercialPage() {
                       const marcaPrincipal = asString(item.marca_principal)
                       const mostraMarcaOperacional = Boolean(marcaPrincipal) && normalizarBusca(marcaPrincipal) !== normalizarBusca(nome)
                       const initials = nome.slice(0, 2).toUpperCase()
+                      const ativo = isCarteiraAtiva(asString(item.status))
                       return (
                         <div className="flex min-w-48 max-w-64 items-center gap-3">
                           <div
@@ -711,7 +776,7 @@ export function ComercialPage() {
                             {image ? <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : initials}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate font-semibold text-ink">
+                            <p className={`truncate font-semibold ${ativo ? 'text-ink' : 'text-ink-muted'}`}>
                               {nome}
                               <BotBadge origem={item.origem_dados} className="ml-2 align-middle" />
                             </p>
@@ -723,17 +788,29 @@ export function ComercialPage() {
                       )
                     },
                   },
-                  { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, 'ativa'))}>{statusLabel(asString(item.status, 'ativa'))}</Badge> },
                   {
-                    key: 'acesso',
-                    header: 'Acesso',
+                    key: 'status',
+                    header: 'Status',
                     render: (item) => {
-                      if (!asString(item.user_id, '')) return <Badge tone="neutral">Sem acesso</Badge>
-                      return <span title={asString(item.acesso_email, '')}><Badge tone={item.acesso_ativo === false ? 'warning' : 'success'}>{item.acesso_ativo === false ? 'Suspenso' : 'Ativo'}</Badge></span>
+                      const ativo = isCarteiraAtiva(asString(item.status))
+                      return <Badge tone={ativo ? statusTone(asString(item.status, 'ativa')) : 'neutral'}>{statusLabel(asString(item.status, 'ativa'))}</Badge>
                     },
                   },
-                  { key: 'gmv_mes', header: 'GMV mês', align: 'right', render: (item) => <span className="num whitespace-nowrap">{formatMoney(item.gmv_mes)}</span> },
-                  { key: 'lives_mes', header: 'Lives no mês', align: 'right', render: (item) => asNumber(item.lives_mes).toLocaleString('pt-BR') },
+                  {
+                    key: 'contato',
+                    header: 'Contato',
+                    render: (item) => {
+                      const email = asString(item.email ?? item.acesso_email)
+                      const celular = asString(item.celular ?? item.whatsapp)
+                      if (!email && !celular) return <span className="text-ink-muted">—</span>
+                      return (
+                        <div className="min-w-36 text-sm text-ink">
+                          {email ? <p className="truncate">{email}</p> : null}
+                          {celular ? <p className="mt-0.5 text-xs text-ink-muted">{celular}</p> : null}
+                        </div>
+                      )
+                    },
+                  },
                   {
                     key: 'acoes',
                     header: 'Ações',
@@ -752,6 +829,7 @@ export function ComercialPage() {
                   },
                 ]}
               />
+              )}
             </CardBody>
           </Card>
       </div>

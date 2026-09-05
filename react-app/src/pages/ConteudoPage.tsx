@@ -483,6 +483,9 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
           activeCabines={activeCabines as unknown as JsonRecord[]}
           marcaRows={marcaRows}
           apresentadoraRows={apresentadoraRows}
+          catalogsReady={!marcas.isPending && !marcas.isPlaceholderData && !apresentadoras.isPending && !apresentadoras.isPlaceholderData}
+          catalogsError={marcas.isError || apresentadoras.isError}
+          onRetryCatalogs={() => { void marcas.refetch(); void apresentadoras.refetch() }}
           canWrite={podeEscrever}
         />
       ) : null}

@@ -6,7 +6,7 @@ import { gradeDateFromLink } from '../conteudo/gradeUtils'
 
 describe('Operação da Home', () => {
   it('links only identified live records and does not infer a missing presenter from legacy fields', () => {
-    const html = renderToStaticMarkup(<MemoryRouter><OperationsNow today="2026-09-05" cabines={[
+    const html = renderToStaticMarkup(<MemoryRouter><OperationsNow cabines={[
       { id: 'c1', numero: 1, status: 'ao_vivo', live_atual_id: 'live-1', duracao_min: 241, apresentador: null },
       { id: 'c2', numero: 2, status: 'ao_vivo', duracao_min: 300 },
       { id: 'c3', numero: 3, status: 'disponivel', live_atual_id: 'old' },

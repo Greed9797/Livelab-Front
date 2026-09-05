@@ -185,7 +185,7 @@ export function DashboardPage() {
     <div className="flex flex-col gap-5">
       <PageHead />
 
-      <OperationsNow cabines={cabines as unknown as JsonRecord[]} today={today} gradeVazia={!gradeQuery.isError && Boolean(gradeQuery.data) && celulasHoje.length === 0} />
+      <OperationsNow cabines={cabines as unknown as JsonRecord[]} />
 
       {atualizacaoFalhou ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:color-mix(in_srgb,var(--warning)_32%,transparent)] bg-[var(--warning-soft)] px-4 py-2 text-sm text-ink">
@@ -205,7 +205,6 @@ export function DashboardPage() {
         <div className="flex min-w-0 flex-col gap-3 rounded-[var(--radius-panel)] p-6" style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><h2 className="text-lg font-bold tracking-[-0.015em]" style={{ color: 'var(--text-primary)' }}>Agenda de hoje</h2><p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>Cabines ocupadas em {today.split('-').reverse().slice(0, 2).join('/')}.</p></div>
-            <Link to={`/agenda?data=${today}`} className="inline-flex h-[42px] items-center gap-2 rounded-full border border-line px-4 text-xs font-semibold text-ink hover:bg-surface-muted"><CalendarDays className="h-4 w-4" aria-hidden="true" /> Abrir agenda</Link>
           </div>
           <div className="divide-y divide-[var(--divider)]">
             {Array.from(cabinesHoje, ([cabineId, horarios]) => {

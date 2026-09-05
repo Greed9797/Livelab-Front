@@ -131,14 +131,17 @@ test('animação termina no GMV exato e não recomeça ao trocar o mês', async 
   expect(values.every(value => value === '90.000,00')).toBe(true)
 })
 
-test('Home distingue agenda vazia de falha e mantém a pendência sem participantes atribuídos', async ({ page }) => {
+test('Home omite a faixa sem live, mantém um atalho à agenda e preserva a pendência de atribuição', async ({ page }) => {
   await setup(page, 'dark', 'unassigned')
   await page.goto('/')
-  await expect(page.getByRole('region', { name: 'Operação agora' })).toContainText('Grade de hoje vazia')
+  await expect(page.getByRole('region', { name: 'Operação agora' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Agenda de hoje', exact: true })).toHaveCount(1)
+  await expect(page.getByRole('link', { name: 'Abrir agenda', exact: true })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Agenda de hoje', exact: true })).toHaveCount(0)
   await expect(page.getByRole('link', { name: /atribuir/i })).toBeVisible()
   await page.route('**/v1/grade?**', route => route.fulfill({ status: 503, json: { error: 'Falha simulada' } }))
   await page.reload()
-  await expect(page.getByRole('region', { name: 'Operação agora' })).toBeVisible()
-  await expect(page.getByRole('region', { name: 'Operação agora' })).not.toContainText('Grade de hoje vazia')
+  await expect(page.getByRole('region', { name: 'Operação agora' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Agenda de hoje', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Agenda de hoje', exact: true })).toBeVisible()
 })

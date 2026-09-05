@@ -40,7 +40,7 @@ import {
 import { historyPoints, metric, moneyMetric } from './page-helpers'
 import { BoletosPanel } from './BoletosPage'
 import { QK } from '../services/query-keys'
-import { hasReportedNumber, hasReportedNumbers } from '../components/financeiro/financeiro-presentation'
+import { financeiroClienteRef, hasReportedNumber, hasReportedNumbers } from '../components/financeiro/financeiro-presentation'
 import type { MetricKey } from '../utils/metricGlossary'
 import type { JsonRecord } from '../types/models'
 
@@ -57,7 +57,8 @@ function dmLabel(value: string): string {
 }
 
 const TIPO_LABEL: Record<string, string> = {
-  cliente_ecommerce: 'e-commerce',
+  cliente_ecommerce: 'cliente',
+  cliente: 'cliente',
   afiliada: 'afiliada',
   marca: 'marca',
   sem_marca: 'sem marca',
@@ -225,11 +226,7 @@ export function FinanceiroPage() {
   const comissoesApresentadoras = useQuery({ queryKey: [...QK.comissoesApresentadoras, pk], queryFn: () => getComissoesApresentadoras(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
   const comissoesMarcas = useQuery({ queryKey: [...QK.comissoesMarcas, pk], queryFn: () => getComissoesMarcas(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
 
-  const selectedTipo = asString(selectedCliente?.tipo_operacional ?? selectedCliente?.tipo_entidade)
-  const selectedClienteKind = selectedTipo === 'afiliada' || selectedTipo === 'marca' || asString(selectedCliente?.tipo_entidade) === 'marca' ? 'marca' : 'cliente'
-  const selectedClienteId = selectedClienteKind === 'marca'
-    ? asString(selectedCliente?.marca_id ?? selectedCliente?.id, '')
-    : asString(selectedCliente?.cliente_id ?? selectedCliente?.id, '')
+  const { kind: selectedClienteKind, id: selectedClienteId } = financeiroClienteRef(selectedCliente)
   const selectedClienteDetail = useQuery({
     // Segue o período do PeriodRangeControl (inicio/fim YYYY-MM) — sem isso o
     // backend cai no mês corrente e as comissões do modal divergem da tela.
