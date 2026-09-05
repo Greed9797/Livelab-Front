@@ -1629,16 +1629,16 @@ export function LivesTab({
             </span>
 
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Primeira página" disabled={isLoading || page <= 0} onClick={() => onPageChange(0)}>
+              <Button variant="secondary" size="icon" aria-label="Primeira página" disabled={isLoading || page <= 0} onClick={() => onPageChange(0)}>
                 <ChevronsLeft style={{ width: 14, height: 14 }} />
               </Button>
-              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Página anterior" disabled={isLoading || page <= 0} onClick={() => onPageChange(page - 1)}>
+              <Button variant="secondary" size="icon" aria-label="Página anterior" disabled={isLoading || page <= 0} onClick={() => onPageChange(page - 1)}>
                 <ChevronLeft style={{ width: 14, height: 14 }} />
               </Button>
-              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Próxima página" disabled={isLoading || page + 1 >= pageCount} onClick={() => onPageChange(page + 1)}>
+              <Button variant="secondary" size="icon" aria-label="Próxima página" disabled={isLoading || page + 1 >= pageCount} onClick={() => onPageChange(page + 1)}>
                 <ChevronRight style={{ width: 14, height: 14 }} />
               </Button>
-              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Última página" disabled={isLoading || page + 1 >= pageCount} onClick={() => onPageChange(pageCount - 1)}>
+              <Button variant="secondary" size="icon" aria-label="Última página" disabled={isLoading || page + 1 >= pageCount} onClick={() => onPageChange(pageCount - 1)}>
                 <ChevronsRight style={{ width: 14, height: 14 }} />
               </Button>
             </div>

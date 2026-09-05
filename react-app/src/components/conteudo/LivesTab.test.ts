@@ -26,7 +26,7 @@ describe('LivesTab pagination affordance', () => {
 
   it('renders all four page navigation buttons with a persistent bordered surface', () => {
     for (const label of ['Primeira página', 'Página anterior', 'Próxima página', 'Última página']) {
-      expect(source).toContain(`variant="secondary" className="h-7 w-7 p-0" aria-label="${label}"`)
+      expect(source).toContain(`variant="secondary" size="icon" aria-label="${label}"`)
     }
   })
 })
