@@ -181,13 +181,23 @@ export function ComercialPage() {
     mutationFn: ({ id, kind, payload }: { id: string; kind: 'cliente' | 'marca'; payload: JsonRecord }) => (
       kind === 'cliente' ? updateCliente(id, payload) : updateMarca(id, payload)
     ),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: QK.clientes() })
       void queryClient.invalidateQueries({ queryKey: QK.marcas() })
       void queryClient.invalidateQueries({ queryKey: QK.ativoOperacional() })
       void queryClient.invalidateQueries({ queryKey: QK.agenda() })
       void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
       void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
+      if (variables.kind === 'cliente') {
+        void queryClient.invalidateQueries({ queryKey: QK.lives })
+        void queryClient.invalidateQueries({ queryKey: QK.videos })
+        void queryClient.invalidateQueries({ queryKey: QK.crmSummary })
+        void queryClient.invalidateQueries({ queryKey: QK.masterCrm })
+        void queryClient.invalidateQueries({ queryKey: QK.analyticsDashboard() })
+        void queryClient.invalidateQueries({ queryKey: ['daily-pulse'] })
+        void queryClient.invalidateQueries({ queryKey: ['funil-analytics'] })
+        void queryClient.invalidateQueries({ queryKey: ['audiencia-marcas'] })
+      }
     },
   })
   const ativoDeleteMutation = useMutation({
@@ -976,6 +986,7 @@ export function ComercialPage() {
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">{selectedAtivoKind === 'cliente' ? 'Nome do cliente' : 'Nome da marca'}</span>
                   <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.nome} onChange={(event) => setAtivoForm((current) => ({ ...current, nome: event.target.value }))} />
+                  {selectedAtivoKind === 'cliente' && marcaPctId ? <span className="mt-1 block text-[11px] text-ink-muted">Ao alterar este nome, a marca vinculada será renomeada também.</span> : null}
                 </label>
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Status</span>
@@ -1014,7 +1025,7 @@ export function ComercialPage() {
                 {selectedAtivoKind === 'cliente' ? (
                   <>
                     {asString(selectedAtivo?.marca_principal) && normalizarBusca(asString(selectedAtivo?.marca_principal)) !== normalizarBusca(ativoForm.nome) ? (
-                      <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-ink-muted md:col-span-2">Marca operacional: <strong className="font-semibold text-ink">{asString(selectedAtivo?.marca_principal)}</strong>. Alterar o nome do cliente não altera este nome.</p>
+                      <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-ink-muted md:col-span-2">Marca operacional atual: <strong className="font-semibold text-ink">{asString(selectedAtivo?.marca_principal)}</strong>.</p>
                     ) : null}
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">E-mail</span>
