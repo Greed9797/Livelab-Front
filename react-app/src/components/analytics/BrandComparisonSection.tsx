@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Minus, X } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { DataTable } from '../ui/DataTable'
@@ -9,6 +9,7 @@ import {
   aggregateBrandComparison,
   brandComparisonReference,
   brandMetric,
+  brandPeriodDiagnostic,
   comparisonMetricMaximum,
   comparisonMetricWidth,
   formatCalendarDate,
@@ -59,11 +60,71 @@ function Variation({ current, previous, enabled }: { current: number | null; pre
   return <span className="inline-flex items-center gap-0.5 text-xs text-ink-muted" aria-label={`${percent}% ${variation.direction === 'up' ? 'acima' : 'abaixo'} do período anterior`}><Icon className="h-3 w-3" aria-hidden="true" />{percent}%</span>
 }
 
+function diagnosticLabel(current: number | null, variation: ReturnType<typeof metricVariation>, unavailableLabel = 'sem taxa') {
+  if (current === null) return unavailableLabel
+  if (variation.direction === 'none') return 'sem base'
+  if (variation.direction === 'new') return 'novo valor'
+  if (variation.direction === 'flat') return '0%'
+  if (variation.direction !== 'up' && variation.direction !== 'down') return 'sem base'
+  const sign = variation.direction === 'up' ? '+' : '−'
+  return `${sign}${variation.percent.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
+}
+
+function PeriodBars({ current, previous }: { current: number | null; previous?: number | null }) {
+  if (current === null || previous == null || !Number.isFinite(current) || !Number.isFinite(previous)) return null
+  const maximum = Math.max(current, previous)
+  if (maximum <= 0) return null
+  return <dd aria-hidden="true" className="mt-2 space-y-1">
+    <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted"><div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${comparisonMetricWidth(current, maximum)}%` }} /></div>
+    <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted"><div className="h-full rounded-full bg-[var(--text-muted)]" style={{ width: `${comparisonMetricWidth(previous, maximum)}%` }} /></div>
+  </dd>
+}
+
+function BrandPeriodDiagnostic({ label, current, previous }: { label: string; current: Pick<BrandComparisonRow, 'gmvLives' | 'horasLive' | 'gmvHora'>; previous?: Pick<BrandComparisonRow, 'gmvLives' | 'horasLive' | 'gmvHora'> }) {
+  const diagnostic = brandPeriodDiagnostic(current, previous)
+  return (
+    <section className="mb-4 rounded-xl border border-line bg-surface-muted/40 px-3 py-3" aria-label={`Diagnóstico do período: ${label}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="text-sm font-semibold text-ink">Análise do período · {label}</p>
+        <p className="text-xs text-ink-muted">Atual versus período anterior de mesma duração</p>
+      </div>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div>
+          <dt className="text-xs text-ink-muted">GMV de lives</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-ink">{formatMoney(current.gmvLives)}</dd>
+          <dd className="mt-1 text-xs text-ink-muted">Anterior: {previous ? formatMoney(previous.gmvLives) : 'sem base'} · {diagnosticLabel(current.gmvLives, diagnostic.gmvLives, '—')}</dd>
+          <PeriodBars current={current.gmvLives} previous={previous?.gmvLives} />
+        </div>
+        <div>
+          <dt className="text-xs text-ink-muted">Horas de live</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-ink">{current.horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}h</dd>
+          <dd className="mt-1 text-xs text-ink-muted">Anterior: {previous ? `${previous.horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}h` : 'sem base'} · {diagnosticLabel(current.horasLive, diagnostic.horasLive, '—')}</dd>
+          <PeriodBars current={current.horasLive} previous={previous?.horasLive} />
+        </div>
+        <div>
+          <dt className="text-xs text-ink-muted">GMV/h</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums text-ink">{gmvHora(current.gmvHora)}</dd>
+          <dd className="mt-1 text-xs text-ink-muted">Anterior: {previous ? gmvHora(previous.gmvHora) : 'sem base'} · {diagnosticLabel(current.gmvHora, diagnostic.gmvHora)}</dd>
+          <PeriodBars current={current.gmvHora} previous={previous?.gmvHora} />
+        </div>
+      </dl>
+      {previous ? <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted"><span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-1.5 w-4 rounded-full bg-[var(--primary)]" />Atual</span><span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-1.5 w-4 rounded-full bg-[var(--text-muted)]" />Anterior</span><span>Escala própria em cada métrica.</span></p> : null}
+    </section>
+  )
+}
+
 export function BrandComparisonSection({ rows, marcaId, apresentadoraId, onSelectMarca, onClearMarca, onClearApresentadora, previousRows, previousPeriod, previousStatus = 'ready', currentPeriodEndsToday = false }: BrandComparisonSectionProps) {
   const [sort, setSort] = useState<BrandComparisonSort>('gmvLives')
+  const [diagnosticBrandKey, setDiagnosticBrandKey] = useState<string>('operacao')
+  const diagnosticPanel = useRef<HTMLDivElement>(null)
   const brands = useMemo(() => sortBrandComparison(aggregateBrandComparison(rows), sort), [rows, sort])
   const previousByBrand = useMemo(() => new Map(aggregateBrandComparison(previousRows ?? []).map((row) => [row.key, row])), [previousRows])
   const reference = useMemo(() => brandComparisonReference(brands), [brands])
+  const previousReference = useMemo(() => previousByBrand.size > 0 ? brandComparisonReference([...previousByBrand.values()]) : undefined, [previousByBrand])
+  const diagnosticBrand = marcaId ? brands.find((row) => row.marcaId === marcaId) ?? brands[0] : brands.find((row) => row.key === diagnosticBrandKey)
+  const diagnosticCurrent = diagnosticBrand ?? reference
+  const diagnosticPrevious = diagnosticBrand ? previousByBrand.get(diagnosticBrand.key) : previousReference
+  const diagnosticLabelName = diagnosticBrand?.marcaNome ?? 'Operação'
   const maximum = useMemo(() => comparisonMetricMaximum(brands, sort), [brands, sort])
   const filteredBrandName = brands[0]?.marcaNome ?? 'marca selecionada'
   const columns = useMemo<TableColumn<BrandComparisonRow>[]>(() => [
@@ -75,6 +136,7 @@ export function BrandComparisonSection({ rows, marcaId, apresentadoraId, onSelec
               {row.marcaNome}
             </button>
           ) : <p className="font-semibold text-ink">{row.marcaNome}</p>}
+          {previousStatus === 'ready' && previousPeriod ? <button type="button" aria-label={`Analisar ${row.marcaNome}`} className="mt-1 flex min-h-9 items-center rounded-lg border border-line px-2 text-xs font-semibold text-ink hover:bg-surface-muted" onClick={() => { setDiagnosticBrandKey(row.key); requestAnimationFrame(() => diagnosticPanel.current?.focus()) }}>Analisar</button> : null}
           {row.gmvVideos > 0 ? <p className="mt-0.5 text-xs text-ink-muted">Vídeos: {formatMoney(row.gmvVideos)}</p> : null}
         </div>
       ),
@@ -112,7 +174,7 @@ export function BrandComparisonSection({ rows, marcaId, apresentadoraId, onSelec
     { key: 'horasLive', header: 'Horas no ar', align: 'right', render: (row) => `${row.horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}h` },
     { key: 'pedidos', header: 'Pedidos', align: 'right', render: (row) => row.pedidos.toLocaleString('pt-BR') },
     { key: 'totalLives', header: 'Lives', align: 'right', render: (row) => row.totalLives.toLocaleString('pt-BR') },
-  ], [maximum, onSelectMarca, previousByBrand, previousStatus, sort])
+  ], [maximum, onSelectMarca, previousByBrand, previousPeriod, previousStatus, sort])
 
   if (apresentadoraId) {
     return (
@@ -146,7 +208,7 @@ export function BrandComparisonSection({ rows, marcaId, apresentadoraId, onSelec
         ) : (
           <>
             <div className="mb-4 grid gap-3 rounded-xl border border-line bg-surface-muted/40 px-3 py-3 text-sm sm:grid-cols-3">
-              <div><p className="text-xs text-ink-muted">GMV/h da operação</p><p className="mt-0.5 text-2xl font-semibold leading-tight tabular-nums text-ink">{gmvHora(reference.gmvHora)}</p><p className="mt-0.5 text-xs text-ink-muted">GMV de lives ÷ horas no ar</p></div>
+              <div><p className="text-xs text-ink-muted">{marcaId ? 'GMV/h da marca' : 'GMV/h da operação'}</p><p className="mt-0.5 text-2xl font-semibold leading-tight tabular-nums text-ink">{gmvHora(reference.gmvHora)}</p><p className="mt-0.5 text-xs text-ink-muted">GMV de lives ÷ horas no ar</p></div>
               <div><p className="text-xs text-ink-muted">GMV de lives</p><p className="mt-0.5 text-xl font-semibold leading-tight tabular-nums text-ink">{formatMoney(reference.gmvLives)}</p></div>
               <div><p className="text-xs text-ink-muted">Contexto</p><p className="mt-0.5 text-sm font-semibold tabular-nums text-ink">{reference.marcas} marcas · {reference.lives} lives · {reference.horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}h</p></div>
             </div>
@@ -165,7 +227,12 @@ export function BrandComparisonSection({ rows, marcaId, apresentadoraId, onSelec
                 </Button>
               ))}
             </div>
-            <p className="mb-3 text-xs text-ink-muted">Escala relativa ao maior {SORT_OPTIONS.find((option) => option.key === sort)?.label.toLowerCase()}: <span className="font-semibold text-ink">{metricLabel(maximum, sort)}</span>{previousPeriod ? ` · variação em relação a ${formatCalendarDate(previousPeriod.from)}–${formatCalendarDate(previousPeriod.to)}` : ''}{currentPeriodEndsToday ? ' · período atual inclui o dia em andamento' : ''}</p>
+            <p className="mb-3 text-xs text-ink-muted">Escala relativa ao maior {SORT_OPTIONS.find((option) => option.key === sort)?.label.toLowerCase()}: <span className="font-semibold text-ink">{metricLabel(maximum, sort)}</span>{previousPeriod ? ` · variações por marca em relação a ${formatCalendarDate(previousPeriod.from)}–${formatCalendarDate(previousPeriod.to)}` : ''}{currentPeriodEndsToday ? ' · período atual inclui o dia em andamento' : ''}</p>
+            {previousStatus === 'ready' && previousPeriod ? <div ref={diagnosticPanel} tabIndex={-1} className="rounded-xl focus:outline-2 focus:outline-offset-4 focus:outline-[var(--text-primary)]">
+              {diagnosticBrand && !marcaId ? <button type="button" onClick={() => setDiagnosticBrandKey('operacao')} className="mb-2 min-h-9 rounded-lg border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted">Ver operação completa</button> : null}
+              <BrandPeriodDiagnostic label={diagnosticLabelName} current={diagnosticCurrent} previous={diagnosticPrevious} />
+              <p className="mb-3 text-xs leading-5 text-ink-muted">Leia as três métricas juntas: o GMV varia com o tempo no ar e com o valor vendido por hora. Esses números descrevem a mudança; não determinam sua causa.</p>
+            </div> : null}
             {previousStatus === 'loading' ? <p className="mb-3 text-xs text-ink-muted">Carregando a comparação com o intervalo anterior. Os números deste período continuam disponíveis.</p> : null}
             {previousStatus === 'error' ? <p className="mb-3 text-xs text-ink-muted">A comparação com o intervalo anterior está indisponível. Os números deste período continuam disponíveis.</p> : null}
             <p className="mb-2 text-xs text-ink-muted sm:hidden">Deslize a tabela para ver todas as métricas.</p>

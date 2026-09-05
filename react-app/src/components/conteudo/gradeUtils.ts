@@ -1,6 +1,11 @@
 // Utilitários da Grade visual de agenda por cabine.
 // Slots são dados no backend; aqui ficam apenas os slots exibidos por padrão
 // e a paleta determinística de cores por marca.
+import { somarDias } from '../../utils/sao-paulo-date'
+
+export function gradeDateFromLink(value: string, fallback: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && somarDias(value, 0) === value ? value : fallback
+}
 
 export interface GradeCelula {
   cabine_id: string

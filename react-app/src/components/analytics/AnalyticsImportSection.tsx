@@ -23,6 +23,7 @@ import type { ImportDecisao } from '../../services/domain'
 import { QK } from '../../services/query-keys'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../../utils/format'
 import { formatDuracao } from '../../utils/duracao'
+import { importedGmvPresence, summarizeImportedGmv } from '../../utils/analyticsImportCoverage'
 import { useToast } from '../ui/Toast'
 import { ImportRateioModal } from './ImportRateioModal'
 import { ImportVincularLiveModal } from './ImportVincularLiveModal'
@@ -134,6 +135,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
     }
     return counts
   }, [rows])
+  const gmvCoverage = useMemo(() => summarizeImportedGmv(rows), [rows])
 
   // Uma live só pode receber uma linha do arquivo — o backend devolve 409, então a tela já
   // mostra qual linha reservou cada live em vez de deixar o usuário descobrir no erro.
@@ -364,6 +366,16 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
             ))}
           </div>
 
+          <section className="mt-3 rounded-2xl border border-line bg-surface-muted/40 p-3" aria-labelledby="cobertura-importacao">
+            <h3 id="cobertura-importacao" className="text-sm font-semibold text-ink">Dados informados no arquivo</h3>
+            <p className="mt-1 text-sm text-ink-muted">
+              GMV informado em <span className="font-semibold tabular-nums text-ink">{gmvCoverage.provided + gmvCoverage.zero} de {gmvCoverage.total}</span> linhas.
+              {gmvCoverage.zero > 0 ? ` ${gmvCoverage.zero} ${gmvCoverage.zero === 1 ? 'linha trouxe' : 'linhas trouxeram'} GMV zero, mantido como informado.` : ''}
+              {gmvCoverage.missing > 0 ? ` ${gmvCoverage.missing} ${gmvCoverage.missing === 1 ? 'linha não informou' : 'linhas não informaram'} GMV.` : ''}
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">Pedidos e audiência zerados precisam ser conferidos no arquivo, pois exportações antigas podem omitir essas colunas.</p>
+          </section>
+
           {isApplied ? (
             <div className="mt-3 flex items-start gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-ink">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
@@ -400,6 +412,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                   const decisao = asString(row.decisao, 'pendente')
                   const rateio = asArray<JsonRecord>(row.apresentadoras)
                   const gmv = row.attributed_gmv ?? row.ads_gmv
+                  const gmvPresence = importedGmvPresence(row)
                   const erro = asString(row.error, '')
                   // O rótulo do botão precisa dizer QUAL live está vinculada. A lista completa
                   // resolve o caso normal; os candidatos que a própria linha carrega cobrem a
@@ -426,7 +439,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                       </td>
                       <td className="px-3 py-2 text-ink-muted">{asString(row.start_time, '—')}</td>
                       <td className="px-3 py-2 text-right text-ink-muted">{(asNumber(row.duration_seconds) / 3600).toFixed(1)}h</td>
-                      <td className="px-3 py-2 text-right font-semibold text-ink">{formatMoney(gmv)}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-ink">{gmvPresence === 'missing' ? <span className="text-xs font-medium text-ink-muted">Não informado</span> : <><span>{formatMoney(gmv)}</span>{gmvPresence === 'zero' ? <span className="mt-0.5 block text-[10px] font-medium text-ink-muted">Zero informado</span> : null}</>}</td>
                       <td className="px-3 py-2 text-right text-ink-muted">{asNumber(row.attributed_orders).toLocaleString('pt-BR')}</td>
                       <td className="px-3 py-2 text-right text-ink-muted">{asNumber(row.likes).toLocaleString('pt-BR')}</td>
                       <td className="px-3 py-2">

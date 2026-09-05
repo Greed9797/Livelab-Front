@@ -40,6 +40,7 @@ import {
 import { historyPoints, metric, moneyMetric } from './page-helpers'
 import { BoletosPanel } from './BoletosPage'
 import { QK } from '../services/query-keys'
+import { hasReportedNumber, hasReportedNumbers } from '../components/financeiro/financeiro-presentation'
 import type { MetricKey } from '../utils/metricGlossary'
 import type { JsonRecord } from '../types/models'
 
@@ -100,6 +101,20 @@ function memoriaText(categoria: string, memoria: JsonRecord): string {
 
 function ResultadoOperacional({ data }: { data: JsonRecord }) {
   const totais = getRecord(data.totais)
+  const hasTotais = hasReportedNumbers(totais, ['entradas', 'despesas_fixas', 'despesas_variaveis', 'resultado'])
+  const hasLancamentos = Array.isArray(data.entradas) && Array.isArray(data.saidas)
+  if (!hasTotais || !hasLancamentos) {
+    return (
+      <Card>
+        <CardBody>
+          <EmptyState
+            title="Detalhamento operacional indisponível"
+            description="A resposta não trouxe todos os lançamentos ou totais do período. Nenhum valor foi assumido como zero."
+          />
+        </CardBody>
+      </Card>
+    )
+  }
   const resultado = asNumber(totais.resultado)
   const lancamentos: (JsonRecord & { _entrada: boolean })[] = [
     ...asArray<JsonRecord>(data.entradas).map((l) => ({ ...l, _entrada: true })),
@@ -110,15 +125,15 @@ function ResultadoOperacional({ data }: { data: JsonRecord }) {
   return (
     <section className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard metric={moneyMetric('Entradas', totais.entradas, 'comissão de franquia + fixos de marca', 'success')} icon={TrendingUp} />
+        <MetricCard metric={moneyMetric('Receita de marcas', totais.entradas, 'comissão de franquia + fixos de marca', 'success')} icon={TrendingUp} />
         <MetricCard metric={moneyMetric('Despesas fixas', totais.despesas_fixas, 'fixos de apresentadoras + custos fixos', 'warning')} icon={Building2} />
-        <MetricCard metric={moneyMetric('Despesas variáveis e comissões', totais.despesas_variaveis, 'comissões de apresentadoras + custos variáveis', 'warning')} icon={Percent} />
-        <MetricCard metric={moneyMetric('Resultado líquido', totais.resultado, 'entradas − despesas', resultado >= 0 ? 'success' : 'danger')} icon={CircleDollarSign} />
+        <MetricCard metric={moneyMetric('Remuneração e custos variáveis', totais.despesas_variaveis, 'comissões de apresentadoras + custos variáveis', 'warning')} icon={Percent} />
+        <MetricCard metric={moneyMetric('Resultado operacional', totais.resultado, 'receita de marcas − todas as despesas', resultado >= 0 ? 'success' : 'danger')} icon={CircleDollarSign} />
       </div>
       <Card>
         <CardHeader>
-          <p className="text-base font-bold text-ink">Resultado operacional — lançamentos</p>
-          <p className="mt-1 text-xs text-ink-muted">Comissões e fixos entram automaticamente; custos manuais somam às saídas. Clique num lançamento para ver a memória de cálculo.</p>
+          <p className="text-base font-bold text-ink">Composição operacional</p>
+          <p className="mt-1 text-xs text-ink-muted">Receitas de marcas menos remuneração de apresentadoras e custos manuais. Abra um lançamento para ver sua memória de cálculo.</p>
         </CardHeader>
         {lancamentos.length === 0 ? (
           <CardBody>
@@ -257,6 +272,11 @@ export function FinanceiroPage() {
   const podeEscrever = canWrite(user)
 
   const raw = resumo.data ?? {}
+  const resumoCompleto = hasReportedNumbers(raw, [
+    'receita_liquida', 'fixo_mensal', 'total_custos', 'fat_liquido', 'gmv_lives', 'gmv_videos',
+    'total_lives', 'total_videos', 'pedidos',
+  ]) && (hasReportedNumber(raw, 'gmv_total') || hasReportedNumber(raw, 'fat_bruto'))
+    && (hasReportedNumber(raw, 'comissao_faltante_count') || hasReportedNumber(raw, 'comissoes_sem_config'))
   const clientesRaw = asArray<JsonRecord>(faturamento.data?.clientes ?? faturamento.data?.por_cliente ?? faturamento.data?.items ?? faturamento.data)
   const clientes = useMemo(
     () => [...clientesRaw].sort((a, b) => asNumber(b.gmv_mes ?? b.total) - asNumber(a.gmv_mes ?? a.total)),
@@ -280,11 +300,11 @@ export function FinanceiroPage() {
 
   const comissaoFixo = asNumber(raw.fixo_mensal)
   const comissaoHint = comissaoFixo > 0
-    ? `receita LiveLab · inclui ${formatMoney(raw.fixo_mensal)} fixo`
-    : 'receita LiveLab, antes dos custos'
+    ? `condições comerciais · ${formatMoney(raw.fixo_mensal)} em fixos configurados`
+    : 'condições comerciais, antes dos custos'
   const metrics = [
     moneyMetric('GMV total', raw.gmv_total ?? raw.fat_bruto, 'lives + vídeos do período', 'brand'),
-    moneyMetric('Comissão de franquia', raw.receita_liquida, comissaoHint, 'success'),
+    moneyMetric('Receita de marcas', raw.receita_liquida, comissaoHint, 'success'),
     moneyMetric('Custos reais', raw.total_custos ?? 0, 'lançados na competência', 'warning'),
     metric('Comissão ausente', comissaoFaltante, 'lives com GMV sem comissão', comissaoFaltante > 0 ? 'danger' : 'neutral'),
   ]
@@ -299,12 +319,11 @@ export function FinanceiroPage() {
   // devolve (gmv_lives, gmv_videos, fixo_mensal). Mostrar o número real que o
   // backend usou vale mais que repetir a fórmula genérica. Custos e comissão
   // ausente não têm decomposição no payload → só o glossário.
-  const comissaoVariavel = asNumber(raw.receita_liquida) - comissaoFixo
   const metricDetails: (string | undefined)[] = [
     `${formatMoney(raw.gmv_total ?? raw.fat_bruto)} = lives ${formatMoney(raw.gmv_lives)} (${num(raw.total_lives)}) + vídeos ${formatMoney(raw.gmv_videos)} (${num(raw.total_videos)})`,
     comissaoFixo > 0
-      ? `${formatMoney(raw.receita_liquida)} = variável ${formatMoney(comissaoVariavel)} + fixo mensal ${formatMoney(comissaoFixo)}`
-      : `${formatMoney(raw.receita_liquida)} — só comissão variável; nenhuma marca com fixo mensal no período`,
+      ? `${formatMoney(raw.receita_liquida)} · condições comerciais aplicadas; ${formatMoney(comissaoFixo)} em fixos configurados`
+      : `${formatMoney(raw.receita_liquida)} · condições comerciais aplicadas sem fixo mensal configurado`,
     undefined,
     undefined,
   ]
@@ -408,28 +427,49 @@ export function FinanceiroPage() {
 
       {tab === 'operacional' ? (
         <>
-          <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-            <FinanceiroHeroPanel raw={raw} prev={resumoPrev.data} />
-            <ReceitaWaterfall
-              gmvTotal={raw.gmv_total ?? raw.fat_bruto}
-              comissao={raw.receita_liquida}
-              fixo={raw.fixo_mensal}
-              custos={raw.total_custos}
-              resultado={raw.fat_liquido}
-            />
+          <section className="space-y-4" aria-labelledby="margem-resumo-title">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Visão comercial</p>
+                <h2 id="margem-resumo-title" className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">Margem após custos manuais</h2>
+                <p className="mt-1 max-w-3xl text-sm text-ink-muted">Receita de marcas conforme as condições comerciais, menos custos lançados. Não desconta a remuneração automática das apresentadoras; se os custos excederem a receita, este resumo exibe R$ 0,00.</p>
+              </div>
+              <a href="#resultado-operacional-title" className="inline-flex min-h-10 items-center rounded-lg border border-line px-3 text-sm font-semibold text-ink hover:bg-surface-muted">Ver resultado operacional completo</a>
+            </div>
+            {resumoCompleto ? (
+              <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+                <FinanceiroHeroPanel raw={raw} prev={resumoPrev.data} />
+                <ReceitaWaterfall
+                  gmvTotal={raw.gmv_total ?? raw.fat_bruto}
+                  comissao={raw.receita_liquida}
+                  custos={raw.total_custos}
+                  resultado={raw.fat_liquido}
+                />
+              </div>
+            ) : (
+              <ErrorState message="O resumo financeiro veio incompleto. Nenhum valor foi assumido como zero." onRetry={() => void resumo.refetch()} />
+            )}
           </section>
 
-          {/* Resultado operacional — entradas × saídas automáticas com memória por lançamento */}
-          {operacional.data ? (
-            <ResultadoOperacional data={operacional.data} />
-          ) : operacional.isLoading ? (
-            <LoadingState label="Calculando resultado operacional" />
-          ) : operacional.isError ? (
-            <ErrorState message={extractErrorMessage(operacional.error)} onRetry={() => void operacional.refetch()} />
-          ) : null}
+          <section className="space-y-4" aria-labelledby="resultado-operacional-title">
+            <div className="rounded-2xl border border-line bg-surface-muted/50 p-4 sm:p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Visão de operação</p>
+              <h2 id="resultado-operacional-title" className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">Resultado operacional completo</h2>
+              <p className="mt-1 max-w-3xl text-sm text-ink-muted">Das receitas de marcas, desconta fixos e comissões de apresentadoras, além dos custos manuais. Pode ser negativo e não deve ser comparado como se tivesse a mesma base do resumo acima.</p>
+              <p className="mt-2 text-xs text-ink-muted">Uma live recente pode já constar no resumo e ainda não aparecer nos lançamentos operacionais.</p>
+            </div>
+            {operacional.data ? (
+              <ResultadoOperacional data={operacional.data} />
+            ) : operacional.isLoading ? (
+              <LoadingState label="Calculando resultado operacional" />
+            ) : operacional.isError ? (
+              <ErrorState message={extractErrorMessage(operacional.error)} onRetry={() => void operacional.refetch()} />
+            ) : null}
+          </section>
 
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {metrics.map((item, index) => (
+          {resumoCompleto ? <>
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {metrics.map((item, index) => (
               // MetricCard é compartilhado por várias telas e não expõe slot de
               // ajuda; o ícone é ancorado no canto inferior direito do card (o
               // superior direito já é do ícone da métrica). Absoluto = não empurra.
@@ -439,11 +479,11 @@ export function FinanceiroPage() {
                   <MetricInfo metric={metricKeys[index]} detail={metricDetails[index]} align="right" />
                 </span>
               </div>
-            ))}
-          </section>
+              ))}
+            </section>
 
-          {/* Memória de cálculo — transparência: de onde vem cada número (fonte: lives + vídeos) */}
-          <details className="group rounded-2xl border border-line bg-surface">
+            {/* Memória de cálculo — transparência: de onde vem cada número (fonte: lives + vídeos) */}
+            <details className="group rounded-2xl border border-line bg-surface">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
               <span>Memória de cálculo — de onde vêm os números</span>
               <span className="text-xs font-normal text-ink-muted">expandir</span>
@@ -454,16 +494,18 @@ export function FinanceiroPage() {
                 {' = '}Lives {formatMoney(raw.gmv_lives)} ({num(raw.total_lives)} lives) + Vídeos {formatMoney(raw.gmv_videos)} ({num(raw.total_videos)} vídeos)
               </p>
               <p>
-                <span className="font-semibold text-[var(--success)]">Comissão de franquia {formatMoney(raw.receita_liquida)}</span>
-                {' = '}Σ comissão calculada das lives (GMV × % da marca){asNumber(raw.fixo_mensal) > 0 ? <> {' + '}fixo mensal {formatMoney(raw.fixo_mensal)}</> : null} — receita da LiveLab, <span className="font-semibold">antes</span> dos custos
+                <span className="font-semibold text-[var(--success)]">Receita de marcas {formatMoney(raw.receita_liquida)}</span>
+                {' = '}condições comerciais aplicadas às marcas, <span className="font-semibold">antes</span> dos custos manuais
               </p>
               <p>
-                <span className="font-semibold text-ink">Resultado líquido {formatMoney(raw.fat_liquido)}</span>
-                {' = '}comissão de franquia {formatMoney(raw.receita_liquida)} − custos {formatMoney(raw.total_custos)}
+                <span className="font-semibold text-ink">Margem após custos manuais {formatMoney(raw.fat_liquido)}</span>
+                {asNumber(raw.total_custos) > asNumber(raw.receita_liquida)
+                  ? <> · custos manuais {formatMoney(raw.total_custos)} superam a receita de marcas; mínimo exibido R$ 0,00</>
+                  : <> {' = '}receita de marcas {formatMoney(raw.receita_liquida)} − custos manuais {formatMoney(raw.total_custos)}</>}
               </p>
               <p className="text-xs">
-                Comissão de franquia = <span className="num">Σ(GMV × % da marca)</span> por live <span className="num">+ fixo mensal</span> das marcas (somado uma vez por mês com atividade).
-                Fonte do GMV: tabela <code>lives</code> (Conteúdo/Operacional) + <code>video_registros</code>.
+                A taxa variável incide somente sobre o GMV das lives. A receita de marcas também pode considerar um valor fixo, conforme a condição de cada marca; por isso “receita / GMV” não é a taxa contratada.
+                O GMV reúne as lives e os vídeos registrados no período.
               </p>
               {comissaoFaltante > 0 ? (
                 <p className="rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-[var(--danger)]">
@@ -471,7 +513,8 @@ export function FinanceiroPage() {
                 </p>
               ) : null}
             </div>
-          </details>
+            </details>
+          </> : null}
 
           <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
             {hasFluxo ? (

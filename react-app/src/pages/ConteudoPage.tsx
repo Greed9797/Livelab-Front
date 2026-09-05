@@ -498,6 +498,9 @@ export function ConteudoPage() {
 
       {tab === 'agenda' && !USE_LEGACY_AGENDA ? (
         <GradeTab
+          key={`${requestedDate}:${livesMarcaId}`}
+          initialDate={requestedDate}
+          initialMarcaId={livesMarcaId}
           activeCabines={activeCabines as unknown as JsonRecord[]}
           marcaRows={marcaRows}
           apresentadoraRows={apresentadoraRows}

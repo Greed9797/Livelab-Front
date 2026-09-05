@@ -81,6 +81,20 @@ export function brandMetric(row: BrandComparisonRow, sort: BrandComparisonSort):
   return metricValue(row, sort)
 }
 
+/**
+ * Comparação descritiva entre janelas equivalentes. Não tenta explicar uma
+ * mudança: GMV/h é apenas o quociente de GMV de lives pelas horas de live.
+ */
+type ComparablePeriodMetrics = Pick<BrandComparisonRow, 'gmvLives' | 'horasLive' | 'gmvHora'>
+
+export function brandPeriodDiagnostic(current: ComparablePeriodMetrics, previous?: ComparablePeriodMetrics) {
+  return {
+    gmvLives: metricVariation(current.gmvLives, previous?.gmvLives),
+    horasLive: metricVariation(current.horasLive, previous?.horasLive),
+    gmvHora: metricVariation(current.gmvHora, previous?.gmvHora),
+  }
+}
+
 /** Consolida as linhas diárias já filtradas sem cruzar o período ou a entidade ativa. */
 export function aggregateBrandComparison(rows: JsonRecord[]): BrandComparisonRow[] {
   const brands = new Map<string, BrandComparisonRow>()

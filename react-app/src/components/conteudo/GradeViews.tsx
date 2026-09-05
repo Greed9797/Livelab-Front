@@ -67,6 +67,7 @@ export function GradeDiaView({
                 <button
                   key={cabineId}
                   type="button"
+                  aria-label={`Cabine ${cabineNumero(cabine) ?? '—'}, ${slot.inicio}–${slot.fim}: ${celula ? `${celula.marca_nome}, ${celula.apresentadora_nome ?? 'sem apresentadora'}` : 'sem programação'}`}
                   onClick={() => onCellClick({ cabineId, cabineNumero: cabineNumero(cabine), horaInicio: slot.inicio, horaFim: slot.fim, celula })}
                   className={`min-h-[64px] rounded-lg border px-2 py-1.5 text-left transition hover:brightness-110 ${
                     celula

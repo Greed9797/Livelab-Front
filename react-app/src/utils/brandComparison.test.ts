@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateBrandComparison, brandComparisonReference, comparisonMetricMaximum, comparisonMetricWidth, formatCalendarDate, metricVariation, previousPeriodRange, sortBrandComparison } from './brandComparison'
+import { aggregateBrandComparison, brandComparisonReference, brandPeriodDiagnostic, comparisonMetricMaximum, comparisonMetricWidth, formatCalendarDate, metricVariation, previousPeriodRange, sortBrandComparison } from './brandComparison'
 
 describe('brand comparison aggregation', () => {
   it('sums daily rows by brand and keeps GMV videos out of GMV/h', () => {
@@ -64,5 +64,39 @@ describe('brand comparison aggregation', () => {
     expect(metricVariation(100, 100)).toEqual({ direction: 'flat', percent: 0 })
     expect(metricVariation(150, 100)).toEqual({ direction: 'up', percent: 50 })
     expect(metricVariation(50, 100)).toEqual({ direction: 'down', percent: 50 })
+  })
+
+  it('diagnoses GMV, hours, and GMV/h independently without including video GMV', () => {
+    const [previous] = aggregateBrandComparison([
+      { marca_id: 'a', marca_nome: 'A', gmv_lives: 100, gmv_videos: 80, horas_live: 2, total_lives: 1 },
+    ])
+    const [current] = aggregateBrandComparison([
+      { marca_id: 'a', marca_nome: 'A', gmv_lives: 150, gmv_videos: 500, horas_live: 3, total_lives: 1 },
+    ])
+
+    expect(brandPeriodDiagnostic(current, previous)).toEqual({
+      gmvLives: { direction: 'up', percent: 50 },
+      horasLive: { direction: 'up', percent: 50 },
+      gmvHora: { direction: 'flat', percent: 0 },
+    })
+  })
+
+  it('keeps absence, a real zero, and no-hour rate distinct in the diagnosis', () => {
+    const [withoutHours] = aggregateBrandComparison([
+      { marca_id: 'a', marca_nome: 'A', gmv_lives: 0, horas_live: 0, total_lives: 0 },
+    ])
+    expect(brandPeriodDiagnostic(withoutHours)).toEqual({
+      gmvLives: { direction: 'none' },
+      horasLive: { direction: 'none' },
+      gmvHora: { direction: 'none' },
+    })
+
+    const [zeroThenValue] = aggregateBrandComparison([
+      { marca_id: 'a', marca_nome: 'A', gmv_lives: 50, horas_live: 1, total_lives: 1 },
+    ])
+    const [zeroBase] = aggregateBrandComparison([
+      { marca_id: 'a', marca_nome: 'A', gmv_lives: 0, horas_live: 1, total_lives: 1 },
+    ])
+    expect(brandPeriodDiagnostic(zeroThenValue, zeroBase).gmvLives).toEqual({ direction: 'new' })
   })
 })

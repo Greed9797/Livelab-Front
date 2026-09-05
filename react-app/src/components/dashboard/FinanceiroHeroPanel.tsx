@@ -2,9 +2,8 @@ import { Card, CardBody } from '../ui/Card'
 import { asNumber, formatMoney, formatPercent } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 
-// Hero do Resultado líquido (fat_liquido) no padrão premium da casa (número mono
-// grande). Difere do GmvHeroPanel: lê os campos reais de /financeiro/resumo e só
-// exibe DeltaPill quando há período anterior REAL carregado (nunca +0,0% morto).
+// Hero da margem comercial (fat_liquido). O backend aplica o piso em zero depois
+// dos custos manuais; por isso o texto precisa deixar essa regra visível.
 
 function DeltaPill({ current, previous }: { current: number; previous: number }) {
   if (!(previous > 0)) return null
@@ -46,6 +45,7 @@ export function FinanceiroHeroPanel({ raw, prev }: { raw: JsonRecord; prev?: Jso
   const lives = asNumber(raw.total_lives)
   const videos = asNumber(raw.total_videos)
   const ticket = pedidos > 0 ? gmvTotal / pedidos : 0
+  const receitaSobreGmv = gmvTotal > 0 ? (comissao / gmvTotal) * 100 : 0
 
   const prevFat = prev ? asNumber(prev.fat_liquido) : 0
   const prevGmv = prev ? asNumber(prev.gmv_total) : 0
@@ -56,11 +56,11 @@ export function FinanceiroHeroPanel({ raw, prev }: { raw: JsonRecord; prev?: Jso
       <div className="absolute inset-x-5 top-0 h-0.5 rounded-b bg-brand" />
       <CardBody className="flex flex-col gap-5 p-5 md:p-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Resultado líquido do período</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Margem após custos manuais</p>
           <div className="mt-2 flex flex-wrap items-baseline gap-3">
             <div
               className="flex items-baseline gap-1.5 leading-none"
-              title={`Comissão de franquia ${formatMoney(comissao)} − custos ${formatMoney(custos)} = ${formatMoney(fatLiquido)}`}
+              title={`Receita de marcas ${formatMoney(comissao)} − custos manuais ${formatMoney(custos)}; mínimo exibido: R$ 0,00.`}
             >
               <span className="text-base font-medium text-ink-muted">R$</span>
               <span className="num text-[40px] font-black leading-none tracking-[-0.03em] text-ink md:text-[44px]">
@@ -70,18 +70,20 @@ export function FinanceiroHeroPanel({ raw, prev }: { raw: JsonRecord; prev?: Jso
             {hasPrev ? <DeltaPill current={fatLiquido} previous={prevFat} /> : null}
           </div>
           <p className="mt-2 text-xs text-ink-muted">
-            Comissão de franquia <span className="num font-semibold text-[var(--success)]">{formatMoney(comissao)}</span>
-            {' − '}custos <span className="num font-semibold text-[var(--danger)]">{formatMoney(custos)}</span>
+            Receita de marcas <span className="num font-semibold text-[var(--success)]">{formatMoney(comissao)}</span>
+            {' − '}custos manuais <span className="num font-semibold text-[var(--danger)]">{formatMoney(custos)}</span>
+            {' · mínimo exibido R$ 0,00'}
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-line pt-4 sm:grid-cols-3 lg:grid-cols-5">
-          <Stat label="GMV bruto" value={formatMoney(gmvTotal)} delta={hasPrev ? { current: gmvTotal, previous: prevGmv } : undefined} />
-          <Stat label="Take rate" value={formatPercent(gmvTotal > 0 ? (comissao / gmvTotal) * 100 : 0)} />
+          <Stat label="GMV do período" value={formatMoney(gmvTotal)} delta={hasPrev ? { current: gmvTotal, previous: prevGmv } : undefined} />
+          <Stat label="Receita / GMV*" value={formatPercent(receitaSobreGmv)} />
           <Stat label="Lives" value={lives.toLocaleString('pt-BR')} />
           <Stat label="Vídeos" value={videos.toLocaleString('pt-BR')} />
           <Stat label="Ticket médio" value={formatMoney(ticket)} />
         </div>
+        <p className="-mt-2 text-[11px] text-ink-muted">* Relação da receita total com o GMV; a taxa variável incide só sobre o GMV das lives e não inclui valores fixos.</p>
       </CardBody>
     </Card>
   )

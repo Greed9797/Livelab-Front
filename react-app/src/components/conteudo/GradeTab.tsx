@@ -24,6 +24,7 @@ import { asString } from '../../utils/format'
 import type { Cabine, JsonRecord } from '../../types/models'
 import {
   marcasPresentes,
+  gradeDateFromLink,
   type GradeCelula,
   type GradeDia,
   type GradePadraoCelula,
@@ -32,6 +33,7 @@ import { resolveMarcaCor } from '../../utils/brandColor'
 import { GradeDiaView, GradeMesView, GradeSemanaView } from './GradeViews'
 import { GradeCellPopover, type GradeCellTarget } from './GradeCellPopover'
 import { AgendarLiveModal } from '../forms/AgendarLiveModal'
+import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 
 type GradeView = 'dia' | 'semana' | 'mes'
 
@@ -53,10 +55,7 @@ function dowRepresentativo(scope: PadraoScope): number {
   return scope === 'uteis' ? 1 : scope
 }
 
-const todayISO = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+const todayISO = getSaoPauloDateInput
 
 function shiftDate(dateISO: string, view: GradeView, direction: 1 | -1): string {
   const d = new Date(`${dateISO}T00:00:00`)
@@ -76,12 +75,14 @@ interface GradeTabProps {
   apresentadoraRows: JsonRecord[]
   /** false = papel read-only: grade visível, ações de escrita escondidas. */
   canWrite?: boolean
+  initialDate?: string
+  initialMarcaId?: string
 }
 
-export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite = true }: GradeTabProps) {
+export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite = true, initialDate = '', initialMarcaId = '' }: GradeTabProps) {
   const [view, setView] = useState<GradeView>('dia')
-  const [date, setDate] = useState(todayISO())
-  const [filtroMarca, setFiltroMarca] = useState('')
+  const [date, setDate] = useState(() => gradeDateFromLink(initialDate, todayISO()))
+  const [filtroMarca, setFiltroMarca] = useState(initialMarcaId)
   const [filtroApresentadora, setFiltroApresentadora] = useState('')
   const [editPadrao, setEditPadrao] = useState(false)
   const [padraoScope, setPadraoScope] = useState<PadraoScope>('uteis')
