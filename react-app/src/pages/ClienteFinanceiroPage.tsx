@@ -37,9 +37,7 @@ export function ClienteFinanceiroPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Cliente parceiro"
-        accent="Financeiro"
-        title="da loja"
+        title="Financeiro da loja"
         subtitle="Mensalidade fixa, comissão variável e total devido."
         actions={<PeriodControl period={period} onChange={setPeriod} />}
       />

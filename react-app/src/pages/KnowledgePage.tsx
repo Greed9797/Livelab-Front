@@ -199,9 +199,7 @@ export function KnowledgePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Base"
-        accent="Conhecimento"
-        title="Livelab"
+        title="Conhecimento Livelab"
         subtitle="Encontre orientações operacionais e materiais publicados."
       />
       <Card>

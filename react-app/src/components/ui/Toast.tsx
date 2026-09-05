@@ -24,7 +24,7 @@ const ToastContext = createContext<ToastContextValue | null>(null)
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const AUTO_DISMISS_MS = 4000
-const EXIT_ANIMATION_MS = 320
+const EXIT_ANIMATION_MS = 150
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -49,29 +49,26 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         alignItems: 'flex-start',
         gap: '10px',
         padding: '12px 14px',
-        borderRadius: '12px',
+        borderRadius: 'var(--radius-control)',
         background: 'var(--bg-elev-2)',
         border: `1px solid var(--border)`,
-        borderLeft: `3px solid ${color}`,
         boxShadow: 'var(--shadow-card)',
         color: 'var(--text-primary)',
         fontSize: '13px',
         lineHeight: '1.45',
         maxWidth: '360px',
         width: '100%',
-        /* slide-in from right on enter, slide-out on exit */
-        transform: toast.visible ? 'translateX(0)' : 'translateX(calc(100% + 24px))',
+        /* A short opacity transition avoids a distracting fixed-position slide. */
         opacity: toast.visible ? 1 : 0,
-        transition: `transform ${EXIT_ANIMATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${EXIT_ANIMATION_MS}ms ease`,
+        transition: `opacity ${EXIT_ANIMATION_MS}ms ease-out`,
       }}
     >
-      {/* color chip background behind icon */}
       <span
         style={{
           flexShrink: 0,
           width: 28,
           height: 28,
-          borderRadius: 8,
+          borderRadius: 'var(--radius-control)',
           background: soft,
           display: 'flex',
           alignItems: 'center',
@@ -81,7 +78,8 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         <Icon size={15} color={color} strokeWidth={2.2} />
       </span>
 
-      <span style={{ flex: 1, paddingTop: '4px', color: 'var(--text-primary)' }}>
+      <span style={{ display: 'flex', flex: 1, alignItems: 'flex-start', gap: 8, paddingTop: '4px', color: 'var(--text-primary)' }}>
+        <span aria-hidden="true" style={{ width: 8, height: 8, flexShrink: 0, marginTop: 5, borderRadius: '50%', background: color }} />
         {toast.message}
       </span>
 

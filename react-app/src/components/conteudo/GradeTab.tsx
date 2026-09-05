@@ -427,7 +427,7 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
             <p className="text-sm font-semibold text-[color:var(--danger)]">{extractErrorMessage(copiarDiaMutation.error)}</p>
           ) : null}
           <div className="flex items-center justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setCopiarDiaOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="secondary" onClick={() => setCopiarDiaOpen(false)}>Cancelar</Button>
             <Button type="submit" isLoading={copiarDiaMutation.isPending} disabled={!copiarDestino}>Copiar</Button>
           </div>
         </form>

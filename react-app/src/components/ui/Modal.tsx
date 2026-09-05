@@ -99,6 +99,7 @@ export function Modal({
   const idRef = useRef<symbol | null>(null)
   const restoreFocusRef = useRef<HTMLElement | null>(null)
   const restoreFocusFrameRef = useRef<number | null>(null)
+  const initialFocusFrameRef = useRef<number | null>(null)
   if (idRef.current === null) idRef.current = Symbol('modal')
   // Ref evita re-registrar o listener a cada render quando onClose é uma arrow inline.
   const onCloseRef = useRef(onClose)
@@ -165,24 +166,35 @@ export function Modal({
   }, [open])
 
   // Foco inicial: primeiro elemento focável do painel, senão o próprio painel. Se o
-  // conteúdo chega depois, o observer só move o foco enquanto ele ainda está no painel.
+  // conteúdo chega depois, o observer só move o foco quando o elemento ativo sumiu.
+  // Um foco escolhido pelo usuário (ou por um aviso filho) cancela o RAF pendente.
   useEffect(() => {
     if (!open) return
     const panel = panelRef.current
     if (!panel) return
-    const frame = requestAnimationFrame(() => {
+    function cancelPendingInitialFocus() {
+      if (initialFocusFrameRef.current === null) return
+      cancelAnimationFrame(initialFocusFrameRef.current)
+      initialFocusFrameRef.current = null
+    }
+    initialFocusFrameRef.current = requestAnimationFrame(() => {
+      initialFocusFrameRef.current = null
       if (openModals[openModals.length - 1] !== idRef.current) return
+      if (document.activeElement !== panel && panel.contains(document.activeElement)) return
       const first = getFocusableElements(panel)[0]
       ;(first ?? panel).focus()
     })
+    panel.addEventListener('focusin', cancelPendingInitialFocus)
     const observer = new MutationObserver(() => {
       if (openModals[openModals.length - 1] !== idRef.current) return
-      if (document.activeElement !== panel) return
+      const activeElement = document.activeElement
+      if (activeElement instanceof HTMLElement && activeElement !== panel && panel.contains(activeElement)) return
       getFocusableElements(panel)[0]?.focus()
     })
     observer.observe(panel, { childList: true, subtree: true })
     return () => {
-      cancelAnimationFrame(frame)
+      panel.removeEventListener('focusin', cancelPendingInitialFocus)
+      cancelPendingInitialFocus()
       observer.disconnect()
     }
   }, [open])
@@ -196,7 +208,7 @@ export function Modal({
           ref={panelRef}
           tabIndex={-1}
           className={clsx(
-            'flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-card)] outline-none sm:max-h-[calc(100dvh-3rem)]',
+            'flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-[var(--radius-panel)] border border-line bg-surface shadow-[var(--shadow-card-lg)] outline-none sm:max-h-[calc(100dvh-3rem)]',
             size === 'sm' && 'max-w-lg',
             size === 'md' && 'max-w-2xl',
             size === 'lg' && 'max-w-4xl',
@@ -205,17 +217,17 @@ export function Modal({
         >
           <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-4 py-3 sm:px-6 sm:py-4">
             <div className="min-w-0">
-              <h2 id={titleId} className="text-base font-semibold leading-snug text-ink sm:text-lg">{title}</h2>
+              <h2 id={titleId} className="text-lg font-bold leading-snug tracking-[-0.015em] text-ink">{title}</h2>
               {subtitle ? <p id={subtitleId} className="mt-1 text-sm leading-5 text-ink-muted">{subtitle}</p> : null}
             </div>
             <button
               type="button"
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-surface text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-line bg-surface text-ink-muted transition-colors duration-150 ease-out hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
               aria-label="Fechar"
               disabled={closeDisabled}
               onClick={onClose}
             >
-              <X className="h-4 w-4" />
+              <X className="h-[18px] w-[18px]" />
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 scrollbar-thin sm:px-6 sm:py-5">{children}</div>

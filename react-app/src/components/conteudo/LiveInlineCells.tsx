@@ -90,6 +90,7 @@ export function InlineGmvCell({
               cancel()
             }
           }}
+          aria-label="GMV faturado"
           placeholder="0,00"
           inputMode="decimal"
           disabled={saving}
@@ -104,7 +105,6 @@ export function InlineGmvCell({
             fontSize: 12.5,
             fontFamily: 'inherit',
             fontVariantNumeric: 'tabular-nums',
-            outline: 'none',
           }}
         />
         <button type="button" title="Salvar GMV" onClick={() => void commit()} disabled={saving} style={iconBtn('var(--success)')}>
@@ -222,6 +222,7 @@ export function InlinePedidosCell({
               cancel()
             }
           }}
+          aria-label="Pedidos"
           placeholder="0"
           inputMode="numeric"
           disabled={saving}
@@ -236,7 +237,6 @@ export function InlinePedidosCell({
             fontSize: 12.5,
             fontFamily: 'inherit',
             fontVariantNumeric: 'tabular-nums',
-            outline: 'none',
           }}
         />
         <button type="button" title="Salvar pedidos" onClick={() => void commit()} disabled={saving} style={iconBtn('var(--success)')}>
@@ -326,6 +326,7 @@ export function InlineApresentadoraCell({
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
         <select
+          aria-label="Apresentadora"
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -333,9 +334,9 @@ export function InlineApresentadoraCell({
             if (e.key === 'Escape') cancel()
           }}
           disabled={saving}
-          style={{ flex: 1, minWidth: 0, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--primary)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'inherit', outline: 'none' }}
+          style={{ flex: 1, minWidth: 0, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--primary)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'inherit' }}
         >
-          <option value="">— sem apresentadora —</option>
+          <option value="">Sem apresentadora definida</option>
           {options.map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
         </select>
         <button type="button" title="Salvar apresentadora" onClick={() => void commit()} disabled={saving} style={iconBtn('var(--success)')}>

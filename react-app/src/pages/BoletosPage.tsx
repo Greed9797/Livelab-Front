@@ -80,9 +80,7 @@ export function BoletosPanel({ embedded = false }: { embedded?: boolean }) {
     <div className="space-y-6">
       {!embedded ? (
         <PageHeader
-          eyebrow="Financeiro"
-          accent="Boletos"
-          title="e cobranças"
+          title="Boletos e cobranças"
           subtitle="Lista de cobranças, status de vencimento, link do gateway e ações permitidas por papel."
           actions={
             <Button variant="secondary" icon={RefreshCcw} onClick={() => {

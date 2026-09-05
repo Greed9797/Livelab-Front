@@ -80,7 +80,7 @@ export function GmvHoraComboPanel({
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-base font-bold tracking-[-0.01em] text-ink">{title}</p>
+            <h2 className="ui-title">{title}</h2>
             {subtitle ? <p className="mt-1 text-xs text-ink-muted">{subtitle}</p> : null}
           </div>
           {accumulatedValue ? (
@@ -97,12 +97,12 @@ export function GmvHoraComboPanel({
             <ComposedChart data={data} margin={{ top: 18, right: 4, bottom: 0, left: -8 }}>
               <CartesianGrid stroke={gridStroke} vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: axisColor }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#ff5a1f' }} tickLine={false} axisLine={false} tickFormatter={(v) => `R$${v}`} width={56} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: axisColor }} tickLine={false} axisLine={false} tickFormatter={(v) => `R$${v}`} width={56} />
               <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: axisColor }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}h`} width={36} />
               <Tooltip content={<ComboTooltip />} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar yAxisId="right" dataKey="horas" name="Horas de live (h)" fill="#52525b" radius={[4, 4, 0, 0]} maxBarSize={26} />
-              <Line yAxisId="left" type="monotone" dataKey="gmvHora" name="GMV/h (R$)" stroke="#ff5a1f" strokeWidth={2.5} dot={{ r: 3, fill: '#ff5a1f', strokeWidth: 0 }} />
+              <Bar isAnimationActive={false} yAxisId="right" dataKey="horas" name="Horas de live (h)" fill="var(--alt)" radius={[4, 4, 0, 0]} maxBarSize={26} />
+              <Line isAnimationActive={false} yAxisId="left" type="monotone" dataKey="gmvHora" name="GMV/h (R$)" stroke="var(--primary)" strokeWidth={2.5} dot={{ r: 3, fill: axisColor, strokeWidth: 0 }} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -125,7 +125,7 @@ export function LinePanel({
   return (
     <Card>
       <CardHeader>
-        <p className="text-base font-bold tracking-[-0.01em] text-ink">{title}</p>
+        <h2 className="ui-title">{title}</h2>
         {subtitle ? <p className="mt-1 text-xs text-ink-muted">{subtitle}</p> : null}
       </CardHeader>
       <CardBody>
@@ -136,8 +136,8 @@ export function LinePanel({
               <XAxis dataKey="label" tick={{ fontSize: 12, fill: axisColor }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 12, fill: axisColor }} tickLine={false} axisLine={false} />
               <Tooltip content={<MoneyTooltip />} />
-              <Line type="monotone" dataKey="value" name="Valor" stroke="#ff5a1f" strokeWidth={3} dot={false} />
-              {secondary ? <Line type="monotone" dataKey="secondary" name="Comparativo" stroke="#2c7ad6" strokeWidth={2} dot={false} /> : null}
+              <Line isAnimationActive={false} type="monotone" dataKey="value" name="Valor" stroke="var(--primary)" strokeWidth={3} dot={false} />
+              {secondary ? <Line isAnimationActive={false} type="monotone" dataKey="secondary" name="Comparativo" stroke="var(--alt)" strokeWidth={2} dot={false} /> : null}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -150,7 +150,7 @@ export function BarPanel({ title, subtitle, data }: { title: string; subtitle?: 
   return (
     <Card>
       <CardHeader>
-        <p className="text-base font-bold tracking-[-0.01em] text-ink">{title}</p>
+        <h2 className="ui-title">{title}</h2>
         {subtitle ? <p className="mt-1 text-xs text-ink-muted">{subtitle}</p> : null}
       </CardHeader>
       <CardBody>
@@ -161,7 +161,7 @@ export function BarPanel({ title, subtitle, data }: { title: string; subtitle?: 
               <XAxis dataKey="label" tick={{ fontSize: 12, fill: axisColor }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 12, fill: axisColor }} tickLine={false} axisLine={false} />
               <Tooltip content={<MoneyTooltip />} />
-              <Bar dataKey="value" name="Valor" fill="#ff5a1f" radius={[6, 6, 0, 0]} />
+              <Bar isAnimationActive={false} dataKey="value" name="Valor" fill="var(--primary)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -174,7 +174,7 @@ export function AreaPanel({ title, data }: { title: string; data: ChartPoint[] }
   return (
     <Card>
       <CardHeader>
-        <p className="text-base font-bold tracking-[-0.01em] text-ink">{title}</p>
+        <h2 className="ui-title">{title}</h2>
       </CardHeader>
       <CardBody>
         <div className="h-64">
@@ -182,15 +182,15 @@ export function AreaPanel({ title, data }: { title: string; data: ChartPoint[] }
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="gmvGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ff5a1f" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#ff5a1f" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke={gridStroke} vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 12, fill: axisColor }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 12, fill: axisColor }} tickLine={false} axisLine={false} />
               <Tooltip content={<MoneyTooltip />} />
-              <Area type="monotone" dataKey="value" name="GMV" stroke="#ff5a1f" fill="url(#gmvGradient)" strokeWidth={3} />
+              <Area isAnimationActive={false} type="monotone" dataKey="value" name="GMV" stroke="var(--primary)" fill="url(#gmvGradient)" strokeWidth={3} />
             </AreaChart>
           </ResponsiveContainer>
         </div>

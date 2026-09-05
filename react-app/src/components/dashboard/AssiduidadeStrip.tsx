@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarCheck } from 'lucide-react'
+import { CalendarCheck, Check, Clock3, Minus, X } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
 import { getAssiduidade } from '../../services/domain'
@@ -359,6 +359,7 @@ function PalitoDia({
   onSelecionar,
   onNavegar,
   onApontar,
+  compact = false,
 }: {
   label: string
   status: AssiduidadeStatus
@@ -368,6 +369,7 @@ function PalitoDia({
   onSelecionar: () => void
   onNavegar: (passo: number | 'inicio' | 'fim') => void
   onApontar?: (rect: DOMRect | null) => void
+  compact?: boolean
 }) {
   return (
     <button
@@ -389,10 +391,23 @@ function PalitoDia({
         e.preventDefault()
         onNavegar(passo)
       }}
-      className="flex w-[9px] shrink-0 cursor-pointer items-end bg-transparent p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-      style={{ height: `${altura}px` }}
+      className={`flex shrink-0 cursor-pointer justify-center bg-transparent p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] ${compact ? 'h-[30px] w-[30px] items-center rounded-[7px]' : 'w-[9px] items-end'}`}
+      style={{ height: `${compact ? 30 : altura}px` }}
     >
-      <span className="block w-full rounded-[2px]" style={estiloPalito(status, altura)} />
+      {compact ? (
+        <span
+          aria-hidden="true"
+          className="grid h-full w-full place-items-center rounded-[7px] text-button-danger-foreground"
+          style={status === 'cinza'
+            ? { border: '1px dashed var(--border-strong)', color: 'var(--text-muted)' }
+            : { background: ASSIDUIDADE_META[status].cor }}
+        >
+          {status === 'verde' ? <Check className="h-3 w-3" />
+            : status === 'vermelho' ? <X className="h-3 w-3" />
+              : status === 'em_curso' ? <Clock3 className="h-3 w-3" />
+                : <Minus className="h-3 w-3" />}
+        </span>
+      ) : <span className="block w-full rounded-[2px]" style={estiloPalito(status, altura)} />}
     </button>
   )
 }
@@ -405,6 +420,9 @@ interface AssiduidadeStripProps {
   apresentadoraId?: string
   titulo?: string
   subtitulo?: string
+  /** A Home mostra somente a amostra operacional; páginas dedicadas mantêm a lista completa. */
+  limit?: number
+  action?: ReactNode
 }
 
 export function AssiduidadeStrip({
@@ -413,6 +431,8 @@ export function AssiduidadeStrip({
   apresentadoraId,
   titulo = 'Assiduidade das apresentadoras',
   subtitulo,
+  limit,
+  action,
 }: AssiduidadeStripProps) {
   // Janela invertida nem chega a ser pedida: o backend responderia 400 (ou, quando ele mesmo
   // corta o fim em hoje, uma fileira vazia) e a tela viraria um bloco de erro sem explicação.
@@ -435,6 +455,8 @@ export function AssiduidadeStrip({
   // Marca NUNCA filtra aqui (e o endpoint nem aceita marca_id): presença é física, não pertence a
   // marca. Filtrar por marca faria sumir quem naquele dia fez live de outra — vermelho falso.
   const linhas = apresentadoraId ? dados.linhas.filter((l) => l.id === apresentadoraId) : dados.linhas
+  const [mostrarTodas, setMostrarTodas] = useState(false)
+  const linhasVisiveis = typeof limit === 'number' && !mostrarTodas ? linhas.slice(0, limit) : linhas
 
   // Dia selecionado por clique/toque/teclado. É o que substitui o hover: o motivo do palitinho
   // aparece em texto, abaixo da fileira, num região aria-live que o leitor de tela anuncia.
@@ -442,7 +464,7 @@ export function AssiduidadeStrip({
   // Hover é um canal SEPARADO da seleção: apontar não pode alterar o que está fixado no painel
   // de leitura abaixo, senão passar o mouse pela fileira apagaria o dia que a pessoa clicou.
   const [apontado, setApontado] = useState<{ texto: string; rect: DOMRect } | null>(null)
-  const linhaSelecionada = linhas.find((l) => l.id === selecao?.linhaId)
+  const linhaSelecionada = linhasVisiveis.find((l) => l.id === selecao?.linhaId)
   const diaSelecionado = selecao ? linhaSelecionada?.dias[selecao.indice] : undefined
 
   const periodo = dados.inicio && dados.fim
@@ -465,13 +487,13 @@ export function AssiduidadeStrip({
   }
 
   return (
-    <Card>
+    <Card role="region" aria-label={titulo}>
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <CalendarCheck className="h-4 w-4 shrink-0 text-[var(--primary)]" />
-              <p className="text-base font-bold text-ink">{titulo}</p>
+              <h2 className="text-lg font-bold tracking-[-0.015em] text-ink">{titulo}</h2>
             </div>
             <p className="mt-1 text-xs text-ink-muted">
               {subtitulo ?? 'Um palitinho por dia — altura e cor mostram quanto tempo ela ficou no ar.'}
@@ -491,6 +513,12 @@ export function AssiduidadeStrip({
                 {ASSIDUIDADE_META[status].rotulo}
               </span>
             ))}
+            {action ? <span className="ml-2">{action}</span> : null}
+            {typeof limit === 'number' && linhas.length > limit ? (
+              <button type="button" className="min-h-9 text-[13px] font-semibold text-ink underline-offset-4 hover:underline" aria-expanded={mostrarTodas} onClick={() => setMostrarTodas(value => !value)}>
+                {mostrarTodas ? 'Mostrar menos' : `Ver as ${linhas.length} apresentadoras →`}
+              </button>
+            ) : null}
           </div>
         </div>
         <p className="mt-2 text-[11px] text-ink-muted">
@@ -531,13 +559,14 @@ export function AssiduidadeStrip({
               onScroll={() => setApontado(null)}
             >
               <div className="w-max min-w-full space-y-2">
-                {linhas.map((linha) => {
+                {typeof limit === 'number' && linhasVisiveis[0] ? <div className="ml-[182px] flex gap-[6px] text-[11px] text-ink-muted">{linhasVisiveis[0].dias.map((dia) => <span key={dia.data} className="grid h-[30px] w-[30px] place-items-center">{dia.data.slice(-2)}</span>)}</div> : null}
+                {linhasVisiveis.map((linha) => {
                   // Roving tabindex: a fileira inteira é UMA parada de Tab e as setas percorrem os
                   // dias. Com 366 palitinhos × N apresentadoras, um tabIndex=0 por dia transformaria
                   // a Home num campo minado de milhares de paradas de teclado.
                   const focado = selecao?.linhaId === linha.id ? selecao.indice : 0
                   return (
-                    <div key={linha.id} className="flex items-stretch gap-3">
+                    <div key={linha.id} className={`flex items-stretch gap-3 ${typeof limit === 'number' ? 'min-h-[54px]' : ''}`}>
                       {/* Nome fica colado à esquerda no scroll horizontal: uma fileira de 90 dias sem
                           âncora vira uma linha de cores de dono desconhecido. Ele é opaco e os
                           palitinhos passam por baixo — daí items-stretch na linha: sem ocupar a
@@ -553,7 +582,7 @@ export function AssiduidadeStrip({
                           // <details> nativo: em toque e no teclado o gestor abre e vê QUAIS dias
                           // são as faltas, sem precisar acertar um alvo de 9px nem ter hover.
                           <details className="text-[10px]">
-                            <summary className="num cursor-pointer font-bold" style={{ color: 'var(--danger)' }}>
+                            <summary className="num cursor-pointer font-bold" style={{ color: 'var(--danger-text)' }}>
                               {`${linha.faltas} ${linha.faltas === 1 ? 'falta' : 'faltas'}`}
                             </summary>
                             <p className="mt-0.5 leading-snug text-ink-muted">
@@ -568,7 +597,7 @@ export function AssiduidadeStrip({
                       </div>
 
                       <div
-                        className="flex items-end gap-[2px]"
+                        className={`flex items-end ${typeof limit === 'number' ? 'gap-[6px]' : 'gap-[2px]'}`}
                         style={{ height: 32 }}
                         role="group"
                         aria-label={`Assiduidade de ${linha.nome}: ${linha.dias.length} dias, ${linha.faltas} falta(s)`}
@@ -586,6 +615,7 @@ export function AssiduidadeStrip({
                             onApontar={(rect) =>
                               setApontado(rect ? { texto: `${linha.nome} · ${descreverDia(dia, metas)}`, rect } : null)
                             }
+                            compact={typeof limit === 'number'}
                           />
                         ))}
                       </div>

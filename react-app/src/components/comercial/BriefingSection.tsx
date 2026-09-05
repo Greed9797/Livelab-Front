@@ -77,7 +77,7 @@ export function BriefingSection({ clienteId }: BriefingSectionProps) {
         />
       ) : (
         <textarea
-          className="design-input min-h-40 w-full px-4 py-3 font-mono text-sm"
+          className="design-input min-h-40 w-full px-4 py-3 text-sm"
           aria-labelledby={labelId}
           placeholder="Escreva o briefing do cliente em Markdown (**negrito**, - listas, [links](url))…"
           value={conteudo}

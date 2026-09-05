@@ -31,9 +31,7 @@ export function ClienteConteudoPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Cliente parceiro"
-        accent="Conteúdo"
-        title="das lives"
+        title="Conteúdo das lives"
         subtitle="Histórico publicado e analytics das lives realizadas."
         actions={tab === 'lives' ? <PeriodControl period={period} onChange={setPeriod} /> : undefined}
       />

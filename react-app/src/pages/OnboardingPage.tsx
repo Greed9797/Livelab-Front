@@ -157,7 +157,7 @@ function StepItem({ step, current, label }: { step: Step; current: Step; label: 
 function SectionTitle({ number, title, subtitle }: { number: string; title: string; subtitle: string }) {
   return (
     <div className="mb-5 flex items-start gap-3 border-b border-dashed border-[var(--border-strong)] pb-4">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand-soft font-serif text-sm italic text-brand">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand-soft text-sm font-semibold text-brand">
         {number}
       </span>
       <div>
@@ -277,7 +277,7 @@ export function OnboardingPage() {
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-4 sm:px-8 lg:flex-nowrap lg:gap-8">
           <div className="text-[22px] font-extrabold tracking-[-0.04em] text-ink">
-            Live<span className="font-serif italic">lab</span><span className="text-brand">.</span>
+            Live<span className="font-normal italic">lab</span><span className="text-brand">.</span>
           </div>
           <div className="order-3 flex w-full items-center gap-3 lg:order-none lg:max-w-2xl lg:flex-1">
             <StepItem step={1} current={step} label="Boas-vindas" />
@@ -308,7 +308,7 @@ export function OnboardingPage() {
                   Onboarding · 2 min
                 </p>
                 <h1 className="m-0 text-3xl font-bold leading-tight tracking-[-0.03em] text-ink sm:text-4xl">
-                  Bem-vindo(a) ao <span className="font-serif text-[1.1em] font-normal italic text-brand">Livelab</span>
+                  Bem-vindo(a) ao <span className="text-[1.1em] font-normal italic text-brand">Livelab</span>
                 </h1>
                 <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
                   Antes de começar, precisamos conhecer melhor o seu negócio. Suas respostas ajudam nosso time a personalizar a estratégia de lives.
@@ -346,7 +346,7 @@ export function OnboardingPage() {
                 Etapa 2 de 3
               </p>
               <h1 className="m-0 text-2xl font-bold tracking-[-0.025em] text-ink sm:text-3xl">
-                Formulário de <span className="font-serif text-[1.12em] font-normal italic text-brand">onboarding</span>
+                Formulário de <span className="text-[1.12em] font-normal italic text-brand">onboarding</span>
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
                 Preencha os campos obrigatórios pra que possamos configurar sua conta. Os campos marcados com <span className="font-bold text-brand">*</span> são essenciais.
@@ -522,7 +522,7 @@ export function OnboardingPage() {
               Tudo certo
             </p>
             <h1 className="m-0 text-3xl font-bold leading-tight tracking-[-0.03em] text-ink">
-              Obrigado por compartilhar suas <span className="font-serif text-[1.12em] font-normal italic text-brand">informações</span>
+              Obrigado por compartilhar suas <span className="text-[1.12em] font-normal italic text-brand">informações</span>
             </h1>
             <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
               Sua equipe Livelab já pode começar a trabalhar com você. Em breve você receberá um email com os próximos passos.

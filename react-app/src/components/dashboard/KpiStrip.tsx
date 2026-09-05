@@ -1,5 +1,4 @@
-import { TrendingUp, TrendingDown } from 'lucide-react'
-import { Sparkline } from '../charts/Sparkline'
+import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react'
 import { MetricInfo } from '../ui/MetricInfo'
 import { asNumber } from '../../utils/format'
 import type { MetricKey } from '../../utils/metricGlossary'
@@ -10,28 +9,27 @@ interface KpiItemProps {
   value: string
   /** Chave do glossário central — define o conteúdo do tooltip do KPI. */
   metric: MetricKey
-  delta?: number
-  spark?: number[]
-  sparkColor?: string
+  delta?: number | null
   prefix?: string
   suffix?: string
   align?: 'left' | 'right'
 }
 
-// undefined = sem base de comparação → não renderiza o pill (evita "+0.0%" falso)
-function delta(cur: number, prev: number): number | undefined {
-  if (!prev) return undefined
+// null = sem base de comparação; a régua declara a ausência em vez de esconder a referência.
+function delta(cur: number, prev: number): number | null {
+  if (!prev) return null
   return ((cur - prev) / prev) * 100
 }
 
-function DeltaPill({ d }: { d: number }) {
+function DeltaPill({ d }: { d: number | null }) {
+  if (d === null) return <span className="inline-flex h-[22px] items-center rounded-full bg-[var(--bg-elev-3)] px-2 text-xs font-bold text-ink-muted">sem base</span>
   const positive = d >= 0
   return (
     <span
-      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-medium font-mono"
+      className="inline-flex h-[22px] items-center gap-0.5 rounded-full px-2 text-xs font-bold"
       style={{
-        background: positive ? 'var(--success-soft)' : 'var(--danger-soft)',
-        color: positive ? 'var(--success)' : 'var(--danger)',
+        background: positive ? 'var(--primary-soft)' : 'var(--danger-soft)',
+        color: positive ? 'var(--primary-text)' : 'var(--danger-text)',
       }}
     >
       {positive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -40,18 +38,18 @@ function DeltaPill({ d }: { d: number }) {
   )
 }
 
-function KpiItem({ label, value, metric, delta: d, spark, sparkColor, prefix, suffix, align }: KpiItemProps) {
+function KpiItem({ label, value, metric, delta: d, prefix, suffix, align }: KpiItemProps) {
   return (
     <div
-      className="flex flex-col justify-between gap-3 rounded-xl p-4"
-      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
+      className="flex min-w-0 flex-1 flex-col justify-center gap-2 border-t border-line px-5 py-3 xl:min-w-[150px] xl:border-t-0"
+      style={{ borderLeft: '1px solid var(--border)' }}
     >
       <div className="flex flex-wrap items-start gap-1 sm:gap-2">
         <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
           <span className="leading-tight">{label}</span>
           <MetricInfo metric={metric} align={align} />
         </span>
-        {d !== undefined && <DeltaPill d={d} />}
+        <DeltaPill d={d ?? null} />
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
@@ -63,7 +61,7 @@ function KpiItem({ label, value, metric, delta: d, spark, sparkColor, prefix, su
               </span>
             )}
             <span
-              className="text-[22px] font-semibold leading-none tracking-tight font-mono"
+              className="text-[22px] font-semibold leading-none tracking-tight"
               style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
             >
               {value}
@@ -75,11 +73,6 @@ function KpiItem({ label, value, metric, delta: d, spark, sparkColor, prefix, su
             )}
           </div>
         </div>
-        {spark && spark.length > 2 && (
-          <div className="hidden shrink-0 opacity-80 sm:block">
-            <Sparkline data={spark} width={60} height={22} stroke={sparkColor ?? 'var(--primary)'} />
-          </div>
-        )}
       </div>
     </div>
   )
@@ -94,9 +87,21 @@ interface KpiStripProps {
    * e "Horas em live" aparecerem zerados ao abrir a Home e "encherem" segundos depois.
    */
   loading?: boolean
+  mesExibido: string
+  meses: string[]
+  onMesAnterior: () => void
+  onMesProximo: () => void
+  onMesChange: (mes: string) => void
+  proximoDesabilitado: boolean
 }
 
-export function KpiStrip({ raw, loading = false }: KpiStripProps) {
+function monthLabel(mesISO: string): string {
+  const [y, m] = mesISO.split('-').map(Number)
+  const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+export function KpiStrip({ raw, loading = false, mesExibido, meses, onMesAnterior, onMesProximo, onMesChange, proximoDesabilitado }: KpiStripProps) {
   // Dois baldes distintos no backend (src/routes/home.js:340-342):
   //   gmv_total_mes = gmv_mes = gmv_lives_mes + gmv_videos_mes   (lives + vídeos)
   //   gmv_lives_mes                                              (só lives)
@@ -114,13 +119,10 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
   const ausente = (...chaves: string[]) => chaves.every((k) => raw[k] === undefined || raw[k] === null)
   const gmvMes = asNumber(raw.gmv_total_mes ?? raw.gmv_mes ?? raw.fat_bruto)
   const gmvLivesMes = asNumber(raw.gmv_lives_mes)
-  const gmvPrev = asNumber(raw.gmv_mes_prev ?? raw.gmv_prev)
   const livesMes = asNumber(raw.lives_mes ?? raw.total_lives)
   const livesPrev = asNumber(raw.lives_prev)
   const horasLive = asNumber(raw.horas_live ?? raw.horas_live_mes)
   const horasPrev = asNumber(raw.horas_prev)
-  const videosMes = asNumber(raw.videos_mes ?? raw.total_videos)
-  const videosPrev = asNumber(raw.videos_prev)
   // GMV/hora usa só GMV de lives, igual ao backend (home.js:922, mesma
   // convenção do analytics.js).
   //
@@ -135,11 +137,6 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
   const gmvPorHora = asNumber(raw.gmv_por_hora ?? raw.gmv_por_hora_mes ?? raw.gmv_hora) || (horasLive > 0 ? gmvLivesMes / horasLive : 0)
   const gmvPorHoraPrev = asNumber(raw.gmv_por_hora_prev)
 
-  const gmvSpark = (raw.gmv_year as number[] | undefined)
-  const livesSpark = (raw.lives_year as number[] | undefined)
-  const horasSpark = (raw.horas_year as number[] | undefined)
-  const videosSpark = (raw.videos_year as number[] | undefined)
-
   function fmtCompact(v: number): string {
     if (v >= 1_000_000) return `${(v / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`
     if (v >= 1_000) return `${(v / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`
@@ -148,20 +145,10 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
 
   const items: KpiItemProps[] = [
     {
-      label: 'GMV — Mês',
-      metric: 'home.gmv_total',
-      value: ausente('gmv_total_mes', 'gmv_mes', 'fat_bruto') ? '—' : fmtCompact(gmvMes),
-      prefix: 'R$',
-      delta: delta(gmvMes, gmvPrev),
-      spark: gmvSpark,
-    },
-    {
       label: 'Lives realizadas',
       metric: 'home.lives',
       value: ausente('lives_mes','total_lives') ? '—' : livesMes.toLocaleString('pt-BR'),
       delta: delta(livesMes, livesPrev),
-      spark: livesSpark,
-      sparkColor: 'var(--info)',
     },
     {
       label: 'Horas em live',
@@ -169,16 +156,6 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
       value: ausente('horas_live','horas_live_mes') ? '—' : horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 }),
       suffix: 'h',
       delta: delta(horasLive, horasPrev),
-      spark: horasSpark,
-      sparkColor: 'var(--success)',
-    },
-    {
-      label: 'Vídeos gravados',
-      metric: 'home.videos',
-      value: ausente('videos_mes','total_videos') ? '—' : videosMes.toLocaleString('pt-BR'),
-      delta: delta(videosMes, videosPrev),
-      spark: videosSpark,
-      sparkColor: 'var(--warning)',
     },
     {
       label: 'GMV / live',
@@ -197,7 +174,16 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
+    <section className="overflow-x-auto rounded-[var(--radius-panel)] border border-line bg-surface shadow-[var(--shadow-card)]" aria-label="Indicadores do mês">
+      <div className="grid grid-cols-2 items-stretch xl:flex">
+        <div className="col-span-2 flex min-w-0 items-center justify-between gap-2 px-4 py-3 xl:min-w-[260px]">
+          <button type="button" aria-label="Mês anterior" onClick={onMesAnterior} className="grid h-8 w-8 place-items-center rounded-lg text-ink-muted hover:bg-surface-muted"><ChevronLeft className="h-4 w-4" /></button>
+          <select aria-label="Filtrar por mês" value={mesExibido} onChange={(event) => onMesChange(event.target.value)} className="min-w-[170px] appearance-none bg-transparent text-[15px] font-bold text-ink focus:outline-none">
+            {meses.map((mes) => <option key={mes} value={mes}>{monthLabel(mes)}</option>)}
+            {!meses.includes(mesExibido) ? <option value={mesExibido}>{monthLabel(mesExibido)}</option> : null}
+          </select>
+          <button type="button" aria-label="Próximo mês" disabled={proximoDesabilitado} onClick={onMesProximo} className="grid h-8 w-8 place-items-center rounded-lg text-ink-muted hover:bg-surface-muted disabled:opacity-35"><ChevronRight className="h-4 w-4" /></button>
+        </div>
       {items.map((item, index) => (
         // Últimas colunas ancoram o popover à direita para não vazar da faixa.
         <KpiItem
@@ -205,11 +191,11 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
           {...item}
           // Delta e sparkline sairiam de um zero inventado — some com eles junto do valor.
           value={loading ? '—' : item.value}
-          delta={loading ? undefined : item.delta}
-          spark={loading ? undefined : item.spark}
-          align={index >= 4 ? 'right' : 'left'}
+          delta={loading ? null : item.delta}
+          align={index % 2 === 1 ? 'right' : 'left'}
         />
       ))}
-    </div>
+      </div>
+    </section>
   )
 }

@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { Crown, Flame, Medal, Sparkles } from 'lucide-react'
 import type { JsonRecord } from '../../types/models'
 import { asArray, asNumber, asString, formatMoney } from '../../utils/format'
@@ -263,27 +264,26 @@ function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; i
   if (variant === 'compact') {
     return (
       <div
-        className="flex items-center gap-3 px-4 py-2.5"
+        className="flex min-h-[62px] items-center gap-3 px-5 py-3"
         style={{
           borderTop: index === 0 ? 'none' : '1px solid var(--divider)',
-          background: tone.row,
+          background: 'transparent',
         }}
       >
         <div
-          className="serif w-5 shrink-0 text-center text-2xl leading-none"
-          style={{ background: tone.number, WebkitBackgroundClip: 'text', color: 'transparent' }}
+          className="w-5 shrink-0 text-center text-[13px] font-bold leading-none"
+          style={{ color: index === 0 ? 'var(--primary)' : 'var(--text-muted)' }}
         >
           {index + 1}
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold tracking-[-0.01em] text-ink">{row.name}</p>
-          {row.commission > 0 ? (
-            <p className="num text-[11px] font-bold leading-tight text-[var(--success)]">
-              {formatMoney(row.commission, true)}
-            </p>
-          ) : null}
+        <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full text-xs font-bold" style={{ background: index === 0 ? 'var(--primary)' : 'var(--bg-elev-3)', color: index === 0 ? '#000' : 'var(--text-primary)' }}>
+          {row.avatarUrl ? <img src={row.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" /> : row.initials}
         </div>
-        <p className="num shrink-0 text-right text-base font-black tracking-[-0.02em] text-ink">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-ink">{row.name}</p>
+          <p className="mt-0.5 text-xs text-ink-muted">{row.commission > 0 ? `comissão ${formatMoney(row.commission, true)}` : 'comissão não informada'}</p>
+        </div>
+        <p className="num shrink-0 text-right text-[15px] font-bold tracking-[-0.02em] text-ink">
           {formatMoney(row.gmv, true)}
         </p>
       </div>
@@ -301,7 +301,7 @@ function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; i
       }}
     >
       <div
-        className="serif text-4xl leading-none md:text-center"
+        className="text-4xl font-bold leading-none md:text-center"
         style={{ background: tone.number, WebkitBackgroundClip: 'text', color: 'transparent' }}
       >
         {index + 1}
@@ -356,7 +356,7 @@ function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; i
           {row.sparkline.length >= 2 ? (
             <Sparkline points={row.sparkline} highlight={index === 0} />
           ) : (
-            <span className="text-[11px] font-medium text-ink-muted/60">sem série</span>
+            <span className="text-[11px] font-medium text-ink-muted">sem série</span>
           )}
         </div>
       ) : null}
@@ -380,6 +380,7 @@ export function PresenterLeaderboard({
   emptyLabel = 'Nenhuma apresentadora com GMV registrado neste mês.',
 }: PresenterLeaderboardProps) {
   const presenters = useMemo(() => normalizeRows(rows, limit), [rows, limit])
+  const semApresentadora = rows.filter((row) => !isRealPresenter(row))
 
   return (
     <section
@@ -390,18 +391,15 @@ export function PresenterLeaderboard({
         boxShadow: 'var(--shadow-card)',
       }}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4" style={{ borderBottom: '1px solid var(--divider)' }}>
+      <div className="flex flex-wrap items-start justify-between gap-3 px-7 py-6" style={{ borderBottom: '1px solid var(--divider)' }}>
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted">
-            <span className="serif normal-case text-base tracking-normal text-brand">Ranking</span> de apresentadoras
-          </p>
-          <h3 className="mt-0.5 text-base font-extrabold tracking-[-0.01em] text-ink">{title}</h3>
-          <p className="mt-0.5 text-sm text-ink-muted">{subtitle}</p>
+          <h2 className="text-lg font-bold tracking-[-0.015em] text-ink">{title}</h2>
+          <p className="mt-1 text-[13px] text-ink-muted">{subtitle}</p>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
 
-      {presenters.length > 0 ? (
+      {presenters.length > 0 || semApresentadora.length > 0 ? (
         <div>
           {variant === 'full' ? (
             <div className="hidden gap-4 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted md:grid grid-cols-[44px_minmax(230px,1.2fr)_minmax(220px,1fr)_110px_120px]">
@@ -415,6 +413,10 @@ export function PresenterLeaderboard({
           {presenters.map((row, index) => (
             <PresenterLeaderboardRow key={row.key} row={row} index={index} variant={variant} />
           ))}
+          {semApresentadora.length > 0 ? <div className="flex min-h-[62px] items-center gap-3 border-t border-line px-5 py-3">
+            <div className="grid h-9 w-9 place-items-center rounded-full border border-dashed border-[var(--border-strong)] text-sm font-bold text-ink-muted">?</div>
+            <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink">A definir</p><Link to="/lives?pendencia=cadastro" className="text-xs font-semibold text-[var(--warning-text)]">atribuir →</Link></div>
+          </div> : null}
         </div>
       ) : (
         <div className="px-5 py-12 text-center text-sm text-ink-muted">{emptyLabel}</div>

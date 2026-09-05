@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #ff5a1f;
-  --color-brand-hover: #e64a0f;
+  --color-brand: #ff4d1c;
+  --color-brand-hover: #ff6a3d;
   --color-brand-soft: var(--primary-soft);
   --color-button-primary: var(--primary);
   --color-button-primary-hover: var(--primary-hover);
@@ -10,16 +10,14 @@
   --color-button-danger: var(--danger);
   --color-button-danger-hover: var(--button-danger-hover);
   --color-button-danger-foreground: var(--button-danger-foreground);
-  --shadow-button-primary: 0 6px 14px -4px color-mix(in oklch, var(--color-button-primary) 45%, transparent);
+  --shadow-button-primary: var(--primary-glow);
   --color-canvas: var(--bg-base);
   --color-surface: var(--bg-elev-1);
   --color-surface-muted: var(--bg-elev-3);
   --color-ink: var(--text-primary);
   --color-ink-muted: var(--text-muted);
   --color-line: var(--border);
-  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-serif: "Instrument Serif", Georgia, serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 :root {
@@ -43,19 +41,34 @@
   --primary-soft: rgba(255, 90, 31, 0.12);
   --primary-softer: rgba(255, 90, 31, 0.06);
   --primary-glow: 0 0 0 1px rgba(255, 90, 31, 0.2), 0 8px 20px -6px rgba(255, 90, 31, 0.3);
+  --alt: #0b8f9d;
+  --alt-soft: rgba(11, 143, 157, 0.14);
   --success: #1fa968;
   --success-soft: rgba(31, 169, 104, 0.12);
   --warning: #e08a0b;
   --warning-soft: rgba(224, 138, 11, 0.12);
   --danger: #e04b3c;
   --danger-soft: rgba(224, 75, 60, 0.12);
+  --live: var(--danger);
+  --live-soft: var(--danger-soft);
   --info: #2c7ad6;
   --info-soft: rgba(44, 122, 214, 0.12);
   --border: rgba(26, 26, 26, 0.08);
   --border-strong: rgba(26, 26, 26, 0.14);
   --hairline: rgba(26, 26, 26, 0.05);
+  --divider: var(--border);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(23, 10, 4, 0.05);
   --shadow-card-lg: 0 16px 40px rgba(23, 10, 4, 0.08);
+  --radius-panel: 20px;
+  --radius-control: 12px;
+  --radius-pill: 999px;
+  /* Orange is not sufficiently distinct from the warm light canvas as a focus ring. */
+  --focus-ring: var(--text-primary);
+  --primary-text: var(--text-primary);
+  --danger-text: var(--text-primary);
+  --warning-text: var(--text-primary);
+  --success-text: var(--text-primary);
+  --info-text: var(--text-primary);
   font-family: var(--font-sans);
   background: var(--bg-base);
   color: var(--text-primary);
@@ -63,39 +76,49 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  /* warm off-black — direção C fintech premium */
-  --bg-base: oklch(0.155 0.006 60);
-  --bg-elev-1: oklch(0.185 0.006 60);
-  --bg-elev-2: oklch(0.205 0.006 60);
-  --bg-elev-3: oklch(0.235 0.006 60);
-  --bg-input: oklch(0.185 0.006 60);
-  --text-primary: oklch(0.97 0.004 60);
-  --text-secondary: oklch(0.78 0.005 60);
-  --text-muted: oklch(0.65 0.005 60);
-  --text-faint: oklch(0.62 0.005 60);
-  --primary: oklch(0.74 0.17 50);
-  --primary-hover: oklch(0.78 0.15 50);
-  --primary-soft: oklch(0.74 0.17 50 / 0.14);
-  --primary-softer: oklch(0.74 0.17 50 / 0.07);
-  --primary-glow: 0 0 0 1px oklch(0.74 0.17 50 / 0.3), 0 8px 24px -6px oklch(0.74 0.17 50 / 0.4);
-  --success: oklch(0.78 0.14 155);
-  --success-soft: oklch(0.78 0.14 155 / 0.16);
-  --warning: oklch(0.80 0.14 80);
-  --warning-soft: oklch(0.80 0.14 80 / 0.14);
-  --danger: oklch(0.66 0.22 25);
-  --button-danger-hover: oklch(0.70 0.18 25);
-  --danger-soft: oklch(0.66 0.22 25 / 0.18);
-  --info: oklch(0.74 0.11 235);
-  --info-soft: oklch(0.74 0.11 235 / 0.16);
-  --border: oklch(0.30 0.006 60);
-  --border-strong: oklch(0.40 0.006 60);
-  --hairline: oklch(0.25 0.006 60);
-  --divider: oklch(0.25 0.006 60);
-  --shadow-card: 0 1px 0 oklch(1 0 0 / 0.03) inset, 0 8px 24px oklch(0 0 0 / 0.3);
-  --shadow-card-lg: 0 24px 54px oklch(0 0 0 / 0.36);
-  /* live-state accent */
-  --live: oklch(0.66 0.22 25);
-  --live-soft: oklch(0.66 0.22 25 / 0.18);
+  --bg-base: #000000;
+  --bg-elev-1: #0e0e0e;
+  --bg-elev-2: #121212;
+  --bg-elev-3: #181818;
+  --bg-input: #0e0e0e;
+  --text-primary: #ffffff;
+  --text-secondary: #ababab;
+  --text-muted: #8e8e8e;
+  --text-faint: #8e8e8e;
+  --primary: #ff4d1c;
+  --primary-hover: #ff6a3d;
+  --button-primary-foreground: #000000;
+  --primary-soft: rgba(255, 77, 28, 0.16);
+  --primary-softer: rgba(255, 77, 28, 0.08);
+  --primary-glow: 0 8px 20px -10px #ff4d1c;
+  --alt: #0fa8b8;
+  --alt-soft: rgba(15, 168, 184, 0.18);
+  --success: #2fe28e;
+  --success-soft: rgba(47, 226, 142, 0.16);
+  --warning: #ffb020;
+  --warning-soft: rgba(255, 176, 32, 0.18);
+  --danger: #ff3b5c;
+  --button-danger-hover: #ff5c78;
+  --danger-soft: rgba(255, 59, 92, 0.16);
+  --info: #0fa8b8;
+  --info-soft: rgba(15, 168, 184, 0.16);
+  --live: #ff3b5c;
+  --live-soft: rgba(255, 59, 92, 0.18);
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.20);
+  --hairline: rgba(255, 255, 255, 0.06);
+  --divider: rgba(255, 255, 255, 0.10);
+  --shadow-card: 0 12px 32px -18px rgba(0, 0, 0, 0.9);
+  --shadow-card-lg: 0 24px 54px rgba(0, 0, 0, 0.5);
+  --radius-panel: 20px;
+  --radius-control: 12px;
+  --radius-pill: 999px;
+  --focus-ring: var(--primary);
+  --primary-text: var(--primary);
+  --danger-text: var(--danger);
+  --warning-text: var(--warning);
+  --success-text: var(--success);
+  --info-text: var(--info);
 }
 
 :root,
@@ -120,9 +143,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255, 90, 31, 0.1), transparent 70%),
-    var(--bg-base);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -131,7 +154,7 @@ button,
 input,
 select,
 textarea {
-  font: inherit;
+  font-family: inherit;
 }
 
 button {
@@ -146,20 +169,42 @@ button:disabled {
    foco por teclado se destaque também sobre fundos claros e coloridos. A regra fica
    fora das layers do Tailwind para vencer utilitários locais de outline sem !important. */
 :where(button, a[href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
-  outline: 2px solid var(--text-primary);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-}
-
-.serif {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: -0.01em;
 }
 
 .num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum", "ss01";
+}
+
+/* Shared copy anatomy. Screens can compose spacing and layout without redefining
+   hierarchy, weight or muted copy colors. */
+.ui-title {
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.ui-description {
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.ui-label {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+:where(input, textarea)::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
 }
 
 .scrollbar-thin {
@@ -187,17 +232,40 @@ button:disabled {
     var(--bg-base);
 }
 
+[data-theme="dark"] .livelab-shell,
+.livelab-shell[data-theme="dark"] {
+  background: var(--bg-base);
+}
+
+[data-theme="dark"] .login-decoration {
+  display: none;
+}
+
+@keyframes gmv-chart-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+.gmv-chart-draw {
+  stroke-dasharray: 1;
+  animation: gmv-chart-draw 500ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gmv-chart-draw { animation: none !important; }
+}
+
 .design-card {
   background: var(--bg-elev-1);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-panel);
   box-shadow: var(--shadow-card);
 }
 
 .design-panel {
   background: var(--bg-elev-1);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--radius-panel);
   box-shadow: var(--shadow-card);
 }
 
@@ -213,12 +281,12 @@ button:disabled {
 .design-input {
   background: var(--bg-input);
   border: 1px solid var(--border-strong);
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   color: var(--text-primary);
   -webkit-text-fill-color: var(--text-primary);
   caret-color: var(--primary);
   outline: none;
-  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  transition: background 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
 .design-input:hover {
@@ -226,15 +294,15 @@ button:disabled {
 }
 
 .design-input::placeholder {
-  color: var(--text-muted);
-  -webkit-text-fill-color: var(--text-muted);
+  color: var(--text-faint);
+  -webkit-text-fill-color: var(--text-faint);
   opacity: 1;
 }
 
 .design-input:focus {
   background: var(--bg-elev-1);
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .design-input:disabled {
@@ -306,26 +374,21 @@ textarea {
   caret-color: var(--primary);
 }
 
-.design-soft-grid {
-  background-image:
-    linear-gradient(var(--hairline) 1px, transparent 1px),
-    linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
-  background-size: 42px 42px;
-}
-
 .onboarding-shell {
   background:
     radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--primary) 15%, transparent) 0%, var(--bg-base) 55%, var(--bg-base) 100%);
   background-attachment: fixed;
 }
 
+[data-theme="dark"] .onboarding-shell {
+  background: var(--bg-base);
+}
+
 .onboarding-save-dot {
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 45%, transparent);
-  animation: onboarding-pulse 2s ease-out infinite;
 }
 
 .onboarding-success-icon::after {
-  animation: onboarding-spin 16s linear infinite;
   border: 2px dashed color-mix(in srgb, var(--success) 35%, transparent);
   border-radius: 999px;
   content: "";
@@ -333,62 +396,20 @@ textarea {
   position: absolute;
 }
 
-@keyframes onboarding-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 45%, transparent);
-  }
-  70% {
-    box-shadow: 0 0 0 8px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-
-@keyframes onboarding-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ── Cabines page — live card glow & wave animations ── */
-@keyframes cabine-live-pulse {
-  0%, 100% {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent),
-      0 24px 60px -28px color-mix(in srgb, var(--primary) 50%, transparent),
-      0 0 50px color-mix(in srgb, var(--primary) 18%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent),
-      0 28px 80px -28px color-mix(in srgb, var(--primary) 70%, transparent),
-      0 0 72px color-mix(in srgb, var(--primary) 28%, transparent);
-  }
-}
-@keyframes cabine-wave {
-  0%, 100% { transform: scaleY(0.35); }
-  50%       { transform: scaleY(1); }
-}
-@keyframes cabine-ping {
-  0%        { transform: scale(1); opacity: 0.55; }
-  80%, 100% { transform: scale(2.5); opacity: 0; }
-}
-
 .cabine-card-live {
-  animation: cabine-live-pulse 3.6s ease-in-out infinite;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--primary) 16%, transparent),
+    0 24px 60px -28px color-mix(in srgb, var(--primary) 50%, transparent);
 }
-.cabine-card-live:hover { transform: translateY(-1px); }
 
 .cabine-card-avail {
   opacity: 0.75;
   filter: saturate(0.6);
-  transition: opacity 0.25s, filter 0.25s, transform 0.25s, border-color 0.25s;
+  transition: opacity 150ms ease-out, filter 150ms ease-out, border-color 150ms ease-out;
 }
 .cabine-card-avail:hover {
   opacity: 1;
   filter: saturate(1);
-  transform: translateY(-1px);
 }
 
 .cabine-wave-bar {
@@ -396,7 +417,7 @@ textarea {
   width: 2px;
   background: var(--primary);
   border-radius: 1px;
-  animation: cabine-wave 1s ease-in-out infinite;
+  opacity: 0.75;
 }
 
 .cabine-live-ping {
@@ -408,17 +429,8 @@ textarea {
   inset: -3px;
   border-radius: 50%;
   background: var(--primary);
-  opacity: 0.45;
-  animation: cabine-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  opacity: 0.2;
 }
-
-/* Conic border sheen — spinning gradient on the card edge */
-@property --cabine-ang {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-@keyframes cabine-spin-ang { to { --cabine-ang: 360deg; } }
 
 .cabine-card-live {
   isolation: isolate;
@@ -430,7 +442,7 @@ textarea {
   border-radius: 18px;
   padding: 1px;
   background: conic-gradient(
-    from var(--cabine-ang),
+    from 40deg,
     transparent 0deg,
     color-mix(in srgb, var(--primary) 70%, transparent) 40deg,
     transparent 100deg,
@@ -440,7 +452,28 @@ textarea {
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0.9;
-  animation: cabine-spin-ang 6s linear infinite;
   pointer-events: none;
   z-index: 1;
+}
+
+/* O único movimento contínuo da interface: sinaliza uma live em andamento. */
+@keyframes live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 60%, transparent);
+  }
+
+  70% {
+    box-shadow: 0 0 0 9px transparent;
+  }
+}
+
+.live-pulse {
+  animation: live-pulse 1.6s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-pulse {
+    animation: none !important;
+  }
 }

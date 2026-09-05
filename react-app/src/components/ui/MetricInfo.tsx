@@ -41,7 +41,7 @@ export function MetricInfoPopover({
     <span
       id={id}
       role="tooltip"
-      className={`absolute top-full z-50 mt-2 block w-64 rounded-xl border border-line bg-surface p-3 text-left shadow-[var(--shadow-card)] ${align === 'right' ? 'right-0' : 'left-0'}`}
+      className={`absolute top-full z-50 mt-2 block w-64 rounded-[var(--radius-control)] border border-line bg-surface p-3 text-left shadow-[var(--shadow-card)] ${align === 'right' ? 'right-0' : 'left-0'}`}
     >
       <span className="block text-xs font-bold text-ink">{entry.rotulo}</span>
       <span className="mt-1 block text-xs leading-snug text-ink-muted">{entry.definicao}</span>
@@ -109,7 +109,7 @@ export function MetricInfo({
         aria-label={`Como calculamos ${entry.rotulo}`}
         aria-expanded={open}
         aria-describedby={open ? popoverId : undefined}
-        className="grid h-4 w-4 place-items-center rounded-full text-ink-muted transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+        className="grid h-4 w-4 place-items-center rounded-full text-ink-muted transition-colors duration-150 ease-out hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
         onClick={() => setOpen((current) => !current)}
         onFocus={() => setOpen(true)}
       >

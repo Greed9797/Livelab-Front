@@ -163,11 +163,11 @@ export function GradeCellPopover({
 
   return (
     <Modal open title={titulo} subtitle={subtitulo} size="sm" onClose={closeGuard.requestClose} closeDisabled={isSaving}>
-      <form onSubmit={onSubmit} className="space-y-4 px-5 py-4">
+      <form onSubmit={onSubmit} className="space-y-4">
         <label className="block text-sm">
-          <span className="mb-1 block font-semibold text-ink">Marca</span>
-          <select className="design-input h-10 w-full px-3" value={marcaId} onChange={(e) => setMarcaId(e.target.value)} required>
-            <option value="">Selecione a marca…</option>
+          <span className="mb-2 block font-semibold text-ink">Marca</span>
+          <select className="design-input h-11 w-full px-3" value={marcaId} onChange={(e) => setMarcaId(e.target.value)} required>
+            <option value="">Selecione uma marca</option>
             {marcas.map((m) => (
               <option key={asString(m.id)} value={asString(m.id)}>{asString(m.nome, 'Sem nome')}</option>
             ))}
@@ -175,9 +175,9 @@ export function GradeCellPopover({
         </label>
 
         <label className="block text-sm">
-          <span className="mb-1 block font-semibold text-ink">Apresentadora</span>
-          <select className="design-input h-10 w-full px-3" value={apresentadoraId} onChange={(e) => setApresentadoraId(e.target.value)}>
-            <option value="">Sem apresentadora</option>
+          <span className="mb-2 block font-semibold text-ink">Apresentadora</span>
+          <select className="design-input h-11 w-full px-3" value={apresentadoraId} onChange={(e) => setApresentadoraId(e.target.value)}>
+            <option value="">Sem apresentadora definida</option>
             {apresentadoras.map((a) => (
               <option key={asString(a.id)} value={asString(a.id)}>{asString(a.nome, 'Sem nome')}</option>
             ))}
@@ -185,8 +185,8 @@ export function GradeCellPopover({
         </label>
 
         <label className="block text-sm">
-          <span className="mb-1 block font-semibold text-ink">Observação</span>
-          <input className="design-input h-10 w-full px-3" value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Opcional" />
+          <span className="mb-2 block font-semibold text-ink">Observação</span>
+          <input className="design-input h-11 w-full px-3" value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Adicione uma observação (opcional)" />
         </label>
 
         {errorMessage ? <p className="text-sm font-semibold text-[color:var(--danger)]">{errorMessage}</p> : null}
@@ -198,7 +198,7 @@ export function GradeCellPopover({
             <Button type="button" variant="danger" onClick={onClear} disabled={isSaving}>Limpar célula</Button>
           ) : <span />}
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" onClick={closeGuard.requestClose} disabled={isSaving}>Cancelar</Button>
+            <Button type="button" variant="secondary" onClick={closeGuard.requestClose} disabled={isSaving}>Cancelar</Button>
             <Button type="submit" isLoading={isSaving} disabled={!marcaId}>Salvar</Button>
           </div>
         </div>
@@ -207,14 +207,14 @@ export function GradeCellPopover({
       {/* A grade é template; o agendamento real vive em agenda_eventos. Este bloco
           é o CRUD dele no lugar onde o operador já está clicando. */}
       {target.data && onAgendarLive ? (
-        <div className="border-t border-line px-5 py-4">
+        <div className="mt-5 border-t border-line pt-5">
           <p className="text-sm font-semibold text-ink">Lives agendadas neste horário</p>
           {agendaQuery.isLoading ? (
             <p className="mt-2 text-sm text-ink-muted">Carregando agendamentos…</p>
           ) : agendaQuery.error ? (
             <p className="mt-2 text-sm font-semibold text-[color:var(--danger)]">Não foi possível carregar os agendamentos deste horário.</p>
           ) : lives.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-muted">Nenhuma live agendada neste slot.</p>
+            <p className="mt-2 text-sm text-ink-muted">Nenhuma live agendada neste horário.</p>
           ) : (
             <ul className="mt-2 space-y-2">
               {lives.map((evento) => (
@@ -249,7 +249,7 @@ export function GradeCellPopover({
             <p className="mt-2 text-sm font-semibold text-[color:var(--danger)]">{agendaErrorMessage}</p>
           ) : null}
           <Button type="button" variant="secondary" icon={CalendarPlus} className="mt-3" onClick={onAgendarLive}>
-            Agendar live real neste horário
+            Agendar live neste horário
           </Button>
         </div>
       ) : null}

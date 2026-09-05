@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { asNumber, formatMoney } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 
@@ -68,6 +68,12 @@ export function fmtCompact(v: number): string {
   return v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
 }
 
+/** Curva do contador do hero. O último quadro usa sempre o dado exato. */
+export function countUpValue(total: number, progresso: number): number {
+  if (progresso >= 1) return total
+  return total * (1 - 2 ** (-10 * Math.max(0, progresso)))
+}
+
 /** Counts business days (Mon–Fri) for the current month in America/Sao_Paulo. */
 export function computeBusinessDays(): { diaUtil: number; diasUteisTotal: number } {
   const now = new Date(
@@ -115,8 +121,8 @@ function DeltaPill({ v }: { v: number }) {
     <span
       className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium num"
       style={{
-        background: pos ? 'var(--success-soft)' : 'var(--danger-soft)',
-        color: pos ? 'var(--success)' : 'var(--danger)',
+        background: pos ? 'var(--primary-soft)' : 'var(--danger-soft)',
+        color: pos ? 'var(--primary-text)' : 'var(--danger-text)',
         fontVariantNumeric: 'tabular-nums',
       }}
     >
@@ -128,13 +134,12 @@ function DeltaPill({ v }: { v: number }) {
 interface MetaBarProps {
   gmv: number
   meta: number | null
-  metaOrigem: string | null
   diaUtil: number
   diasUteisTotal: number
   ritmo: number | null
 }
 
-function MetaBar({ gmv, meta, metaOrigem, diaUtil, diasUteisTotal, ritmo }: MetaBarProps) {
+function MetaBar({ gmv, meta, diaUtil, diasUteisTotal, ritmo }: MetaBarProps) {
   if (meta === null) {
     return (
       <div className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
@@ -157,13 +162,11 @@ function MetaBar({ gmv, meta, metaOrigem, diaUtil, diasUteisTotal, ritmo }: Meta
         style={{ color: 'var(--text-muted)' }}
       >
         <span>
-          Meta ·{' '}
+          Meta{' '}
           <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
             R$ {meta.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </span>
-          {metaOrigem === 'diaria_legada' ? (
-            <span style={{ color: 'var(--text-faint)' }}> · derivada da meta diária antiga</span>
-          ) : null}
+          {falta > 0 ? <> · faltam <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>R$ {fmtCompact(falta)}</span></> : null}
         </span>
         <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
           {pct.toFixed(1).replace('.', ',')}% realizado
@@ -196,14 +199,6 @@ function MetaBar({ gmv, meta, metaOrigem, diaUtil, diasUteisTotal, ritmo }: Meta
           <span className="num" style={{ fontVariantNumeric: 'tabular-nums' }}>
             {diaUtil}/{diasUteisTotal}
           </span>
-          {falta > 0 && (
-            <>
-              {' '}· faltam{' '}
-              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                R$ {fmtCompact(falta)}
-              </span>
-            </>
-          )}
         </span>
         <span>
           Ritmo projetado{' '}
@@ -333,7 +328,7 @@ function IntradayChart({ data }: { data: IntradayPoint[] }) {
               x={PAD.l - 4} y={y + 3}
               fontSize="9" fill="var(--text-faint)"
               textAnchor="end"
-              fontFamily="var(--font-mono, monospace)"
+              fontFamily="var(--font-sans)"
             >
               {fmtCompact(val)}
             </text>
@@ -350,7 +345,7 @@ function IntradayChart({ data }: { data: IntradayPoint[] }) {
               fontSize="9"
               fill="var(--text-faint)"
               textAnchor="middle"
-              fontFamily="var(--font-mono, monospace)"
+              fontFamily="var(--font-sans)"
             >
               {d.h}h
             </text>
@@ -362,7 +357,7 @@ function IntradayChart({ data }: { data: IntradayPoint[] }) {
           <path
             d={prevPath}
             fill="none"
-            stroke="var(--text-muted)"
+            stroke="var(--alt, var(--text-muted))"
             strokeWidth="1.25"
             strokeDasharray="3 4"
             opacity="0.6"
@@ -376,6 +371,8 @@ function IntradayChart({ data }: { data: IntradayPoint[] }) {
         {currPath && (
           <path
             d={currPath}
+            className="gmv-chart-draw"
+            pathLength={1}
             fill="none"
             stroke="var(--primary)"
             strokeWidth="1.75"
@@ -437,7 +434,7 @@ function IntradayChart({ data }: { data: IntradayPoint[] }) {
           xRatio={(xFn(hoveredIdx) - PAD.l) / (CHART_W - PAD.l - PAD.r)}
           title={`${hovered.h}h`}
           rows={[
-            { label: 'Hoje', value: hovered.v != null ? formatMoney(hovered.v) : '—', color: 'var(--primary)' },
+            { label: 'Hoje', value: hovered.v != null ? formatMoney(hovered.v) : '—', color: 'var(--primary-text)' },
             { label: 'Mês anterior', value: hovered.prev != null ? formatMoney(hovered.prev) : '—', color: 'var(--text-muted)' },
           ]}
         />
@@ -526,8 +523,9 @@ function buildDailyPaths(data: DailyPoint[], todayDia: number, isCurrentMonth: b
   const todayX = isCurrentMonth && data.some((p) => p.dia === todayDia)
     ? xFn(todayDia)
     : null
+  const maxPoint = visibleData.reduce((max, point) => point.gmv > max.gmv ? point : max, visibleData[0])
 
-  return { linePath, areaPath, prevPath, hasPrev, xFn, yFn, yticks, xLabels, todayX, visibleData }
+  return { linePath, areaPath, prevPath, hasPrev, xFn, yFn, yticks, xLabels, todayX, visibleData, maxPoint }
 }
 
 function DailyChart({ data, mesReferencia }: DailyChartProps) {
@@ -548,7 +546,7 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
 
   if (!paths) return null
 
-  const { linePath, areaPath, prevPath, hasPrev, xFn, yFn, yticks, xLabels, todayX, visibleData } = paths
+  const { linePath, areaPath, prevPath, hasPrev, xFn, yFn, yticks, xLabels, todayX, visibleData, maxPoint } = paths
   const gradId = 'gmvDailyGrad'
 
   // Do X do cursor (em coordenadas do viewBox) acha o ponto mais próximo.
@@ -590,7 +588,7 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
               x={PAD.l - 4} y={y + 3}
               fontSize="9" fill="var(--text-faint)"
               textAnchor="end"
-              fontFamily="var(--font-mono, monospace)"
+              fontFamily="var(--font-sans)"
             >
               {fmtCompact(val)}
             </text>
@@ -606,7 +604,7 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
             fontSize="9"
             fill="var(--text-faint)"
             textAnchor="middle"
-            fontFamily="var(--font-mono, monospace)"
+            fontFamily="var(--font-sans)"
           >
             {String(dia).padStart(2, '0')}
           </text>
@@ -620,7 +618,7 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
           <path
             d={prevPath}
             fill="none"
-            stroke="var(--text-muted)"
+            stroke="var(--alt, var(--text-muted))"
             strokeWidth="1.25"
             strokeDasharray="3 4"
             strokeLinejoin="round"
@@ -634,6 +632,8 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
         {linePath && (
           <path
             d={linePath}
+            className="gmv-chart-draw"
+            pathLength={1}
             fill="none"
             stroke="var(--primary)"
             strokeWidth="1.75"
@@ -642,6 +642,7 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
             vectorEffect="non-scaling-stroke"
           />
         )}
+        {maxPoint.gmv > 0 ? <text x={xFn(maxPoint.dia)} y={Math.max(PAD.t + 11, yFn(maxPoint.gmv) - 8)} fontSize="11" fontWeight="700" fill="var(--text-primary)" textAnchor={xFn(maxPoint.dia) > CHART_W - PAD.r - 60 ? 'end' : xFn(maxPoint.dia) < PAD.l + 60 ? 'start' : 'middle'}>{formatMoney(maxPoint.gmv, true)}</text> : null}
 
         {/* "today" vertical marker (only in current month) */}
         {todayX != null && (
@@ -685,7 +686,7 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
           xRatio={(xFn(hovered.dia) - PAD.l) / (CHART_W - PAD.l - PAD.r)}
           title={`Dia ${String(hovered.dia).padStart(2, '0')}`}
           rows={[
-            { label: 'GMV', value: formatMoney(hovered.gmv), color: 'var(--primary)' },
+            { label: 'GMV', value: formatMoney(hovered.gmv), color: 'var(--primary-text)' },
             { label: 'Vendas', value: `${hovered.pedidos.toLocaleString('pt-BR')} pedidos` },
             ...(hasPrev ? [{ label: 'Mês anterior', value: formatMoney(hovered.prev ?? 0), color: 'var(--text-muted)' }] : []),
           ]}
@@ -700,6 +701,29 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
 export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
   // GMV + delta
   const gmv = asNumber(raw.gmv_total_mes ?? raw.gmv_mes)
+  const [gmvExibido, setGmvExibido] = useState(() => typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? gmv : 0)
+  const animouNumero = useRef(false)
+  // O número só conta na primeira carga do painel. Trocar o mês preserva a leitura imediata
+  // do novo período e o usuário que prefere menos movimento recebe o valor final diretamente.
+  useEffect(() => {
+    if (animouNumero.current) {
+      setGmvExibido(gmv)
+      return
+    }
+    animouNumero.current = true
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const inicio = performance.now()
+    let frame = 0
+    setGmvExibido(0)
+    const animar = (agora: number) => {
+      const progresso = Math.min(1, (agora - inicio) / 600)
+      // ease-out exponencial; no último quadro usamos o dado bruto, sem arredondamento acumulado.
+      setGmvExibido(countUpValue(gmv, progresso))
+      if (progresso < 1) frame = requestAnimationFrame(animar)
+    }
+    frame = requestAnimationFrame(animar)
+    return () => cancelAnimationFrame(frame)
+  }, [gmv])
   const gmvPrev = asNumber(raw.gmv_mes_prev ?? raw.gmv_prev)
   // null quando não há mês anterior → não mostra pill nem "vs. mês anterior"
   const delta = gmvPrev > 0 ? ((gmv - gmvPrev) / gmvPrev) * 100 : null
@@ -708,7 +732,6 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
   const metaRaw = raw.meta_mes ?? raw.meta_gmv
   const meta: number | null = metaRaw != null ? asNumber(metaRaw) || null : null
   // meta_origem: 'mensal' | 'diaria_legada' | null (payload novo do back)
-  const metaOrigem: string | null = typeof raw.meta_origem === 'string' ? raw.meta_origem : null
 
   // ritmo from payload, or null so MetaBar calculates client-side
   const ritmo: number | null =
@@ -793,17 +816,15 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
 
   return (
     <div
-      className="flex flex-col gap-4 rounded-[10px] p-5"
-      style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
+      className="relative flex flex-col gap-5 overflow-hidden rounded-[var(--radius-panel)] p-7"
+      style={{ containerType: 'inline-size', background: 'radial-gradient(640px 320px at 18% 0%, var(--primary-softer), transparent 70%), var(--bg-elev-1)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}
     >
       {/* header: title + legend */}
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span
-          className="text-[11px] font-semibold uppercase tracking-[0.1em]"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          {tituloCard}
-        </span>
+        <div>
+          <h2 className="text-lg font-bold tracking-[-0.015em] text-ink">{tituloCard.replace(' — desempenho', '')}</h2>
+          <p className="mt-1 text-[13px] text-ink-muted">{mesReferenciaLabel ?? 'Mês atual'} · dia útil {diaUtil} de {diasUteisTotal}</p>
+        </div>
         <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
           {/* segmented toggle: Hoje | Mês (only when a chart can render) */}
           {(hasIntraday || hasDaily) && (
@@ -893,15 +914,16 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
             R$
           </span>
           <span
-            className="num font-mono font-medium"
+            className="num whitespace-nowrap font-extrabold"
+            data-testid="gmv-value"
             style={{
-              fontSize: 44,
+              fontSize: `clamp(20px, ${Math.min(12, 145 / (gmv.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).length + 2))}cqi, 68px)`,
               lineHeight: 1,
               fontVariantNumeric: 'tabular-nums',
               color: 'var(--text-primary)',
             }}
           >
-            {gmv.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {gmvExibido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
         {delta !== null ? (
@@ -918,7 +940,6 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
       <MetaBar
         gmv={gmv}
         meta={meta}
-        metaOrigem={metaOrigem}
         diaUtil={diaUtil}
         diasUteisTotal={diasUteisTotal}
         ritmo={ritmo}

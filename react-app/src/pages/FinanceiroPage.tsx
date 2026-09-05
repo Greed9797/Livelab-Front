@@ -402,9 +402,7 @@ export function FinanceiroPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Financeiro"
-        accent="Resumo"
-        title="da unidade"
+        title="Resumo da unidade"
         subtitle={`Período: ${periodRangeLabel(committed)} · Receita, fluxo de caixa e pendências.`}
         actions={<PeriodRangeControl value={periodRange} onChange={setPeriodRange} />}
       />
@@ -541,13 +539,13 @@ export function FinanceiroPage() {
               <CardBody className="space-y-3">
                 {podeEscrever ? (
                 <form className="grid gap-3" onSubmit={onCustoSubmit}>
-                  <input className="design-input h-11 w-full px-4" placeholder="Descrição" value={custo.descricao} onChange={(event) => setCustoField('descricao', event.target.value)} required />
+                  <label className="grid gap-2 text-sm font-semibold text-ink">Descrição do custo<input className="design-input h-11 w-full px-4" value={custo.descricao} onChange={(event) => setCustoField('descricao', event.target.value)} required /></label>
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <MoneyInput className="design-input h-11 w-full px-4" placeholder="Valor" value={custo.valor} onChange={(rawValue) => setCustoField('valor', rawValue)} required />
-                    <select className="design-input h-11 w-full px-4" value={custo.tipo} onChange={(event) => setCustoField('tipo', event.target.value)}>
+                    <label className="grid gap-2 text-sm font-semibold text-ink">Valor<MoneyInput className="design-input h-11 w-full px-4" value={custo.valor} onChange={(rawValue) => setCustoField('valor', rawValue)} required /></label>
+                    <label className="grid gap-2 text-sm font-semibold text-ink">Categoria<select className="design-input h-11 w-full px-4" value={custo.tipo} onChange={(event) => setCustoField('tipo', event.target.value)}>
                       {['aluguel', 'salario', 'energia', 'internet', 'outros'].map((tipo) => <option key={tipo} value={tipo}>{tipo}</option>)}
-                    </select>
-                    <input className="design-input h-11 w-full px-4" type="month" value={custo.competencia} onChange={(event) => setCustoField('competencia', event.target.value)} required />
+                    </select></label>
+                    <label className="grid gap-2 text-sm font-semibold text-ink">Competência<input className="design-input h-11 w-full px-4" type="month" value={custo.competencia} onChange={(event) => setCustoField('competencia', event.target.value)} required /></label>
                   </div>
                   {createCusto.isError || custos.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createCusto.error ?? custos.error)}</p> : null}
                   <Button type="submit" icon={Receipt} isLoading={createCusto.isPending}>Adicionar custo</Button>

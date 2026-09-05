@@ -31,9 +31,7 @@ export function MasterDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Admin Master"
-        accent="Painel"
-        title="Master"
+        title="Painel Master"
         subtitle="Rede, unidades, CRM e alertas de operação em uma visão executiva."
         actions={<PeriodControl period={period} onChange={setPeriod} />}
       />

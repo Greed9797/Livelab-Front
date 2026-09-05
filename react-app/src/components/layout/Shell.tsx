@@ -33,11 +33,6 @@ function Sidebar({
   const logout = useAuthStore((state) => state.logout)
   const location = useLocation()
   const items = menuForUser(user)
-  // A arte da logo é monocromática: branca no tema escuro, preta no claro.
-  const theme = useThemeStore((state) => state.resolvedTheme)
-  const logoSrc = expanded
-    ? `/images/logo-wordmark-${theme}.png`
-    : `/images/logo-icon-${theme}.png`
 
   async function handleLogout() {
     await logout()
@@ -47,15 +42,17 @@ function Sidebar({
   return (
     <aside
       className={clsx(
-        'flex h-full flex-col border-r border-line bg-surface',
-        mobile ? 'w-full border-r-0' : expanded ? 'w-72 px-3 py-4' : 'w-20 items-center px-0 py-5',
+        'flex h-full flex-col border-r border-line bg-[var(--bg-base)]',
+        mobile ? 'w-full border-r-0' : expanded ? 'w-[248px] px-3 py-4' : 'w-20 items-center px-0 py-5',
       )}
     >
       <div className={clsx('mb-5 flex items-center', expanded ? 'w-full gap-3 px-2' : 'w-full flex-col gap-3')}>
         {expanded ? (
           <>
             <div className="min-w-0 flex-1">
-              <img src={logoSrc} alt="Livelab" className="h-7 w-auto max-w-full object-contain object-left" />
+              <p className="truncate text-[30px] font-bold leading-none tracking-[-0.035em] text-ink">
+                Live<span className="font-normal italic">lab</span><span className="text-brand">.</span>
+              </p>
               <p className="mt-1 truncate text-xs text-ink-muted">{user?.tenant_nome ?? 'LiveShop SaaS'}</p>
             </div>
             {onToggle ? (
@@ -72,7 +69,9 @@ function Sidebar({
           </>
         ) : null}
         {!expanded ? (
-          <img src={logoSrc} alt="Livelab" className="h-10 w-10 shrink-0 object-contain" />
+          <span aria-label="Livelab" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--bg-elev-3)] text-sm font-extrabold tracking-[-0.04em] text-ink">
+            LL
+          </span>
         ) : null}
         {!expanded && onToggle ? (
           <button
@@ -101,14 +100,13 @@ function Sidebar({
               aria-label={item.label}
               aria-current={selected ? 'page' : undefined}
               className={clsx(
-                'group relative flex shrink-0 items-center rounded-2xl text-sm font-semibold transition',
+                'group relative flex shrink-0 items-center rounded-[var(--radius-control)] text-[14.5px] font-medium transition-colors duration-150',
                 item.placement === 'footer' && 'mt-auto',
-                expanded ? 'h-11 gap-3 px-3' : 'h-14 w-14 justify-center',
-                selected ? 'bg-brand-soft text-brand' : 'text-ink-muted hover:bg-surface-muted hover:text-ink',
+                expanded ? 'h-11 gap-3 px-3' : 'h-11 w-11 justify-center',
+                selected ? 'bg-brand-soft font-semibold text-ink [&>svg]:text-brand' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elev-3)] hover:text-ink',
               )}
             >
-              {selected && !expanded ? <span className="absolute -left-3 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r bg-brand" /> : null}
-              <Icon aria-hidden="true" className="h-5 w-5 shrink-0 stroke-[1.9]" />
+              <Icon aria-hidden="true" className="h-5 w-5 shrink-0 stroke-[1.75]" />
               {expanded ? (
                 <span className="truncate">{item.label}</span>
               ) : (
@@ -122,24 +120,29 @@ function Sidebar({
       </nav>
 
       <div className={clsx('border-t border-line pt-4', expanded ? 'w-full' : 'w-full px-3')}>
-        <div className={clsx('rounded-2xl bg-surface-muted', expanded ? 'p-3' : 'grid h-12 place-items-center')}>
+        <div className={clsx('rounded-xl border border-line bg-[var(--bg-elev-3)]', expanded ? 'p-3' : 'grid h-12 place-items-center')}>
           {expanded ? (
-            <>
-              <p className="truncate text-sm font-bold text-ink">{user?.nome}</p>
-              <p className="mt-1 truncate text-xs text-ink-muted">{roleLabel(user?.papel)}</p>
-            </>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[var(--bg-elev-3)] text-xs font-bold text-ink">
+                {initials(user?.nome)}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-ink">{user?.nome}</p>
+                <p className="mt-1 truncate text-xs text-ink-muted">{roleLabel(user?.papel)}</p>
+              </div>
+            </div>
           ) : (
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brand to-[#ff8a3c] text-xs font-bold text-white">
+            <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-[var(--bg-elev-3)] text-xs font-bold text-ink">
               {initials(user?.nome)}
             </span>
           )}
         </div>
         {expanded ? (
-          <Button className="mt-3 w-full justify-start rounded-2xl" variant="secondary" icon={LogOut} onClick={() => void handleLogout()}>
+          <Button className="mt-3 h-11 w-full justify-start rounded-[var(--radius-control)]" variant="secondary" icon={LogOut} onClick={() => void handleLogout()}>
             Sair
           </Button>
         ) : (
-          <Button className="mt-3 h-11 w-full rounded-2xl px-0" variant="secondary" icon={LogOut} aria-label="Sair" onClick={() => void handleLogout()}>
+          <Button className="mt-3 h-11 w-full rounded-[var(--radius-control)] px-0" variant="secondary" icon={LogOut} aria-label="Sair" onClick={() => void handleLogout()}>
             <span className="sr-only">Sair</span>
           </Button>
         )}
@@ -171,7 +174,7 @@ export function Shell() {
         <Sidebar expanded mobile onNavigate={() => setOpen(false)} />
       </Modal>
 
-      <div className={clsx(desktopExpanded ? 'lg:pl-72' : 'lg:pl-20')}>
+      <div className={clsx(desktopExpanded ? 'lg:pl-[248px]' : 'lg:pl-20')}>
         <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 px-4 py-3 backdrop-blur md:px-7 lg:hidden">
           <div className="flex items-center justify-between">
             <button
@@ -184,7 +187,7 @@ export function Shell() {
               <Menu aria-hidden="true" className="h-5 w-5" />
             </button>
             <div className="flex items-center gap-2">
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-xs font-bold text-ink">
+              <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-[var(--bg-elev-3)] text-xs font-bold text-ink">
                 {initials(user?.nome)}
               </span>
               <div className="text-right">

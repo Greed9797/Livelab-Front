@@ -421,7 +421,6 @@ function DayView({
                         height: `${Math.max(44, layout.height - 8)}px`,
                         left: `calc(${leftPct}% + 4px)`,
                         width: `calc(${widthPct}% - 8px)`,
-                        borderLeft: `3px solid ${cor}`,
                       }}
                       onClick={() => onOpenEvent(event)}
                       onKeyDown={(ke) => { if (ke.key === 'Enter' || ke.key === ' ') onOpenEvent(event) }}
@@ -429,7 +428,8 @@ function DayView({
                       {isLiveOnAir(event) ? (
                         <div className="absolute right-2 top-2"><TikTokLiveButton username={event.tiktok_username} compact /></div>
                       ) : null}
-                      <p className="font-bold" style={{ color: cor }}>
+                      <p className="flex items-center gap-1.5 font-semibold text-ink">
+                        <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: cor }} />
                         {typeLabel(event.tipo)} · {formatSaoPauloTime(event.data_inicio)}-{formatSaoPauloTime(event.data_fim)}
                       </p>
                       <div className="mt-1 flex items-center gap-2">

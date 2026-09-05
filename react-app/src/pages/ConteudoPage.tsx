@@ -471,7 +471,6 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Operação"
         title={tab === 'agenda' ? 'Agenda' : 'Lives'}
         subtitle={tab === 'agenda' ? 'Programação das cabines e apresentadoras.' : 'Resultados, registros e métricas das lives.'}
       />

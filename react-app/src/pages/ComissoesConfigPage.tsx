@@ -379,9 +379,7 @@ export function ComissoesConfigPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Financeiro · Comissões"
-        accent="Regras"
-        title="de comissão"
+        title="Regras de comissão"
         subtitle="Defina a escada padrão, exceções por apresentadora e vínculos por marca. Os valores calculados do período ficam na apuração de comissões."
         actions={podeVerApuracao ? (
           <Link

@@ -44,18 +44,18 @@ export function LoginPage() {
 
   return (
     <div className="livelab-shell min-h-screen px-4 py-8">
-      <div className="fixed inset-x-0 top-0 h-80 bg-[radial-gradient(120%_80%_at_50%_-10%,var(--primary-soft)_0%,transparent_65%)]" />
+      <div className="login-decoration fixed inset-x-0 top-0 h-80 bg-[radial-gradient(120%_80%_at_50%_-10%,var(--primary-soft)_0%,transparent_65%)]" />
       <main className="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-xl items-center justify-center">
         <section className="design-panel w-full overflow-hidden">
           <div className="relative px-6 py-8 sm:px-10 sm:py-10">
-            <div className="absolute inset-x-0 -top-28 mx-auto h-72 w-72 rounded-full bg-brand-soft blur-3xl" />
+            <div className="login-decoration absolute inset-x-0 -top-28 mx-auto h-72 w-72 rounded-full bg-brand-soft blur-3xl" />
             <div className="relative">
               <div className="mb-8 flex items-center gap-3">
                 <img src="/images/favicon.png" alt="" className="h-11 w-11 rounded-xl object-cover" />
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Livelab</p>
                   <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-                    Bem-vindo <span className="font-serif font-normal italic">de volta</span>
+                    Bem-vindo de volta
                   </h1>
                 </div>
               </div>

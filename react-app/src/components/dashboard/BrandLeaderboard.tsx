@@ -77,14 +77,14 @@ function normalizeRows(rows: JsonRecord[], limit?: number): BrandRow[] {
 }
 
 function metaTone(pct: number) {
-  if (pct >= 100) return { color: 'var(--success)', borderColor: 'color-mix(in srgb, var(--success) 46%, transparent)', background: 'var(--success-soft)' }
-  if (pct >= 80) return { color: 'var(--info)', borderColor: 'color-mix(in srgb, var(--info) 42%, transparent)', background: 'var(--info-soft)' }
-  return { color: 'var(--warning)', borderColor: 'color-mix(in srgb, var(--warning) 42%, transparent)', background: 'var(--warning-soft)' }
+  if (pct >= 100) return { color: 'var(--success-text)', borderColor: 'color-mix(in srgb, var(--success) 46%, transparent)', background: 'var(--success-soft)' }
+  if (pct >= 80) return { color: 'var(--info-text)', borderColor: 'color-mix(in srgb, var(--info) 42%, transparent)', background: 'var(--info-soft)' }
+  return { color: 'var(--warning-text)', borderColor: 'color-mix(in srgb, var(--warning) 42%, transparent)', background: 'var(--warning-soft)' }
 }
 
 function MetaBadge({ pct }: { pct: number | null }) {
   if (pct == null) {
-    return <span className="text-[11px] font-semibold text-ink-muted/60">sem meta</span>
+    return <span className="text-[11px] font-semibold text-ink-muted">sem meta</span>
   }
   return (
     <span
@@ -100,7 +100,7 @@ function MetaBadge({ pct }: { pct: number | null }) {
 function BrandLogo({ row }: { row: BrandRow }) {
   return (
     <div
-      className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-lg text-[13px] font-black"
+      className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[10px] text-[13px] font-black"
       style={{
         background: `${row.color}1f`,
         border: `1px solid ${row.color}59`,
@@ -124,15 +124,15 @@ const GRID_HEAD = 'grid-cols-[44px_minmax(200px,1.1fr)_minmax(220px,1fr)_140px_9
 function BrandLeaderboardRow({ row, index }: { row: BrandRow; index: number }) {
   return (
     <div
-      className={`grid gap-4 px-4 py-4 md:items-center ${GRID}`}
+      className={`grid gap-4 px-5 py-3 md:items-center ${GRID}`}
       style={{
         borderTop: index === 0 ? 'none' : '1px solid var(--divider)',
-        background: index === 0 ? `linear-gradient(90deg, ${row.color}1f, transparent 52%)` : 'transparent',
+        background: 'transparent',
       }}
     >
       <div
-        className="serif text-4xl leading-none md:text-center"
-        style={{ color: index === 0 ? row.color : 'var(--text-muted)' }}
+        className="text-[13px] font-bold leading-none md:text-center"
+        style={{ color: index === 0 ? 'var(--primary-text)' : 'var(--text-muted)' }}
       >
         {index + 1}
       </div>
@@ -160,7 +160,7 @@ function BrandLeaderboardRow({ row, index }: { row: BrandRow; index: number }) {
             className="h-full rounded-full"
             style={{
               width: `${row.progress}%`,
-              background: `linear-gradient(90deg, ${row.color}, ${row.color}99)`,
+              background: index === 0 ? 'var(--primary)' : 'var(--alt)',
             }}
           />
         </div>
@@ -170,8 +170,7 @@ function BrandLeaderboardRow({ row, index }: { row: BrandRow; index: number }) {
       </div>
 
       <div className="text-left md:text-right">
-        <p className="num text-lg font-black text-ink">{formatMoney(row.faturamento, true)}</p>
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">Faturamento</p>
+        <p className="num text-[15px] font-bold text-ink">{formatMoney(row.faturamento, true)}</p>
       </div>
 
       <div className="flex md:justify-end">
@@ -189,7 +188,9 @@ export function BrandLeaderboard({
   limit,
   emptyLabel = 'Nenhuma marca com GMV registrado neste mês.',
 }: BrandLeaderboardProps) {
-  const brands = useMemo(() => normalizeRows(rows, limit), [rows, limit])
+  const allBrands = useMemo(() => normalizeRows(rows), [rows])
+  const brands = typeof limit === 'number' ? allBrands.slice(0, limit) : allBrands
+  const remainingBrands = allBrands.slice(brands.length)
 
   return (
     <section
@@ -200,13 +201,10 @@ export function BrandLeaderboard({
         boxShadow: 'var(--shadow-card)',
       }}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4" style={{ borderBottom: '1px solid var(--divider)' }}>
+      <div className="flex flex-wrap items-start justify-between gap-3 px-7 py-6" style={{ borderBottom: '1px solid var(--divider)' }}>
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted">
-            <span className="serif normal-case text-base tracking-normal text-brand">Ranking</span> de marcas
-          </p>
-          <h3 className="mt-0.5 text-base font-extrabold tracking-[-0.01em] text-ink">{title}</h3>
-          <p className="mt-0.5 text-sm text-ink-muted">{subtitle}</p>
+          <h2 className="text-lg font-bold tracking-[-0.015em] text-ink">{title}</h2>
+          <p className="mt-1 text-[13px] text-ink-muted">{subtitle}</p>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
@@ -223,6 +221,9 @@ export function BrandLeaderboard({
           {brands.map((row, index) => (
             <BrandLeaderboardRow key={row.key} row={row} index={index} />
           ))}
+          {remainingBrands.length > 0 ? <p className="border-t border-line px-5 py-3 text-[13px] text-ink-muted">
+            Mais {remainingBrands.length} {remainingBrands.length === 1 ? 'marca' : 'marcas'} no ranking: {remainingBrands.slice(0, 3).map(row => row.name).join(', ')}{remainingBrands.length > 3 ? '…' : ''}.
+          </p> : null}
         </div>
       ) : (
         <div className="px-5 py-12 text-center text-sm text-ink-muted">{emptyLabel}</div>

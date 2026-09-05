@@ -57,9 +57,7 @@ export function ClienteDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Cliente parceiro"
-        accent="Home"
-        title="da loja"
+        title="Visão da loja"
         subtitle="Resultados das lives publicadas, consumo de horas e financeiro do mês."
         actions={<PeriodControl period={period} onChange={setPeriod} />}
       />

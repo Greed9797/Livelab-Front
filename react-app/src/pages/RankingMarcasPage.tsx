@@ -30,9 +30,7 @@ export function RankingMarcasPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Comissões"
-        accent="Ranking"
-        title="de marcas"
+        title="Ranking de marcas"
         subtitle="Marcas com maior GMV no mês. Logo via favicon do site quando não configurado."
         actions={
           <div className="flex flex-wrap items-center gap-3">

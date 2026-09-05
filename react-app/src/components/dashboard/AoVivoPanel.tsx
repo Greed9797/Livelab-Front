@@ -46,7 +46,7 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
         >
           <div>
             <div
-              className="text-[15px] font-semibold font-mono"
+              className="text-[15px] font-semibold"
               style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
             >
               R$ {fmtBRL(totalGmv)}
@@ -57,7 +57,7 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
           </div>
           <div>
             <div
-              className="text-[15px] font-semibold font-mono"
+              className="text-[15px] font-semibold"
               style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
             >
               {totalViewers.toLocaleString('pt-BR')}
@@ -109,7 +109,7 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
                       {asString(cab.cliente_nome, nome)}
                     </span>
                     <span
-                      className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium font-mono"
+                      className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium"
                       style={{ background: 'var(--bg-elev-3)', color: 'var(--text-muted)' }}
                     >
                       {cabLabel}
@@ -134,7 +134,7 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
 
                 <div className="shrink-0 text-right">
                   <div
-                    className="text-sm font-semibold font-mono"
+                    className="text-sm font-semibold"
                     style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
                   >
                     R$ {fmtBRL(gmv)}

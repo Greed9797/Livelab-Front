@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate, Route, RouterProvider, Routes } from 'react-router-dom'
+import { LoadingState } from '../components/ui/States'
 import { ErrorBoundary } from '../components/ui/ErrorBoundary'
 import { UnsavedChangesProvider } from '../components/ui/UnsavedChangesProvider'
 import { Shell } from '../components/layout/Shell'
@@ -34,11 +35,7 @@ const ConfiguracoesPage = lazy(() => import('../pages/ConfiguracoesPage').then(m
 const KnowledgePage = lazy(() => import('../pages/KnowledgePage').then(m => ({ default: m.KnowledgePage })))
 const OnboardingPage = lazy(() => import('../pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 
-const PageFallback = () => (
-  <div className="flex h-full min-h-[200px] items-center justify-center">
-    <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--primary)]" />
-  </div>
-)
+const PageFallback = () => <LoadingState label="Carregando página" />
 
 function RouterApplication() {
   return (

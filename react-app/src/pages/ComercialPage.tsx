@@ -622,7 +622,7 @@ export function ComercialPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Operação" accent="Carteira" title="de clientes" subtitle="Cadastros, atividade do mês e acesso em uma única visão." />
+      <PageHeader title="Carteira de clientes" subtitle="Cadastros, atividade do mês e acesso em uma única visão." />
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumo da carteira">
         {[

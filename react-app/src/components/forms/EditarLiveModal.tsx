@@ -407,7 +407,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
           <UnsavedChangesNotice guard={closeGuard} />
           {error ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">{error}</p> : null}
           <p className="w-full text-xs text-ink-muted sm:mr-auto sm:w-auto sm:self-center">Ao salvar, a comissão é recalculada.</p>
-          <Button variant="ghost" type="button" onClick={closeGuard.requestClose} disabled={saveMutation.isPending}>Cancelar</Button>
+          <Button variant="secondary" type="button" onClick={closeGuard.requestClose} disabled={saveMutation.isPending}>Cancelar</Button>
           <Button type="submit" form={formId} isLoading={saveMutation.isPending}>Salvar alterações</Button>
         </div>
       )}
@@ -416,31 +416,31 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         <ModalSection title="Dados da live" description="Defina onde, para quem e com quem a live acontece.">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
-              <span className="text-xs text-ink-muted">Cabine</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={form.cabine_id} onChange={(e) => setField('cabine_id', e.target.value)}>
-                <option value="">Selecione</option>
+              <span className="text-sm font-semibold text-ink">Cabine</span>
+              <select className="design-input mt-2 h-11 w-full px-3" value={form.cabine_id} onChange={(e) => setField('cabine_id', e.target.value)}>
+                <option value="">Selecione uma cabine</option>
                 {cabineOptions.map((o) => <option key={o.value} value={o.value}>Cabine {o.label}</option>)}
               </select>
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Marca ou cliente</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={accountValue} onChange={(e) => setAccount(e.target.value)}>
-                <option value="">Selecione</option>
+              <span className="text-sm font-semibold text-ink">Marca ou cliente</span>
+              <select className="design-input mt-2 h-11 w-full px-3" value={accountValue} onChange={(e) => setAccount(e.target.value)}>
+                <option value="">Selecione uma marca ou cliente</option>
                 {!accountKnown ? <option value={accountValue}>Conta atual indisponível</option> : null}
                 {accountOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Situação da transmissão</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={form.status} onChange={(e) => setField('status', e.target.value)}>
+              <span className="text-sm font-semibold text-ink">Situação da transmissão</span>
+              <select className="design-input mt-2 h-11 w-full px-3" value={form.status} onChange={(e) => setField('status', e.target.value)}>
                 <option value="em_andamento">Em andamento</option>
                 <option value="encerrada">Encerrada</option>
                 <option value="cancelada">Cancelada</option>
               </select>
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Tipo</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={form.tipo} onChange={(e) => setField('tipo', e.target.value)}>
+              <span className="text-sm font-semibold text-ink">Tipo</span>
+              <select className="design-input mt-2 h-11 w-full px-3" value={form.tipo} onChange={(e) => setField('tipo', e.target.value)}>
                 <option value="cliente">Cliente</option>
                 <option value="afiliado">Afiliado</option>
                 <option value="teste">Teste</option>
@@ -468,16 +468,16 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         <ModalSection title="Data e horário" description="Use o horário real de início e término.">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             <label className="block">
-              <span className="text-xs text-ink-muted">Data</span>
-              <input type="date" className="design-input mt-1 h-11 w-full px-3" value={form.data} onChange={(e) => setField('data', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Data</span>
+              <input type="date" className="design-input mt-2 h-11 w-full px-3" value={form.data} onChange={(e) => setField('data', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Hora início</span>
-              <input type="time" className="design-input mt-1 h-11 w-full px-3" value={form.hora_inicio} onChange={(e) => setField('hora_inicio', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Hora início</span>
+              <input type="time" className="design-input mt-2 h-11 w-full px-3" value={form.hora_inicio} onChange={(e) => setField('hora_inicio', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Hora fim</span>
-              <input type="time" className="design-input mt-1 h-11 w-full px-3" value={form.hora_fim} onChange={(e) => setField('hora_fim', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Hora fim</span>
+              <input type="time" className="design-input mt-2 h-11 w-full px-3" value={form.hora_fim} onChange={(e) => setField('hora_fim', e.target.value)} />
             </label>
           </div>
         </ModalSection>
@@ -485,9 +485,9 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         <ModalSection title="Resultado da live" description="Registre o resultado principal antes de salvar.">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
-              <span className="text-xs text-ink-muted">GMV faturado</span>
+              <span className="text-sm font-semibold text-ink">GMV faturado</span>
               <MoneyInput
-                className="design-input mt-1 h-11 w-full px-3"
+                className="design-input mt-2 h-11 w-full px-3"
                 value={form.fat_gerado}
                 onChange={(v) => setField('fat_gerado', v)}
               />
@@ -499,8 +499,8 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               ) : null}
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Pedidos</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.qtd_pedidos} onChange={(e) => setField('qtd_pedidos', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Pedidos</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.qtd_pedidos} onChange={(e) => setField('qtd_pedidos', e.target.value)} />
             </label>
           </div>
         </ModalSection>
@@ -508,16 +508,16 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         <ModalSection title="Ajustes financeiros" description="Use apenas para correções manuais e investimento em mídia." collapsible>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
-              <span className="text-xs text-ink-muted">GMV manual</span>
-              <MoneyInput className="design-input mt-1 h-11 w-full px-3" value={form.manual_gmv} onChange={(v) => setField('manual_gmv', v)} />
+              <span className="text-sm font-semibold text-ink">GMV manual</span>
+              <MoneyInput className="design-input mt-2 h-11 w-full px-3" value={form.manual_gmv} onChange={(v) => setField('manual_gmv', v)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Pedidos manuais</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_orders} onChange={(e) => setField('manual_orders', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Pedidos manuais</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.manual_orders} onChange={(e) => setField('manual_orders', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Verba Ads investida</span>
-              <MoneyInput className="design-input mt-1 h-11 w-full px-3" value={form.ads_cost} onChange={(v) => setField('ads_cost', v)} />
+              <span className="text-sm font-semibold text-ink">Verba Ads investida</span>
+              <MoneyInput className="design-input mt-2 h-11 w-full px-3" value={form.ads_cost} onChange={(v) => setField('ads_cost', v)} />
             </label>
           </div>
         </ModalSection>
@@ -525,8 +525,8 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         <ModalSection title="Publicação" description="Controle interno de disponibilidade da live." collapsible>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
-              <span className="text-xs text-ink-muted">Status de publicação</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={form.status_publicacao} onChange={(e) => setField('status_publicacao', e.target.value)}>
+              <span className="text-sm font-semibold text-ink">Status de publicação</span>
+              <select className="design-input mt-2 h-11 w-full px-3" value={form.status_publicacao} onChange={(e) => setField('status_publicacao', e.target.value)}>
                 <option value="rascunho">Rascunho</option>
                 <option value="revisado">Revisado</option>
                 <option value="publicado">Publicado</option>
@@ -538,50 +538,50 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         <ModalSection title="Métricas do TikTok" description="Métricas complementares importadas ou ajustadas manualmente." collapsible>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
-              <span className="text-xs text-ink-muted">Impressões da live</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.live_impressions} onChange={(e) => setField('live_impressions', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Impressões da live</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.live_impressions} onChange={(e) => setField('live_impressions', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Impressões de produto</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.product_impressions} onChange={(e) => setField('product_impressions', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Impressões de produto</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.product_impressions} onChange={(e) => setField('product_impressions', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Cliques em produto</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.product_clicks} onChange={(e) => setField('product_clicks', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Cliques em produto</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.product_clicks} onChange={(e) => setField('product_clicks', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Visualizações</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_views} onChange={(e) => setField('manual_views', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Visualizações</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.manual_views} onChange={(e) => setField('manual_views', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Novos seguidores</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.new_followers} onChange={(e) => setField('new_followers', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Novos seguidores</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.new_followers} onChange={(e) => setField('new_followers', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Retenção média (segundos)</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.avg_viewing_duration} onChange={(e) => setField('avg_viewing_duration', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Retenção média (segundos)</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.avg_viewing_duration} onChange={(e) => setField('avg_viewing_duration', e.target.value)} />
             </label>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
-              <span className="text-xs text-ink-muted">Likes</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_likes} onChange={(e) => setField('manual_likes', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Likes</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.manual_likes} onChange={(e) => setField('manual_likes', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Comentários</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_comments} onChange={(e) => setField('manual_comments', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Comentários</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.manual_comments} onChange={(e) => setField('manual_comments', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Shares</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_shares} onChange={(e) => setField('manual_shares', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Shares</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.manual_shares} onChange={(e) => setField('manual_shares', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Diamonds</span>
-              <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_diamonds} onChange={(e) => setField('manual_diamonds', e.target.value)} />
+              <span className="text-sm font-semibold text-ink">Diamonds</span>
+              <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.manual_diamonds} onChange={(e) => setField('manual_diamonds', e.target.value)} />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Origem dos dados</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={form.origem_dados} onChange={(e) => setField('origem_dados', e.target.value)}>
+              <span className="text-sm font-semibold text-ink">Origem dos dados</span>
+              <select className="design-input mt-2 h-11 w-full px-3" value={form.origem_dados} onChange={(e) => setField('origem_dados', e.target.value)}>
                 <option value="manual">Manual</option>
                 <option value="api">API TikTok</option>
                 <option value="bot" disabled>BOT (automação)</option>
@@ -589,7 +589,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
             </label>
           </div>
           <label className="block">
-            <span className="text-xs text-ink-muted">Resumo</span>
+            <span className="text-sm font-semibold text-ink">Resumo</span>
             <textarea className="design-input mt-1 w-full px-3 py-2" rows={2} value={form.resumo} onChange={(e) => setField('resumo', e.target.value)} />
           </label>
         </ModalSection>

@@ -39,9 +39,7 @@ export function MasterUnitsPage({ title = 'Unidades', mode }: { title?: string; 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Admin Master"
-        accent={mode === 'franqueados' ? 'Rede' : 'Gestão'}
-        title={title}
+        title={mode === 'franqueados' ? `Rede · ${title}` : title}
         subtitle="Lista operacional das unidades com GMV, clientes, plano e status."
         actions={
           <>

@@ -5,6 +5,7 @@ import {
   fmtCompact,
   computeBusinessDays,
   calcRitmoProjetado,
+  countUpValue,
 } from './GmvHeroPanel'
 
 /* ── unit helpers ── */
@@ -22,6 +23,14 @@ describe('fmtCompact', () => {
 
   it('formats millions with M suffix', () => {
     expect(fmtCompact(1_200_000)).toMatch(/1[,.]2M/)
+  })
+})
+
+describe('countUpValue', () => {
+  it('termina no GMV exato no último quadro, sem erro residual da curva', () => {
+    expect(countUpValue(182_000, 1)).toBe(182_000)
+    expect(countUpValue(182_000, 2)).toBe(182_000)
+    expect(countUpValue(182_000, 0)).toBe(0)
   })
 })
 
@@ -89,11 +98,11 @@ describe('GmvHeroPanel', () => {
     expect(html).not.toContain('Ritmo projetado')
   })
 
-  it('marks meta as derived when meta_origem is diaria_legada', () => {
+  it('does not expose legacy meta provenance in the operational UI', () => {
     const raw = { ...baseRaw, meta_mes: 200000, meta_origem: 'diaria_legada' }
     const html = renderToStaticMarkup(<GmvHeroPanel raw={raw} />)
 
-    expect(html).toContain('derivada da meta diária antiga')
+    expect(html).not.toContain('derivada da meta diária antiga')
   })
 
   it('does NOT render chart block when gmv_intraday is absent', () => {
@@ -166,7 +175,7 @@ describe('GmvHeroPanel', () => {
     const html = renderToStaticMarkup(<GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: data }} />)
     expect(html).toContain('Hoje')
     expect(html).toContain('Mês anterior')
-    expect(html).not.toContain('Mês atual')
+    expect(html).toContain('Mês atual')
   })
 
   /* ── daily fallback chart tests ── */
@@ -232,8 +241,8 @@ describe('GmvHeroPanel', () => {
       <GmvHeroPanel raw={{ ...baseRaw, gmv_intraday: intraday, gmv_diario_mes: [] }} />,
     )
     expect(html).toContain('gmv-chart-intraday')
-    expect(html).toContain('GMV — desempenho de hoje')
-    expect(html).not.toContain('GMV — desempenho do mês')
+    expect(html).toContain('GMV de hoje')
+    expect(html).not.toContain('GMV do mês')
   })
 
   it('defaults to the month (daily) chart when both intraday and daily qualify', () => {
@@ -262,6 +271,6 @@ describe('GmvHeroPanel', () => {
     expect(html).not.toContain('gmv-chart-intraday')
     expect(html).not.toContain('gmv-chart-daily')
     expect(html).not.toContain('Hoje')
-    expect(html).not.toContain('Mês atual')
+    expect(html).toContain('Mês atual')
   })
 })

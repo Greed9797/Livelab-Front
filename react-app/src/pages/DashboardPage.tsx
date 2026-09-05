@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
-import { GradeDiaView } from '../components/conteudo/GradeViews'
-import { marcasPresentes, type GradeDia } from '../components/conteudo/gradeUtils'
-import { resolveMarcaCor } from '../utils/brandColor'
+import { CalendarDays, Radio } from 'lucide-react'
+import { type GradeDia } from '../components/conteudo/gradeUtils'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { KpiStrip } from '../components/dashboard/KpiStrip'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -20,22 +18,20 @@ import { getSaoPauloDateInput } from '../utils/sao-paulo-date'
 import type { Cabine, JsonRecord } from '../types/models'
 
 /* ── Page header ── */
-function PageHead({ liveCount }: { liveCount: number }) {
+function PageHead() {
   return (
     <PageHeader
-      accent="Visão"
-      title="da unidade"
-      subtitle="Pulso operacional, comercial e financeiro — atualizado em tempo real."
+      title="Visão da unidade"
+      subtitle="Operação e desempenho do mês, em uma leitura rápida."
       actions={
-        liveCount > 0 ? (
-          <span
-            className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
-            style={{ background: 'var(--live-soft)', color: 'var(--live)', border: '1px solid var(--live)' }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: 'var(--live)' }} />
-            {liveCount} {liveCount === 1 ? 'live' : 'lives'} ao vivo agora
-          </span>
-        ) : null
+        <div className="flex flex-wrap gap-2">
+          <Link to={`/agenda?data=${getSaoPauloDateInput()}`} className="inline-flex h-[42px] items-center gap-2 rounded-full bg-button-primary px-4 text-sm font-semibold text-button-primary-foreground shadow-[var(--primary-glow)] hover:bg-button-primary-hover">
+            <CalendarDays className="h-[18px] w-[18px]" aria-hidden="true" /> Agenda de hoje
+          </Link>
+          <Link to="/lives?periodo=hoje&st=todas" className="inline-flex h-[42px] items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-ink hover:bg-surface-muted">
+            <Radio className="h-[18px] w-[18px]" aria-hidden="true" /> Lives de hoje
+          </Link>
+        </div>
       }
     />
   )
@@ -68,7 +64,7 @@ function AlertsStrip({ raw }: { raw: JsonRecord }) {
           }}
         >
           <span
-            className="text-xl font-bold font-mono leading-none"
+            className="text-xl font-bold leading-none"
             style={{ color: a.tone === 'danger' ? 'var(--danger)' : a.tone === 'warning' ? 'var(--warning)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
           >
             {a.value}
@@ -175,21 +171,21 @@ export function DashboardPage() {
   const rankingApresentadoras = asArray<JsonRecord>(raw.ranking_apresentadoras_mes)
   const rankingMarcas = asArray<JsonRecord>(raw.ranking_marcas_mes)
 
-  const liveCabines = cabines.filter(
-    (c) => asString(c.status, '').includes('ao_vivo') || asString(c.status, '') === 'live'
-  )
-
   // Grade de hoje (mesma fonte da aba Agenda) + legenda por marca
   const celulasHoje = ((gradeQuery.data?.dias ?? []) as unknown as GradeDia[])[0]?.celulas ?? []
-  const cabinesOrdenadas = [...(cabines as unknown as JsonRecord[])]
-    .sort((a, b) => asNumber(a.numero) - asNumber(b.numero))
-  const legendaMarcas = marcasPresentes(celulasHoje)
+  const gradeTemProgramacao = !gradeQuery.isError && celulasHoje.length > 0
+  const cabinesHoje = new Map<string, typeof celulasHoje>()
+  for (const celula of celulasHoje) {
+    const horarios = cabinesHoje.get(celula.cabine_id) ?? []
+    horarios.push(celula)
+    cabinesHoje.set(celula.cabine_id, horarios)
+  }
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHead liveCount={liveCabines.length} />
+      <PageHead />
 
-      <OperationsNow cabines={cabines as unknown as JsonRecord[]} today={today} />
+      <OperationsNow cabines={cabines as unknown as JsonRecord[]} today={today} gradeVazia={!gradeQuery.isError && Boolean(gradeQuery.data) && celulasHoje.length === 0} />
 
       {atualizacaoFalhou ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:color-mix(in_srgb,var(--warning)_32%,transparent)] bg-[var(--warning-soft)] px-4 py-2 text-sm text-ink">
@@ -204,118 +200,58 @@ export function DashboardPage() {
         </div>
       ) : null}
 
-      {/* O mês rege os indicadores; operação e grade são sempre de hoje. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-ink-muted">Indicadores do mês</span>
-        <button
-          type="button"
-          aria-label="Mês anterior"
-          onClick={() => setMesSelecionado(shiftMonth(mesExibido, -1))}
-          className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <select
-          aria-label="Filtrar por mês"
-          className="design-input h-9 min-w-[160px] px-3 text-sm font-bold"
-          value={mesExibido}
-          onChange={(e) => setMesSelecionado(e.target.value === currentMonth ? null : e.target.value)}
-        >
-          {last12Months(currentMonth).map((m) => (
-            <option key={m} value={m}>{monthLabel(m)}</option>
-          ))}
-          {/* mês exibido pode estar fora da janela de 12 meses (navegação por seta) */}
-          {!last12Months(currentMonth).includes(mesExibido) ? (
-            <option value={mesExibido}>{monthLabel(mesExibido)}</option>
-          ) : null}
-        </select>
-        <button
-          type="button"
-          aria-label="Próximo mês"
-          disabled={mesExibido >= currentMonth}
-          onClick={() => setMesSelecionado(shiftMonth(mesExibido, 1))}
-          className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted disabled:opacity-35"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-        {mesSelecionado ? (
-          <button
-            type="button"
-            onClick={() => setMesSelecionado(null)}
-            className="h-9 rounded-lg border border-line px-3 text-sm font-bold text-ink-muted hover:text-ink"
-          >
-            Mês atual
-          </button>
-        ) : null}
-        {homeQuery.isFetching ? <span className="text-xs text-ink-muted">atualizando…</span> : null}
-      </div>
+      {/* A Home mostra somente cabines ocupadas. Falha de consulta nunca é lida como dia vazio. */}
+      {gradeTemProgramacao ? <div role="region" aria-label="Agenda de hoje" className="grid min-w-0 grid-cols-1 gap-4">
+        <div className="flex min-w-0 flex-col gap-3 rounded-[var(--radius-panel)] p-6" style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><h2 className="text-lg font-bold tracking-[-0.015em]" style={{ color: 'var(--text-primary)' }}>Agenda de hoje</h2><p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>Cabines ocupadas em {today.split('-').reverse().slice(0, 2).join('/')}.</p></div>
+            <Link to={`/agenda?data=${today}`} className="inline-flex h-[42px] items-center gap-2 rounded-full border border-line px-4 text-xs font-semibold text-ink hover:bg-surface-muted"><CalendarDays className="h-4 w-4" aria-hidden="true" /> Abrir agenda</Link>
+          </div>
+          <div className="divide-y divide-[var(--divider)]">
+            {Array.from(cabinesHoje, ([cabineId, horarios]) => {
+              const marcas = Array.from(new Set(horarios.map(celula => celula.marca_nome)))
+              const apresentadoras = Array.from(new Set(horarios.map(celula => celula.apresentadora_nome ?? 'Apresentadora a definir')))
+              const detalhe = horarios.map(celula => `${celula.hora_inicio}–${celula.hora_fim} · ${celula.marca_nome}`).join(' / ')
+              return <button key={cabineId} type="button" title={detalhe} onClick={() => navigate(`/agenda?${new URLSearchParams({ data: today, ...(marcas.length === 1 ? { marca: horarios[0].marca_id } : {}) })}`)} className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 py-3 text-left hover:bg-surface-muted sm:grid-cols-[100px_minmax(0,1fr)_minmax(0,1fr)_auto]">
+                <span className="text-sm font-semibold text-ink">Cabine {horarios[0].cabine_numero ?? '—'}</span>
+                <span className="truncate text-sm font-semibold text-ink" title={marcas.join(' · ')}>{marcas.join(' · ')}</span>
+                <span className="truncate text-[13px] text-ink-muted" title={apresentadoras.join(' · ')}>{apresentadoras.join(' · ')}</span>
+                <span className="text-xs font-semibold text-ink-muted">{horarios.length === 1 ? `${horarios[0].hora_inicio}–${horarios[0].hora_fim}` : `${horarios.length} horários`}</span>
+              </button>
+            })}
+          </div>
+        </div>
+      </div> : null}
 
       {/* KPI strip */}
-      <KpiStrip raw={raw} loading={homeQuery.isPending && !homeQuery.data} />
+      <KpiStrip
+        raw={raw}
+        loading={homeQuery.isPending && !homeQuery.data}
+        mesExibido={mesExibido}
+        meses={last12Months(currentMonth)}
+        onMesAnterior={() => setMesSelecionado(shiftMonth(mesExibido, -1))}
+        onMesProximo={() => setMesSelecionado(shiftMonth(mesExibido, 1))}
+        onMesChange={(mes) => setMesSelecionado(mes === currentMonth ? null : mes)}
+        proximoDesabilitado={mesExibido >= currentMonth}
+      />
 
       {/* Alerts (only if any) */}
       <AlertsStrip raw={raw} />
 
       {/* Hero row */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
         <GmvHeroPanel raw={raw} />
         <PresenterLeaderboard
           rows={rankingApresentadoras}
           title="Pódio de apresentadoras"
-          subtitle="Top 5 do mês · GMV e comissão"
-          limit={5}
+          subtitle="Top 3 do mês · GMV e comissão"
+          limit={3}
           action={
-            <Link className="text-xs font-semibold text-brand hover:underline" to="/ranking/apresentadoras">
+            <Link className="text-xs font-semibold text-[var(--primary-text)] hover:underline" to="/ranking/apresentadoras">
               Ver ranking →
             </Link>
           }
         />
-      </div>
-
-      {/* Grade de hoje — largura total */}
-      <div className="grid min-w-0 grid-cols-1 gap-4">
-        <div
-          className="flex min-w-0 flex-col gap-4 rounded-xl p-4"
-          style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-              Grade de hoje · {today.split('-').reverse().slice(0, 2).join('/')}
-            </h3>
-            <Link to={`/agenda?data=${today}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted">
-              <CalendarDays className="h-4 w-4" aria-hidden="true" /> Abrir agenda
-            </Link>
-            {/* Legenda por marca — espelha a aba Agenda. Mostra TODAS as marcas da grade:
-                cortar a lista escondia marcas sem avisar, e a legenda existe justamente
-                para dizer de quem é cada cor. */}
-            <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              {legendaMarcas.map((m) => (
-                <span key={m.id} className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-sm" style={{ background: resolveMarcaCor(m.cor, m.id) }} />
-                  {m.nome}
-                </span>
-              ))}
-            </div>
-          </div>
-          {gradeQuery.isLoading ? (
-            <p className="py-6 text-center text-xs" style={{ color: 'var(--text-muted)' }}>Carregando grade…</p>
-          ) : gradeQuery.isError && !gradeQuery.data ? (
-            <div role="status" className="rounded-lg border border-line p-4 text-sm text-ink-muted">
-              <p>Não foi possível carregar a grade de hoje.</p>
-              <button type="button" className="mt-2 min-h-10 rounded-lg border border-line px-3 font-semibold text-ink hover:bg-surface-muted" onClick={() => void gradeQuery.refetch()}>Tentar novamente</button>
-            </div>
-          ) : (
-            <div className="min-w-0">
-              {gradeQuery.isError ? <p role="status" className="mb-3 text-sm text-ink-muted">A atualização da grade falhou. Exibindo a última versão carregada.</p> : null}
-              {celulasHoje.length === 0 ? <p className="mb-3 text-sm text-ink-muted">Nenhuma programação encontrada para hoje. Abra a agenda para consultar outros dias.</p> : null}
-              <GradeDiaView
-                celulas={celulasHoje}
-                cabines={cabinesOrdenadas}
-                onCellClick={({ celula }) => navigate(`/agenda?${new URLSearchParams({ data: today, ...(celula?.marca_id ? { marca: celula.marca_id } : {}) })}`)}
-              />
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Ranking de marcas — largura total, ordenado por GMV/h */}
@@ -323,10 +259,10 @@ export function DashboardPage() {
         rows={rankingMarcas}
         title="Ranking de marcas"
         subtitle="Eficiência do mês · GMV por hora no ar"
-        limit={6}
+        limit={3}
         action={
-          <Link className="text-xs font-semibold text-brand hover:underline" to="/ranking/marcas">
-            Ver ranking de marcas →
+          <Link className="text-xs font-semibold text-[var(--primary-text)] hover:underline" to="/ranking/marcas">
+            Ver as marcas →
           </Link>
         }
       />
@@ -338,6 +274,7 @@ export function DashboardPage() {
       <AssiduidadeStrip
         inicio={primeiroDiaDoMes(mesExibido)}
         fim={ultimoDiaVisivel(mesExibido, today)}
+        limit={4}
         subtitulo={`${monthLabel(mesExibido)} · presença física, sem recorte por marca`}
       />
     </div>

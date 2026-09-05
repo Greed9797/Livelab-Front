@@ -18,7 +18,7 @@ export function Card({ children, className, ...props }: CardProps) {
 
 export function CardHeader({ children, className, ...props }: CardProps) {
   return (
-    <div className={clsx('border-b border-line px-5 py-4 md:px-6', className)} {...props}>
+    <div className={clsx('border-b border-line px-6 py-5 md:px-7', className)} {...props}>
       {children}
     </div>
   )
@@ -26,7 +26,7 @@ export function CardHeader({ children, className, ...props }: CardProps) {
 
 export function CardBody({ children, className, ...props }: CardProps) {
   return (
-    <div className={clsx('p-5 md:p-6', className)} {...props}>
+    <div className={clsx('p-6 md:px-7 md:py-6', className)} {...props}>
       {children}
     </div>
   )

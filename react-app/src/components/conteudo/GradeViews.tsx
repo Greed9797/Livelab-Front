@@ -138,7 +138,7 @@ export function GradeSemanaView({
                       <div
                         key={gradeCellKey(c.cabine_id, c.hora_inicio)}
                         className="truncate rounded px-1.5 py-0.5 text-[11px] font-semibold text-ink"
-                        style={{ background: `${cor}26`, borderLeft: `3px solid ${cor}` }}
+                        style={{ background: `${cor}26`, border: `1px solid ${cor}66` }}
                         title={`Cabine ${c.cabine_numero ?? '—'} · ${c.marca_nome}${c.apresentadora_nome ? ` – ${c.apresentadora_nome}` : ''}`}
                       >
                         C{c.cabine_numero ?? '?'} · {c.marca_nome}{c.apresentadora_nome ? ` – ${c.apresentadora_nome}` : ''}
@@ -202,7 +202,7 @@ export function GradeMesView({
                 {chips.map(([marcaId, marca]) => {
                   const cor = resolveMarcaCor(marca.cor, marcaId)
                   return (
-                    <span key={marcaId} className="block truncate rounded px-1 py-px text-[10px] font-semibold text-ink" style={{ background: `${cor}26`, borderLeft: `2px solid ${cor}` }}>
+                    <span key={marcaId} className="block truncate rounded px-1 py-px text-[10px] font-semibold text-ink" style={{ background: `${cor}26`, border: `1px solid ${cor}66` }}>
                       {marca.nome}
                     </span>
                   )

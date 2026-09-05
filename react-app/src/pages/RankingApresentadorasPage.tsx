@@ -116,9 +116,7 @@ export function RankingApresentadorasPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Operacional"
-        accent="Ranking"
-        title="de apresentadoras"
+        title="Ranking de apresentadoras"
         subtitle="Leaderboard mensal com GMV, progresso vs. líder e comissão consolidada registrada no sistema."
         actions={
           <div className="flex flex-wrap items-center gap-3">

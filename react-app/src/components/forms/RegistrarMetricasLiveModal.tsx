@@ -297,11 +297,11 @@ export function RegistrarMetricasLiveModal({
   }
 
   const title = mode === 'edit' ? 'Editar live realizada' : mode === 'result' ? 'Registrar resultado' : 'Cadastrar live manual'
-  const submitLabel = mode === 'edit' ? 'Salvar live' : mode === 'result' ? 'Registrar resultado' : 'Cadastrar live'
+  const submitLabel = mode === 'edit' ? 'Salvar alterações' : mode === 'result' ? 'Registrar resultado' : 'Cadastrar live'
   const accountRequired = form.tipo !== 'teste'
 
   return (
-    <Modal open={open} title={title} subtitle="Registro operacional da live, GMV, pedidos e métricas finais." onClose={closeGuard.requestClose} closeDisabled={Boolean(isSaving)} size="lg" footer={<>
+    <Modal open={open} title={title} subtitle="Registre o GMV, os pedidos e as métricas da live." onClose={closeGuard.requestClose} closeDisabled={Boolean(isSaving)} size="lg" footer={<>
         <UnsavedChangesNotice guard={closeGuard} />
         {agendaBrandUnavailable ? <div role={marcaError ? 'alert' : 'status'} className="w-full text-sm text-ink-muted">
           {marcaLoading ? 'Carregando a marca desta reserva…' : 'Não foi possível carregar a marca desta reserva. Tente novamente ou confira o agendamento.'}

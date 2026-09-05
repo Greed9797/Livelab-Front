@@ -12,10 +12,10 @@ describe('Operação da Home', () => {
       { id: 'c3', numero: 3, status: 'disponivel', live_atual_id: 'old' },
     ]} /></MemoryRouter>)
     expect(html).toContain('live=live-1')
-    expect(html).toContain('Aberta há mais de 4h')
+    expect(html).toContain('no ar há 241 min')
     expect(html).not.toContain('live=old')
     expect(html).not.toContain('sem apresentadora')
-    expect(html).toContain('periodo=hoje')
+    expect(html).toContain('Acompanhar live')
   })
 
   it('keeps calendar days and rejects invalid dates in agenda links', () => {

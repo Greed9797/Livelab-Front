@@ -100,13 +100,13 @@ export function LiveDetailModal({
           <dl className="grid gap-4 rounded-xl bg-surface-muted p-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             <div className="min-w-0">
               <dt className="text-xs font-medium text-ink-muted">GMV da live</dt>
-              <dd className="mt-1 break-words font-mono text-2xl font-semibold tracking-tight text-ink [font-variant-numeric:tabular-nums]">
+              <dd className="mt-1 break-words font-sans text-2xl font-semibold tracking-tight text-ink [font-variant-numeric:tabular-nums]">
                 {formatMoney(officialLiveGmv(live))}
               </dd>
             </div>
             <div>
               <dt className="text-xs font-medium text-ink-muted">Pedidos</dt>
-              <dd className="mt-1 font-mono text-2xl font-semibold tracking-tight text-ink [font-variant-numeric:tabular-nums]">
+              <dd className="mt-1 font-sans text-2xl font-semibold tracking-tight text-ink [font-variant-numeric:tabular-nums]">
                 {asNumber(live.manual_orders ?? live.final_orders_count).toLocaleString('pt-BR')}
               </dd>
             </div>

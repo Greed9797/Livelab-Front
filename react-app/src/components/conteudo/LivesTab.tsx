@@ -243,7 +243,7 @@ function StatusBadge({ status }: { status: unknown }) {
         fontWeight: 600,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
-        fontFamily: 'var(--font-mono)',
+        fontFamily: 'var(--font-sans)',
         lineHeight: 1.4,
         border,
         background: bg,
@@ -286,7 +286,7 @@ function TipoBadge({ tipo }: { tipo: unknown }) {
         fontWeight: 600,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
-        fontFamily: 'var(--font-mono)',
+        fontFamily: 'var(--font-sans)',
         lineHeight: 1.4,
         border: isAuto ? '1px solid var(--info-soft)' : '1px solid var(--border-strong)',
         background: isAuto ? 'var(--info-soft)' : 'var(--bg-elev-2)',
@@ -337,7 +337,7 @@ function MenuBtn({
         <span
           style={{
             marginLeft: 'auto',
-            fontFamily: 'var(--font-mono)',
+            fontFamily: 'var(--font-sans)',
             fontSize: 10.5,
             color: 'var(--text-muted)',
           }}
@@ -633,14 +633,15 @@ export function LivesTab({
   const tbtn: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: 7,
-    padding: '8px 12px',
-    borderRadius: 9,
-    background: 'var(--bg-elev-2)',
-    border: '1px solid var(--border)',
+    gap: 8,
+    minHeight: 42,
+    padding: '8px 16px',
+    borderRadius: 'var(--radius-pill)',
+    background: 'var(--bg-elev-1)',
+    border: '1px solid var(--border-strong)',
     color: 'var(--text-primary)',
-    fontSize: 12.5,
-    fontWeight: 500,
+    fontSize: 14,
+    fontWeight: 600,
     cursor: 'pointer',
     fontFamily: 'inherit',
     whiteSpace: 'nowrap',
@@ -727,7 +728,7 @@ export function LivesTab({
           Lives realizadas
           <span
             style={{
-              fontFamily: 'var(--font-mono)',
+              fontFamily: 'var(--font-sans)',
               fontSize: 10.5,
               color: 'var(--text-muted)',
               background: 'var(--bg-elev-2)',
@@ -759,27 +760,9 @@ export function LivesTab({
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar lives"
             placeholder="Buscar por marca, cliente, apresentadora, observações…"
-            style={{
-              width: '100%',
-              padding: '8px 40px 8px 34px',
-              borderRadius: 9,
-              background: 'var(--bg-input)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              fontFamily: 'inherit',
-              fontSize: 13,
-              outline: 'none',
-              transition: 'border-color .18s, box-shadow .18s',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'var(--primary)'
-              e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-softer)'
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border)'
-              e.currentTarget.style.boxShadow = 'none'
-            }}
+            className="design-input h-[42px] w-full pl-[34px] pr-10 text-sm"
           />
           {!search && (
             <span
@@ -788,7 +771,7 @@ export function LivesTab({
                 right: 8,
                 top: '50%',
                 transform: 'translateY(-50%)',
-                fontFamily: 'var(--font-mono)',
+                fontFamily: 'var(--font-sans)',
                 fontSize: 10.5,
                 color: 'var(--text-muted)',
                 padding: '2px 6px',
@@ -856,7 +839,7 @@ export function LivesTab({
             <Filter style={{ width: 14, height: 14 }} />
             Filtros
             {activeFilterCount > 0 ? (
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, background: 'var(--primary)', color: '#fff', borderRadius: 999, padding: '1px 6px', lineHeight: 1.5 }}>{activeFilterCount}</span>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, background: 'var(--primary)', color: 'var(--button-primary-foreground)', borderRadius: 999, padding: '1px 6px', lineHeight: 1.5 }}>{activeFilterCount}</span>
             ) : null}
             <ChevronDown style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />
           </button>
@@ -1045,7 +1028,7 @@ export function LivesTab({
             padding: '11px 18px 11px 22px',
             borderBottom: '1px solid var(--border)',
             background: 'var(--bg-elev-2)',
-            fontFamily: 'var(--font-mono)',
+            fontFamily: 'var(--font-sans)',
             fontSize: 10.5,
             letterSpacing: '0.10em',
             textTransform: 'uppercase',
@@ -1159,7 +1142,7 @@ export function LivesTab({
                         style={{
                           fontSize: 11,
                           color: 'var(--text-muted)',
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'var(--font-sans)',
                           letterSpacing: '0.02em',
                           marginTop: 1,
                           whiteSpace: 'nowrap',
@@ -1195,7 +1178,7 @@ export function LivesTab({
                     >
                       <span
                         style={{
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'var(--font-sans)',
                           fontSize: 10,
                           color: 'var(--text-muted)',
                           textTransform: 'uppercase',
@@ -1295,7 +1278,7 @@ export function LivesTab({
                             style={{
                               fontSize: 11,
                               color: 'var(--text-muted)',
-                              fontFamily: 'var(--font-mono)',
+                              fontFamily: 'var(--font-sans)',
                             }}
                           >
                             → {fmtTime(live.encerrado_em)}
@@ -1342,7 +1325,7 @@ export function LivesTab({
                             style={{
                               fontSize: 11,
                               color: 'var(--text-muted)',
-                              fontFamily: 'var(--font-mono)',
+                              fontFamily: 'var(--font-sans)',
                             }}
                           >
                             ID #{String(liveId).padStart(4, '0')}
@@ -1404,7 +1387,7 @@ export function LivesTab({
                           >
                             <span
                               style={{
-                                fontFamily: 'var(--font-mono)',
+                                fontFamily: 'var(--font-sans)',
                                 color: 'var(--text-muted)',
                                 fontSize: 10.5,
                               }}
@@ -1614,7 +1597,7 @@ export function LivesTab({
             flexWrap: 'wrap',
             color: 'var(--text-muted)',
             fontSize: 12,
-            fontFamily: 'var(--font-mono)',
+            fontFamily: 'var(--font-sans)',
             letterSpacing: '0.02em',
             background: 'var(--bg-elev-2)',
           }}
@@ -1635,7 +1618,7 @@ export function LivesTab({
                 value={pageSize}
                 onChange={(e) => onPageSizeChange(Number(e.target.value))}
                 aria-label="Itens por página"
-                style={{ ...tbtn, padding: '4px 8px', fontSize: 12, fontFamily: 'var(--font-mono)' }}
+                style={{ ...tbtn, padding: '4px 8px', fontSize: 12, fontFamily: 'var(--font-sans)' }}
               >
                 {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>

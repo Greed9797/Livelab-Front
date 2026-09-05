@@ -23,10 +23,8 @@ describe('KpiStrip — campo ausente vira "—", não 0', () => {
   })
 
   const cards = [
-    ['GMV — Mês', /gmv_total_mes/],
     ['Lives realizadas', /lives_mes/],
     ['Horas em live', /horas_live/],
-    ['Vídeos gravados', /videos_mes/],
     ['GMV / live', /gmv_por_live/],
     ['GMV / hora', /gmv_por_hora/],
   ] as const

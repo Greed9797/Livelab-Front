@@ -37,9 +37,7 @@ export function MasterConsolidatedPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Admin Master"
-        accent="Consolidado"
-        title="da rede"
+        title="Consolidado da rede"
         subtitle="GMV, receita, lives e comparativo por unidade."
         actions={<PeriodControl period={period} onChange={setPeriod} />}
       />

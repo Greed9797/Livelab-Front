@@ -204,7 +204,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
 
     return (
       <div className="space-y-6">
-        <PageHeader eyebrow="Cliente" accent="Configurações" title="da conta" subtitle="Dados do perfil e preferências do cliente parceiro." />
+        <PageHeader title="Configurações da conta" subtitle="Dados do perfil e preferências do cliente parceiro." />
 
         <section className="grid gap-4 lg:grid-cols-[1fr_0.85fr]">
           <Card>
@@ -258,8 +258,8 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
                   event.preventDefault()
                   senhaMutation.mutate(senha)
                 }}>
-                  <input className="design-input h-11 w-full px-4" type="password" autoComplete="current-password" placeholder="Senha atual" value={senha.senha_atual} onChange={(event) => setSenha((current) => ({ ...current, senha_atual: event.target.value }))} required />
-                  <input className="design-input h-11 w-full px-4" type="password" autoComplete="new-password" placeholder="Nova senha" value={senha.nova_senha} onChange={(event) => setSenha((current) => ({ ...current, nova_senha: event.target.value }))} minLength={8} required />
+                  <label className="grid gap-2 text-sm font-semibold text-ink">Senha atual<input className="design-input h-11 w-full px-4" type="password" autoComplete="current-password" value={senha.senha_atual} onChange={(event) => setSenha((current) => ({ ...current, senha_atual: event.target.value }))} required /></label>
+                  <label className="grid gap-2 text-sm font-semibold text-ink">Nova senha<input className="design-input h-11 w-full px-4" type="password" autoComplete="new-password" value={senha.nova_senha} onChange={(event) => setSenha((current) => ({ ...current, nova_senha: event.target.value }))} minLength={8} required /></label>
                   {senhaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(senhaMutation.error)}</p> : null}
                   {senhaMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)] md:col-span-2">Senha alterada. Outras sessões foram desconectadas.</p> : null}
                   <div className="md:col-span-2">
@@ -279,7 +279,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   if (!isAdmin) {
     return (
       <div className="space-y-6">
-        <PageHeader eyebrow="Conta" accent="Configurações" title="da conta" subtitle="Altere a sua senha de acesso. Mínimo 8 caracteres, com letra e número." />
+        <PageHeader title="Configurações da conta" subtitle="Altere a sua senha de acesso. Mínimo 8 caracteres, com letra e número." />
         <Card>
           <CardHeader>
             <p className="text-sm font-bold text-ink">Segurança</p>
@@ -289,8 +289,8 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
               event.preventDefault()
               senhaMutation.mutate(senha)
             }}>
-              <input className="design-input h-11 w-full px-4" type="password" autoComplete="current-password" placeholder="Senha atual" value={senha.senha_atual} onChange={(event) => setSenha((current) => ({ ...current, senha_atual: event.target.value }))} required />
-              <input className="design-input h-11 w-full px-4" type="password" autoComplete="new-password" placeholder="Nova senha" value={senha.nova_senha} onChange={(event) => setSenha((current) => ({ ...current, nova_senha: event.target.value }))} minLength={8} required />
+              <label className="grid gap-2 text-sm font-semibold text-ink">Senha atual<input className="design-input h-11 w-full px-4" type="password" autoComplete="current-password" value={senha.senha_atual} onChange={(event) => setSenha((current) => ({ ...current, senha_atual: event.target.value }))} required /></label>
+              <label className="grid gap-2 text-sm font-semibold text-ink">Nova senha<input className="design-input h-11 w-full px-4" type="password" autoComplete="new-password" value={senha.nova_senha} onChange={(event) => setSenha((current) => ({ ...current, nova_senha: event.target.value }))} minLength={8} required /></label>
               {senhaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(senhaMutation.error)}</p> : null}
               {senhaMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)] md:col-span-2">Senha alterada. Outras sessões foram desconectadas.</p> : null}
               <div className="md:col-span-2">
@@ -338,7 +338,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Administração" accent="Configurações" title="da unidade" subtitle="Dados da unidade, equipe e preferências de operação." />
+      <PageHeader title="Configurações da unidade" subtitle="Dados da unidade, equipe e preferências de operação." />
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
         {[
@@ -864,8 +864,8 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
               event.preventDefault()
               senhaMutation.mutate(senha)
             }}>
-              <input className="design-input h-11 w-full px-4" type="password" autoComplete="current-password" placeholder="Senha atual" value={senha.senha_atual} onChange={(event) => setSenha((current) => ({ ...current, senha_atual: event.target.value }))} required />
-              <input className="design-input h-11 w-full px-4" type="password" autoComplete="new-password" placeholder="Nova senha" value={senha.nova_senha} onChange={(event) => setSenha((current) => ({ ...current, nova_senha: event.target.value }))} required />
+              <label className="grid gap-2 text-sm font-semibold text-ink">Senha atual<input className="design-input h-11 w-full px-4" type="password" autoComplete="current-password" value={senha.senha_atual} onChange={(event) => setSenha((current) => ({ ...current, senha_atual: event.target.value }))} required /></label>
+              <label className="grid gap-2 text-sm font-semibold text-ink">Nova senha<input className="design-input h-11 w-full px-4" type="password" autoComplete="new-password" value={senha.nova_senha} onChange={(event) => setSenha((current) => ({ ...current, nova_senha: event.target.value }))} minLength={8} required /></label>
               {senhaMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2">{extractErrorMessage(senhaMutation.error)}</p> : null}
               {senhaMutation.isSuccess ? <p className="rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)] md:col-span-2">Senha alterada.</p> : null}
               <div className="md:col-span-2">

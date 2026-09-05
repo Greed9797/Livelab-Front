@@ -227,9 +227,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         <p className="text-base font-bold text-ink">Resultados da operação</p>
       ) : (
         <PageHeader
-          eyebrow="Analytics · Operação"
-          accent="Resultados"
-          title="da operação"
+          title="Resultados da operação"
           subtitle="Compare marcas, acompanhe a eficiência das lives e entenda a audiência."
         />
       )}
