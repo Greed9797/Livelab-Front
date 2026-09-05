@@ -1,6 +1,45 @@
 import { asString } from '../utils/format'
 import type { JsonRecord } from '../types/models'
 import type { BadgeTone } from '../components/ui/Badge'
+import type { LivePendingKind } from '../components/conteudo/live-helpers'
+
+const LIVE_PENDING_KINDS = new Set<LivePendingKind>(['rascunho', 'cadastro', 'metricas', 'duplicata'])
+
+export interface ConteudoLivesDeepLink {
+  dateFrom: string
+  dateTo: string
+  marcaId: string
+  cabineId: string
+  liveId: string
+  agendaId: string
+  pending: LivePendingKind | ''
+  source: string
+  isContextual: boolean
+}
+
+export function parseConteudoLivesDeepLink(params: URLSearchParams): ConteudoLivesDeepLink {
+  const singleDate = params.get('data') ?? ''
+  const dateFrom = params.get('data_inicio') ?? singleDate
+  const dateTo = params.get('data_fim') ?? singleDate
+  const marcaId = params.get('marca') ?? params.get('marca_id') ?? ''
+  const cabineId = params.get('cabine') ?? ''
+  const liveId = params.get('live') ?? ''
+  const agendaId = params.get('agenda') ?? ''
+  const rawPending = params.get('pendencia') ?? ''
+  const pending = LIVE_PENDING_KINDS.has(rawPending as LivePendingKind) ? rawPending as LivePendingKind : ''
+  const source = params.get('origem') ?? ''
+  return {
+    dateFrom,
+    dateTo,
+    marcaId,
+    cabineId,
+    liveId,
+    agendaId,
+    pending,
+    source,
+    isContextual: Boolean(source || cabineId || agendaId || liveId),
+  }
+}
 
 // ---- Agenda: cálculo de dias por visão (semana/mês) + range de fetch ----
 // O range de fetch DEVE cobrir exatamente os dias exibidos em cada visão, senão

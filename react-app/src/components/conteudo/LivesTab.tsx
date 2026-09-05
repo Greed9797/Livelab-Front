@@ -21,13 +21,27 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { BotBadge } from '../ui/BotBadge'
+import { ErrorState, LoadingState } from '../ui/States'
 import { AnalyticsImportSection } from '../analytics/AnalyticsImportSection'
 import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
-import { calcDuration, fmtTime, livePresenterCellModel, livePresenterNames, type LiveFilterOption } from './live-helpers'
+import {
+  calcDuration,
+  classifyLivePendings,
+  filterLivesByPending,
+  fmtTime,
+  hasRecordedMetricValue,
+  hasRecordedLiveGmv,
+  livePresenterCellModel,
+  livePresenterNames,
+  summarizeLivePendings,
+  type LiveFilterOption,
+  type LivePendingKind,
+} from './live-helpers'
 import { InlineApresentadoraCell, InlineGmvCell, InlinePedidosCell } from './LiveInlineCells'
 import { LiveDetailModal } from './LiveDetailModal'
+import { LivePendingPanel } from './LivePendingPanel'
 import './LivesTab.css'
 import type { JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
@@ -267,14 +281,14 @@ function StatusBadge({ status }: { status: unknown }) {
   )
 }
 
-// Célula numérica alinhada à direita; "—" quando não há valor (0 e ausente são iguais aqui:
-// nenhum dos dois é informação).
-function MetricaCell({ valor, dinheiro = false }: { valor: number | null; dinheiro?: boolean }) {
-  const temValor = valor != null && Number.isFinite(valor) && valor > 0
+// Célula numérica alinhada à direita; zero informado continua visível e distinto de ausência.
+function MetricaCell({ valor, dinheiro = false }: { valor: unknown; dinheiro?: boolean }) {
+  const temValor = hasRecordedMetricValue(valor)
+  const numero = asNumber(valor)
   return (
     <div style={{ textAlign: 'right', paddingRight: 10, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontSize: 12 }}>
       {temValor ? (
-        <span style={{ color: 'var(--text-secondary)' }}>{dinheiro ? formatMoney(valor) : fmtInt.format(valor)}</span>
+        <span style={{ color: 'var(--text-secondary)' }}>{dinheiro ? formatMoney(numero) : fmtInt.format(numero)}</span>
       ) : (
         <span style={{ color: 'var(--text-faint)' }}>—</span>
       )}
@@ -381,6 +395,19 @@ export interface LivesTabProps {
   onInlineSaveLive?: (liveId: string, payload: JsonRecord) => Promise<unknown>
   duplicateLiveIds?: string[]
   duplicateClusterCount?: number
+  pendingFilter: LivePendingKind | ''
+  onPendingFilterChange: (pending: LivePendingKind | '') => void
+  cabineFilterId: string
+  isLoading?: boolean
+  errorMessage?: string
+  onRetry?: () => void
+  contextSource?: string
+  contextAgendaId?: string
+  contextAgendaLoading?: boolean
+  duplicateStatus?: 'loading' | 'error' | 'ready'
+  onRegisterAgendaResult?: () => void
+  onBackContext?: () => void
+  onClearContext?: () => void
   dateRange: DateRange
   onDateRangeChange: (range: DateRange) => void
   customDateFrom: string
@@ -435,6 +462,19 @@ export function LivesTab({
   onInlineSaveLive,
   duplicateLiveIds,
   duplicateClusterCount = 0,
+  pendingFilter,
+  onPendingFilterChange,
+  cabineFilterId,
+  isLoading = false,
+  errorMessage,
+  onRetry,
+  contextSource,
+  contextAgendaId,
+  contextAgendaLoading = false,
+  duplicateStatus = 'ready',
+  onRegisterAgendaResult,
+  onBackContext,
+  onClearContext,
   dateRange,
   onDateRangeChange,
   customDateFrom,
@@ -477,7 +517,6 @@ export function LivesTab({
       return proximo
     })
   }
-  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const duplicateIdSet = useMemo(() => new Set(duplicateLiveIds ?? []), [duplicateLiveIds])
   // Filtros de data/marca/apresentadora são controlados pelo ConteudoPage (server-side).
@@ -543,18 +582,22 @@ export function LivesTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, searchQuery])
 
-  // Busca/data/marca/apresentadora/status já vêm filtrados do servidor; aqui só duplicatas.
+  // Busca/data/marca/apresentadora/status/cabine já vêm filtrados do servidor. A classificação
+  // de pendência é deliberadamente local e os números deixam claro que cobrem os resultados
+  // carregados desta página, sem sugerir um total que o endpoint não calcula.
   const filteredLives = useMemo(() => {
-    if (!showDuplicatesOnly || duplicateIdSet.size === 0) return livesData
-    return livesData.filter((live) => duplicateIdSet.has(asString(live.id)))
-  }, [livesData, showDuplicatesOnly, duplicateIdSet])
+    return filterLivesByPending(livesData, pendingFilter, duplicateIdSet)
+  }, [livesData, pendingFilter, duplicateIdSet])
+  const pendingCounts = useMemo(() => summarizeLivePendings(livesData, duplicateIdSet), [livesData, duplicateIdSet])
 
   const activeFilterCount =
     (dateRange !== 'todos' ? 1 : 0) +
     (marcaFilter ? 1 : 0) +
     (apresentadoraFilter ? 1 : 0) +
-    (statusFilter !== 'encerrada' ? 1 : 0)
-  const hasAnyFilter = Boolean(search.trim()) || activeFilterCount > 0 || showDuplicatesOnly
+    (cabineFilterId ? 1 : 0) +
+    (statusFilter !== 'encerrada' ? 1 : 0) +
+    (pendingFilter ? 1 : 0)
+  const hasAnyFilter = Boolean(search.trim()) || activeFilterCount > 0
   const clearFilters = onClearFilters
 
   const dayGroups = useMemo(() => groupByDay(filteredLives), [filteredLives])
@@ -644,39 +687,40 @@ export function LivesTab({
 
   return (
     <section className="space-y-3">
-      {/* ── Banner de possíveis duplicatas ── */}
-      {duplicateClusterCount > 0 ? (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            flexWrap: 'wrap',
-            padding: '10px 14px',
-            borderRadius: 12,
-            border: '1px solid var(--warning-soft)',
-            background: 'var(--warning-soft)',
-          }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--warning)' }}>
-            ⚠ {duplicateClusterCount}{' '}
-            {duplicateClusterCount === 1 ? 'grupo de possível duplicata' : 'grupos de possíveis duplicatas'}
+      {contextSource ? (
+        <div className="lives-context-bar">
+          <strong>Recorte vindo de {contextSource === 'analytics' ? 'Analytics' : contextSource === 'grade' ? 'Grade' : contextSource}</strong>
+          <span>
+            Os filtros de período, marca e cabine foram preservados.
+            {contextAgendaId ? ' O evento da agenda aguarda o cadastro do resultado.' : ''}
           </span>
-          {/* O texto tem que descrever a regra que roda de verdade. Antes citava também
-              "mesma marca + apresentadora no mesmo dia", que era a operação normal e fazia o
-              aviso acender todo dia — a regra saiu do backend e a frase saiu junto. */}
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Mesma cabine, ocupada nos dois casos ao mesmo tempo — nos últimos 90 dias.
-            Duas lives não acontecem na mesma cabine simultaneamente.
-          </span>
-          <button
-            type="button"
-            style={{ ...tbtn, marginLeft: 'auto' }}
-            onClick={() => setShowDuplicatesOnly((v) => !v)}
-          >
-            {showDuplicatesOnly ? 'Mostrar todas' : 'Revisar duplicatas'}
-          </button>
+          <div className="lives-context-actions">
+            {canWrite && contextAgendaId && onRegisterAgendaResult ? (
+              <button type="button" className="lives-context-action" onClick={onRegisterAgendaResult} disabled={contextAgendaLoading}>
+                {contextAgendaLoading ? 'Carregando evento…' : 'Cadastrar resultado'}
+              </button>
+            ) : null}
+            {onBackContext ? <button type="button" className="lives-context-action" onClick={onBackContext}>Voltar</button> : null}
+            {onClearContext ? <button type="button" className="lives-context-action" onClick={onClearContext}>Limpar recorte</button> : null}
+          </div>
         </div>
+      ) : null}
+
+      <LivePendingPanel
+        counts={pendingCounts}
+        loadedCount={livesData.length}
+        selected={pendingFilter}
+        onSelect={onPendingFilterChange}
+        loading={isLoading}
+        error={Boolean(errorMessage)}
+        duplicateStatus={duplicateStatus}
+        onRetry={onRetry}
+      />
+
+      {duplicateClusterCount > 0 ? (
+        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 11 }}>
+          O detector encontrou {duplicateClusterCount} {duplicateClusterCount === 1 ? 'grupo possível' : 'grupos possíveis'} nos últimos 90 dias; confirme no detalhe antes de corrigir.
+        </p>
       ) : null}
 
       {/* ── Toolbar ── */}
@@ -719,7 +763,7 @@ export function LivesTab({
               fontWeight: 500,
             }}
           >
-            {total}
+            {isLoading ? '—' : total}
           </span>
         </span>
 
@@ -1058,7 +1102,11 @@ export function LivesTab({
         </div>
 
         {/* Body */}
-        {dayGroups.length === 0 ? (
+        {isLoading ? (
+          <div style={{ padding: '36px 20px' }}><LoadingState /></div>
+        ) : errorMessage ? (
+          <div style={{ padding: '24px 20px' }}><ErrorState message={errorMessage} onRetry={onRetry} /></div>
+        ) : dayGroups.length === 0 ? (
           <div
             style={{
               padding: '60px 20px',
@@ -1207,7 +1255,12 @@ export function LivesTab({
                     const gmvHora = gmvPorHora(asNumber(officialLiveGmv(live)), durMins)
                     const presenterCell = livePresenterCellModel(live, Boolean(onInlineSaveLive))
                     const clientName = asString(live.marca_nome ?? live.cliente_nome)
-	                    const gmv = asNumber(officialLiveGmv(live))
+                    const officialGmvValue = officialLiveGmv(live)
+                    const gmv = asNumber(officialGmvValue)
+                    const ordersValue = live.manual_orders ?? live.final_orders_count ?? live.qtd_pedidos
+                    const pendingIssue = pendingFilter
+                      ? classifyLivePendings(live, duplicateIdSet).find((issue) => issue.kind === pendingFilter)
+                      : null
                     const isKebabOpen = kebabOpenId === liveId
                     const isEvenRow = rowIdx % 2 === 1
 
@@ -1341,6 +1394,22 @@ export function LivesTab({
                               Possível duplicata
                             </span>
                           ) : null}
+                          {pendingIssue ? (
+                            <>
+                              <span className="lives-pending-reason">{pendingIssue.reason}</span>
+                              <button
+                                type="button"
+                                className="lives-pending-row-action"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  if (canWrite && pendingIssue.kind !== 'duplicata') onOpenEditLive(live)
+                                  else onOpenLiveDetail(live)
+                                }}
+                              >
+                                {canWrite || pendingIssue.kind === 'duplicata' ? pendingIssue.actionLabel : 'Conferir detalhes'}
+                              </button>
+                            </>
+                          ) : null}
                         </div>
 
                         {/* Cabine — opcional */}
@@ -1417,6 +1486,7 @@ export function LivesTab({
                         {/* GMV — editável inline quando rascunho */}
                         <InlineGmvCell
                           gmv={gmv}
+                          hasValue={hasRecordedLiveGmv(live)}
                           editable={Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
                           onSave={(payload) => onInlineSaveLive!(liveId, payload)}
                         />
@@ -1428,15 +1498,16 @@ export function LivesTab({
 
                         {/* Pedidos — editável inline quando rascunho */}
                         <InlinePedidosCell
-                          pedidos={asNumber(live.manual_orders ?? live.final_orders_count)}
+                          pedidos={asNumber(ordersValue)}
+                          hasValue={hasRecordedMetricValue(ordersValue)}
                           editable={Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
                           onSave={(payload) => onInlineSaveLive!(liveId, payload)}
                         />
 
-                        {colunas.has('impressoes') ? <MetricaCell valor={asNumber(live.live_impressions)} /> : null}
-                        {colunas.has('visualizacoes') ? <MetricaCell valor={asNumber(live.manual_views ?? live.final_peak_viewers)} /> : null}
-                        {colunas.has('cliques') ? <MetricaCell valor={asNumber(live.product_clicks)} /> : null}
-                        {colunas.has('seguidores') ? <MetricaCell valor={asNumber(live.new_followers)} /> : null}
+                        {colunas.has('impressoes') ? <MetricaCell valor={live.live_impressions} /> : null}
+                        {colunas.has('visualizacoes') ? <MetricaCell valor={live.manual_views ?? live.final_peak_viewers} /> : null}
+                        {colunas.has('cliques') ? <MetricaCell valor={live.product_clicks} /> : null}
+                        {colunas.has('seguidores') ? <MetricaCell valor={live.new_followers} /> : null}
 
                         {/* Comissão apresentadora */}
                         {(() => {
@@ -1575,10 +1646,12 @@ export function LivesTab({
           }}
         >
           <span>
-            {total === 0
+            {isLoading
+              ? 'Carregando recorte…'
+              : total === 0
               ? '0 lives'
               : `${rangeFrom}–${rangeTo} de ${total} live${total !== 1 ? 's' : ''}`}
-            {showDuplicatesOnly ? ` · ${filteredLives.length} nesta página (duplicatas)` : ''}
+            {!isLoading && pendingFilter ? ` · ${filteredLives.length} nesta página (${pendingFilter === 'duplicata' ? 'possíveis duplicatas' : pendingFilter})` : ''}
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -1599,16 +1672,16 @@ export function LivesTab({
             </span>
 
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Primeira página" disabled={page <= 0} onClick={() => onPageChange(0)}>
+              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Primeira página" disabled={isLoading || page <= 0} onClick={() => onPageChange(0)}>
                 <ChevronsLeft style={{ width: 14, height: 14 }} />
               </Button>
-              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Página anterior" disabled={page <= 0} onClick={() => onPageChange(page - 1)}>
+              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Página anterior" disabled={isLoading || page <= 0} onClick={() => onPageChange(page - 1)}>
                 <ChevronLeft style={{ width: 14, height: 14 }} />
               </Button>
-              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Próxima página" disabled={page + 1 >= pageCount} onClick={() => onPageChange(page + 1)}>
+              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Próxima página" disabled={isLoading || page + 1 >= pageCount} onClick={() => onPageChange(page + 1)}>
                 <ChevronRight style={{ width: 14, height: 14 }} />
               </Button>
-              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Última página" disabled={page + 1 >= pageCount} onClick={() => onPageChange(pageCount - 1)}>
+              <Button variant="secondary" className="h-7 w-7 p-0" aria-label="Última página" disabled={isLoading || page + 1 >= pageCount} onClick={() => onPageChange(pageCount - 1)}>
                 <ChevronsRight style={{ width: 14, height: 14 }} />
               </Button>
             </div>

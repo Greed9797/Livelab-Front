@@ -8,7 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from '../ui/States'
 import { getDailyAnalytics } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
 import { formatMoney, unwrapList } from '../../utils/format'
-import { buildDailyPulse, formatHoras, type PulseStatus } from '../../utils/dailyPulse'
+import { buildDailyPulse, formatHoras, PULSE_STATUS_CRITERIA, type PulseStatus } from '../../utils/dailyPulse'
 import type { JsonRecord } from '../../types/models'
 
 interface PulsoDiarioSectionProps {
@@ -110,6 +110,15 @@ export function PulsoDiarioSection({ from, to, marcaId, apresentadoraId }: Pulso
             <HeroNumber label="Clientes críticos" value={pulse.resumo.clientesCriticos.toLocaleString('pt-BR')} hint={`${pulse.resumo.clientesAtencao} em atenção · ${pulse.resumo.clientesOk} ok`} />
             <HeroNumber label="Horas sem venda" value={formatHoras(pulse.resumo.horasSemVenda)} hint={`${pulse.resumo.diasComZeroVenda} dia(s) com zero venda`} />
           </div>
+          <details className="border-t border-line pt-4">
+            <summary className="cursor-pointer text-xs font-semibold text-ink">Como o status operacional é classificado</summary>
+            <ul className="mt-2 grid gap-1.5 text-xs leading-5 text-ink-muted sm:grid-cols-2">
+              {PULSE_STATUS_CRITERIA.map((criterion) => (
+                <li key={criterion.status}><span className="font-semibold text-ink">{criterion.label}:</span> {criterion.rule}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs leading-5 text-ink-muted">Os rótulos descrevem produtividade de live neste painel. Eles não medem receita da unidade, custo, margem ou lucratividade.</p>
+          </details>
         </CardBody>
       </Card>
 

@@ -20,6 +20,7 @@ import {
   updateAgendaEvento,
 } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
+import { getGradeAcompanhamento } from '../../services/grade'
 import { asString } from '../../utils/format'
 import type { Cabine, JsonRecord } from '../../types/models'
 import {
@@ -32,6 +33,7 @@ import {
 import { resolveMarcaCor } from '../../utils/brandColor'
 import { GradeDiaView, GradeMesView, GradeSemanaView } from './GradeViews'
 import { GradeCellPopover, type GradeCellTarget } from './GradeCellPopover'
+import { GradeAcompanhamento } from './GradeAcompanhamento'
 import { AgendarLiveModal } from '../forms/AgendarLiveModal'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 
@@ -121,6 +123,12 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
     enabled: editPadrao,
   })
 
+  const acompanhamento = useQuery({
+    queryKey: ['grade-acompanhamento', date],
+    queryFn: () => getGradeAcompanhamento(date),
+    enabled: !editPadrao && view === 'dia',
+  })
+
   // Mesma queryKey da ConteudoPage: o React Query compartilha o cache, não é
   // uma segunda ida ao servidor. O AgendarLiveModal exige a lista de clientes.
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: () => getClientes(), enabled: agendaModal !== null })
@@ -141,6 +149,7 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
   function invalidateAgenda() {
     void client.invalidateQueries({ queryKey: ['agenda-slot'] })
     void client.invalidateQueries({ queryKey: ['agenda'] })
+    void client.invalidateQueries({ queryKey: ['grade-acompanhamento'] })
   }
 
   // As mutations NÃO fecham o modal: quem fecha é o próprio AgendarLiveModal, e só
@@ -357,7 +366,22 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
         ) : editPadrao ? (
           <GradeDiaView celulas={padraoDoDow} cabines={cabinesOrdenadas} onCellClick={onCellClick} marcarExcecoes={false} />
         ) : view === 'dia' ? (
-          <GradeDiaView celulas={gradePorData.get(date) ?? []} cabines={cabinesOrdenadas} onCellClick={onCellClick} />
+          <>
+            <GradeDiaView celulas={gradePorData.get(date) ?? []} cabines={cabinesOrdenadas} onCellClick={onCellClick} />
+            {acompanhamento.isLoading ? (
+              <section aria-labelledby="grade-acompanhamento-loading" className="mt-6 border-t border-line pt-5">
+                <h3 id="grade-acompanhamento-loading" className="mb-3 text-base font-bold text-ink">Acompanhamento operacional</h3>
+                <LoadingState label="Carregando agenda e execuções do dia" />
+              </section>
+            ) : acompanhamento.error ? (
+              <section aria-labelledby="grade-acompanhamento-error" className="mt-6 border-t border-line pt-5">
+                <h3 id="grade-acompanhamento-error" className="mb-3 text-base font-bold text-ink">Acompanhamento operacional</h3>
+                <ErrorState message={extractErrorMessage(acompanhamento.error)} onRetry={() => { void acompanhamento.refetch() }} />
+              </section>
+            ) : acompanhamento.data ? (
+              <GradeAcompanhamento value={acompanhamento.data} canWrite={canWrite} hasGradeFilters={Boolean(filtroMarca || filtroApresentadora)} />
+            ) : null}
+          </>
         ) : view === 'semana' ? (
           <GradeSemanaView dias={dias} today={today} onOpenDia={(d) => { setDate(d); setView('dia') }} />
         ) : (

@@ -2,6 +2,7 @@
 // Slots são dados no backend; aqui ficam apenas os slots exibidos por padrão
 // e a paleta determinística de cores por marca.
 import { somarDias } from '../../utils/sao-paulo-date'
+import type { GradeSituacao } from '../../services/grade'
 
 export function gradeDateFromLink(value: string, fallback: string): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && somarDias(value, 0) === value ? value : fallback
@@ -81,4 +82,48 @@ export function marcasPresentes(celulas: GradeCelula[]): Array<{ id: string; nom
     if (c.marca_id && !map.has(c.marca_id)) map.set(c.marca_id, { nome: c.marca_nome, cor: c.marca_cor ?? null })
   }
   return [...map.entries()].map(([id, v]) => ({ id, nome: v.nome, cor: v.cor }))
+}
+
+export function gradeOperationalLink({
+  data,
+  cabineId,
+  liveId,
+  agendaId,
+  pendencia,
+}: {
+  data: string
+  cabineId?: string | null
+  liveId?: string
+  agendaId?: string
+  pendencia?: 'cadastro'
+}): string {
+  const params = new URLSearchParams({
+    tab: 'lives',
+    periodo: 'custom',
+    data_inicio: data,
+    data_fim: data,
+    origem: 'grade',
+  })
+  if (cabineId) params.set('cabine', cabineId)
+  if (liveId) params.set('live', liveId)
+  if (agendaId) params.set('agenda', agendaId)
+  if (pendencia) params.set('pendencia', pendencia)
+  return `/conteudo?${params.toString()}`
+}
+
+export function statusAcompanhamento(situacao: GradeSituacao): {
+  label: string
+  tone: 'neutral' | 'success' | 'warning' | 'danger' | 'info'
+} {
+  switch (situacao) {
+    case 'realizada': return { label: 'Realizada', tone: 'success' }
+    case 'em_andamento': return { label: 'Em andamento', tone: 'info' }
+    case 'cancelada': return { label: 'Cancelada', tone: 'danger' }
+    case 'manutencao': return { label: 'Manutenção', tone: 'warning' }
+    case 'registro_pendente': return { label: 'Registro pendente', tone: 'warning' }
+    case 'vinculacao_pendente': return { label: 'Vinculação pendente', tone: 'warning' }
+    case 'planejada': return { label: 'Planejada', tone: 'neutral' }
+    case 'sem_execucao_vinculada': return { label: 'Sem execução vinculada', tone: 'neutral' }
+    case 'sem_reserva': return { label: 'Sem reserva', tone: 'neutral' }
+  }
 }

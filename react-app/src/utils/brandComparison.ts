@@ -66,11 +66,15 @@ export function formatCalendarDate(value: string): string {
   return year && month && day ? `${day}/${month}/${year}` : value
 }
 
-export type MetricVariation = { direction: 'up' | 'down' | 'flat'; percent: number } | { direction: 'new' | 'none' }
+export type MetricVariation =
+  | { direction: 'up' | 'down' | 'flat'; percent: number }
+  | { direction: 'new' | 'missing' | 'unavailable' | 'unavailable-base' }
 
 /** Ausência de marca no recorte anterior não é zero. Base zero só indica valor novo. */
 export function metricVariation(current: number | null, previous: number | null | undefined): MetricVariation {
-  if (current == null || previous == null) return { direction: 'none' }
+  if (current == null) return { direction: 'unavailable' }
+  if (previous === undefined) return { direction: 'missing' }
+  if (previous === null) return { direction: 'unavailable-base' }
   if (previous === 0) return current > 0 ? { direction: 'new' } : { direction: 'flat', percent: 0 }
   const percent = ((current - previous) / Math.abs(previous)) * 100
   if (percent === 0) return { direction: 'flat', percent: 0 }
@@ -82,17 +86,52 @@ export function brandMetric(row: BrandComparisonRow, sort: BrandComparisonSort):
 }
 
 /**
- * Comparação descritiva entre janelas equivalentes. Não tenta explicar uma
- * mudança: GMV/h é apenas o quociente de GMV de lives pelas horas de live.
+ * Comparação descritiva entre janelas equivalentes. A decomposição explica a
+ * identidade GMV = horas × GMV/h, sem atribuir causalidade comercial.
  */
-type ComparablePeriodMetrics = Pick<BrandComparisonRow, 'gmvLives' | 'horasLive' | 'gmvHora'>
+type ComparablePeriodMetrics = Pick<BrandComparisonRow, 'gmvLives' | 'horasLive' | 'gmvHora' | 'totalLives'>
 
 export function brandPeriodDiagnostic(current: ComparablePeriodMetrics, previous?: ComparablePeriodMetrics) {
+  const ratesAvailable = previous != null && current.gmvHora != null && previous.gmvHora != null
+  // Decomposição simétrica: os dois efeitos somam exatamente ΔGMV, sem escolher
+  // arbitrariamente se horas ou produtividade "mudou primeiro".
+  const hoursEffect = ratesAvailable
+    ? (current.horasLive - previous.horasLive) * (current.gmvHora! + previous.gmvHora!) / 2
+    : null
+  const productivityEffect = ratesAvailable
+    ? (current.gmvHora! - previous.gmvHora!) * (current.horasLive + previous.horasLive) / 2
+    : null
+  const previousLives = previous?.totalLives ?? null
+  const baseState = current.totalLives === 0
+    ? 'no-current-lives'
+    : previous == null
+      ? 'missing-previous'
+      : previous.totalLives === 0
+        ? 'zero-previous-lives'
+        : current.totalLives === 1 || previous.totalLives === 1
+          ? 'small'
+          : 'ready'
   return {
     gmvLives: metricVariation(current.gmvLives, previous?.gmvLives),
     horasLive: metricVariation(current.horasLive, previous?.horasLive),
     gmvHora: metricVariation(current.gmvHora, previous?.gmvHora),
+    gmvChange: previous ? current.gmvLives - previous.gmvLives : null,
+    hoursEffect,
+    productivityEffect,
+    base: { state: baseState, currentLives: current.totalLives, previousLives },
   }
+}
+
+export function brandLivesDrilldownUrl(marcaId: string | null, period: PreviousPeriod): string {
+  const params = new URLSearchParams({
+    tab: 'lives',
+    periodo: 'custom',
+    data_inicio: period.from,
+    data_fim: period.to,
+  })
+  if (marcaId) params.set('marca', marcaId)
+  params.set('origem', 'analytics')
+  return `/conteudo?${params.toString()}`
 }
 
 /** Consolida as linhas diárias já filtradas sem cruzar o período ou a entidade ativa. */

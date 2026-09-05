@@ -84,7 +84,7 @@ export function GradeDiaView({
                       {isExcecao ? <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink-muted">exceção</span> : null}
                     </>
                   ) : (
-                    <span className="text-xs text-ink-muted">—</span>
+                    <span className="text-xs text-ink-muted">Sem programação</span>
                   )}
                 </button>
               )

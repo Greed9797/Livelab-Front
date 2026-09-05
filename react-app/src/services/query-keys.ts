@@ -134,6 +134,7 @@ export function invalidateOperational(client: QueryClient): void {
     [...QK.live()],
     [...QK.livesDuplicatas],
     ['grade'],
+    ['grade-acompanhamento'],
     // dashboards com GMV/horas agregados
     [...QK.homeDashboard],
     ['daily-pulse'],

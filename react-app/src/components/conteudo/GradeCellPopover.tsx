@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { CalendarPlus, Pencil, Trash2 } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
+import { UnsavedChangesNotice } from '../ui/UnsavedChangesNotice'
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { getAgenda } from '../../services/domain'
 import { asArray, asString } from '../../utils/format'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
@@ -127,6 +129,13 @@ export function GradeCellPopover({
     setObservacao(target?.celula?.observacao ?? '')
   }, [target])
 
+  const dirty = Boolean(target) && (
+    marcaId !== (target?.celula?.marca_id ?? '')
+    || apresentadoraId !== (target?.celula?.apresentadora_id ?? '')
+    || observacao !== (target?.celula?.observacao ?? '')
+  )
+  const closeGuard = useUnsavedChanges({ open: Boolean(target), dirty, busy: isSaving, onClose })
+
   // Só o modo exceção (dia concreto) tem agenda real: o padrão semanal é template.
   const cabineId = target?.cabineId ?? ''
   const dataSlot = target?.data ?? ''
@@ -153,7 +162,7 @@ export function GradeCellPopover({
     : []
 
   return (
-    <Modal open title={titulo} subtitle={subtitulo} size="sm" onClose={onClose}>
+    <Modal open title={titulo} subtitle={subtitulo} size="sm" onClose={closeGuard.requestClose} closeDisabled={isSaving}>
       <form onSubmit={onSubmit} className="space-y-4 px-5 py-4">
         <label className="block text-sm">
           <span className="mb-1 block font-semibold text-ink">Marca</span>
@@ -182,12 +191,14 @@ export function GradeCellPopover({
 
         {errorMessage ? <p className="text-sm font-semibold text-[color:var(--danger)]">{errorMessage}</p> : null}
 
+        <UnsavedChangesNotice guard={closeGuard} />
+
         <div className="flex items-center justify-between gap-2 pt-1">
           {target.celula ? (
             <Button type="button" variant="danger" onClick={onClear} disabled={isSaving}>Limpar célula</Button>
           ) : <span />}
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}>Cancelar</Button>
+            <Button type="button" variant="ghost" onClick={closeGuard.requestClose} disabled={isSaving}>Cancelar</Button>
             <Button type="submit" isLoading={isSaving} disabled={!marcaId}>Salvar</Button>
           </div>
         </div>

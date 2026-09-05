@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDailyPulse, computeStatus, diagnose, formatHoras } from './dailyPulse'
+import { buildDailyPulse, computeStatus, diagnose, formatHoras, PULSE_STATUS_CRITERIA } from './dailyPulse'
 
 describe('diagnose (não hardcoda R$0)', () => {
   it('crítico com GMV>0 e zero pedidos reflete o GMV real', () => {
@@ -38,6 +38,14 @@ describe('computeStatus (regras agressivas)', () => {
   it('2h+ no ar e zero pedidos = critico', () => {
     expect(computeStatus({ gmv: 0, pedidos: 0, horas: 6.02, totalLives: 1, gmvHora: 0, pedidosHora: 0 })).toBe('critico')
   })
+  it('qualquer recorte com live e zero pedidos continua crítico', () => {
+    expect(computeStatus({ gmv: 20, pedidos: 0, horas: 0.25, totalLives: 1, gmvHora: 80, pedidosHora: 0 })).toBe('critico')
+  })
+  it('1,5h com GMV/h zero continua crítico mesmo com pedido', () => {
+    const metrics = { gmv: 0, pedidos: 1, horas: 1.5, totalLives: 1, gmvHora: 0, pedidosHora: 2 / 3 }
+    expect(computeStatus(metrics)).toBe('critico')
+    expect(diagnose('critico', metrics)).toMatchObject({ titulo: 'Live sem GMV' })
+  })
   it('pedidos>0 e gmvHora baixa = atencao', () => {
     expect(computeStatus({ gmv: 100, pedidos: 5, horas: 5, totalLives: 1, gmvHora: 20, pedidosHora: 1 })).toBe('atencao')
   })
@@ -46,6 +54,21 @@ describe('computeStatus (regras agressivas)', () => {
   })
   it('gmvHora>=150 e pedidosHora>=2 = otimo', () => {
     expect(computeStatus({ gmv: 800, pedidos: 12, horas: 4, totalLives: 1, gmvHora: 200, pedidosHora: 3 })).toBe('otimo')
+  })
+  it('preserva exatamente as bordas de GMV/h e pedidos/h', () => {
+    expect(computeStatus({ gmv: 49.99, pedidos: 1, horas: 1, totalLives: 1, gmvHora: 49.99, pedidosHora: 1 })).toBe('atencao')
+    expect(computeStatus({ gmv: 50, pedidos: 1, horas: 1, totalLives: 1, gmvHora: 50, pedidosHora: 1 })).toBe('ok')
+    expect(computeStatus({ gmv: 150, pedidos: 1.99, horas: 1, totalLives: 1, gmvHora: 150, pedidosHora: 1.99 })).toBe('ok')
+    expect(computeStatus({ gmv: 150, pedidos: 2, horas: 1, totalLives: 1, gmvHora: 150, pedidosHora: 2 })).toBe('otimo')
+  })
+
+  it('expõe os critérios operacionais exibidos na tela', () => {
+    expect(PULSE_STATUS_CRITERIA).toEqual([
+      { status: 'critico', label: 'Crítico', rule: 'Recorte com live e 0 pedidos; ou pelo menos 1,5h no ar com GMV/h igual a R$ 0.' },
+      { status: 'atencao', label: 'Atenção', rule: 'GMV/h maior que R$ 0 e menor que R$ 50; ou, com pedidos, menos de 1 pedido/h.' },
+      { status: 'ok', label: 'OK', rule: 'Demais casos após as regras acima; com vendas, GMV/h de pelo menos R$ 50.' },
+      { status: 'otimo', label: 'Ótimo', rule: 'GMV/h de pelo menos R$ 150 e pelo menos 2 pedidos/h.' },
+    ])
   })
 })
 

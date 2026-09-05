@@ -19,10 +19,12 @@ function getInitials(name: string): string {
 // Reusa updateLive (PATCH parcial) via onSave; grava fat_gerado + manual_gmv.
 export function InlineGmvCell({
   gmv,
+  hasValue = true,
   editable,
   onSave,
 }: {
   gmv: number
+  hasValue?: boolean
   editable: boolean
   onSave: (payload: JsonRecord) => Promise<unknown>
 }) {
@@ -32,7 +34,7 @@ export function InlineGmvCell({
   const [error, setError] = useState(false)
 
   function begin() {
-    setValue(gmv > 0 ? String(gmv).replace('.', ',') : '')
+    setValue(hasValue ? String(gmv).replace('.', ',') : '')
     setError(false)
     setEditing(true)
   }
@@ -127,7 +129,7 @@ export function InlineGmvCell({
         whiteSpace: 'nowrap',
       }}
     >
-      {gmv > 0 ? (
+      {hasValue ? (
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)', letterSpacing: -0.005 }}>{formatMoney(gmv)}</span>
       ) : (
         <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>—</span>
@@ -152,10 +154,12 @@ export function InlineGmvCell({
 // Célula de Pedidos editável inline (rascunho). Grava qtd_pedidos + manual_orders.
 export function InlinePedidosCell({
   pedidos,
+  hasValue = true,
   editable,
   onSave,
 }: {
   pedidos: number
+  hasValue?: boolean
   editable: boolean
   onSave: (payload: JsonRecord) => Promise<unknown>
 }) {
@@ -165,7 +169,7 @@ export function InlinePedidosCell({
   const [error, setError] = useState(false)
 
   function begin() {
-    setValue(pedidos > 0 ? String(pedidos) : '')
+    setValue(hasValue ? String(pedidos) : '')
     setError(false)
     setEditing(true)
   }
@@ -247,7 +251,7 @@ export function InlinePedidosCell({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-      {pedidos > 0 ? (
+      {hasValue ? (
         <span style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>{pedidos.toLocaleString('pt-BR')}</span>
       ) : (
         <span style={{ color: 'var(--text-faint)', fontSize: 12.5 }}>—</span>

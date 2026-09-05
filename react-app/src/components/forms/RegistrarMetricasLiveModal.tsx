@@ -1,7 +1,10 @@
 import { CheckCircle2 } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { UnsavedChangesNotice } from '../ui/UnsavedChangesNotice'
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
+import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { MoneyInput } from '../ui/MoneyInput'
 import { PresenterSelect } from './PresenterSelect'
 import { extractErrorMessage } from '../../services/api'
@@ -49,7 +52,7 @@ const emptyForm: MetricsForm = {
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  return getSaoPauloDateInput()
 }
 
 function toDateInput(value: unknown) {
@@ -77,7 +80,7 @@ function toTimeInput(value: unknown) {
 }
 
 function toDatetimeLocal(date: string, time: string) {
-  return new Date(`${date}T${time}:00`).toISOString()
+  return new Date(`${date}T${time}:00-03:00`).toISOString()
 }
 
 function liveTypeFromMarca(marca?: JsonRecord): 'cliente' | 'afiliado' | 'teste' {
@@ -131,7 +134,7 @@ function formFromAgendaEvent(event: JsonRecord, marcas: JsonRecord[]): MetricsFo
     data: toDateInput(event.data_inicio),
     hora_inicio: toTimeInput(event.data_inicio),
     hora_fim: toTimeInput(event.data_fim),
-    tipo: liveTypeFromMarca(marca),
+    tipo: marca ? liveTypeFromMarca(marca) : '',
     resumo: asString(event.observacoes, ''),
   }
 }
@@ -143,6 +146,9 @@ export function RegistrarMetricasLiveModal({
   agendaEvent,
   cabines,
   marcas,
+  marcaLoading = false,
+  marcaError = false,
+  onRetryMarca,
   clientes,
   apresentadoras,
   isSaving,
@@ -159,6 +165,9 @@ export function RegistrarMetricasLiveModal({
   agendaEvent?: JsonRecord | null
   cabines: Cabine[]
   marcas: JsonRecord[]
+  marcaLoading?: boolean
+  marcaError?: boolean
+  onRetryMarca?: () => void
   clientes: JsonRecord[]
   apresentadoras: JsonRecord[]
   isSaving?: boolean
@@ -170,19 +179,45 @@ export function RegistrarMetricasLiveModal({
   onCloseLive?: (id: string, payload: JsonRecord) => void
 }) {
   const [form, setForm] = useState<MetricsForm>(emptyForm)
+  const initialFormRef = useRef<MetricsForm>(emptyForm)
+  const initializedRef = useRef('')
+  const resolvedAgendaBrandRef = useRef(false)
+  const formId = useId()
+  const closeGuard = useUnsavedChanges({ open, dirty: JSON.stringify(form) !== JSON.stringify(initialFormRef.current), busy: Boolean(isSaving), onClose })
 
   useEffect(() => {
-    if (!open) return
-    if (mode === 'edit' && live) {
-      setForm(formFromLive(live))
+    if (!open) { initializedRef.current = ''; resolvedAgendaBrandRef.current = false; return }
+    const key = `${mode}:${asString(live?.id, '')}:${asString(agendaEvent?.id, '')}`
+    const agendaBrand = mode === 'result' && agendaEvent
+      ? marcas.find((item) => asString(item.id, '') === asString(agendaEvent.marca_id, ''))
+      : undefined
+    if (initializedRef.current === key) {
+      if (agendaBrand && agendaEvent && !resolvedAgendaBrandRef.current) {
+        const previous = initialFormRef.current
+        const resolved = formFromAgendaEvent(agendaEvent, marcas)
+        initialFormRef.current = { ...previous, tipo: resolved.tipo, cliente_id: resolved.cliente_id }
+        resolvedAgendaBrandRef.current = true
+        // Apenas os campos derivados ainda intocados recebem os dados tardios da marca.
+        setForm((current) => current.marca_id !== previous.marca_id ? current : {
+          ...current,
+          tipo: current.tipo === previous.tipo ? resolved.tipo : current.tipo,
+          cliente_id: current.cliente_id === previous.cliente_id ? resolved.cliente_id : current.cliente_id,
+        })
+      }
       return
     }
-    if (mode === 'result' && agendaEvent) {
-      setForm(formFromAgendaEvent(agendaEvent, marcas))
-      return
-    }
-    setForm(emptyForm)
+    initializedRef.current = key
+    resolvedAgendaBrandRef.current = Boolean(agendaBrand)
+    const next = mode === 'edit' && live ? formFromLive(live)
+      : mode === 'result' && agendaEvent ? formFromAgendaEvent(agendaEvent, marcas)
+      : { ...emptyForm, data: today() }
+    initialFormRef.current = next
+    setForm(next)
   }, [agendaEvent, live, marcas, mode, open])
+
+  const preserveAgendaBrand = mode === 'result' && Boolean(agendaEvent?.marca_id)
+  const agendaBrandUnavailable = preserveAgendaBrand
+    && (form.marca_id !== asString(agendaEvent?.marca_id, '') || !marcas.some((item) => asString(item.id, '') === form.marca_id))
 
   const clientesComMarca = useMemo(() => new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean)), [marcas])
   const accountOptions = useMemo(() => form.tipo === 'afiliado'
@@ -245,6 +280,7 @@ export function RegistrarMetricasLiveModal({
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (isSaving || agendaBrandUnavailable) return
     if (mode === 'edit' && live && onUpdateLive) {
       onUpdateLive(asString(live.id, ''), buildManualLivePayload(form))
       return
@@ -265,8 +301,17 @@ export function RegistrarMetricasLiveModal({
   const accountRequired = form.tipo !== 'teste'
 
   return (
-    <Modal open={open} title={title} subtitle="Registro operacional da live, GMV, pedidos e métricas finais." onClose={onClose} size="lg">
-      <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={onSubmit}>
+    <Modal open={open} title={title} subtitle="Registro operacional da live, GMV, pedidos e métricas finais." onClose={closeGuard.requestClose} closeDisabled={Boolean(isSaving)} size="lg" footer={<>
+        <UnsavedChangesNotice guard={closeGuard} />
+        {agendaBrandUnavailable ? <div role={marcaError ? 'alert' : 'status'} className="w-full text-sm text-ink-muted">
+          {marcaLoading ? 'Carregando a marca desta reserva…' : 'Não foi possível carregar a marca desta reserva. Tente novamente ou confira o agendamento.'}
+          {marcaError && onRetryMarca ? <Button type="button" variant="secondary" onClick={onRetryMarca}>Tentar novamente</Button> : null}
+        </div> : null}
+        {error ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">{extractErrorMessage(error)}</p> : null}
+        <Button type="button" variant="secondary" disabled={isSaving} onClick={closeGuard.requestClose}>Cancelar</Button>
+        <Button type="submit" form={formId} icon={CheckCircle2} disabled={agendaBrandUnavailable} isLoading={isSaving}>{submitLabel}</Button>
+      </>}>
+      <form id={formId} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={onSubmit}>
         <label className="block">
           <span className="text-sm font-semibold text-ink">Cabine</span>
           <select className="design-input mt-2 h-11 w-full px-4" value={form.cabine_id} onChange={(event) => setField('cabine_id', event.target.value)} required>
@@ -276,7 +321,8 @@ export function RegistrarMetricasLiveModal({
         </label>
         <label className="block">
           <span className="text-sm font-semibold text-ink">Tipo</span>
-          <select className="design-input mt-2 h-11 w-full px-4" value={form.tipo} onChange={(event) => setType(event.target.value)}>
+          <select className="design-input mt-2 h-11 w-full px-4" value={form.tipo} onChange={(event) => setType(event.target.value)} required disabled={preserveAgendaBrand}>
+            <option value="" disabled>Selecione o tipo</option>
             <option value="cliente">Cliente/e-commerce</option>
             <option value="afiliado">Afiliada</option>
             <option value="teste">Interna/teste</option>
@@ -284,10 +330,12 @@ export function RegistrarMetricasLiveModal({
         </label>
         <label className="block">
           <span className="text-sm font-semibold text-ink">Marca/cliente</span>
-          <select className="design-input mt-2 h-11 w-full px-4" value={accountValue} onChange={(event) => setAccount(event.target.value)} required={accountRequired}>
+          <select className="design-input mt-2 h-11 w-full px-4" value={accountValue} onChange={(event) => setAccount(event.target.value)} required={accountRequired} disabled={preserveAgendaBrand}>
             <option value="">{form.tipo === 'afiliado' ? 'Selecione uma afiliada' : 'Selecione uma marca ou cliente'}</option>
+            {agendaBrandUnavailable ? <option value={accountValue}>{asString(agendaEvent?.marca_nome, 'Marca da reserva')}{marcaLoading ? ' (carregando)' : ' (indisponível)'}</option> : null}
             {accountOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
+          {preserveAgendaBrand ? <span className="mt-1 block text-xs text-ink-muted">Marca e tipo seguem a reserva. Para alterá-los, edite o agendamento.</span> : null}
         </label>
         <PresenterSelect
           rows={apresentadoras}
@@ -362,13 +410,6 @@ export function RegistrarMetricasLiveModal({
           <span className="text-sm font-semibold text-ink">Observações</span>
           <textarea className="design-input mt-2 min-h-24 w-full px-4 py-3" value={form.resumo} onChange={(event) => setField('resumo', event.target.value)} />
         </label>
-        {error ? (
-          <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)] md:col-span-2 xl:col-span-3">{extractErrorMessage(error)}</p>
-        ) : null}
-        <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-3">
-          <Button type="submit" icon={CheckCircle2} isLoading={isSaving}>{submitLabel}</Button>
-          <Button type="button" variant="secondary" disabled={isSaving} onClick={onClose}>Cancelar</Button>
-        </div>
       </form>
     </Modal>
   )

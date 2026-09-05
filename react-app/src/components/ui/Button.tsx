@@ -30,9 +30,10 @@ export function Button({
         className,
       )}
       disabled={disabled || isLoading}
+      aria-busy={isLoading || undefined}
       {...props}
     >
-      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : Icon ? <Icon className="h-4 w-4 stroke-[2.2]" /> : null}
+      {isLoading ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : Icon ? <Icon aria-hidden="true" className="h-4 w-4 stroke-[2.2]" /> : null}
       {children}
     </button>
   )

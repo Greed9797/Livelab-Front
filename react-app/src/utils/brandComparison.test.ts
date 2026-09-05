@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateBrandComparison, brandComparisonReference, brandPeriodDiagnostic, comparisonMetricMaximum, comparisonMetricWidth, formatCalendarDate, metricVariation, previousPeriodRange, sortBrandComparison } from './brandComparison'
+import { aggregateBrandComparison, brandComparisonReference, brandLivesDrilldownUrl, brandPeriodDiagnostic, comparisonMetricMaximum, comparisonMetricWidth, formatCalendarDate, metricVariation, previousPeriodRange, sortBrandComparison } from './brandComparison'
 
 describe('brand comparison aggregation', () => {
   it('sums daily rows by brand and keeps GMV videos out of GMV/h', () => {
@@ -56,9 +56,10 @@ describe('brand comparison aggregation', () => {
     expect(formatCalendarDate('2025-12-31')).toBe('31/12/2025')
   })
 
-  it('does not manufacture a percentage for a missing or zero base', () => {
-    expect(metricVariation(20, undefined)).toEqual({ direction: 'none' })
-    expect(metricVariation(null, 10)).toEqual({ direction: 'none' })
+  it('distinguishes a missing base, an unavailable rate, and a real zero base', () => {
+    expect(metricVariation(20, undefined)).toEqual({ direction: 'missing' })
+    expect(metricVariation(null, 10)).toEqual({ direction: 'unavailable' })
+    expect(metricVariation(20, null)).toEqual({ direction: 'unavailable-base' })
     expect(metricVariation(20, 0)).toEqual({ direction: 'new' })
     expect(metricVariation(0, 0)).toEqual({ direction: 'flat', percent: 0 })
     expect(metricVariation(100, 100)).toEqual({ direction: 'flat', percent: 0 })
@@ -74,10 +75,14 @@ describe('brand comparison aggregation', () => {
       { marca_id: 'a', marca_nome: 'A', gmv_lives: 150, gmv_videos: 500, horas_live: 3, total_lives: 1 },
     ])
 
-    expect(brandPeriodDiagnostic(current, previous)).toEqual({
+    expect(brandPeriodDiagnostic(current, previous)).toMatchObject({
       gmvLives: { direction: 'up', percent: 50 },
       horasLive: { direction: 'up', percent: 50 },
       gmvHora: { direction: 'flat', percent: 0 },
+      gmvChange: 50,
+      hoursEffect: 50,
+      productivityEffect: 0,
+      base: { state: 'small', currentLives: 1, previousLives: 1 },
     })
   })
 
@@ -85,10 +90,11 @@ describe('brand comparison aggregation', () => {
     const [withoutHours] = aggregateBrandComparison([
       { marca_id: 'a', marca_nome: 'A', gmv_lives: 0, horas_live: 0, total_lives: 0 },
     ])
-    expect(brandPeriodDiagnostic(withoutHours)).toEqual({
-      gmvLives: { direction: 'none' },
-      horasLive: { direction: 'none' },
-      gmvHora: { direction: 'none' },
+    expect(brandPeriodDiagnostic(withoutHours)).toMatchObject({
+      gmvLives: { direction: 'missing' },
+      horasLive: { direction: 'missing' },
+      gmvHora: { direction: 'unavailable' },
+      base: { state: 'no-current-lives', currentLives: 0, previousLives: null },
     })
 
     const [zeroThenValue] = aggregateBrandComparison([
@@ -98,5 +104,26 @@ describe('brand comparison aggregation', () => {
       { marca_id: 'a', marca_nome: 'A', gmv_lives: 0, horas_live: 1, total_lives: 1 },
     ])
     expect(brandPeriodDiagnostic(zeroThenValue, zeroBase).gmvLives).toEqual({ direction: 'new' })
+  })
+
+  it('decomposes the exact GMV change into hours and GMV/h contributions', () => {
+    const previous = { gmvLives: 100, horasLive: 2, gmvHora: 50, totalLives: 4 }
+    const current = { gmvLives: 240, horasLive: 3, gmvHora: 80, totalLives: 5 }
+    const diagnostic = brandPeriodDiagnostic(current, previous)
+
+    expect(diagnostic.gmvChange).toBe(140)
+    expect(diagnostic.hoursEffect).toBe(65)
+    expect(diagnostic.productivityEffect).toBe(75)
+    expect((diagnostic.hoursEffect ?? 0) + (diagnostic.productivityEffect ?? 0)).toBe(diagnostic.gmvChange)
+    expect(diagnostic.base.state).toBe('ready')
+  })
+
+  it('builds the existing Conteúdo lives route with the selected brand and window', () => {
+    expect(brandLivesDrilldownUrl('marca-a', { from: '2026-09-01', to: '2026-09-05' })).toBe(
+      '/conteudo?tab=lives&periodo=custom&data_inicio=2026-09-01&data_fim=2026-09-05&marca=marca-a&origem=analytics',
+    )
+    expect(brandLivesDrilldownUrl(null, { from: '2026-09-01', to: '2026-09-05' })).toBe(
+      '/conteudo?tab=lives&periodo=custom&data_inicio=2026-09-01&data_fim=2026-09-05&origem=analytics',
+    )
   })
 })

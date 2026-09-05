@@ -92,6 +92,13 @@ const GMV_HORA_OTIMO = 150
 const PEDIDOS_HORA_MIN = 1 // abaixo disso (com pedidos) = atenção
 const PEDIDOS_HORA_OTIMO = 2
 
+export const PULSE_STATUS_CRITERIA: ReadonlyArray<{ status: PulseStatus; label: string; rule: string }> = [
+  { status: 'critico', label: 'Crítico', rule: 'Recorte com live e 0 pedidos; ou pelo menos 1,5h no ar com GMV/h igual a R$ 0.' },
+  { status: 'atencao', label: 'Atenção', rule: 'GMV/h maior que R$ 0 e menor que R$ 50; ou, com pedidos, menos de 1 pedido/h.' },
+  { status: 'ok', label: 'OK', rule: 'Demais casos após as regras acima; com vendas, GMV/h de pelo menos R$ 50.' },
+  { status: 'otimo', label: 'Ótimo', rule: 'GMV/h de pelo menos R$ 150 e pelo menos 2 pedidos/h.' },
+]
+
 export function diaLabel(value: unknown): string {
   const raw = asString(value, '')
   const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -138,13 +145,15 @@ export function computeStatus(a: PulseAgg): PulseStatus {
 export function diagnose(status: PulseStatus, a: PulseAgg): { titulo: string; descricao: string } {
   switch (status) {
     case 'critico':
-      return { titulo: 'Live longa sem venda', descricao: `${formatHoras(a.horas)} no ar, ${formatMoney(a.gmv)} movimentado e ${a.pedidos} pedidos.` }
+      return a.pedidos === 0
+        ? { titulo: 'Live sem pedido', descricao: `${formatHoras(a.horas)} no ar, ${formatMoney(a.gmv)} movimentado e nenhum pedido.` }
+        : { titulo: 'Live sem GMV', descricao: `${formatHoras(a.horas)} no ar e GMV/h de lives igual a R$ 0, mesmo com ${a.pedidos} pedido(s).` }
     case 'atencao':
-      return { titulo: 'Baixa produtividade', descricao: `${formatHoras(a.horas)} no ar com GMV/hora abaixo da meta.` }
+      return { titulo: 'Baixa produtividade', descricao: `${formatHoras(a.horas)} no ar com GMV/h abaixo de R$ 50 ou menos de 1 pedido/h.` }
     case 'otimo':
-      return { titulo: 'Alta performance', descricao: 'GMV/hora e ritmo de pedidos acima da meta.' }
+      return { titulo: 'Alta performance', descricao: 'GMV/h de pelo menos R$ 150 e ritmo de pelo menos 2 pedidos/h.' }
     default:
-      return { titulo: 'Operação vendendo', descricao: 'Houve pedidos e GMV/hora dentro do mínimo esperado.' }
+      return { titulo: 'Operação estável', descricao: 'O recorte não entrou nas faixas Crítico, Atenção ou Ótimo; confira horas, GMV/h e pedidos.' }
   }
 }
 

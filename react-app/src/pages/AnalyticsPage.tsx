@@ -230,7 +230,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
       {!query.isLoading && !query.isError ? (
         <>
-          <BrandComparisonSection rows={diarioRows} marcaId={marcaId} apresentadoraId={apresentadoraId} onSelectMarca={setMarcaId} onClearMarca={() => setMarcaId('')} onClearApresentadora={() => setApresentadoraId('')} previousRows={previousDiarioRows} previousPeriod={previousQuery.isSuccess ? previousPeriod : null} previousStatus={previousStatus} currentPeriodEndsToday={to === ymd(new Date())} />
+          <BrandComparisonSection rows={diarioRows} marcaId={marcaId} apresentadoraId={apresentadoraId} onSelectMarca={setMarcaId} onClearMarca={() => setMarcaId('')} onClearApresentadora={() => setApresentadoraId('')} previousRows={previousDiarioRows} currentPeriod={{ from, to }} previousPeriod={previousQuery.isSuccess ? previousPeriod : null} previousStatus={previousStatus} currentPeriodEndsToday={to === ymd(new Date())} />
           {!apresentadoraId ? <BrandAudienceComparisonSection from={from} to={to} marcaId={marcaId} /> : null}
         </>
       ) : null}

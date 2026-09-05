@@ -35,9 +35,9 @@ export function BrandAudienceComparisonSection({ from, to, marcaId }: { from: st
   })
   const rows = useMemo(() => sortBrandAudienceRows(buildBrandAudienceRows(asArray<JsonRecord>(getRecord(query.data).rows)), sort), [query.data, sort])
   const apiIsNotFound = (query.error as { response?: { status?: number } } | null)?.response?.status === 404
-  return <Card>
+  return <Card id="analytics-audience-coverage">
     <CardHeader>
-      <h2 className="text-base font-semibold text-ink">Audiência por marca</h2>
+      <h2 className="text-base font-semibold text-ink">Audiência e cobertura por marca</h2>
       <p className="mt-1 text-sm text-ink-muted">Mesmo período do filtro; base: lives encerradas com pelo menos 5 minutos. Impressões contam exibições, não pessoas únicas.</p>
     </CardHeader>
     <CardBody>

@@ -5,10 +5,56 @@ import {
   formatSaoPauloTime,
   getAgendaEventLayout,
   monthGridDays,
+  parseConteudoLivesDeepLink,
   publicationStatusLabel,
   publicationStatusTone,
   weekDays,
 } from './conteudo-helpers'
+
+describe('deep links da lista de lives', () => {
+  it('preserva o recorte vindo da Analytics e aceita marca_id como alias legado', () => {
+    const context = parseConteudoLivesDeepLink(new URLSearchParams({
+      tab: 'lives',
+      data_inicio: '2026-08-01',
+      data_fim: '2026-08-31',
+      marca_id: 'marca-1',
+      origem: 'analytics',
+    }))
+    expect(context).toMatchObject({
+      dateFrom: '2026-08-01',
+      dateTo: '2026-08-31',
+      marcaId: 'marca-1',
+      source: 'analytics',
+      isContextual: true,
+    })
+  })
+
+  it('expande data única da Grade e preserva cabine, agenda, live e bucket válido', () => {
+    const context = parseConteudoLivesDeepLink(new URLSearchParams({
+      data: '2026-09-05',
+      cabine: 'cab-1',
+      agenda: 'agenda-1',
+      live: 'live-1',
+      pendencia: 'cadastro',
+      origem: 'grade',
+    }))
+    expect(context).toEqual({
+      dateFrom: '2026-09-05',
+      dateTo: '2026-09-05',
+      marcaId: '',
+      cabineId: 'cab-1',
+      liveId: 'live-1',
+      agendaId: 'agenda-1',
+      pending: 'cadastro',
+      source: 'grade',
+      isContextual: true,
+    })
+  })
+
+  it('ignora bucket desconhecido sem perder os outros filtros', () => {
+    expect(parseConteudoLivesDeepLink(new URLSearchParams('pendencia=confirmada&cabine=cab-1')).pending).toBe('')
+  })
+})
 
 describe('conteudo helpers', () => {
   it('week starts on Sunday and ends on Saturday', () => {

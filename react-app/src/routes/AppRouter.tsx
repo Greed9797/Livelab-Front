@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Route, RouterProvider, Routes } from 'react-router-dom'
 import { ErrorBoundary } from '../components/ui/ErrorBoundary'
+import { UnsavedChangesProvider } from '../components/ui/UnsavedChangesProvider'
 import { Shell } from '../components/layout/Shell'
 import { cabineRoles, clienteRoles, commercialRoles, configuracoesRoles, financeRoles, internalRoles, masterRoles, opsRoles } from '../utils/access'
 import { ProtectedRoute } from './ProtectedRoute'
@@ -38,10 +39,10 @@ const PageFallback = () => (
   </div>
 )
 
-export function AppRouter() {
+function RouterApplication() {
   return (
-    <BrowserRouter>
-      <ErrorBoundary>
+    <ErrorBoundary>
+      <UnsavedChangesProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
@@ -140,7 +141,15 @@ export function AppRouter() {
           </Route>
         </Route>
       </Routes>
-      </ErrorBoundary>
-    </BrowserRouter>
+      </UnsavedChangesProvider>
+    </ErrorBoundary>
   )
+}
+
+// Root splat incremental: keeps the declarative route tree intact while enabling
+// the data-router blocker used by the single unsaved-changes registry.
+const router = createBrowserRouter([{ path: '*', element: <RouterApplication /> }])
+
+export function AppRouter() {
+  return <RouterProvider router={router} />
 }

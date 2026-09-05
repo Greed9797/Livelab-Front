@@ -242,6 +242,35 @@ button:disabled {
   opacity: 0.65;
 }
 
+.design-input[aria-invalid="true"],
+.design-input:user-invalid {
+  border-color: var(--danger);
+}
+
+.skip-to-content {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 90;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--bg-elev-1);
+  color: var(--text-primary);
+  transform: translateY(-200%);
+  opacity: 0;
+  pointer-events: none;
+}
+.skip-to-content:focus { transform: translateY(0); opacity: 1; pointer-events: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .settings-users-panel .design-input {
   background: color-mix(in srgb, var(--bg-elev-3) 82%, var(--bg-elev-2));
   border-color: var(--border-strong);

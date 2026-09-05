@@ -1,5 +1,5 @@
 import { Building2, CircleDollarSign, Download, Eye, Handshake, LayoutDashboard, Plus, Search, Store, Trash2, Users, Workflow } from 'lucide-react'
-import { FormEvent, useEffect, useId, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -11,6 +11,8 @@ import { BotBadge } from '../components/ui/BotBadge'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
+import { UnsavedChangesNotice } from '../components/ui/UnsavedChangesNotice'
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 import { ModalSection } from '../components/ui/ModalSection'
 import { ImagePicker } from '../components/ui/ImagePicker'
 import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
@@ -117,6 +119,9 @@ export function ComercialPage() {
   const [afiliadoForm, setAfiliadoForm] = useState(emptyAfiliadoForm)
   const [selectedAtivo, setSelectedAtivo] = useState<JsonRecord | null>(null)
   const [ativoForm, setAtivoForm] = useState({ nome: '', status: 'ativo', email: '', celular: '', comissao_franquia_pct: '0', comissao_franqueadora_pct: '0', valor_fixo_minimo: '0', tipo_cobranca: 'fixo_mais_comissao', data_inicio: '', data_fim: '', logo_url: '', cor: '' })
+  const ativoInitialRef = useRef(ativoForm)
+  const ativoHydratedRef = useRef('')
+  const [ativoSubmitting, setAtivoSubmitting] = useState(false)
   // Cor da marca no modal de edição: null = intocada (mantém/extrai), 'manual' = hex
   // escolhido no picker, 'clear' = botão "Automática" (PATCH cor: null).
   const [ativoCorTouch, setAtivoCorTouch] = useState<'manual' | 'clear' | null>(null)
@@ -342,7 +347,8 @@ export function ComercialPage() {
   // Carrega o % da marca (própria) ou da marca principal vinculada ao cliente.
   useEffect(() => {
     const data = ativoDetailQuery.data as JsonRecord | undefined
-    if (!data) return
+    if (!data || !selectedAtivoId || ativoHydratedRef.current === selectedAtivoId) return
+    ativoHydratedRef.current = selectedAtivoId
     if (selectedAtivoKind === 'marca') {
       setMarcaPctId(selectedAtivoId || null)
       return
@@ -353,8 +359,8 @@ export function ComercialPage() {
       ?? marcas.find((m) => asString(m.tipo) === 'cliente')
       ?? marcas[0]
     setMarcaPctId(asString(principal.id) || null)
-    setAtivoForm((current) => ({
-      ...current,
+    const hydrated = {
+      ...ativoInitialRef.current,
       comissao_franquia_pct: asString(principal.comissao_franquia_pct ?? 0, '0'),
       comissao_franqueadora_pct: asString(principal.comissao_franqueadora_pct ?? 0, '0'),
       valor_fixo_minimo: normalizeMoneyInputText(asString(principal.valor_fixo_minimo ?? 0, '0')),
@@ -362,8 +368,11 @@ export function ComercialPage() {
       data_inicio: asString(principal.data_inicio ?? '', '').slice(0, 10),
       data_fim: asString(principal.data_fim ?? '', '').slice(0, 10),
       // cor da marca principal (não vem no /clientes) — reflete a cor salva no picker.
-      cor: asString(principal.cor ?? current.cor, ''),
-    }))
+      cor: asString(principal.cor ?? ativoInitialRef.current.cor, ''),
+    }
+    // Preserve contact/name edits made while the detail request was loading.
+    setAtivoForm((current) => ({ ...current, ...Object.fromEntries(Object.entries(hydrated).filter(([key]) => !['nome', 'status', 'email', 'celular', 'logo_url'].includes(key))) }))
+    ativoInitialRef.current = hydrated
   }, [ativoDetailQuery.data, selectedAtivoKind, selectedAtivoId])
 
   // Deep-link: /comercial?ativo=<nome> abre a aba e o item direto (vindo do relatório).
@@ -382,6 +391,13 @@ export function ComercialPage() {
     next.delete('ativo')
     setSearchParams(next, { replace: true })
   }, [searchParams, ativos, clientesQuery.isLoading, marcasQuery.isLoading])
+
+  const clienteBusy = clienteMutation.isPending || uploadClienteImage.isPending
+  const afiliadoBusy = afiliadoMutation.isPending || uploadAfiliadoImage.isPending
+  const ativoBusy = ativoSubmitting || ativoUpdateMutation.isPending || updateMarcaPctMutation.isPending || uploadAtivoImage.isPending
+  const clienteClose = useUnsavedChanges({ open: showClienteForm, dirty: JSON.stringify(clienteForm) !== JSON.stringify(emptyClienteForm), busy: clienteBusy, onClose: () => { setShowClienteForm(false); setClienteForm(emptyClienteForm) } })
+  const afiliadoClose = useUnsavedChanges({ open: showAfiliadoForm, dirty: JSON.stringify(afiliadoForm) !== JSON.stringify(emptyAfiliadoForm), busy: afiliadoBusy, onClose: () => { setShowAfiliadoForm(false); setAfiliadoForm(emptyAfiliadoForm) } })
+  const ativoClose = useUnsavedChanges({ open: Boolean(selectedAtivo), dirty: JSON.stringify(ativoForm) !== JSON.stringify(ativoInitialRef.current) || ativoCorTouch !== null, busy: ativoBusy, onClose: () => setSelectedAtivo(null) })
 
   if (isLoading) return <LoadingState />
   if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
@@ -428,7 +444,8 @@ export function ComercialPage() {
     setMarcaPctId(null) // evita salvar % na marca do item anterior antes do effect repopular
     setSelectedAtivo(item)
     setAtivoCorTouch(null)
-    setAtivoForm({
+    ativoHydratedRef.current = ''
+    const nextForm = {
       nome: asString(item.nome, ''),
       status: asString(item.status, isCliente ? 'ativo' : 'ativa'),
       email: asString(item.email, ''),
@@ -441,7 +458,9 @@ export function ComercialPage() {
       data_fim: asString(item.data_fim ?? '', '').slice(0, 10),
       logo_url: asString(item.logo_url, ''),
       cor: asString(item.cor, ''),
-    })
+    }
+    ativoInitialRef.current = nextForm
+    setAtivoForm(nextForm)
   }
 
   // Clique na linha/Detalhes: item mesclado (N>1) abre seletor de qual registro editar.
@@ -499,42 +518,43 @@ export function ComercialPage() {
 
   async function onAtivoSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selectedAtivo) return
-    const id = asString(selectedAtivo.id, '')
-    const kind = selectedAtivoKind
-    let payload: JsonRecord
-    // Cor: manual = hex escolhido; "Automática" = null (limpa); intocada e sem cor
-    // salva = tenta extrair do logo (falha = segue sem cor, hash cobre). A cor vive na
-    // MARCA — para cliente_ecommerce ela vai na marca principal (marcaPct), não no cliente.
-    let cor: string | null | undefined
-    if (ativoCorTouch === 'manual') cor = ativoForm.cor || null
-    else if (ativoCorTouch === 'clear') cor = null
-    else if (!ativoForm.cor && ativoForm.logo_url) cor = (await extractBrandColor(ativoForm.logo_url)) ?? undefined
-    // Extração veio automática: reflete no form sem marcar como escolha manual.
-    if (typeof cor === 'string' && ativoCorTouch === null) setAtivoForm((current) => ({ ...current, cor }))
-    if (kind === 'cliente') {
-      payload = {
-        nome: ativoForm.nome,
-        status: ativoForm.status,
-        email: ativoForm.email || undefined,
-        celular: ativoForm.celular || undefined,
-        logo_url: ativoForm.logo_url || null,
-      }
-    } else {
-      payload = {
-        nome: ativoForm.nome,
-        status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
-        comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
-        comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
-        valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
-        tipo_cobranca: ativoForm.tipo_cobranca,
-        data_inicio: ativoForm.data_inicio || null,
-        data_fim: ativoForm.data_fim || null,
-        logo_url: ativoForm.logo_url || null,
-        ...(cor !== undefined ? { cor } : {}),
-      }
-    }
+    if (!selectedAtivo || ativoBusy) return
+    setAtivoSubmitting(true)
     try {
+      const id = asString(selectedAtivo.id, '')
+      const kind = selectedAtivoKind
+      let payload: JsonRecord
+      // Cor: manual = hex escolhido; "Automática" = null (limpa); intocada e sem cor
+      // salva = tenta extrair do logo (falha = segue sem cor, hash cobre). A cor vive na
+      // MARCA — para cliente_ecommerce ela vai na marca principal (marcaPct), não no cliente.
+      let cor: string | null | undefined
+      if (ativoCorTouch === 'manual') cor = ativoForm.cor || null
+      else if (ativoCorTouch === 'clear') cor = null
+      else if (!ativoForm.cor && ativoForm.logo_url) cor = (await extractBrandColor(ativoForm.logo_url)) ?? undefined
+      // Extração veio automática: reflete no form sem marcar como escolha manual.
+      if (typeof cor === 'string' && ativoCorTouch === null) setAtivoForm((current) => ({ ...current, cor }))
+      if (kind === 'cliente') {
+        payload = {
+          nome: ativoForm.nome,
+          status: ativoForm.status,
+          email: ativoForm.email || undefined,
+          celular: ativoForm.celular || undefined,
+          logo_url: ativoForm.logo_url || null,
+        }
+      } else {
+        payload = {
+          nome: ativoForm.nome,
+          status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
+          comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
+          comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
+          valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
+          tipo_cobranca: ativoForm.tipo_cobranca,
+          data_inicio: ativoForm.data_inicio || null,
+          data_fim: ativoForm.data_fim || null,
+          logo_url: ativoForm.logo_url || null,
+          ...(cor !== undefined ? { cor } : {}),
+        }
+      }
       await ativoUpdateMutation.mutateAsync({ id, kind, payload })
       // cliente_ecommerce: o % vive na marca principal — só salva após o cliente ok.
       if (kind === 'cliente' && marcaPctId) {
@@ -558,8 +578,12 @@ export function ComercialPage() {
       } else {
         toast.push('Alterações salvas com sucesso.', 'success')
       }
-    } catch {
-      // erros exibidos via *.isError nas mutations
+      ativoInitialRef.current = { ...ativoForm, ...(typeof cor === 'string' ? { cor } : {}) }
+      setAtivoCorTouch(null)
+    } catch (error) {
+      if (!ativoUpdateMutation.isError && !updateMarcaPctMutation.isError) toast.push(extractErrorMessage(error), 'error')
+    } finally {
+      setAtivoSubmitting(false)
     }
   }
 
@@ -573,9 +597,12 @@ export function ComercialPage() {
       : current === 'ativa' ? 'inativa' : 'ativa'
     ativoUpdateMutation.mutate(
       { id, kind, payload: { status: nextStatus } },
-      { onSuccess: () => toast.push(`Status atualizado para ${statusLabel(nextStatus)}.`, 'success') },
+      { onSuccess: () => {
+        ativoInitialRef.current = { ...ativoInitialRef.current, status: nextStatus }
+        setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
+        toast.push(`Status atualizado para ${statusLabel(nextStatus)}.`, 'success')
+      } },
     )
-    setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
   }
 
   function toggleArquivarAtivo(item = selectedAtivo) {
@@ -590,9 +617,12 @@ export function ComercialPage() {
       : (arquivado ? 'ativa' : 'arquivada')
     ativoUpdateMutation.mutate(
       { id, kind, payload: { status: nextStatus } },
-      { onSuccess: () => toast.push(arquivado ? 'Cadastro desarquivado.' : 'Cadastro arquivado.', 'success') },
+      { onSuccess: () => {
+        ativoInitialRef.current = { ...ativoInitialRef.current, status: nextStatus }
+        setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
+        toast.push(arquivado ? 'Cadastro desarquivado.' : 'Cadastro arquivado.', 'success')
+      } },
     )
-    setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
   }
 
   function deleteAtivo() {
@@ -831,17 +861,19 @@ export function ComercialPage() {
       <Modal
         open={showClienteForm}
         title="Novo cliente"
-        subtitle="Cadastro manual de cliente/e-commerce."
-        onClose={() => setShowClienteForm(false)}
+        subtitle="Um cadastro para o cliente e sua marca nas lives. Campos com * são obrigatórios."
+        onClose={clienteClose.requestClose}
+        closeDisabled={clienteBusy}
+        footer={clienteClose.confirming ? <UnsavedChangesNotice guard={clienteClose} /> : undefined}
       >
         <form className="grid gap-3 md:grid-cols-2" onSubmit={onClienteSubmit}>
-          <input aria-label="Nome da empresa/marca" className="design-input h-11 px-4" placeholder="Nome da empresa/marca" value={clienteForm.nome} onChange={(event) => setClienteField('nome', event.target.value)} required />
-          <input aria-label="Responsável" className="design-input h-11 px-4" placeholder="Responsável" value={clienteForm.responsavel} onChange={(event) => setClienteField('responsavel', event.target.value)} />
-          <input aria-label="WhatsApp" className="design-input h-11 px-4" placeholder="WhatsApp" value={clienteForm.whatsapp} onChange={(event) => setClienteField('whatsapp', event.target.value)} required />
-          <input aria-label="E-mail" className="design-input h-11 px-4" placeholder="E-mail" type="email" value={clienteForm.email} onChange={(event) => setClienteField('email', event.target.value)} />
-          <input aria-label="CNPJ" className="design-input h-11 px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} />
-          <input className="design-input h-11 px-4" placeholder="Nicho" value={clienteForm.nicho} onChange={(event) => setClienteField('nicho', event.target.value)} />
-          <input className="design-input h-11 px-4 md:col-span-2" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value.replace(/@/g, ''))} />
+          <label className="block"><span className="text-sm font-medium text-ink">Nome da empresa/marca *</span><input aria-label="Nome da empresa/marca" className="design-input mt-1 h-11 w-full px-4" placeholder="Nome da empresa/marca" value={clienteForm.nome} onChange={(event) => setClienteField('nome', event.target.value)} required /></label>
+          <label className="block"><span className="text-sm font-medium text-ink">Responsável</span><input aria-label="Responsável" className="design-input mt-1 h-11 w-full px-4" placeholder="Responsável" value={clienteForm.responsavel} onChange={(event) => setClienteField('responsavel', event.target.value)} /></label>
+          <label className="block"><span className="text-sm font-medium text-ink">WhatsApp *</span><input aria-label="WhatsApp" className="design-input mt-1 h-11 w-full px-4" placeholder="WhatsApp" value={clienteForm.whatsapp} onChange={(event) => setClienteField('whatsapp', event.target.value)} required /></label>
+          <label className="block"><span className="text-sm font-medium text-ink">E-mail</span><input aria-label="E-mail" className="design-input mt-1 h-11 w-full px-4" placeholder="E-mail" type="email" value={clienteForm.email} onChange={(event) => setClienteField('email', event.target.value)} /></label>
+          <label className="block"><span className="text-sm font-medium text-ink">CNPJ</span><input aria-label="CNPJ" className="design-input mt-1 h-11 w-full px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} /></label>
+          <label className="block"><span className="text-sm font-medium text-ink">Nicho</span><input className="design-input mt-1 h-11 w-full px-4" placeholder="Nicho" value={clienteForm.nicho} onChange={(event) => setClienteField('nicho', event.target.value)} /></label>
+          <label className="block"><span className="text-sm font-medium text-ink">TikTok username</span><input className="design-input mt-1 h-11 w-full px-4" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value.replace(/@/g, ''))} /></label>
           <section className="space-y-3 rounded-2xl border border-line bg-surface-muted p-4 md:col-span-2">
             <label className="flex items-start gap-3">
               <input
@@ -904,16 +936,18 @@ export function ComercialPage() {
         open={showAfiliadoForm}
         title="Novo afiliado"
         subtitle="Cadastro de marca afiliada sem exigir cliente/e-commerce vinculado."
-        onClose={() => setShowAfiliadoForm(false)}
+        onClose={afiliadoClose.requestClose}
+        closeDisabled={afiliadoBusy}
+        footer={afiliadoClose.confirming ? <UnsavedChangesNotice guard={afiliadoClose} /> : undefined}
       >
         <form className="grid gap-3 md:grid-cols-2" onSubmit={onAfiliadoSubmit}>
-          <input aria-label="Nome da marca afiliada" className="design-input h-11 px-4" placeholder="Nome da marca afiliada" value={afiliadoForm.nome} onChange={(event) => setAfiliadoField('nome', event.target.value)} required />
-          <input aria-label="Responsável" className="design-input h-11 px-4" placeholder="Responsável" value={afiliadoForm.responsavel} onChange={(event) => setAfiliadoField('responsavel', event.target.value)} />
-          <input aria-label="WhatsApp" className="design-input h-11 px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} />
-          <input aria-label="E-mail" className="design-input h-11 px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} />
-          <input className="design-input h-11 px-4" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value.replace(/@/g, ''))} />
+          <label className="block"><span className="text-sm font-medium text-ink">Nome da marca afiliada *</span><input aria-label="Nome da marca afiliada" className="design-input mt-1 h-11 w-full px-4" placeholder="Nome da marca afiliada" value={afiliadoForm.nome} onChange={(event) => setAfiliadoField('nome', event.target.value)} required /></label>
+          <label className="block"><span className="text-sm font-medium text-ink">Responsável</span><input aria-label="Responsável" className="design-input mt-1 h-11 w-full px-4" placeholder="Responsável" value={afiliadoForm.responsavel} onChange={(event) => setAfiliadoField('responsavel', event.target.value)} /></label>
+          <label className="block"><span className="text-sm font-medium text-ink">WhatsApp</span><input aria-label="WhatsApp" className="design-input mt-1 h-11 w-full px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} /></label>
+          <label className="block"><span className="text-sm font-medium text-ink">E-mail</span><input aria-label="E-mail" className="design-input mt-1 h-11 w-full px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} /></label>
+          <label className="block"><span className="text-sm font-medium text-ink">TikTok username</span><input className="design-input mt-1 h-11 w-full px-4" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value.replace(/@/g, ''))} /></label>
           <label className="block">
-            <span className="sr-only">Comissão Franquia (%)</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Comissão Franquia (%)</span>
             <input
               className="design-input h-11 w-full px-4"
               type="number"
@@ -943,7 +977,7 @@ export function ComercialPage() {
               onAuto={() => setAfiliadoField('cor', '')}
             />
           </div>
-          <textarea className="design-input min-h-24 px-4 py-3 md:col-span-2" placeholder="Observações" value={afiliadoForm.observacoes} onChange={(event) => setAfiliadoField('observacoes', event.target.value)} />
+          <textarea aria-label="Observações" className="design-input min-h-24 px-4 py-3 md:col-span-2" placeholder="Observações" value={afiliadoForm.observacoes} onChange={(event) => setAfiliadoField('observacoes', event.target.value)} />
           {uploadAfiliadoImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadAfiliadoImage.error)}</p> : null}
           {afiliadoMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(afiliadoMutation.error)}</p> : null}
           <Button type="submit" isLoading={afiliadoMutation.isPending}>Salvar afiliado</Button>
@@ -952,16 +986,18 @@ export function ComercialPage() {
 
       <Modal
         open={Boolean(selectedAtivo)}
-        title={selectedAtivoKind === 'cliente' ? 'Cliente' : 'Afiliado'}
+        title={selectedAtivoKind === 'cliente' ? 'Cliente e marca' : 'Marca afiliada'}
         subtitle={selectedAtivoKind === 'cliente' ? 'Dados do cliente e da marca operacional vinculada.' : 'Dados operacionais, histórico e configuração comercial.'}
         size="lg"
-        onClose={() => setSelectedAtivo(null)}
+        onClose={ativoClose.requestClose}
+        closeDisabled={ativoBusy}
         footer={
           <>
+            <UnsavedChangesNotice guard={ativoClose} />
             {ativoUpdateMutation.isError ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
             {updateMarcaPctMutation.isError ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">Cadastro salvo; as condições comerciais da marca não foram salvas: {extractErrorMessage(updateMarcaPctMutation.error)}</p> : null}
-            <Button type="button" variant="secondary" onClick={() => setSelectedAtivo(null)}>Cancelar</Button>
-            <Button type="submit" form={ativoFormId} disabled={!ativoDetailQuery.data || ativoDetailQuery.isLoading} isLoading={ativoUpdateMutation.isPending || updateMarcaPctMutation.isPending}>Salvar alterações</Button>
+            <Button type="button" variant="secondary" disabled={ativoBusy} onClick={ativoClose.requestClose}>Cancelar</Button>
+            <Button type="submit" form={ativoFormId} disabled={!ativoDetailQuery.data || ativoDetailQuery.isLoading} isLoading={ativoBusy}>Salvar alterações</Button>
           </>
         }
       >
@@ -982,11 +1018,11 @@ export function ComercialPage() {
               </dl>
 
               <form id={ativoFormId} className="space-y-0" onSubmit={onAtivoSubmit}>
-                <ModalSection title={selectedAtivoKind === 'cliente' ? 'Dados do cliente' : 'Identidade da marca'} description={selectedAtivoKind === 'cliente' ? 'Contato, situação e imagem do cadastro comercial.' : 'Nome, situação e imagem usadas na operação.'}>
+                <ModalSection title={selectedAtivoKind === 'cliente' ? 'Identidade e contato' : 'Identidade da marca'} description={selectedAtivoKind === 'cliente' ? 'Contato, situação e imagem do cadastro comercial.' : 'Nome, situação e imagem usadas na operação.'}>
                   <div className="grid gap-3 md:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-semibold text-ink">{selectedAtivoKind === 'cliente' ? 'Nome do cliente' : 'Nome da marca'}</span>
-                  <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.nome} onChange={(event) => setAtivoForm((current) => ({ ...current, nome: event.target.value }))} />
+                  <span className="text-sm font-semibold text-ink">{selectedAtivoKind === 'cliente' ? 'Nome do cliente e da marca' : 'Nome da marca'}</span>
+                  <input className="design-input mt-2 h-11 w-full px-4" required value={ativoForm.nome} onChange={(event) => setAtivoForm((current) => ({ ...current, nome: event.target.value }))} />
                   {selectedAtivoKind === 'cliente' && marcaPctId ? <span className="mt-1 block text-[11px] text-ink-muted">Ao alterar este nome, a marca vinculada será renomeada também.</span> : null}
                 </label>
                 <label className="block">
@@ -1030,11 +1066,11 @@ export function ComercialPage() {
                     ) : null}
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">E-mail</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.email} onChange={(event) => setAtivoForm((current) => ({ ...current, email: event.target.value }))} />
+                      <input className="design-input mt-2 h-11 w-full px-4" type="email" value={ativoForm.email} onChange={(event) => setAtivoForm((current) => ({ ...current, email: event.target.value }))} />
                     </label>
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">WhatsApp</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.celular} onChange={(event) => setAtivoForm((current) => ({ ...current, celular: event.target.value }))} />
+                      <input className="design-input mt-2 h-11 w-full px-4" type="tel" value={ativoForm.celular} onChange={(event) => setAtivoForm((current) => ({ ...current, celular: event.target.value }))} />
                     </label>
                   </>
                 ) : null}

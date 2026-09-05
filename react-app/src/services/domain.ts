@@ -165,6 +165,10 @@ export function getMarcas(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/marcas', params)
 }
 
+export function getMarca(id: string) {
+  return apiGet<JsonRecord>(`/marcas/${id}`)
+}
+
 export function createMarca(payload: JsonRecord) {
   return apiPost<JsonRecord>('/marcas', payload)
 }

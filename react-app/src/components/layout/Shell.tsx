@@ -1,11 +1,12 @@
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
+import { LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 import { useAuthStore } from '../../stores/auth-store'
 import { useThemeStore } from '../../stores/theme-store'
 import { menuForUser, roleLabel } from '../../utils/access'
 import { Button } from '../ui/Button'
+import { Modal } from '../ui/Modal'
 
 function initials(name?: string) {
   return (name ?? 'LL')
@@ -21,10 +22,12 @@ function Sidebar({
   onNavigate,
   expanded = false,
   onToggle,
+  mobile = false,
 }: {
   onNavigate?: () => void
   expanded?: boolean
   onToggle?: () => void
+  mobile?: boolean
 }) {
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
@@ -45,7 +48,7 @@ function Sidebar({
     <aside
       className={clsx(
         'flex h-full flex-col border-r border-line bg-surface',
-        expanded ? 'w-72 px-3 py-4' : 'w-20 items-center px-0 py-5',
+        mobile ? 'w-full border-r-0' : expanded ? 'w-72 px-3 py-4' : 'w-20 items-center px-0 py-5',
       )}
     >
       <div className={clsx('mb-5 flex items-center', expanded ? 'w-full gap-3 px-2' : 'w-full flex-col gap-3')}>
@@ -84,16 +87,19 @@ function Sidebar({
         ) : null}
       </div>
 
-      <nav className={clsx('flex flex-1 flex-col gap-1 overflow-y-auto scrollbar-thin', expanded ? 'w-full px-1' : 'items-center')}>
+      <nav aria-label="Navegação principal" className={clsx('flex flex-1 flex-col gap-1 overflow-y-auto scrollbar-thin', expanded ? 'w-full px-1' : 'items-center')}>
         {items.map((item) => {
           const Icon = item.icon
-          const selected = item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)
+          const matches = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
+          const selected = matches && !items.some((other) => other.path.length > item.path.length && (location.pathname === other.path || location.pathname.startsWith(`${other.path}/`)))
           return (
-            <NavLink
+            <Link
               key={item.path}
               to={item.path}
               onClick={onNavigate}
               title={item.label}
+              aria-label={item.label}
+              aria-current={selected ? 'page' : undefined}
               className={clsx(
                 'group relative flex items-center rounded-2xl text-sm font-semibold transition',
                 expanded ? 'h-11 gap-3 px-3' : 'h-14 w-14 justify-center',
@@ -101,15 +107,15 @@ function Sidebar({
               )}
             >
               {selected && !expanded ? <span className="absolute -left-3 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r bg-brand" /> : null}
-              <Icon className="h-5 w-5 shrink-0 stroke-[1.9]" />
+              <Icon aria-hidden="true" className="h-5 w-5 shrink-0 stroke-[1.9]" />
               {expanded ? (
                 <span className="truncate">{item.label}</span>
               ) : (
-                <span className="pointer-events-none absolute left-[68px] z-50 hidden rounded-lg border border-line bg-surface px-2 py-1 text-xs font-semibold text-ink shadow-[var(--shadow-card)] group-hover:block">
+                <span aria-hidden="true" className="pointer-events-none absolute left-[68px] z-50 hidden rounded-lg border border-line bg-surface px-2 py-1 text-xs font-semibold text-ink shadow-[var(--shadow-card)] group-hover:block group-focus-visible:block">
                   {item.label}
                 </span>
               )}
-            </NavLink>
+            </Link>
           )
         })}
       </nav>
@@ -143,24 +149,26 @@ function Sidebar({
 
 export function Shell() {
   const [open, setOpen] = useState(false)
-  const [desktopExpanded, setDesktopExpanded] = useState(false)
+  const [desktopExpanded, setDesktopExpanded] = useState(() => {
+    try { return localStorage.getItem('livelab.sidebar.expanded') === 'true' } catch { return false }
+  })
   const theme = useThemeStore((state) => state.resolvedTheme)
   const user = useAuthStore((state) => state.user)
 
   return (
     <div className="livelab-shell min-h-screen" data-theme={theme}>
+      <a href="#main-content" className="skip-to-content">Ir para o conteúdo</a>
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block">
-        <Sidebar expanded={desktopExpanded} onToggle={() => setDesktopExpanded((value) => !value)} />
+        <Sidebar expanded={desktopExpanded} onToggle={() => {
+          const next = !desktopExpanded
+          setDesktopExpanded(next)
+          try { localStorage.setItem('livelab.sidebar.expanded', String(next)) } catch { /* Preferência continua em memória. */ }
+        }} />
       </div>
 
-      {open ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button className="absolute inset-0 bg-black/30" aria-label="Fechar menu" onClick={() => setOpen(false)} />
-          <div className="relative h-full">
-            <Sidebar expanded onNavigate={() => setOpen(false)} />
-          </div>
-        </div>
-      ) : null}
+      <Modal open={open} title="Menu" size="sm" onClose={() => setOpen(false)}>
+        <Sidebar expanded mobile onNavigate={() => setOpen(false)} />
+      </Modal>
 
       <div className={clsx(desktopExpanded ? 'lg:pl-72' : 'lg:pl-20')}>
         <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 px-4 py-3 backdrop-blur md:px-7 lg:hidden">
@@ -168,12 +176,14 @@ export function Shell() {
             <button
               className="grid h-11 w-11 place-items-center rounded-xl border border-line bg-surface text-ink-muted"
               aria-label="Abrir menu"
+              aria-haspopup="dialog"
+              aria-expanded={open}
               onClick={() => setOpen(true)}
             >
-              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              <Menu aria-hidden="true" className="h-5 w-5" />
             </button>
             <div className="flex items-center gap-2">
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brand to-[#ff8a3c] text-xs font-bold text-white">
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-xs font-bold text-ink">
                 {initials(user?.nome)}
               </span>
               <div className="text-right">
@@ -184,7 +194,7 @@ export function Shell() {
           </div>
         </header>
 
-        <main className="min-h-screen px-4 py-6 md:px-7 lg:px-8 lg:py-5">
+        <main id="main-content" tabIndex={-1} className="min-h-screen px-4 py-6 md:px-7 lg:px-8 lg:py-5">
           <Outlet />
         </main>
       </div>

@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Users, X } from 'lucide-react'
 import { Modal } from '../ui/Modal'
+import { UnsavedChangesNotice } from '../ui/UnsavedChangesNotice'
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { Button } from '../ui/Button'
 import { PresenterSelect } from '../forms/PresenterSelect'
 import type { ImportApresentadoraRateio } from '../../services/domain'
@@ -88,6 +90,9 @@ export function ImportRateioModal({ row, apresentadoras, onClose, onSave, isSavi
     return atual.length > 0 ? atual : [{ ...novaLinha(), tempoTexto: formatDuracao(totalSegundos), gmv: gmvTotal }]
   })
 
+  const initialListaRef = useRef(JSON.stringify(lista))
+  const closeGuard = useUnsavedChanges({ open: true, dirty: JSON.stringify(lista) !== initialListaRef.current, busy: isSaving, onClose })
+
   const segundosDe = (linha: LinhaRateio) => parseDuracao(linha.tempoTexto) ?? 0
   const somaSegundos = lista.reduce((acc, item) => acc + segundosDe(item), 0)
   const somaGmv = lista.reduce((acc, item) => acc + (Number(item.gmv) || 0), 0)
@@ -126,9 +131,11 @@ export function ImportRateioModal({ row, apresentadoras, onClose, onSave, isSavi
       title="Divisão entre apresentadoras"
       subtitle={`${formatDuracao(totalSegundos)} · ${formatMoney(gmvTotal)} a dividir`}
       size="lg"
-      onClose={onClose}
+      onClose={closeGuard.requestClose}
+      closeDisabled={isSaving}
       footer={(
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex w-full flex-wrap items-center justify-between gap-2">
+          <UnsavedChangesNotice guard={closeGuard} />
           <div className="flex flex-col text-xs font-semibold">
             <span className={fechaTempo ? 'text-[var(--success)]' : 'text-[var(--danger)]'}>
               Tempo: {formatDuracao(somaSegundos)} de {formatDuracao(totalSegundos)}
@@ -140,7 +147,7 @@ export function ImportRateioModal({ row, apresentadoras, onClose, onSave, isSavi
             </span>
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+            <Button type="button" variant="ghost" disabled={isSaving} onClick={closeGuard.requestClose}>Cancelar</Button>
             <Button type="button" disabled={!podeSalvar} isLoading={isSaving} onClick={() => onSave(montarPayloadRateio(lista, totalSegundos))}>
               Salvar divisão
             </Button>

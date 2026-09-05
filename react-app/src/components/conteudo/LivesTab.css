@@ -2,12 +2,151 @@
   display: none;
 }
 
+.lives-pending-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elev-1);
+}
+
+.lives-pending-panel__label {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.lives-pending-panel__label small {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.lives-pending-panel__options {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lives-pending-chip,
+.lives-pending-panel__clear,
+.lives-context-action,
+.lives-pending-row-action {
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.lives-pending-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.lives-pending-chip span {
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--bg-elev-3);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-align: center;
+}
+
+.lives-pending-chip.is-active {
+  border-color: var(--primary);
+  background: var(--primary-softer);
+  color: var(--primary);
+}
+
+.lives-pending-chip.is-active span {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.lives-pending-panel__clear {
+  margin-left: auto;
+  padding: 5px 8px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.lives-context-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  border: 1px solid var(--info-soft);
+  border-radius: 12px;
+  background: var(--info-soft);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.lives-context-bar strong {
+  color: var(--info);
+}
+
+.lives-context-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.lives-context-action {
+  min-height: 30px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.lives-pending-reason {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.lives-pending-row-action {
+  align-self: flex-start;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--primary);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
 .lives-table-row:focus-within .lives-row-actions {
   opacity: 1 !important;
   transform: translateX(0) !important;
 }
 
 @media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  .lives-pending-panel,
+  .lives-context-bar {
+    align-items: flex-start;
+  }
+
+  .lives-context-actions,
+  .lives-pending-panel__clear {
+    margin-left: 0;
+  }
   /* Desktop keeps `overflow: clip` so its sticky header remains viewport-bound.
      On touch the compact Abrir action is already visible; this scroll only exposes
      secondary columns and the existing kebab actions. */

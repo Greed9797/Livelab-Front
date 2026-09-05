@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 
@@ -10,6 +10,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), summary, textarea:not([disab
 const openModals: symbol[] = []
 const modalLayers = new Map<symbol, HTMLDivElement>()
 let rootState: { element: HTMLElement; inert: string | null; ariaHidden: string | null } | null = null
+let bodyOverflow: string | null = null
 
 function setAppInert(isModalOpen: boolean) {
   if (isModalOpen) {
@@ -32,6 +33,13 @@ function setAppInert(isModalOpen: boolean) {
 }
 
 function updateModalLayers() {
+  if (openModals.length > 0 && bodyOverflow === null) {
+    bodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  } else if (openModals.length === 0 && bodyOverflow !== null) {
+    document.body.style.overflow = bodyOverflow
+    bodyOverflow = null
+  }
   const topModal = openModals[openModals.length - 1]
   for (const [id, layer] of modalLayers) {
     const isTopModal = id === topModal
@@ -72,6 +80,7 @@ export function Modal({
   children,
   footer,
   onClose,
+  closeDisabled = false,
   size = 'md',
 }: {
   open: boolean
@@ -80,8 +89,11 @@ export function Modal({
   children: ReactNode
   footer?: ReactNode
   onClose: () => void
+  closeDisabled?: boolean
   size?: 'sm' | 'md' | 'lg' | 'xl'
 }) {
+  const titleId = useId()
+  const subtitleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
   const layerRef = useRef<HTMLDivElement>(null)
   const idRef = useRef<symbol | null>(null)
@@ -90,7 +102,7 @@ export function Modal({
   if (idRef.current === null) idRef.current = Symbol('modal')
   // Ref evita re-registrar o listener a cada render quando onClose é uma arrow inline.
   const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  onCloseRef.current = () => { if (!closeDisabled) onClose() }
 
   useEffect(() => {
     if (!open) return
@@ -178,7 +190,7 @@ export function Modal({
   if (!open) return null
 
   return createPortal(
-    <div ref={layerRef} className="fixed inset-0 z-[80] overflow-hidden bg-black/55 px-3 py-3 backdrop-blur-sm sm:px-5 sm:py-6" role="dialog" aria-modal="true" aria-label={title}>
+    <div ref={layerRef} className="fixed inset-0 z-[80] overflow-hidden bg-black/55 px-3 py-3 backdrop-blur-sm sm:px-5 sm:py-6" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} aria-busy={closeDisabled || undefined}>
       <div className="flex min-h-full items-center justify-center">
         <div
           ref={panelRef}
@@ -193,13 +205,14 @@ export function Modal({
         >
           <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-4 py-3 sm:px-6 sm:py-4">
             <div className="min-w-0">
-              <p className="text-base font-semibold leading-snug text-ink sm:text-lg">{title}</p>
-              {subtitle ? <p className="mt-1 text-sm leading-5 text-ink-muted">{subtitle}</p> : null}
+              <h2 id={titleId} className="text-base font-semibold leading-snug text-ink sm:text-lg">{title}</h2>
+              {subtitle ? <p id={subtitleId} className="mt-1 text-sm leading-5 text-ink-muted">{subtitle}</p> : null}
             </div>
             <button
               type="button"
               className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-surface text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
               aria-label="Fechar"
+              disabled={closeDisabled}
               onClick={onClose}
             >
               <X className="h-4 w-4" />

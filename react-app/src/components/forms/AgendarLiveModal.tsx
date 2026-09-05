@@ -2,6 +2,8 @@ import { CheckCircle2, PlayCircle, Plus, Trash2 } from 'lucide-react'
 import { FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { UnsavedChangesNotice } from '../ui/UnsavedChangesNotice'
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { ModalSection } from '../ui/ModalSection'
 import { PresenterSelect } from './PresenterSelect'
 import { useToast } from '../ui/Toast'
@@ -481,6 +483,7 @@ export function AgendarLiveModal({
 }) {
   const toast = useToast()
   const [form, setForm] = useState<AgendaForm>(emptyForm)
+  const initialFormRef = useRef<AgendaForm>(emptyForm)
   const [accountLookup, setAccountLookup] = useState('')
   const [cabineLookup, setCabineLookup] = useState('')
   const [availability, setAvailability] = useState<AvailabilityState>({ status: 'idle', message: '' })
@@ -576,6 +579,7 @@ export function AgendarLiveModal({
         modo_recorrencia: 'apenas_este',
         turnos: turnosDoEvento(event),
       }
+      initialFormRef.current = nextForm
       setForm(nextForm)
       setAccountLookup(optionLabel(accountOptions, nextForm.marca_id ? `marca:${nextForm.marca_id}` : nextForm.cliente_id ? `cliente:${nextForm.cliente_id}` : ''))
       setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
@@ -597,6 +601,7 @@ export function AgendarLiveModal({
       hora_fim: mode === 'now' ? dateWithHourOffset(4) : defaultHoraFim || '10:00',
       status: mode === 'now' ? 'confirmado' : 'planejado',
     }
+    initialFormRef.current = nextForm
     setForm(nextForm)
     setAccountLookup(marcaPadrao ? optionLabel(accountOptions, `marca:${asString(marcaPadrao.id, '')}`) : '')
     setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
@@ -999,6 +1004,7 @@ export function AgendarLiveModal({
   const turnosPresosNestaOcorrencia = mode === 'edit' && (revezamentoAtivo || eventoTemTurnos)
   const salvando = Boolean(isSaving) || gravandoTurnos
   const formId = useId()
+  const closeGuard = useUnsavedChanges({ open, dirty: JSON.stringify(form) !== JSON.stringify(initialFormRef.current), busy: salvando, onClose })
 
   return (
     <Modal
@@ -1006,9 +1012,11 @@ export function AgendarLiveModal({
       title={title}
       subtitle={mode === 'now' ? 'Confirme quem entra no ar e em qual cabine.' : 'Organize a operação; os demais detalhes ficam disponíveis abaixo.'}
       size="lg"
-      onClose={onClose}
+      onClose={closeGuard.requestClose}
+      closeDisabled={salvando}
       footer={(
         <>
+          <UnsavedChangesNotice guard={closeGuard} />
           {error ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(error)}</p> : null}
           {turnoFalha ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">{turnoFalha.mensagem}</p> : null}
           {mode === 'edit' && event && onDelete ? (
@@ -1016,7 +1024,7 @@ export function AgendarLiveModal({
               Cancelar evento
             </Button>
           ) : null}
-          <Button type="button" variant="secondary" disabled={salvando} onClick={onClose}>Cancelar</Button>
+          <Button type="button" variant="secondary" disabled={salvando} onClick={closeGuard.requestClose}>Cancelar</Button>
           <Button type="submit" form={formId} icon={SubmitIcon} isLoading={salvando}>{submitLabel}</Button>
         </>
       )}

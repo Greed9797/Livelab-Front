@@ -5,14 +5,14 @@ import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useToast } from '../components/ui/Toast'
 import { ImportRateioModal } from '../components/analytics/ImportRateioModal'
-import { calcDuration } from '../components/conteudo/live-helpers'
+import { calcDuration, type LivePendingKind } from '../components/conteudo/live-helpers'
 import { officialLiveGmv } from '../utils/live-gmv'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { RegistrarMetricasLiveModal, type RegistrarMetricasLiveMode } from '../components/forms/RegistrarMetricasLiveModal'
 import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { AgendaTab } from '../components/conteudo/AgendaTab'
 import { GradeTab } from '../components/conteudo/GradeTab'
-import { agendaFetchRange } from './conteudo-helpers'
+import { agendaFetchRange, parseConteudoLivesDeepLink } from './conteudo-helpers'
 import { invalidateOperational as invalidateOperationalQueries, QK } from '../services/query-keys'
 // Tipos/helpers leves importados estaticamente; os componentes pesados das abas
 // são carregados sob demanda via React.lazy (ver abaixo) para reduzir o chunk inicial.
@@ -40,6 +40,7 @@ import {
   getLivesDuplicatas,
   type ImportApresentadoraRateio,
   getMarcas,
+  getMarca,
   getVideos,
   updateAgendaEvento,
   updateLive,
@@ -164,11 +165,12 @@ export function ConteudoPage() {
   // página para consultar; escondemos as ações de escrita em vez de deixar o backend 403.
   const podeEscrever = canWrite(useCurrentUser())
   const [params, setParams] = useSearchParams()
+  const livesDeepLink = parseConteudoLivesDeepLink(params)
   const requestedTab = normalizeConteudoTab(params.get('tab'))
-  const requestedCabineId = params.get('cabine') ?? ''
+  const requestedCabineId = livesDeepLink.cabineId
   const requestedDate = params.get('data') ?? ''
   const [tab, setTab] = useState<ConteudoTab>(requestedTab)
-  const [agendaDate, setAgendaDate] = useState(requestedDate || today())
+  const [agendaDate, setAgendaDate] = useState(requestedDate || livesDeepLink.dateFrom || today())
   const [agendaView, setAgendaView] = useState<'dia' | 'semana' | 'mes'>('semana')
   const [agendaModalMode, setAgendaModalMode] = useState<AgendarLiveModalMode | null>(null)
   const [selectedAgendaEvent, setSelectedAgendaEvent] = useState<JsonRecord | null>(null)
@@ -225,17 +227,19 @@ export function ConteudoPage() {
 
   // Filtros/busca/página da aba "Lives realizadas" vivem na URL (searchParams) —
   // sobrevivem a navegação, abrir/fechar do modal ?live= e deep-links.
-  const rawRange = params.get('periodo') ?? 'todos'
+  const rawRange = params.get('periodo') ?? (livesDeepLink.dateFrom && livesDeepLink.dateTo ? 'custom' : 'todos')
   const livesDateRange: DateRange = (['todos', 'hoje', '7d', '30d', 'mes', 'custom'] as const).includes(rawRange as DateRange)
     ? (rawRange as DateRange)
     : 'todos'
-  const livesCustomFrom = params.get('data_inicio') ?? ''
-  const livesCustomTo = params.get('data_fim') ?? ''
+  const livesCustomFrom = livesDeepLink.dateFrom
+  const livesCustomTo = livesDeepLink.dateTo
   const livesCustomRangeValid = isValidCustomDateRange(livesCustomFrom, livesCustomTo, today())
   const livesCustomRangeError = livesDateRange === 'custom' && !livesCustomRangeValid
     ? 'Selecione uma data inicial e final válidas.'
     : undefined
-  const livesMarcaId = params.get('marca') ?? ''
+  const livesMarcaId = livesDeepLink.marcaId
+  const livesCabineId = livesDeepLink.cabineId
+  const livesPending: LivePendingKind | '' = livesDeepLink.pending
   const livesApresentadoraId = params.get('apres') ?? ''
   const livesQ = params.get('q') ?? ''
   const livesStatus = params.get('st') ?? 'encerrada' // 'todas' = sem filtro de status
@@ -262,7 +266,7 @@ export function ConteudoPage() {
   // query `lives` acima, que segue completa para alimentar a Agenda e o lookup por ?live=).
   const livesWindow = dateRangeToWindow(livesDateRange, livesCustomFrom, livesCustomTo)
   const livesList = useQuery({
-    queryKey: ['lives', 'list', livesStatus, livesDateRange, livesCustomFrom, livesCustomTo, livesMarcaId, livesApresentadoraId, livesQ, livesPage, livesLimit],
+    queryKey: ['lives', 'list', livesStatus, livesDateRange, livesCustomFrom, livesCustomTo, livesMarcaId, livesApresentadoraId, livesCabineId, livesQ, livesPage, livesLimit],
     queryFn: () => getLivesPaginado({
       status: livesStatus === 'todas' ? undefined : livesStatus,
       page: livesPage,
@@ -271,6 +275,7 @@ export function ConteudoPage() {
       ...livesWindow,
       marca_id: livesMarcaId || undefined,
       apresentadora_id: livesApresentadoraId || undefined,
+      cabine_id: livesCabineId || undefined,
     }),
     enabled: tab === 'lives' && (livesDateRange !== 'custom' || livesCustomRangeValid),
     placeholderData: (prev) => prev,
@@ -287,6 +292,14 @@ export function ConteudoPage() {
   const duplicatas = useQuery({ queryKey: ['lives-duplicatas'], queryFn: getLivesDuplicatas, enabled: tab === 'lives', staleTime: 5 * 60_000 })
   const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos(), enabled: tab === 'videos' })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
+  // Uma reserva existente pode pertencer a uma marca inativa, ausente do seletor de novas lives.
+  const metricsMarcaId = metricsModalMode === 'result' ? asString(metricsAgendaEvent?.marca_id, '') : ''
+  const metricsMarcaMissing = Boolean(metricsMarcaId) && !(marcas.data ?? []).some((item) => asString(item.id, '') === metricsMarcaId)
+  const metricsMarca = useQuery({
+    queryKey: ['marcas', 'detalhe', metricsMarcaId],
+    queryFn: () => getMarca(metricsMarcaId),
+    enabled: metricsMarcaMissing && !marcas.isPending,
+  })
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: () => getClientes() })
   const apresentadoras = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
 
@@ -327,11 +340,34 @@ export function ConteudoPage() {
 
   useEffect(() => { setTab(requestedTab) }, [requestedTab])
   useEffect(() => {
-    if (requestedDate) setAgendaDate(requestedDate)
-    if (requestedCabineId) { setSelectedAgendaEvent(null); setAgendaModalMode('create') }
-  }, [requestedCabineId, requestedDate])
+    if (requestedDate || livesDeepLink.dateFrom) setAgendaDate(requestedDate || livesDeepLink.dateFrom)
+    if (requestedCabineId && requestedTab === 'agenda') { setSelectedAgendaEvent(null); setAgendaModalMode('create') }
+  }, [livesDeepLink.dateFrom, requestedCabineId, requestedDate, requestedTab])
 
-  const selectedLiveId = params.get('live') ?? ''
+  // Aceita os aliases antigos usados por atalhos externos e estabiliza a URL no contrato
+  // atual sem apagar contexto (cabine/live/agenda/origem) recebido da tela anterior.
+  useEffect(() => {
+    if (requestedTab !== 'lives') return
+    const next = new URLSearchParams(params)
+    let changed = false
+    if (!next.get('marca') && next.get('marca_id')) {
+      next.set('marca', next.get('marca_id')!)
+      next.delete('marca_id')
+      changed = true
+    }
+    if (next.get('data') && !next.get('data_inicio') && !next.get('data_fim')) {
+      next.set('periodo', 'custom')
+      next.set('data_inicio', next.get('data')!)
+      next.set('data_fim', next.get('data')!)
+      changed = true
+    } else if (!next.get('periodo') && next.get('data_inicio') && next.get('data_fim')) {
+      next.set('periodo', 'custom')
+      changed = true
+    }
+    if (changed) setParams(next, { replace: true })
+  }, [params, requestedTab, setParams])
+
+  const selectedLiveId = livesDeepLink.liveId
   const selectedLiveLocal = useMemo(() => {
     if (!selectedLiveId) return null
     const rows = (lives.data ?? []) as unknown as JsonRecord[]
@@ -407,6 +443,9 @@ export function ConteudoPage() {
   ))
   const marcaFilterOptions = marcaRows.map((m) => ({ id: asString(m.id, ''), nome: asString(m.nome, 'Sem nome') })).filter((m) => m.id)
   const apresentadoraFilterOptions = apresentadoraRows.map((a) => ({ id: asString(a.id, ''), nome: asString(a.nome, 'Sem nome') })).filter((a) => a.id)
+  const contextAgendaEvent = livesDeepLink.agendaId
+    ? (agenda.data ?? []).find((event) => asString(event.id, '') === livesDeepLink.agendaId) ?? null
+    : null
 
   function switchTab(next: ConteudoTab) {
     setTab(next)
@@ -559,16 +598,19 @@ export function ConteudoPage() {
           onCustomDateFromChange={(value) => setLivesParams({ data_inicio: value || null })}
           onCustomDateToChange={(value) => setLivesParams({ data_fim: value || null })}
           marcaFilterId={livesMarcaId}
+          cabineFilterId={livesCabineId}
           apresentadoraFilterId={livesApresentadoraId}
           onMarcaFilterChange={(id) => setLivesParams({ marca: id })}
           onApresentadoraFilterChange={(id) => setLivesParams({ apres: id })}
           marcaFilterOptions={marcaFilterOptions}
           apresentadoraFilterOptions={apresentadoraFilterOptions}
-          onClearFilters={() => setLivesParams({ periodo: null, data_inicio: null, data_fim: null, marca: null, apres: null, q: null, st: null })}
+          onClearFilters={() => setLivesParams({ periodo: null, data: null, data_inicio: null, data_fim: null, marca: null, marca_id: null, cabine: null, apres: null, q: null, st: null, pendencia: null, agenda: null, origem: null })}
           searchQuery={livesQ}
           onSearchChange={(q) => setLivesParams({ q })}
           statusFilter={livesStatus}
           onStatusFilterChange={(st) => setLivesParams({ st: st === 'encerrada' ? null : st })}
+          pendingFilter={livesPending}
+          onPendingFilterChange={(pending) => setLivesParams({ pendencia: pending || null })}
           page={livesPage}
           pageSize={livesLimit}
           total={livesTotal}
@@ -606,6 +648,28 @@ export function ConteudoPage() {
           onSplitApresentadoras={abrirRateio}
           duplicateLiveIds={duplicateLiveIds}
           duplicateClusterCount={dupClusters.length}
+          isLoading={livesList.isLoading || livesList.isPlaceholderData || (livesPending === 'duplicata' && duplicatas.isLoading)}
+          errorMessage={livesList.error
+            ? extractErrorMessage(livesList.error)
+            : livesPending === 'duplicata' && duplicatas.error
+              ? extractErrorMessage(duplicatas.error)
+              : undefined}
+          onRetry={() => { void livesList.refetch(); void duplicatas.refetch() }}
+          contextSource={livesDeepLink.source}
+          contextAgendaId={livesDeepLink.agendaId}
+          contextAgendaLoading={Boolean(livesDeepLink.agendaId) && agenda.isLoading}
+          duplicateStatus={duplicatas.isLoading ? 'loading' : duplicatas.error ? 'error' : 'ready'}
+          onRegisterAgendaResult={podeEscrever && livesDeepLink.agendaId ? () => {
+            if (!contextAgendaEvent) {
+              toast.push('Evento da agenda não encontrado neste recorte.', 'error')
+              return
+            }
+            setMetricsAgendaEvent(contextAgendaEvent)
+            setSelectedLiveRecord(null)
+            setMetricsModalMode('result')
+          } : undefined}
+          onBackContext={livesDeepLink.source ? () => window.history.back() : undefined}
+          onClearContext={livesDeepLink.source ? () => setLivesParams({ periodo: null, data: null, data_inicio: null, data_fim: null, marca: null, marca_id: null, cabine: null, apres: null, q: null, st: null, pendencia: null, agenda: null, origem: null }) : undefined}
         />
         </Suspense>
       ) : null}
@@ -642,7 +706,10 @@ export function ConteudoPage() {
         live={selectedLiveRecord}
         agendaEvent={metricsAgendaEvent}
         cabines={activeCabines}
-        marcas={marcaRows}
+        marcas={metricsMarcaMissing && metricsMarca.data ? [...marcaRows, metricsMarca.data] : marcaRows}
+        marcaLoading={marcas.isPending || (metricsMarcaMissing && metricsMarca.isFetching)}
+        marcaError={metricsMarcaMissing && metricsMarca.isError}
+        onRetryMarca={() => { void metricsMarca.refetch() }}
         clientes={clienteRows}
         apresentadoras={apresentadoraRows}
         isSaving={createManualLiveMutation.isPending || updateLiveMutation.isPending || encerrarLiveMutation.isPending}

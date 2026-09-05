@@ -3,6 +3,8 @@ import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
 import { Users } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { UnsavedChangesNotice } from '../ui/UnsavedChangesNotice'
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { ModalSection } from '../ui/ModalSection'
 import { MoneyInput } from '../ui/MoneyInput'
 import { extractErrorMessage } from '../../services/api'
@@ -246,6 +248,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
   // Snapshot do formulário como ele nasceu. Serve de referência para decidir o que o usuário
   // realmente alterou — sem isso o save reenvia campos numéricos intocados (ver handleSubmit).
   const prefillRef = useRef<EditForm>(emptyForm)
+  const initializedLiveRef = useRef('')
   const [error, setError] = useState<string | null>(null)
 
   const [cabinesQuery, clientesQuery, marcasQuery] = useQueries({
@@ -262,11 +265,15 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
   const accountOptions = useMemo(() => liveAccountOptions(marcaRows, clienteRows), [clienteRows, marcaRows])
 
   useEffect(() => {
+    if (!open) { initializedLiveRef.current = ''; return }
     if (!live) {
       setForm(emptyForm)
       prefillRef.current = emptyForm
       return
     }
+    const liveKey = asString(live.id, '')
+    if (initializedLiveRef.current === liveKey) return
+    initializedLiveRef.current = liveKey
     const prefill: EditForm = {
       cabine_id: asString(live.cabine_id, ''),
       cliente_id: asString(live.cliente_id, ''),
@@ -302,7 +309,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     // numérico em handleSubmit.
     prefillRef.current = prefill
     setError(null)
-  }, [live])
+  }, [live, open])
 
   // Live importada do TikTok Studio grava em ads_gmv, que é o TOPO de
   // COALESCE(ads_gmv, manual_gmv, fat_gerado) em src/lib/metric-sql.js. Enquanto ads_gmv
@@ -374,11 +381,13 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     saveMutation.mutate({ id: asString(live.id), payload })
   }
 
+  const hasUnsavedChanges = hasUnsavedLiveChanges(form, prefillRef.current)
+  const closeGuard = useUnsavedChanges({ open, dirty: hasUnsavedChanges, busy: saveMutation.isPending, onClose })
+
   if (!open || !live) return null
 
   const rateioPlanejado = resumoRateioPlanejado(live)
   const rateioAtual = asArray<JsonRecord>(live.apresentadoras)
-  const hasUnsavedChanges = hasUnsavedLiveChanges(form, prefillRef.current)
   const accountValue = form.marca_id ? `marca:${form.marca_id}` : form.cliente_id ? `cliente:${form.cliente_id}` : ''
   const accountKnown = !accountValue || accountOptions.some((option) => option.value === accountValue)
   const legacyPresenters = [
@@ -389,14 +398,16 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={closeGuard.requestClose}
+      closeDisabled={saveMutation.isPending}
       title="Editar live"
       size="lg"
       footer={(
         <div className="flex w-full flex-wrap items-center justify-end gap-2">
+          <UnsavedChangesNotice guard={closeGuard} />
           {error ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">{error}</p> : null}
           <p className="w-full text-xs text-ink-muted sm:mr-auto sm:w-auto sm:self-center">Ao salvar, a comissão é recalculada.</p>
-          <Button variant="ghost" type="button" onClick={onClose} disabled={saveMutation.isPending}>Cancelar</Button>
+          <Button variant="ghost" type="button" onClick={closeGuard.requestClose} disabled={saveMutation.isPending}>Cancelar</Button>
           <Button type="submit" form={formId} isLoading={saveMutation.isPending}>Salvar alterações</Button>
         </div>
       )}
@@ -407,20 +418,20 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
             <label className="block">
               <span className="text-xs text-ink-muted">Cabine</span>
               <select className="design-input mt-1 h-11 w-full px-3" value={form.cabine_id} onChange={(e) => setField('cabine_id', e.target.value)}>
-                <option value="">—</option>
+                <option value="">Selecione</option>
                 {cabineOptions.map((o) => <option key={o.value} value={o.value}>Cabine {o.label}</option>)}
               </select>
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">Marca ou cliente</span>
               <select className="design-input mt-1 h-11 w-full px-3" value={accountValue} onChange={(e) => setAccount(e.target.value)}>
-                <option value="">—</option>
+                <option value="">Selecione</option>
                 {!accountKnown ? <option value={accountValue}>Conta atual indisponível</option> : null}
                 {accountOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Status</span>
+              <span className="text-xs text-ink-muted">Situação da transmissão</span>
               <select className="design-input mt-1 h-11 w-full px-3" value={form.status} onChange={(e) => setField('status', e.target.value)}>
                 <option value="em_andamento">Em andamento</option>
                 <option value="encerrada">Encerrada</option>
