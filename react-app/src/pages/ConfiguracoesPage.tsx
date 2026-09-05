@@ -675,25 +675,25 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
         <Card>
           <CardHeader>
             <p className="text-base font-bold text-ink">Comissões Livelab</p>
-            <p className="mt-1 text-xs text-ink-muted">% de comissão da franquia/franqueadora é configurado por marca em Comercial.</p>
+            <p className="mt-1 text-xs text-ink-muted">% de comissão da franquia/franqueadora é configurado por marca em Clientes.</p>
           </CardHeader>
           <CardBody className="space-y-3">
             <p className="text-sm text-ink">
               Cada marca tem <strong>% de comissão da franquia</strong>, <strong>% da franqueadora</strong> e um <strong>fixo mensal</strong> (somado à comissão uma vez por mês com atividade).
-              A comissão da apresentadora segue a escada por GMV mensal e não muda por marca: a <strong>escada padrão</strong> da unidade é gerenciada em <em>Comissões</em>, e a personalização por apresentadora fica em <em>Usuários e equipe</em>.
+              A comissão da apresentadora segue a escada por GMV mensal e não muda por marca: a <strong>escada padrão</strong> da unidade é gerenciada em <em>Financeiro → Comissões → Regras</em>, e a personalização por apresentadora fica em <em>Usuários e equipe</em>.
             </p>
             <div className="flex flex-wrap gap-2">
               <Link
                 className="inline-flex h-11 items-center justify-center rounded-full bg-button-primary px-5 text-sm font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
-                to="/comissoes/config"
+                to="/financeiro/comissoes/regras"
               >
-                Escada padrão em Comissões
+                Regras de comissão
               </Link>
               <Link
                 className="inline-flex h-11 items-center justify-center rounded-full border border-line bg-surface px-5 text-sm font-bold text-ink hover:bg-surface-muted"
-                to="/comercial?tab=ativos"
+                to="/clientes"
               >
-                Editar marcas em Comercial
+                Editar marcas em Clientes
               </Link>
               <button
                 type="button"

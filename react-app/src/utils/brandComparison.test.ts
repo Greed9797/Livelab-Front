@@ -120,10 +120,10 @@ describe('brand comparison aggregation', () => {
 
   it('builds the existing Conteúdo lives route with the selected brand and window', () => {
     expect(brandLivesDrilldownUrl('marca-a', { from: '2026-09-01', to: '2026-09-05' })).toBe(
-      '/conteudo?tab=lives&periodo=custom&data_inicio=2026-09-01&data_fim=2026-09-05&marca=marca-a&origem=analytics',
+      '/lives?periodo=custom&data_inicio=2026-09-01&data_fim=2026-09-05&marca=marca-a&origem=analytics',
     )
     expect(brandLivesDrilldownUrl(null, { from: '2026-09-01', to: '2026-09-05' })).toBe(
-      '/conteudo?tab=lives&periodo=custom&data_inicio=2026-09-01&data_fim=2026-09-05&origem=analytics',
+      '/lives?periodo=custom&data_inicio=2026-09-01&data_fim=2026-09-05&origem=analytics',
     )
   })
 })

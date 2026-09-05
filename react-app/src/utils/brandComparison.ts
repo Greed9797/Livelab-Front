@@ -124,14 +124,13 @@ export function brandPeriodDiagnostic(current: ComparablePeriodMetrics, previous
 
 export function brandLivesDrilldownUrl(marcaId: string | null, period: PreviousPeriod): string {
   const params = new URLSearchParams({
-    tab: 'lives',
     periodo: 'custom',
     data_inicio: period.from,
     data_fim: period.to,
   })
   if (marcaId) params.set('marca', marcaId)
   params.set('origem', 'analytics')
-  return `/conteudo?${params.toString()}`
+  return `/lives?${params.toString()}`
 }
 
 /** Consolida as linhas diárias já filtradas sem cruzar o período ou a entidade ativa. */

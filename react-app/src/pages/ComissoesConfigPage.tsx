@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
@@ -18,6 +18,7 @@ import {
   updateComissaoFaixaDefault,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
+import { useCurrentUser } from '../stores/auth-store'
 import { asArray, asNumber, asString, formatMoney } from '../utils/format'
 import { FALLBACK_ESCADA } from '../utils/faixaComissao'
 import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
@@ -340,7 +341,14 @@ function FechamentoMesSection() {
 }
 
 export function ComissoesConfigPage() {
+  const [params] = useSearchParams()
+  const apuracaoParams = new URLSearchParams(params)
+  apuracaoParams.set('tab', 'comissoes')
   const [tab, setTab] = useState<Tab>('marca')
+  const user = useCurrentUser()
+  // Master administra regras nesta rota, mas não tem acesso aos dados financeiros
+  // da unidade. Só franqueado recebe o atalho de volta para a apuração.
+  const podeVerApuracao = user?.papel === 'franqueado'
 
   const marcasQuery = useQuery({ queryKey: QK.marcas('com-apresentadoras'), queryFn: () => getMarcas({ include: 'apresentadoras' }) })
   const apresentadorasQuery = useQuery({ queryKey: QK.apresentadoras(), queryFn: getApresentadoras })
@@ -371,10 +379,18 @@ export function ComissoesConfigPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Comissões"
-        accent="Configuração"
-        title="de comissões da apresentadora"
-        subtitle="Escada padrão do sistema, escadas por apresentadora e vínculos por marca."
+        eyebrow="Financeiro · Comissões"
+        accent="Regras"
+        title="de comissão"
+        subtitle="Defina a escada padrão, exceções por apresentadora e vínculos por marca. Os valores calculados do período ficam na apuração de comissões."
+        actions={podeVerApuracao ? (
+          <Link
+            to={`/financeiro?${apuracaoParams.toString()}`}
+            className="inline-flex h-10 items-center justify-center rounded-full border border-line bg-surface px-4 text-sm font-semibold tracking-[0.01em] text-ink transition-colors hover:border-[var(--border-strong)] hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+          >
+            Ver apuração
+          </Link>
+        ) : null}
       />
 
       <EscadaPadraoSection />
@@ -402,7 +418,7 @@ export function ComissoesConfigPage() {
         <Card>
           <CardHeader>
             <p className="text-base font-bold text-ink">Vínculos apresentadora × marca</p>
-            <p className="mt-1 text-xs text-ink-muted">% vídeo definido no cadastro de clientes e marcas em <Link className="text-brand underline" to="/comercial">Comercial</Link>.</p>
+            <p className="mt-1 text-xs text-ink-muted">% vídeo definido no cadastro de clientes e marcas em <Link className="text-brand underline" to="/clientes">Clientes</Link>.</p>
           </CardHeader>
           <CardBody className="p-0">
             <div className="overflow-x-auto">

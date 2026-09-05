@@ -282,7 +282,7 @@ export function DashboardPage() {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               Grade de hoje · {today.split('-').reverse().slice(0, 2).join('/')}
             </h3>
-            <Link to={`/conteudo?tab=agenda&data=${today}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted">
+            <Link to={`/agenda?data=${today}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted">
               <CalendarDays className="h-4 w-4" aria-hidden="true" /> Abrir agenda
             </Link>
             {/* Legenda por marca — espelha a aba Agenda. Mostra TODAS as marcas da grade:
@@ -311,7 +311,7 @@ export function DashboardPage() {
               <GradeDiaView
                 celulas={celulasHoje}
                 cabines={cabinesOrdenadas}
-                onCellClick={({ celula }) => navigate(`/conteudo?${new URLSearchParams({ tab: 'agenda', data: today, ...(celula?.marca_id ? { marca: celula.marca_id } : {}) })}`)}
+                onCellClick={({ celula }) => navigate(`/agenda?${new URLSearchParams({ data: today, ...(celula?.marca_id ? { marca: celula.marca_id } : {}) })}`)}
               />
             </div>
           )}

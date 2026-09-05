@@ -98,7 +98,6 @@ export function gradeOperationalLink({
   pendencia?: 'cadastro'
 }): string {
   const params = new URLSearchParams({
-    tab: 'lives',
     periodo: 'custom',
     data_inicio: data,
     data_fim: data,
@@ -108,7 +107,7 @@ export function gradeOperationalLink({
   if (liveId) params.set('live', liveId)
   if (agendaId) params.set('agenda', agendaId)
   if (pendencia) params.set('pendencia', pendencia)
-  return `/conteudo?${params.toString()}`
+  return `/lives?${params.toString()}`
 }
 
 export function statusAcompanhamento(situacao: GradeSituacao): {

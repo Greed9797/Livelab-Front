@@ -61,27 +61,21 @@ async function setup(page: Page) {
   })
 }
 
-test('grade diária mostra planejado x realizado com ações e layout responsivo', async ({ page }, info) => {
+test('Agenda mantém a grade sem painel removido nem consultas legadas', async ({ page }, info) => {
   await setup(page)
+  const calls: string[] = []
+  page.on('request', request => { calls.push(new URL(request.url()).pathname) })
   await page.goto(`/conteudo?tab=agenda&data=${selectedDate}`)
-
-  const panel = page.getByRole('region', { name: 'Acompanhamento operacional' })
-  await expect(panel).toBeVisible()
-  await expect(panel.getByText('Registro pendente', { exact: true })).toBeVisible()
-  await expect(panel.getByText('Sem reserva', { exact: true })).toBeVisible()
-  const registerHref = await panel.getByRole('link', { name: 'Registrar execução' }).getAttribute('href')
-  expect(registerHref).toContain(`agenda=${agenda}`)
-  expect(registerHref).toContain('pendencia=cadastro')
-  expect(registerHref).toContain('origem=grade')
-  const liveHref = await panel.getByRole('link', { name: 'Ver execução' }).getAttribute('href')
-  expect(liveHref).toContain(`live=${live}`)
-  expect(liveHref).toContain('origem=grade')
-
-  await panel.getByRole('button', { name: 'Cabine 2' }).click()
-  await expect(panel.getByText('Sem reservas ou execuções registradas')).toBeVisible()
-  await expect(panel.getByText(/capacidade.*vend/i)).toHaveCount(0)
+  await expect(page).toHaveURL(new RegExp(`/agenda\\?data=${selectedDate}$`))
+  await expect(page.getByRole('heading', { name: 'Agenda', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Filtrar por marca', exact: true })).toBeVisible()
   await page.getByRole('combobox', { name: 'Filtrar por marca', exact: true }).selectOption(marca)
-  await expect(panel.getByText('Visão geral do dia. Os filtros de marca e apresentadora acima se aplicam à programação da grade.')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Acompanhamento operacional' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Vídeos gravados', exact: true })).toHaveCount(0)
+  expect(calls).not.toContain('/v1/grade/acompanhamento')
+  expect(calls).not.toContain('/v1/videos')
+  expect(calls).not.toContain('/v1/lives')
+  expect(calls).not.toContain('/v1/agenda')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await page.screenshot({ path: info.outputPath('grade-acompanhamento.png'), fullPage: true })
+  await page.screenshot({ path: info.outputPath('agenda-simplificada.png'), fullPage: true })
 })

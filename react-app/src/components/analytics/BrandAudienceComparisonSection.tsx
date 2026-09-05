@@ -37,8 +37,9 @@ export function BrandAudienceComparisonSection({ from, to, marcaId }: { from: st
   const apiIsNotFound = (query.error as { response?: { status?: number } } | null)?.response?.status === 404
   return <Card id="analytics-audience-coverage">
     <CardHeader>
-      <h2 className="text-base font-semibold text-ink">Audiência e cobertura por marca</h2>
-      <p className="mt-1 text-sm text-ink-muted">Mesmo período do filtro; base: lives encerradas com pelo menos 5 minutos. Impressões contam exibições, não pessoas únicas.</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-muted">Comparação entre marcas</p>
+      <h2 className="mt-0.5 text-base font-semibold text-ink">Audiência e cobertura</h2>
+      <p className="mt-1 text-sm text-ink-muted">Mesmo período do filtro · lives encerradas com pelo menos 5 min</p>
     </CardHeader>
     <CardBody>
       {query.isLoading ? <LoadingState /> : query.isError ? (
@@ -50,9 +51,9 @@ export function BrandAudienceComparisonSection({ from, to, marcaId }: { from: st
             <Button key={key} type="button" variant={sort === key ? 'primary' : 'secondary'} aria-pressed={sort === key} className="h-8 px-3 text-xs" onClick={() => setSort(key as typeof sort)}>{label}</Button>
           ))}
         </div>
-        <p className="mb-3 text-xs text-ink-muted">Barras mostram cobertura de registros, não volume.</p>
+        <div role="note" aria-label="Leitura das barras" className="mb-3 rounded-lg border border-line bg-surface-muted/40 px-3 py-2 text-xs text-ink-muted"><span className="font-semibold text-ink">Leitura das barras:</span> cobertura de registros, não volume. Impressões contam exibições, não pessoas únicas.</div>
         {rows.length > 0 ? <p className="mb-2 text-xs text-ink-muted sm:hidden">Deslize a tabela para ver todas as métricas.</p> : null}
-        <DataTable columns={columns} data={rows} rowKey={(row) => row.key} footer={<p className="text-xs text-ink-muted">Cada valor traz sua própria contagem de lives com campo registrado. Importações antigas podem gravar zero quando a coluna não existia no arquivo; confira relatórios zerados antes de comparar.</p>} />
+        <DataTable columns={columns} data={rows} rowKey={(row) => row.key} footer={<p role="note" aria-label="Aviso sobre importações antigas" className="text-xs leading-5 text-ink-muted"><span className="font-semibold text-ink">Atenção:</span> cada valor traz sua própria quantidade de lives com registro. Importações antigas podem gravar zero quando a coluna não existia; confirme relatórios zerados antes de comparar.</p>} />
       </>}
     </CardBody>
   </Card>

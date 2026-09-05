@@ -1,11 +1,10 @@
-import { Building2, CircleDollarSign, Download, Eye, Handshake, LayoutDashboard, Plus, Search, Store, Trash2, Users, Workflow } from 'lucide-react'
+import { Download, Eye, Plus, Search, Trash2 } from 'lucide-react'
 import { FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { DataTable } from '../components/ui/DataTable'
-import { MetricCard } from '../components/ui/MetricCard'
 import { Badge, statusTone } from '../components/ui/Badge'
 import { BotBadge } from '../components/ui/BotBadge'
 import { LoadingState, ErrorState } from '../components/ui/States'
@@ -21,18 +20,13 @@ import { MoneyInput } from '../components/ui/MoneyInput'
 import { useToast } from '../components/ui/Toast'
 import { normalizeMoneyInputText, parseBRMoneyToDecimal } from '../utils/money'
 import { extractBrandColor, resolveMarcaCor } from '../utils/brandColor'
-import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, getMasterCrm, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
+import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getMarcaOperacional, getMarcas, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
 import { getBrandImage } from '../utils/favicon'
 import { downloadCsv } from '../utils/exportCsv'
-import { metric, moneyMetric, percentMetric } from './page-helpers'
-import { CrmPage } from './CrmPage'
 import { QK } from '../services/query-keys'
-import { useCurrentUser } from '../stores/auth-store'
 import type { JsonRecord } from '../types/models'
-
-type ComercialTab = 'dashboard' | 'crm' | 'ativos'
 
 // Vocabulário de status alinhado aos CHECKs do banco:
 // clientes (migrations 016/042) e marcas (migrations 080/121).
@@ -110,9 +104,26 @@ function officialOperationalGmv(item: JsonRecord) {
   return item.gmv_mes ?? item.gmv ?? item.ads_gmv ?? item.manual_gmv ?? 0
 }
 
+export type ResumoCarteira = {
+  total: number
+  clientes: number
+  afiliados: number
+  gmvMes: number
+  livesMes: number
+}
+
+export function resumirCarteira(ativos: JsonRecord[]): ResumoCarteira {
+  return ativos.reduce<ResumoCarteira>((resumo, item) => ({
+    total: resumo.total + 1,
+    clientes: resumo.clientes + (asString(item.tipo_operacional) === 'cliente_ecommerce' ? 1 : 0),
+    afiliados: resumo.afiliados + (asString(item.tipo_operacional) === 'afiliada' ? 1 : 0),
+    gmvMes: resumo.gmvMes + asNumber(item.gmv_mes),
+    livesMes: resumo.livesMes + asNumber(item.lives_mes),
+  }), { total: 0, clientes: 0, afiliados: 0, gmvMes: 0, livesMes: 0 })
+}
+
 export function ComercialPage() {
   const ativoFormId = useId()
-  const [tab, setTab] = useState<ComercialTab>('ativos')
   const [showClienteForm, setShowClienteForm] = useState(false)
   const [showAfiliadoForm, setShowAfiliadoForm] = useState(false)
   const [clienteForm, setClienteForm] = useState(emptyClienteForm)
@@ -137,15 +148,8 @@ export function ComercialPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const toast = useToast()
-  const user = useCurrentUser()
-  const isMasterUser = user?.papel === 'franqueador_master'
   const [verArquivados, setVerArquivados] = useState(false)
 
-  const summaryQuery = useQuery({
-    queryKey: isMasterUser ? QK.masterCrm : QK.crmSummary,
-    queryFn: isMasterUser ? () => getMasterCrm() : getCrmSummary,
-  })
-  const leadsQuery = useQuery({ queryKey: QK.leads, queryFn: getLeads })
   const clientesQuery = useQuery({ queryKey: QK.clientes(verArquivados ? 'arquivados' : 'ativos'), queryFn: () => getClientes(verArquivados ? { status: 'arquivado' } : {}) })
   const marcasQuery = useQuery({ queryKey: QK.marcas(verArquivados ? 'arquivadas' : 'ativas'), queryFn: () => getMarcas({ status: verArquivados ? 'arquivada' : 'ativa' }) })
   const selectedAtivoId = asString(selectedAtivo?.id, '')
@@ -233,30 +237,10 @@ export function ComercialPage() {
     onSuccess: (data) => setAtivoForm((current) => ({ ...current, logo_url: asString(data.url, '') })),
   })
 
-  const isLoading = summaryQuery.isLoading || leadsQuery.isLoading || clientesQuery.isLoading || marcasQuery.isLoading
-  const error = summaryQuery.error ?? leadsQuery.error ?? clientesQuery.error ?? marcasQuery.error
-  const summary = getRecord(summaryQuery.data?.summary)
-  const totals = getRecord(summaryQuery.data?.totals)
-  const bioTotals = getRecord(summaryQuery.data?.bio_totals)
-  const bioPorPersona = asArray<JsonRecord>(summaryQuery.data?.bio_por_persona)
-  const leads = leadsQuery.data ?? []
+  const isLoading = clientesQuery.isLoading || marcasQuery.isLoading
+  const error = clientesQuery.error ?? marcasQuery.error
   const clientes = clientesQuery.data ?? []
   const marcas = marcasQuery.data ?? []
-  const crmLeadTotal = asNumber(totals.leads_total ?? summary.total_leads ?? leads.length)
-  const ganhos = asNumber(summary.ganhos ?? totals.ganhos ?? totals.ganhos_30d)
-  const taxaConversao = crmLeadTotal ? (ganhos / crmLeadTotal) * 100 : 0
-  const metrics = [
-    metric('Leads abertos', isMasterUser ? crmLeadTotal : leads.filter((lead) => !['ganho', 'perdido'].includes(asString((lead as unknown as JsonRecord).crm_etapa))).length, isMasterUser ? 'rede master' : 'pipeline ativo', 'neutral'),
-    moneyMetric('Valor em negociação', summary.valor_estimado ?? totals.valor_pipeline ?? totals.valor_estimado ?? totals.valor_total, isMasterUser ? 'rede master' : 'pipeline aberto', 'brand'),
-    metric('Ganhos no mês', ganhos, 'clientes convertidos', 'success'),
-    percentMetric('Conversão', taxaConversao, 'ganhos sobre leads', 'info'),
-    ...(isMasterUser ? [
-      metric('Leads Bio', asNumber(bioTotals.total).toLocaleString('pt-BR'), `${asNumber(bioTotals.clientes).toLocaleString('pt-BR')} clientes · ${asNumber(bioTotals.franqueados).toLocaleString('pt-BR')} franquias · ${asNumber(bioTotals.apresentadores).toLocaleString('pt-BR')} creators`, 'brand' as const),
-      moneyMetric('Potencial Bio', bioTotals.valor_total, 'payloads recebidos da página Bio', 'info' as const),
-    ] : []),
-    metric('Clientes ativos', clientes.length, 'carteira da unidade', 'success'),
-    metric('Afiliados ativos', marcas.filter((item) => asString(item.tipo) === 'afiliada').length, 'marcas afiliadas', 'brand'),
-  ]
 
   const ativos = useMemo(() => {
     const marcasPorCliente = new Map<string, JsonRecord[]>()
@@ -302,8 +286,8 @@ export function ComercialPage() {
         ...existing,
         logo_url: existing.logo_url || item.logo_url,
         site: existing.site || item.site,
-        gmv_mes: asNumber(officialOperationalGmv(existing)) + asNumber(officialOperationalGmv(item)),
-        lives_mes: asNumber(existing.lives_mes ?? existing.total_lives) + asNumber(item.lives_mes ?? item.total_lives),
+        gmv_mes: asNumber(existing.gmv_mes) + asNumber(item.gmv_mes),
+        lives_mes: asNumber(existing.lives_mes) + asNumber(item.lives_mes),
         videos_mes: asNumber(existing.videos_mes ?? existing.quantidade_videos) + asNumber(item.videos_mes ?? item.quantidade_videos),
         duplicado_count: asNumber(existing.duplicado_count, 1) + 1,
         duplicados: [...asArray<JsonRecord>(existing.duplicados), item],
@@ -331,6 +315,8 @@ export function ComercialPage() {
   // ponytail: paginação simples — mostra 50 e um "Mostrar todos"; troque por paginação real se a carteira passar de centenas.
   const LIMITE_LINHAS = 50
   const ativosVisiveis = mostrarTodos ? ativosFiltrados : ativosFiltrados.slice(0, LIMITE_LINHAS)
+  const resumoCarteira = useMemo(() => resumirCarteira(ativos), [ativos])
+  const periodoCarteira = verArquivados ? 'cadastros arquivados' : 'carteira atual'
 
   // Atualiza % de comissão na marca principal (usado quando o item é cliente_ecommerce).
   const updateMarcaPctMutation = useMutation({
@@ -383,7 +369,6 @@ export function ComercialPage() {
     if (clientesQuery.isLoading || marcasQuery.isLoading) return
     const found = ativos.find((r) => asString(r.nome).trim().toLowerCase() === alvo.trim().toLowerCase())
     if (found) {
-      setTab('ativos')
       openAtivo(found)
     }
     // limpa o param sempre (achando ou não) para não ficar preso no URL
@@ -401,8 +386,6 @@ export function ComercialPage() {
 
   if (isLoading) return <LoadingState />
   if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
-    void summaryQuery.refetch()
-    void leadsQuery.refetch()
     void clientesQuery.refetch()
     void marcasQuery.refetch()
   }} />
@@ -421,8 +404,8 @@ export function ComercialPage() {
       { key: 'nome', header: 'nome' },
       { key: 'marca_principal', header: 'marca_principal' },
       { key: 'status', header: 'status' },
-      { key: 'gmv_mes', header: 'gmv_mes', value: (row) => officialOperationalGmv(row) ?? 0 },
-      { key: 'lives_mes', header: 'lives_mes', value: (row) => row.lives_mes ?? row.total_lives ?? 0 },
+      { key: 'gmv_mes', header: 'gmv_mes', value: (row) => row.gmv_mes ?? 0 },
+      { key: 'lives_mes', header: 'lives_mes', value: (row) => row.lives_mes ?? 0 },
       { key: 'videos_mes', header: 'videos_mes', value: (row) => row.videos_mes ?? row.quantidade_videos ?? 0 },
       {
         key: 'apresentadoras',
@@ -639,96 +622,24 @@ export function ComercialPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Comercial" accent="Operação" title="comercial" subtitle="Dashboard, CRM e carteira ativa em uma única área." />
+      <PageHeader eyebrow="Operação" accent="Carteira" title="de clientes" subtitle="Cadastros, atividade do mês e acesso em uma única visão." />
 
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumo da carteira">
         {[
-          ['ativos', Store, 'Clientes e afiliados'],
-          ['dashboard', LayoutDashboard, 'Dashboard'],
-          ['crm', Workflow, 'CRM'],
-        ].map(([key, Icon, label]) => (
-          <button
-            key={String(key)}
-            type="button"
-            aria-pressed={tab === key}
-            className={tab === key ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-button-primary px-4 text-sm font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20' : 'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20'}
-            onClick={() => setTab(key as ComercialTab)}
-          >
-            <Icon className="h-4 w-4" />
-            {label as string}
-          </button>
+          ['Clientes', resumoCarteira.clientes.toLocaleString('pt-BR'), periodoCarteira],
+          ['Afiliados', resumoCarteira.afiliados.toLocaleString('pt-BR'), 'marcas sem cliente vinculado'],
+          ['GMV no mês', formatMoney(resumoCarteira.gmvMes), 'atividade registrada'],
+          ['Lives no mês', resumoCarteira.livesMes.toLocaleString('pt-BR'), 'na carteira atual'],
+        ].map(([label, value, description]) => (
+          <Card key={label} className="p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
+            <p className="num mt-2 text-2xl font-bold text-ink">{value}</p>
+            <p className="mt-1 text-xs text-ink-muted">{description}</p>
+          </Card>
         ))}
-      </div>
+      </section>
 
-      {tab === 'dashboard' ? (
-        <>
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {metrics.map((item, index) => (
-              <MetricCard key={item.label} metric={item} icon={[Users, CircleDollarSign, Handshake, Workflow, Building2, Store][index]} />
-            ))}
-          </section>
-          <section className="grid gap-4 xl:grid-cols-[1fr_0.85fr]">
-            <Card>
-              <CardHeader>
-                <p className="text-base font-bold text-ink">Pipeline por etapa</p>
-              </CardHeader>
-              <CardBody className="space-y-3">
-                {asArray<JsonRecord>(summaryQuery.data?.pipeline).map((stage, index) => (
-                  <div key={index} className="grid gap-2 md:grid-cols-[1fr_120px_120px] md:items-center">
-                    <p className="text-sm font-semibold text-ink">{asString(stage.etapa ?? stage.stage ?? stage.label)}</p>
-                    <p className="num text-sm font-bold text-ink md:text-right">{asNumber(stage.total ?? stage.count).toLocaleString('pt-BR')}</p>
-                    <p className="num text-sm font-bold text-ink md:text-right">{formatMoney(stage.valor ?? stage.value)}</p>
-                  </div>
-                ))}
-              </CardBody>
-            </Card>
-            <Card>
-              <CardHeader>
-                <p className="text-base font-bold text-ink">{isMasterUser ? 'Entradas da Bio' : 'Leads parados'}</p>
-              </CardHeader>
-              <CardBody className="space-y-3">
-                {isMasterUser ? (
-                  <>
-                    {bioPorPersona.map((item) => (
-                      <div key={asString(item.persona ?? item.origem)} className="rounded-2xl border border-line bg-surface-muted p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-semibold text-ink">{asString(item.label ?? item.persona)}</span>
-                          <Badge tone="brand">{asNumber(item.total).toLocaleString('pt-BR')}</Badge>
-                        </div>
-                        <p className="mt-2 text-xs text-ink-muted">{formatMoney(item.valor)} em potencial informado</p>
-                      </div>
-                    ))}
-                    {!bioPorPersona.length ? (
-                      <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">
-                        Nenhum lead Bio encontrado no escopo master.
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  leads
-                    .filter((lead) => {
-                      const record = lead as unknown as JsonRecord
-                      const updated = new Date(asString(record.atualizado_em ?? record.criado_em, ''))
-                      return !Number.isNaN(updated.getTime()) && Date.now() - updated.getTime() > 7 * 24 * 60 * 60 * 1000
-                    })
-                    .slice(0, 5)
-                    .map((lead) => (
-                      <div key={lead.id} className="flex items-center justify-between rounded-2xl border border-line bg-surface-muted p-3">
-                        <span className="text-sm font-semibold text-ink">{asString(lead.nome ?? lead.nome_cliente ?? lead.cliente_nome)}</span>
-                        <Badge tone="warning">{asString((lead as unknown as JsonRecord).crm_etapa, 'lead_novo')}</Badge>
-                      </div>
-                    ))
-                )}
-              </CardBody>
-            </Card>
-          </section>
-        </>
-      ) : null}
-
-      {tab === 'crm' ? <CrmPage /> : null}
-
-      {tab === 'ativos' ? (
-        <div className="space-y-4">
+      <div className="space-y-4">
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -782,7 +693,6 @@ export function ComercialPage() {
                   </Button>
                 ) : undefined}
                 columns={[
-                  { key: 'tipo_operacional', header: 'Perfil', render: (item) => <Badge tone="brand">{perfilOperacionalLabel(asString(item.tipo_operacional ?? item.tipo))}</Badge> },
                   {
                     key: 'nome',
                     header: 'Cliente / marca',
@@ -793,7 +703,7 @@ export function ComercialPage() {
                       const mostraMarcaOperacional = Boolean(marcaPrincipal) && normalizarBusca(marcaPrincipal) !== normalizarBusca(nome)
                       const initials = nome.slice(0, 2).toUpperCase()
                       return (
-                        <div className="flex min-w-56 items-center gap-3">
+                        <div className="flex min-w-48 max-w-64 items-center gap-3">
                           <div
                             className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl border-2 bg-surface-muted text-xs font-black text-ink-muted"
                             style={{ borderColor: resolveMarcaCor(asString(item.cor) || null, asString(item.cor_seed_id) || asString(item.id)) }}
@@ -805,6 +715,7 @@ export function ComercialPage() {
                               {nome}
                               <BotBadge origem={item.origem_dados} className="ml-2 align-middle" />
                             </p>
+                            <p className="mt-0.5 text-xs text-ink-muted">{perfilOperacionalLabel(asString(item.tipo_operacional ?? item.tipo))}</p>
                             {mostraMarcaOperacional ? <p className="mt-0.5 truncate text-xs text-ink-muted">Marca operacional: {marcaPrincipal}</p> : null}
                             {asNumber(item.duplicado_count) > 1 ? <Badge className="mt-1" tone="warning">{asNumber(item.duplicado_count)} cadastros</Badge> : null}
                           </div>
@@ -818,23 +729,11 @@ export function ComercialPage() {
                     header: 'Acesso',
                     render: (item) => {
                       if (!asString(item.user_id, '')) return <Badge tone="neutral">Sem acesso</Badge>
-                      return <Badge tone={item.acesso_ativo === false ? 'warning' : 'success'}>{asString(item.acesso_email, 'Cliente')}</Badge>
+                      return <span title={asString(item.acesso_email, '')}><Badge tone={item.acesso_ativo === false ? 'warning' : 'success'}>{item.acesso_ativo === false ? 'Suspenso' : 'Ativo'}</Badge></span>
                     },
                   },
-                  { key: 'gmv_mes', header: 'GMV mês', align: 'right', render: (item) => formatMoney(officialOperationalGmv(item)) },
-                  { key: 'lives_mes', header: 'Lives', align: 'right', render: (item) => asNumber(item.lives_mes ?? item.total_lives).toLocaleString('pt-BR') },
-                  { key: 'videos_mes', header: 'Vídeos', align: 'right', render: (item) => asNumber(item.videos_mes ?? item.quantidade_videos).toLocaleString('pt-BR') },
-                  {
-                    key: 'apresentadoras',
-                    header: 'Apresentadoras',
-                    render: (item) => {
-                      const vinculadas = Array.isArray(item.apresentadoras) ? item.apresentadoras : []
-                      return vinculadas.length
-                        ? vinculadas.map((ap) => asString((ap as JsonRecord).nome)).join(', ')
-                        : asString(item.apresentadora_nome)
-                    },
-                  },
-                  { key: 'responsavel', header: 'Responsável', render: (item) => asString(item.responsavel_nome ?? item.gerente_nome) },
+                  { key: 'gmv_mes', header: 'GMV mês', align: 'right', render: (item) => <span className="num whitespace-nowrap">{formatMoney(item.gmv_mes)}</span> },
+                  { key: 'lives_mes', header: 'Lives no mês', align: 'right', render: (item) => asNumber(item.lives_mes).toLocaleString('pt-BR') },
                   {
                     key: 'acoes',
                     header: 'Ações',
@@ -855,8 +754,7 @@ export function ComercialPage() {
               />
             </CardBody>
           </Card>
-        </div>
-      ) : null}
+      </div>
 
       <Modal
         open={showClienteForm}

@@ -5,6 +5,7 @@ import { UnsavedChangesProvider } from '../components/ui/UnsavedChangesProvider'
 import { Shell } from '../components/layout/Shell'
 import { cabineRoles, clienteRoles, commercialRoles, configuracoesRoles, financeRoles, internalRoles, masterRoles, opsRoles } from '../utils/access'
 import { ProtectedRoute } from './ProtectedRoute'
+import { LegacyPageRedirect } from './LegacyPageRedirect'
 import { LoginPage } from '../pages/LoginPage'
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage'
 import { AceitarConvitePage } from '../pages/AceitarConvitePage'
@@ -68,9 +69,10 @@ function RouterApplication() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={[...masterRoles, ...commercialRoles]} />}>
-              <Route path="/comercial" element={<Suspense fallback={<PageFallback />}><ComercialPage /></Suspense>} />
-              <Route path="/master/crm" element={<Navigate to="/comercial" replace />} />
-              <Route path="/leads" element={<Navigate to="/comercial" replace />} />
+              <Route path="/clientes" element={<Suspense fallback={<PageFallback />}><ComercialPage /></Suspense>} />
+              <Route path="/comercial" element={<LegacyPageRedirect to="/clientes" />} />
+              <Route path="/master/crm" element={<LegacyPageRedirect to="/clientes" />} />
+              <Route path="/leads" element={<LegacyPageRedirect to="/clientes" />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['cliente_parceiro']} />}>
@@ -84,10 +86,12 @@ function RouterApplication() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={[...cabineRoles, 'apresentador']} />}>
-              <Route path="/conteudo" element={<Suspense fallback={<PageFallback />}><ConteudoPage /></Suspense>} />
-              <Route path="/cabines" element={<Navigate to="/conteudo" replace />} />
-              {/* /agendamentos agora redireciona para /conteudo — solicitações foi depreciada */}
-              <Route path="/agendamentos" element={<Navigate to="/conteudo" replace />} />
+              <Route path="/agenda" element={<Suspense fallback={<PageFallback />}><ConteudoPage key="agenda" view="agenda" /></Suspense>} />
+              <Route path="/lives" element={<Suspense fallback={<PageFallback />}><ConteudoPage key="lives" view="lives" /></Suspense>} />
+              <Route path="/conteudo" element={<LegacyPageRedirect to="conteudo" />} />
+              <Route path="/cabines" element={<LegacyPageRedirect to="/agenda" />} />
+              {/* Compatibilidade dos atalhos antigos de agenda. */}
+              <Route path="/agendamentos" element={<LegacyPageRedirect to="/agenda" />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={opsRoles} />}>
@@ -98,7 +102,7 @@ function RouterApplication() {
             </Route>
 
             {/* Analytics standalone (era só redirect) — inclui master, que os grupos
-                finance/commercial não cobrem. A aba em /conteudo continua existindo. */}
+                finance/commercial não cobrem. */}
             <Route element={<ProtectedRoute allowedRoles={[...masterRoles, ...financeRoles, ...commercialRoles]} />}>
               <Route path="/analytics-dashboard" element={<Suspense fallback={<PageFallback />}><AnalyticsPage /></Suspense>} />
             </Route>
@@ -119,13 +123,14 @@ function RouterApplication() {
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'franqueado']} />}>
               <Route path="/comissoes/pendentes" element={<Navigate to="/financeiro?tab=comissoes" replace />} />
-              <Route path="/comissoes/config" element={<Suspense fallback={<PageFallback />}><ComissoesConfigPage /></Suspense>} />
+              <Route path="/financeiro/comissoes/regras" element={<Suspense fallback={<PageFallback />}><ComissoesConfigPage /></Suspense>} />
+              <Route path="/comissoes/config" element={<LegacyPageRedirect to="/financeiro/comissoes/regras" />} />
               <Route path="/ranking-apresentadoras" element={<Suspense fallback={<PageFallback />}><RankingApresentadorasPage /></Suspense>} />
               <Route path="/ranking-marcas" element={<Suspense fallback={<PageFallback />}><RankingMarcasPage /></Suspense>} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'franqueado']} />}>
-              <Route path="/lives/manual" element={<Navigate to="/conteudo?tab=lives" replace />} />
+              <Route path="/lives/manual" element={<LegacyPageRedirect to="/lives" />} />
             </Route>
 
             {/* Configurações unificada: admins veem painel completo; demais papéis veem só conta/segurança.

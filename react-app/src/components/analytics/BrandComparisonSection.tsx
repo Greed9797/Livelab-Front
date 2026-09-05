@@ -111,7 +111,7 @@ function BrandPeriodDiagnostic({ label, current, previous, currentPeriod, previo
           ? `Base pequena: ${diagnostic.base.currentLives} live(s) no atual e ${diagnostic.base.previousLives} no anterior. Uma única live pode mover bastante o percentual.`
           : `${diagnostic.base.currentLives} lives no período atual e ${diagnostic.base.previousLives} no anterior.`
   return (
-    <section className="mb-4 rounded-xl border border-line bg-surface-muted/40 px-3 py-3" aria-label={`Diagnóstico do período: ${label}`}>
+    <section className="mb-4 rounded-xl border border-line bg-surface-muted/40 px-4 py-4" aria-label={`Diagnóstico do período: ${label}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="text-sm font-semibold text-ink">Análise do período · {label}</p>
         <p className="text-xs text-ink-muted">Atual versus período anterior de mesma duração</p>
@@ -141,10 +141,10 @@ function BrandPeriodDiagnostic({ label, current, previous, currentPeriod, previo
         </div>
       </dl>
       {diagnostic.gmvChange != null && diagnostic.hoursEffect != null && diagnostic.productivityEffect != null ? (
-        <div className="mt-3 rounded-lg border border-line bg-surface px-3 py-2.5">
-          <p className="text-xs font-semibold text-ink">Como o GMV variou: {signedMoney(diagnostic.gmvChange)}</p>
-          <p className="mt-1 text-xs leading-5 text-ink-muted">Efeito associado às horas: <span className="font-semibold text-ink">{signedMoney(diagnostic.hoursEffect)}</span> · efeito associado ao GMV/h: <span className="font-semibold text-ink">{signedMoney(diagnostic.productivityEffect)}</span>. A soma fecha a variação; ela descreve os números, sem atribuir causa comercial.</p>
-        </div>
+        <details className="mt-4 rounded-lg border border-line bg-surface px-3 py-2.5">
+          <summary className="cursor-pointer text-xs font-semibold text-ink">Entender a variação de {signedMoney(diagnostic.gmvChange)} no GMV</summary>
+          <p className="mt-1 text-xs leading-5 text-ink-muted">Horas no ar: <span className="font-semibold text-ink">{signedMoney(diagnostic.hoursEffect)}</span> · GMV/h: <span className="font-semibold text-ink">{signedMoney(diagnostic.productivityEffect)}</span>. A soma descreve a variação, sem atribuir causa comercial.</p>
+        </details>
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Link className="inline-flex min-h-9 items-center rounded-lg border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted" to={brandLivesDrilldownUrl(marcaId, currentPeriod)}>Ver lives atuais</Link>
@@ -241,7 +241,7 @@ export function BrandComparisonSection({ rows, marcaId, apresentadoraId, onSelec
               <BarChart3 className="h-4 w-4 text-[var(--primary)]" />
               <h2 className="text-base font-bold text-ink">Comparativo de marcas</h2>
             </div>
-            <p className="mt-1 text-xs text-ink-muted">Mesmo período do filtro. GMV/h considera apenas GMV de lives ÷ horas de live; vídeos aparecem separados.</p>
+            <p className="mt-1 text-xs text-ink-muted">GMV/h usa só vendas e horas de live. Vídeos seguem separados.</p>
           </div>
           {marcaId ? <Button type="button" variant="secondary" icon={X} onClick={onClearMarca}>Comparar todas</Button> : null}
         </div>
@@ -252,7 +252,7 @@ export function BrandComparisonSection({ rows, marcaId, apresentadoraId, onSelec
           <EmptyState title="Sem atividade de marcas no período" description="Não há lives encerradas ou vendas atribuídas para comparar neste recorte." />
         ) : (
           <>
-            <div className="mb-4 grid gap-3 rounded-xl border border-line bg-surface-muted/40 px-3 py-3 text-sm sm:grid-cols-3">
+            <div className="mb-5 grid gap-3 rounded-xl border border-line bg-surface-muted/40 px-4 py-4 text-sm sm:grid-cols-3">
               <div><p className="text-xs text-ink-muted">{marcaId ? 'GMV/h da marca' : 'GMV/h da operação'}</p><p className="mt-0.5 text-2xl font-semibold leading-tight tabular-nums text-ink">{gmvHora(reference.gmvHora)}</p><p className="mt-0.5 text-xs text-ink-muted">GMV de lives ÷ horas no ar</p></div>
               <div><p className="text-xs text-ink-muted">GMV de lives</p><p className="mt-0.5 text-xl font-semibold leading-tight tabular-nums text-ink">{formatMoney(reference.gmvLives)}</p></div>
               <div><p className="text-xs text-ink-muted">Contexto</p><p className="mt-0.5 text-sm font-semibold tabular-nums text-ink">{reference.marcas} marcas · {reference.lives} lives · {reference.horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}h</p></div>
@@ -276,7 +276,6 @@ export function BrandComparisonSection({ rows, marcaId, apresentadoraId, onSelec
             {previousStatus === 'ready' && previousPeriod ? <div ref={diagnosticPanel} tabIndex={-1} className="rounded-xl focus:outline-2 focus:outline-offset-4 focus:outline-[var(--text-primary)]">
               {diagnosticBrand && !marcaId ? <button type="button" onClick={() => setDiagnosticBrandKey('operacao')} className="mb-2 min-h-9 rounded-lg border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted">Ver operação completa</button> : null}
               <BrandPeriodDiagnostic label={diagnosticLabelName} current={diagnosticCurrent} previous={diagnosticPrevious} currentPeriod={currentPeriod} previousPeriod={previousPeriod} currentPeriodEndsToday={currentPeriodEndsToday} marcaId={diagnosticBrand?.marcaId ?? null} />
-              <p className="mb-3 text-xs leading-5 text-ink-muted">Leia as três métricas juntas: o GMV varia com o tempo no ar e com o valor vendido por hora. Esses números descrevem a mudança; não determinam sua causa.</p>
             </div> : null}
             {previousStatus === 'loading' ? <p className="mb-3 text-xs text-ink-muted">Carregando a comparação com o intervalo anterior. Os números deste período continuam disponíveis.</p> : null}
             {previousStatus === 'error' ? <p className="mb-3 text-xs text-ink-muted">A comparação com o intervalo anterior está indisponível. Os números deste período continuam disponíveis.</p> : null}

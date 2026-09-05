@@ -1,5 +1,4 @@
-import { CalendarClock, MonitorPlay, Video } from 'lucide-react'
-import { FormEvent, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -14,21 +13,16 @@ import { AgendaTab } from '../components/conteudo/AgendaTab'
 import { GradeTab } from '../components/conteudo/GradeTab'
 import { agendaContextQueryParams, agendaFetchRange, parseConteudoLivesDeepLink } from './conteudo-helpers'
 import { invalidateOperational as invalidateOperationalQueries, QK } from '../services/query-keys'
-// Helpers pequenos ficam fora das abas lazy. Assim, abrir a Grade não baixa a tabela
-// de Lives nem o modal de Vídeos apenas para obter tipos/defaults compartilhados.
+// Helpers pequenos ficam fora da lista lazy de Lives.
 import { dateRangeToWindow, isValidCustomDateRange, type DateRange } from '../components/conteudo/live-date-range'
-import { emptyVideo, type VideoForm } from '../components/conteudo/video-form'
 
 // Abas pesadas carregadas sob demanda — só baixam o chunk quando a aba é aberta.
 const LivesTab = lazy(() => import('../components/conteudo/LivesTab').then((m) => ({ default: m.LivesTab })))
-const VideosTab = lazy(() => import('../components/conteudo/VideosTab').then((m) => ({ default: m.VideosTab })))
 import {
   createAgendaEvento,
-  createVideo,
   criarLiveManual,
   deleteAgendaEvento,
   deleteLive,
-  deleteVideo,
   encerrarLive,
   getAgenda,
   getApresentadoras,
@@ -41,16 +35,13 @@ import {
   type ImportApresentadoraRateio,
   getMarcas,
   getMarca,
-  getVideos,
   updateAgendaEvento,
   updateLive,
-  updateVideo,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asNumber, asString } from '../utils/format'
+import { asString } from '../utils/format'
 import { canWrite } from '../utils/access'
 import { useCurrentUser } from '../stores/auth-store'
-import { parseBRMoneyToDecimal } from '../utils/money'
 import type { JsonRecord } from '../types/models'
 import type { AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
 
@@ -74,19 +65,13 @@ export function isLatestLiveEditRequest(request: number, latestRequest: number):
   return request === latestRequest
 }
 
-type ConteudoTab = 'agenda' | 'lives' | 'videos'
+type ConteudoTab = 'agenda' | 'lives'
 
 // Rollback rápido da Grade visual: true volta a renderizar a AgendaTab antiga.
 // Remover junto com a AgendaTab na fase 4 (pós-validação em produção).
 const USE_LEGACY_AGENDA = false
 
 const today = () => new Date().toISOString().slice(0, 10)
-
-function normalizeConteudoTab(value: string | null): ConteudoTab {
-  // 'cabines'/'analytics' (abas removidas) e 'calendario' são deep links antigos → caem na Grade.
-  if (['lives', 'videos'].includes(value ?? '')) return value as ConteudoTab
-  return 'agenda'
-}
 
 function parseLiveDate(value: unknown): Date | null {
   if (typeof value !== 'string' || !value) return null
@@ -160,16 +145,16 @@ function mergeAgendaWithLiveFallbacks(
   return [...agendaRows, ...fallbacks]
 }
 
-export function ConteudoPage() {
+export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   // Papéis read-only (auditor, suporte, marketing, comercial_readonly, …) chegam nesta
   // página para consultar; escondemos as ações de escrita em vez de deixar o backend 403.
   const podeEscrever = canWrite(useCurrentUser())
   const [params, setParams] = useSearchParams()
   const livesDeepLink = parseConteudoLivesDeepLink(params)
-  const requestedTab = normalizeConteudoTab(params.get('tab'))
+  const requestedTab = view
   const requestedCabineId = livesDeepLink.cabineId
   const requestedDate = params.get('data') ?? ''
-  const [tab, setTab] = useState<ConteudoTab>(requestedTab)
+  const tab = requestedTab
   const [agendaDate, setAgendaDate] = useState(requestedDate || livesDeepLink.dateFrom || today())
   const [agendaView, setAgendaView] = useState<'dia' | 'semana' | 'mes'>('semana')
   const [agendaModalMode, setAgendaModalMode] = useState<AgendarLiveModalMode | null>(null)
@@ -179,9 +164,6 @@ export function ConteudoPage() {
   const [editLiveData, setEditLiveData] = useState<JsonRecord | null>(null)
   const editLiveRequestRef = useRef(0)
   const [metricsAgendaEvent, setMetricsAgendaEvent] = useState<JsonRecord | null>(null)
-  const [videoModalOpen, setVideoModalOpen] = useState(false)
-  const [videoForm, setVideoForm] = useState<VideoForm>(emptyVideo)
-  const [selectedVideo, setSelectedVideo] = useState<JsonRecord | null>(null)
   const [liveModalMode, setLiveModalMode] = useState<'detail' | null>(null)
   const [selectedLiveRecord, setSelectedLiveRecord] = useState<JsonRecord | null>(null)
   const dismissedLiveIdRef = useRef<string | null>(null)
@@ -305,7 +287,6 @@ export function ConteudoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [livesList.data, livesList.isPlaceholderData, livesPage])
   const duplicatas = useQuery({ queryKey: ['lives-duplicatas'], queryFn: getLivesDuplicatas, enabled: tab === 'lives', staleTime: 5 * 60_000 })
-  const videos = useQuery({ queryKey: ['videos'], queryFn: () => getVideos(), enabled: tab === 'videos' })
   const marcas = useQuery({ queryKey: ['marcas', 'ativas'], queryFn: () => getMarcas({ status: 'ativa' }) })
   // Uma reserva existente pode pertencer a uma marca inativa, ausente do seletor de novas lives.
   const metricsMarcaId = metricsModalMode === 'result' ? asString(metricsAgendaEvent?.marca_id, '') : ''
@@ -331,7 +312,6 @@ export function ConteudoPage() {
   }
 
   function closeAgendaModal() { setAgendaModalMode(null); setSelectedAgendaEvent(null); invalidateOperational() }
-  function closeVideoModal(resetForm = true) { if (resetForm) setVideoForm(emptyVideo); setSelectedVideo(null); setVideoModalOpen(false); invalidateOperational(); void client.invalidateQueries({ queryKey: ['videos'] }) }
   function closeMetrics() { setMetricsModalMode(null); setMetricsAgendaEvent(null); setSelectedLiveRecord(null); invalidateOperational() }
   function closeLiveRecord() { setLiveModalMode(null); setSelectedLiveRecord(null); invalidateOperational() }
 
@@ -341,9 +321,6 @@ export function ConteudoPage() {
   const createAgendaMutation = useMutation({ mutationFn: createAgendaEvento, onSuccess: invalidateOperational })
   const updateAgendaMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateAgendaEvento(id, payload), onSuccess: invalidateOperational })
   const deleteAgendaMutation = useMutation({ mutationFn: ({ id, modoRecorrencia }: { id: string; modoRecorrencia: string }) => deleteAgendaEvento(id, { modo_recorrencia: modoRecorrencia }), onSuccess: closeAgendaModal })
-  const createVideoMutation = useMutation({ mutationFn: createVideo, onSuccess: () => closeVideoModal() })
-  const updateVideoMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateVideo(id, payload), onSuccess: () => closeVideoModal() })
-  const deleteVideoMutation = useMutation({ mutationFn: deleteVideo, onSuccess: () => { invalidateOperational(); void client.invalidateQueries({ queryKey: ['videos'] }) } })
   const createManualLiveMutation = useMutation({ mutationFn: criarLiveManual, onSuccess: closeMetrics })
   const updateLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setSelectedLiveRecord(null); invalidateOperational() } })
   const encerrarLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => encerrarLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setMetricsAgendaEvent(null); invalidateOperational() } })
@@ -361,7 +338,6 @@ export function ConteudoPage() {
     onError: (err) => toast.push(extractErrorMessage(err), 'error'),
   })
 
-  useEffect(() => { setTab(requestedTab) }, [requestedTab])
   useEffect(() => {
     if (requestedDate || livesDeepLink.dateFrom) setAgendaDate(requestedDate || livesDeepLink.dateFrom)
     if (requestedCabineId && requestedTab === 'agenda') { setSelectedAgendaEvent(null); setAgendaModalMode('create') }
@@ -472,14 +448,6 @@ export function ConteudoPage() {
     ? (contextAgenda.data ?? []).find((event) => asString(event.id, '') === livesDeepLink.agendaId) ?? null
     : null
 
-  function switchTab(next: ConteudoTab) {
-    setTab(next)
-    const nextParams = new URLSearchParams(params)
-    if (next === 'agenda') nextParams.delete('tab')
-    else nextParams.set('tab', next)
-    setParams(nextParams, { replace: true })
-  }
-
   function openEditAgendaModal(event: JsonRecord) {
     if (isSyntheticLiveEvent(event)) {
       const live = (legacyLives.data ?? []).find((item) => asString(item.id, '') === asString(event.live_id, ''))
@@ -498,67 +466,15 @@ export function ConteudoPage() {
     setAgendaModalMode('edit')
   }
 
-  function openEditVideoModal(video: JsonRecord) {
-    setSelectedVideo(video)
-    setVideoForm({
-      marca_id: asString(video.marca_id, ''),
-      apresentadora_id: asString(video.apresentadora_id, ''),
-      data: asString(video.data, today()).slice(0, 10),
-      quantidade: asString(video.quantidade ?? 1, '1'),
-      plataforma: asString(video.plataforma, 'tiktok'),
-      campanha: asString(video.campanha, ''),
-      gmv_atribuido: asString(video.gmv_atribuido ?? 0, '0'),
-      pedidos_atribuidos: asString(video.pedidos_atribuidos ?? 0, '0'),
-      observacoes: asString(video.observacoes, ''),
-    })
-    setVideoModalOpen(true)
-  }
-
-  function onVideoSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const payload = {
-      ...videoForm,
-      quantidade: asNumber(videoForm.quantidade),
-      gmv_atribuido: parseBRMoneyToDecimal(videoForm.gmv_atribuido),
-      pedidos_atribuidos: asNumber(videoForm.pedidos_atribuidos),
-      apresentadora_id: videoForm.apresentadora_id || null,
-      campanha: videoForm.campanha || null,
-      observacoes: videoForm.observacoes || null,
-    }
-    if (selectedVideo) { updateVideoMutation.mutate({ id: asString(selectedVideo.id, ''), payload }); return }
-    createVideoMutation.mutate(payload)
-  }
-
   const metricError = createManualLiveMutation.error ?? updateLiveMutation.error ?? encerrarLiveMutation.error
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Conteúdo"
-        accent="Produção"
-        title="operacional"
-        subtitle="Grade por cabine, lives e vídeos em um fluxo único."
+        eyebrow="Operação"
+        title={tab === 'agenda' ? 'Agenda' : 'Lives'}
+        subtitle={tab === 'agenda' ? 'Programação das cabines e apresentadoras.' : 'Resultados, registros e métricas das lives.'}
       />
-
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
-        {([
-          ['agenda', CalendarClock, 'Agenda'],
-          ['lives', MonitorPlay, 'Lives realizadas'],
-          ['videos', Video, 'Vídeos gravados'],
-        ] as const).map(([key, Icon, label]) => (
-          <button
-            key={key}
-            type="button"
-            className={tab === key
-              ? 'inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface-muted px-4 text-sm font-semibold text-ink'
-              : 'inline-flex h-10 items-center gap-2 rounded-xl border border-transparent px-4 text-sm font-semibold text-ink-muted hover:text-ink hover:bg-surface-muted'}
-            onClick={() => switchTab(key)}
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </button>
-        ))}
-      </div>
 
       {tab === 'agenda' && !USE_LEGACY_AGENDA ? (
         <GradeTab
@@ -746,32 +662,7 @@ export function ConteudoPage() {
         onCloseLive={(id, payload) => encerrarLiveMutation.mutate({ id, payload })}
       />
 
-      {tab === 'videos' ? (
-        <Suspense fallback={<LoadingState />}>
-        <VideosTab
-          canWrite={podeEscrever}
-          videosData={videos.data ?? []}
-          marcaRows={marcaRows}
-          apresentadoraRows={apresentadoraRows}
-          videoModalOpen={videoModalOpen}
-          videoForm={videoForm}
-          selectedVideo={selectedVideo}
-          createVideoMutation={createVideoMutation}
-          updateVideoMutation={updateVideoMutation}
-          deleteVideoMutation={deleteVideoMutation}
-          onOpenCreateVideoModal={() => { setSelectedVideo(null); setVideoForm(emptyVideo); setVideoModalOpen(true) }}
-          onOpenEditVideoModal={openEditVideoModal}
-          onDeleteVideo={(video) => {
-            const label = asString(video.campanha ?? video.marca_nome ?? video.id, 'vídeo')
-            if (!window.confirm(`Excluir o vídeo "${label}"?`)) return
-            deleteVideoMutation.mutate(asString(video.id, ''))
-          }}
-          onCloseVideoModal={() => { setVideoModalOpen(false); setSelectedVideo(null); setVideoForm(emptyVideo) }}
-          onVideoFieldChange={(key, value) => setVideoForm((cur) => ({ ...cur, [key]: value }))}
-          onVideoSubmit={onVideoSubmit}
-        />
-        </Suspense>
-      ) : null}
+
     </div>
   )
 }

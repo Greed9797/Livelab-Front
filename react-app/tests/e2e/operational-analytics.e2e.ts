@@ -197,9 +197,8 @@ async function selectFixedPeriod(page: Page) {
 function expectDrilldown(href: string | null, period: { from: string; to: string }) {
   expect(href).not.toBeNull()
   const url = new URL(href!, 'http://localhost')
-  expect(url.pathname).toBe('/conteudo')
+  expect(url.pathname).toBe('/lives')
   expect(Object.fromEntries(url.searchParams)).toMatchObject({
-    tab: 'lives',
     periodo: 'custom',
     data_inicio: period.from,
     data_fim: period.to,
@@ -222,6 +221,16 @@ test('compara atual e anterior com contexto de GMV por hora e preserva o recorte
   await expect(diagnostic.getByText('4h', { exact: true })).toBeVisible()
   await expect(diagnostic.getByText('R$ 300,00/h', { exact: true })).toBeVisible()
 
+  // A decomposição fica recolhida para a leitura principal continuar focada nas três métricas.
+  // Abrir o disclosure preserva a explicação auditável de como a variação foi descrita.
+  const variationDetails = diagnostic.locator('details').filter({ hasText: 'Entender a variação de +R$ 600,00 no GMV' })
+  await expect(variationDetails).toBeVisible()
+  await expect(variationDetails).not.toHaveAttribute('open', '')
+  await variationDetails.locator('summary').click()
+  await expect(variationDetails).toHaveAttribute('open', '')
+  await expect(variationDetails.getByText('Horas no ar:', { exact: false })).toContainText('R$ 600,00')
+  await expect(variationDetails.getByText('GMV/h:', { exact: false })).toContainText('R$ 0,00')
+
   expectDrilldown(await diagnostic.getByRole('link', { name: 'Ver lives atuais' }).getAttribute('href'), currentPeriod)
   expectDrilldown(await diagnostic.getByRole('link', { name: 'Ver lives anteriores' }).getAttribute('href'), previousPeriod)
   await diagnostic.screenshot({ path: info.outputPath('diagnostico-marca.png') })
@@ -239,8 +248,19 @@ test('mantém ausência separada de zero e mostra cobertura parcial no tema escu
   await page.getByRole('button', { name: 'Analisar Marca Sem Base', exact: true }).click()
   await expect(page.getByText('Sem dado da marca no período anterior. A ausência não foi convertida em zero.')).toBeVisible()
 
-  await expect(page.getByText('Cada métrica soma os campos registrados no período. Zero registrado aparece como 0; ausência aparece como “—”. Importações antigas podem ter gravado zero para colunas ausentes no arquivo.')).toBeVisible()
-  await expect(page.getByText('Cada valor traz sua própria contagem de lives com campo registrado. Importações antigas podem gravar zero quando a coluna não existia no arquivo; confira relatórios zerados antes de comparar.', { exact: true })).toBeVisible()
+  const dataQuality = page.getByRole('note', { name: 'Qualidade dos dados' })
+  await expect(dataQuality).toContainText('zero registrado é 0')
+  await expect(dataQuality).toContainText('“—” indica ausência ou taxa sem base')
+  await expect(dataQuality).toContainText('Importações antigas podem ter gravado zero')
+  const criteria = page.locator('details').filter({ hasText: 'Ver critérios' })
+  await expect(criteria).toBeVisible()
+  await criteria.locator('summary').click()
+  await expect(criteria).toHaveAttribute('open', '')
+  await expect(criteria).toContainText('Impressões são exibições, não pessoas únicas.')
+
+  const audienceCoverage = page.locator('#analytics-audience-coverage')
+  await expect(audienceCoverage.getByRole('note', { name: 'Leitura das barras' })).toContainText('cobertura de registros, não volume')
+  await expect(audienceCoverage.getByRole('note', { name: 'Aviso sobre importações antigas' })).toContainText('Importações antigas podem gravar zero quando a coluna não existia')
   await expect(page.getByRole('progressbar', { name: 'Cobertura de registros' }).first()).toHaveAttribute('aria-valuetext', '2 de 2 lives com registro (100%)')
 
   await page.locator('#analytics-audience-coverage').screenshot({ path: info.outputPath('audiencia-dark.png') })

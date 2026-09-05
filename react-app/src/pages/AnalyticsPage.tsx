@@ -222,7 +222,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
   const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {embedded ? (
         <p className="text-base font-bold text-ink">Resultados da operação</p>
       ) : (
@@ -263,8 +263,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         <div className="flex items-start gap-2.5 rounded-2xl border border-dashed border-line bg-surface-muted/40 px-4 py-3">
           <FileDown className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
           <p className="text-sm text-ink-muted">
-            <span className="font-bold text-ink">Relatório em PDF:</span> selecione uma marca ou apresentadora no filtro acima —
-            o relatório do período (GMV, horas, pedidos e comissão) aparece aqui, pronto para exportar.
+            <span className="font-bold text-ink">Relatório em PDF:</span> selecione uma marca ou apresentadora para ver e exportar o resultado do período.
           </p>
         </div>
       )}

@@ -87,7 +87,7 @@ function Sidebar({
         ) : null}
       </div>
 
-      <nav aria-label="Navegação principal" className={clsx('flex flex-1 flex-col gap-1 overflow-y-auto scrollbar-thin', expanded ? 'w-full px-1' : 'items-center')}>
+      <nav aria-label="Navegação principal" className={clsx('flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pb-3 scrollbar-thin', expanded ? 'w-full px-1' : 'items-center')}>
         {items.map((item) => {
           const Icon = item.icon
           const matches = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
@@ -101,7 +101,8 @@ function Sidebar({
               aria-label={item.label}
               aria-current={selected ? 'page' : undefined}
               className={clsx(
-                'group relative flex items-center rounded-2xl text-sm font-semibold transition',
+                'group relative flex shrink-0 items-center rounded-2xl text-sm font-semibold transition',
+                item.placement === 'footer' && 'mt-auto',
                 expanded ? 'h-11 gap-3 px-3' : 'h-14 w-14 justify-center',
                 selected ? 'bg-brand-soft text-brand' : 'text-ink-muted hover:bg-surface-muted hover:text-ink',
               )}

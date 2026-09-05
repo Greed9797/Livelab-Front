@@ -24,7 +24,7 @@ describe('routeForRole', () => {
   })
 
   it('routes live presenters directly to cabines', () => {
-    expect(routeForRole('apresentadora')).toBe('/conteudo')
+    expect(routeForRole('apresentadora')).toBe('/agenda')
   })
 })
 
@@ -52,8 +52,10 @@ describe('menuForUser', () => {
     const clientMenu = menuForUser({ ...baseUser, papel: 'cliente_parceiro' }).map((item) => item.path)
 
     expect(masterMenu).toContain('/master')
-    expect(masterMenu).toContain('/comercial')
+    expect(masterMenu).toContain('/clientes')
     expect(masterMenu).not.toContain('/cliente')
+    expect(masterMenu).not.toContain('/financeiro')
+    expect(masterMenu).toContain('/financeiro/comissoes/regras')
     expect(clientMenu).toContain('/cliente')
     expect(clientMenu).toContain('/cliente/conteudo')
     expect(clientMenu).toContain('/cliente/configuracoes')
@@ -64,22 +66,43 @@ describe('menuForUser', () => {
     expect(clientMenu).not.toContain('/cabines')
   })
 
-  it('uses the consolidated Comercial, Conteudo and Financeiro surfaces', () => {
+  it('expõe Clientes, Agenda e Lives com uma entrada financeira por perfil', () => {
     const franqueadoMenu = menuForUser({ ...baseUser, papel: 'franqueado' }).map((item) => item.path)
     const presenterMenu = menuForUser({ ...baseUser, papel: 'apresentadora' }).map((item) => item.path)
 
-    expect(franqueadoMenu).toContain('/comercial')
-    expect(franqueadoMenu).toContain('/conteudo')
+    expect(franqueadoMenu).toContain('/clientes')
+    expect(franqueadoMenu).toContain('/agenda')
+    expect(franqueadoMenu).toContain('/lives')
+    expect(franqueadoMenu).not.toContain('/comissoes/config')
     expect(franqueadoMenu).toContain('/financeiro')
-    // Analytics voltou a ter item próprio (findability dos relatórios PDF/CSV) —
-    // para gestores; apresentadora continua chegando só pela aba de Conteúdo.
+    // Analytics conserva seu acesso de gestão; apresentadora usa Agenda e Lives.
     expect(franqueadoMenu).toContain('/analytics-dashboard')
     expect(franqueadoMenu).not.toContain('/master/crm')
     expect(franqueadoMenu).not.toContain('/cabines')
     expect(franqueadoMenu).not.toContain('/boletos')
 
-    expect(presenterMenu).toContain('/conteudo')
+    expect(presenterMenu).toContain('/agenda')
+    expect(presenterMenu).toContain('/lives')
     expect(presenterMenu).not.toContain('/analytics-dashboard')
     expect(presenterMenu).not.toContain('/cabines')
+  })
+})
+
+
+describe('organização do menu sem ampliar permissões', () => {
+  it('mantém configurações no grupo final para os perfis internos e cliente', () => {
+    for (const papel of ['franqueado', 'franqueador_master', 'operacional', 'cliente_parceiro', 'apresentadora'] as const) {
+      const items = menuForUser({ ...baseUser, papel })
+      expect(items.at(-1)?.label).toBe('Configurações')
+      expect(items.at(-1)?.placement).toBe('footer')
+      expect(items.filter(item => item.label === 'Financeiro').length).toBeLessThanOrEqual(1)
+      expect(items.some(item => item.label === 'Comissões')).toBe(false)
+    }
+  })
+
+  it('não oferece regras financeiras a perfis de consulta ou operação', () => {
+    for (const papel of ['financeiro', 'financeiro_readonly', 'auditor', 'operacional', 'apresentadora', 'cliente_parceiro'] as const) {
+      expect(menuForUser({ ...baseUser, papel }).map(item => item.path)).not.toContain('/financeiro/comissoes/regras')
+    }
   })
 })

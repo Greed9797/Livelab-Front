@@ -7,8 +7,9 @@ describe('links operacionais da grade', () => {
     const link = new URL(gradeOperationalLink({
       data: '2026-07-17', cabineId: 'cab-1', liveId: 'live-1',
     }), 'https://livelab.local')
+    expect(link.pathname).toBe('/lives')
     expect(Object.fromEntries(link.searchParams)).toMatchObject({
-      tab: 'lives', periodo: 'custom', data_inicio: '2026-07-17', data_fim: '2026-07-17',
+      periodo: 'custom', data_inicio: '2026-07-17', data_fim: '2026-07-17',
       cabine: 'cab-1', live: 'live-1', origem: 'grade',
     })
   })

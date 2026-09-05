@@ -6,12 +6,13 @@ import {
   CircleDollarSign,
   Home,
   LayoutDashboard,
-  Percent,
   Presentation,
   Settings,
   Store,
   Trophy,
-  Workflow,
+  UsersRound,
+  CalendarDays,
+  MonitorPlay,
 } from 'lucide-react'
 import type { OfficialRole, Role, User } from '../types/models'
 
@@ -20,6 +21,7 @@ export interface MenuItem {
   path: string
   icon: typeof Home
   roles: Role[]
+  placement?: 'footer'
 }
 
 /**
@@ -184,7 +186,7 @@ export function routeForRole(role?: Role, onboardingCompleted = true): string {
   const normalized = normalizeRole(role)
 
   if (normalized === 'franqueador_master') return '/master'
-  if (normalized === 'apresentador') return '/conteudo'
+  if (normalized === 'apresentador') return '/agenda'
   if (normalized === 'cliente_parceiro') return onboardingCompleted ? '/cliente' : '/onboarding'
   if (['franqueado', 'operacional'].includes(normalized)) return '/'
 
@@ -202,8 +204,8 @@ export function needsClientOnboarding(user: User | null): boolean {
   return enabled && user?.papel === 'cliente_parceiro' && user.onboarding_completed === false
 }
 
-// Menu lateral — decisão 2026-05-25 (Lucas):
-// Unidade: Home, Comercial, Conteúdo, Financeiro, Base, Ranking e Configurações.
+// Menu lateral — simplificação operacional 2026-09-05 (Lucas):
+// Clientes, Agenda e Lives têm acesso direto; regras ficam dentro de Financeiro.
 // Ranking virou atalho próprio por decisão do handoff operacional do PDF.
 // Master continua com seus próprios atalhos. Cliente tem o painel separado dele.
 export const menuItems: MenuItem[] = [
@@ -212,24 +214,25 @@ export const menuItems: MenuItem[] = [
   { label: 'Unidades', path: '/master/unidades', icon: Building2, roles: masterRoles },
   { label: 'Consolidado', path: '/master/consolidado', icon: ChartNoAxesCombined, roles: masterRoles },
   { label: 'Franqueados', path: '/master/franqueados', icon: Store, roles: ['franqueador_master'] },
-  { label: 'Comercial', path: '/comercial', icon: Workflow, roles: [...masterRoles, ...commercialRoles] },
-  { label: 'Conteúdo', path: '/conteudo', icon: Presentation, roles: cabineRoles },
+  { label: 'Clientes', path: '/clientes', icon: UsersRound, roles: [...masterRoles, ...commercialRoles] },
+  { label: 'Agenda', path: '/agenda', icon: CalendarDays, roles: cabineRoles },
+  { label: 'Lives', path: '/lives', icon: MonitorPlay, roles: cabineRoles },
   // Analytics standalone — mesmos roles da rota /analytics-dashboard no AppRouter.
   { label: 'Analytics', path: '/analytics-dashboard', icon: ChartSpline, roles: [...masterRoles, ...financeRoles, ...commercialRoles] },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
-  // Hub de comissões — mesmos roles da rota /comissoes/config no AppRouter.
-  { label: 'Comissões', path: '/comissoes/config', icon: Percent, roles: ['franqueador_master', 'franqueado'] },
+  // Master mantém apenas o acesso já existente às regras, sem ganhar consultas financeiras.
+  { label: 'Financeiro', path: '/financeiro/comissoes/regras', icon: CircleDollarSign, roles: ['franqueador_master'] },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora'] },
   { label: 'Ranking', path: '/ranking/apresentadoras', icon: Trophy, roles: opsRoles },
   // Configurações unificada: todos os papéis internos/ops/cabine + apresentador alcançam.
   // Admins (franqueador_master/franqueado) veem o painel completo; os demais só a seção de conta/segurança.
   // Cliente parceiro tem o próprio atalho separado ('/cliente/configuracoes').
-  { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: configuracoesRoles },
+  { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: configuracoesRoles, placement: 'footer' },
   // Cliente parceiro: Home, Conteúdo, Financeiro, Configurações.
   { label: 'Home', path: '/cliente', icon: Home, roles: clienteRoles },
   { label: 'Conteúdo', path: '/cliente/conteudo', icon: Presentation, roles: clienteRoles },
   { label: 'Financeiro', path: '/cliente/financeiro', icon: CircleDollarSign, roles: clienteRoles },
-  { label: 'Configurações', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles },
+  { label: 'Configurações', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles, placement: 'footer' },
 ]
 
 export function menuForUser(user: User | null): MenuItem[] {

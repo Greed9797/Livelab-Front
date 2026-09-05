@@ -268,6 +268,10 @@ export function FinanceiroPage() {
     },
   })
   const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
+  // Regras ficam em uma rota própria e administrativa. Não usar podeReprocessar
+  // aqui: master não pertence a financeRoles e não pode montar esta página nem
+  // disparar as queries financeiras só para alcançar as regras.
+  const podeConfigurarComissoes = user?.papel === 'franqueado'
   // financeiro_readonly e auditor alcançam /financeiro só para consultar — sem form de custos.
   const podeEscrever = canWrite(user)
 
@@ -649,12 +653,24 @@ export function FinanceiroPage() {
             />
           ) : (
             <section className="space-y-4">
+              <section className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5" aria-labelledby="comissoes-periodo-title">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Apuração</p>
+                  <h2 id="comissoes-periodo-title" className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">Comissões do período</h2>
+                  <p className="mt-1 max-w-2xl text-sm text-ink-muted">Apuração por apresentadora e marca no período selecionado.</p>
+                </div>
+                {podeConfigurarComissoes ? (
+                  <Button type="button" variant="secondary" icon={Percent} onClick={() => navigate({ pathname: '/financeiro/comissoes/regras', search: params.toString() })}>
+                    Regras de comissão
+                  </Button>
+                ) : null}
+              </section>
               {podeReprocessar ? (
                 <Card>
                   <CardBody className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-bold text-ink">Comissão zerada numa live que tem GMV?</p>
-                      <p className="mt-0.5 text-xs text-ink-muted">Recalcula agora as lives encerradas sem comissão (não espera os 10 min) e lista as que continuarem zeradas e por quê.</p>
+                      <p className="text-sm font-bold text-ink">Corrigir cálculo pendente</p>
+                      <p className="mt-0.5 text-xs text-ink-muted">Recalcula lives encerradas com GMV sem comissão e mostra as que ainda precisam de ajuste no cadastro.</p>
                     </div>
                     <Button onClick={() => reprocessar.mutate()} isLoading={reprocessar.isPending}>Recalcular comissões agora</Button>
                   </CardBody>
@@ -681,7 +697,7 @@ export function FinanceiroPage() {
                           </ul>
                         </div>
                       ) : (
-                        <p className="text-xs text-ink-muted">Nenhuma live ficou zerada. ✅</p>
+                        <p className="text-xs text-ink-muted">Nenhuma live ficou sem comissão após o recálculo.</p>
                       )}
                     </CardBody>
                   ) : null}
@@ -689,11 +705,11 @@ export function FinanceiroPage() {
               ) : null}
               <details className="group rounded-2xl border border-line bg-surface">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
-                  <span>Regras de comissão</span>
+                  <span>Como este valor é calculado</span>
                   <span className="text-xs font-normal text-ink-muted">expandir</span>
                 </summary>
                 <p className="border-t border-line px-4 py-3 text-xs text-ink-muted">
-                  Live em sábado ou domingo usa 2%. Dias úteis e vídeos seguem as faixas mensais, com vínculo de marca e escada padrão como fallback.
+                  Lives de sábado ou domingo usam 2%. Dias úteis e vídeos seguem as faixas mensais, o vínculo com a marca e, quando não houver regra específica, a escada padrão.
                 </p>
               </details>
 
@@ -709,8 +725,8 @@ export function FinanceiroPage() {
               <section className="grid gap-4 xl:grid-cols-2">
                 <Card>
                   <CardHeader>
-                    <p className="text-base font-bold text-ink">Comissão por apresentador</p>
-                    <p className="mt-1 text-xs text-ink-muted">GMV base, vídeos e lives incluídos no cálculo. Clique numa linha para ver o detalhe e o histórico.</p>
+                    <p className="text-base font-bold text-ink">Valores calculados por apresentadora</p>
+                    <p className="mt-1 text-xs text-ink-muted">GMV base, lives e vídeos que compõem a comissão. Abra uma linha para consultar o detalhe e o histórico.</p>
                   </CardHeader>
                   <CardBody>
                     <DataTable<JsonRecord>
@@ -733,8 +749,8 @@ export function FinanceiroPage() {
 
                 <Card>
                   <CardHeader>
-                    <p className="text-base font-bold text-ink">Comissão por marca</p>
-                    <p className="mt-1 text-xs text-ink-muted">Valores por marca, cliente ou afiliada. Clique numa linha para abrir o detalhe.</p>
+                    <p className="text-base font-bold text-ink">Receita calculada por marca</p>
+                    <p className="mt-1 text-xs text-ink-muted">Comissão e fixo por marca, cliente ou afiliada. Abra uma linha para consultar a composição.</p>
                   </CardHeader>
                   <CardBody>
                     <DataTable<JsonRecord>

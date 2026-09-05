@@ -182,11 +182,11 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--warning)]" />
                 <p className="text-sm text-ink">
                   <span className="font-bold">{nomeEntidade || 'Esta marca'}</span> está sem <span className="font-bold">% de comissão de franquia</span> cadastrado — por isso a comissão sai como R$ 0,00.
-                  <span className="block text-xs text-ink-muted">Cadastre o percentual em Comercial → marca, no campo “% franquia”.</span>
+                  <span className="block text-xs text-ink-muted">Cadastre o percentual em Clientes → marca, no campo “% franquia”.</span>
                 </p>
               </div>
               <Link
-                to={`/comercial?ativo=${encodeURIComponent(nomeEntidade)}`}
+                to={`/clientes?ativo=${encodeURIComponent(nomeEntidade)}`}
                 className="shrink-0 rounded-full bg-[var(--warning)] px-4 py-2 text-sm font-bold text-white hover:opacity-90"
               >
                 Cadastrar % de franquia

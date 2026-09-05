@@ -52,11 +52,13 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
   return (
     <Card>
       <CardHeader>
-        <h2 className="text-base font-semibold text-ink">Audiência e interação</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          {marcaId ? 'Marca selecionada' : 'Todas as marcas'}{apresentadoraId ? ' · apresentadora selecionada' : ''}.
-          {' '}Lives encerradas com pelo menos 5 minutos, no período do filtro.
-        </p>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-muted">Alcance e interesse</p>
+            <h2 className="mt-0.5 text-base font-semibold text-ink">Audiência e interação</h2>
+          </div>
+          <p className="text-xs text-ink-muted">{marcaId ? 'Marca selecionada' : 'Todas as marcas'}{apresentadoraId ? ' · apresentadora selecionada' : ''}</p>
+        </div>
       </CardHeader>
       <CardBody>
         {query.isLoading ? (
@@ -66,11 +68,11 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
         ) : metrics.totalLives === 0 ? (
           <p className="py-6 text-center text-sm text-ink-muted">Nenhuma live encerrada com pelo menos 5 minutos neste recorte.</p>
         ) : (
-          <div className="space-y-5">
-            <p className="text-sm text-ink-muted">
-              {metrics.totalLives == null ? 'Lives do período' : `${count(metrics.totalLives)} lives no recorte`}.
-              {' '}Impressões contam exibições e podem se repetir; não representam pessoas únicas.
-            </p>
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-muted/40 px-3 py-2.5 text-sm">
+              <span className="font-semibold text-ink">{metrics.totalLives == null ? 'Lives do período' : `${count(metrics.totalLives)} lives analisadas`}</span>
+              <span className="text-xs text-ink-muted">Encerradas com pelo menos 5 min</span>
+            </div>
             <div className="grid gap-5 lg:grid-cols-3">
               {groups.map((group) => (
                 <section key={group.title} className="min-w-0 border-t border-line pt-3">
@@ -86,7 +88,7 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
                 </section>
               ))}
             </div>
-            <div className="rounded-xl bg-surface-muted p-4">
+            <div className="rounded-xl border border-line bg-surface-muted/60 p-4">
               <dl className="grid gap-4 sm:grid-cols-3">
                 {[
                   ['Cliques / impressões de produto', percent(metrics.clicksPerProductImpression)],
@@ -99,21 +101,20 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
                   </div>
                 ))}
               </dl>
-              <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-                As duas primeiras taxas relacionam os totais do período; não acompanham uma jornada individual.
-                {' '}A taxa de likes é a média informada pelo TikTok.
-                {apresentadoraId ? ' Pedidos por clique não é comparável neste filtro: os pedidos são atribuídos à apresentadora, mas os cliques abrangem a live.' : ''}
-              </p>
+              <p className="mt-3 text-xs leading-relaxed text-ink-muted">Taxas calculadas sobre os totais do período; não representam uma jornada individual.{apresentadoraId ? ' Pedidos por clique não se aplica ao filtro de apresentadora.' : ''}</p>
             </div>
-            <p className="text-xs leading-relaxed text-ink-muted">
+            <div role="note" aria-label="Qualidade dos dados" className="rounded-lg border border-line px-3 py-2.5 text-xs leading-5 text-ink-muted">
+              <span className="font-semibold text-ink">Qualidade dos dados:</span>{' '}
               {metrics.hasCoverage
-                ? 'Cada métrica soma os campos registrados no período. Zero registrado aparece como 0; ausência aparece como “—”. Importações antigas podem ter gravado zero para colunas ausentes no arquivo.'
+                ? 'zero registrado é 0; “—” indica ausência ou taxa sem base. Importações antigas podem ter gravado zero quando uma coluna não existia.'
                 : metrics.hasAds
-                ? 'Impressões e cliques dependem dos relatórios importados e podem cobrir só parte das lives.'
-                : 'Não há valores positivos de impressões ou cliques neste recorte. O resumo atual não distingue ausência de importação de um relatório zerado.'}
-              {' '}Registros antigos de visualizações podem usar o pico de espectadores como alternativa.
-              {' '}“—” indica dado indisponível ou taxa sem base para cálculo.
-            </p>
+                ? 'impressões e cliques dependem dos relatórios importados e podem cobrir só parte das lives.'
+                : 'não há valores positivos de impressões ou cliques; o resumo não separa ausência de importação de relatório zerado.'}
+              <details className="mt-1.5">
+                <summary className="cursor-pointer font-semibold text-ink">Ver critérios</summary>
+                <p className="mt-1">Impressões são exibições, não pessoas únicas. Registros antigos de visualizações podem usar o pico de espectadores.</p>
+              </details>
+            </div>
           </div>
         )}
       </CardBody>

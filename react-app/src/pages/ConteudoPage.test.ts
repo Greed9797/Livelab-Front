@@ -50,7 +50,6 @@ describe('ConteudoPage carregamento operacional', () => {
 
   it('importa somente helpers leves antes de carregar abas sob demanda', () => {
     expect(source).toContain("from '../components/conteudo/live-date-range'")
-    expect(source).toContain("from '../components/conteudo/video-form'")
     expect(source).not.toContain("from '../components/conteudo/LivesTab'")
     expect(source).not.toContain("from '../components/conteudo/VideosTab'")
   })
