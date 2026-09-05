@@ -47,10 +47,11 @@ export function PeriodRangeControl({
             key={mode}
             type="button"
             onClick={() => setMode(mode)}
+            aria-pressed={value.mode === mode}
             className={
               value.mode === mode
-                ? 'h-9 rounded-full bg-brand px-3 text-xs font-bold text-white'
-                : 'h-9 rounded-full px-3 text-xs font-semibold text-ink-muted hover:bg-surface-muted'
+                ? 'h-9 rounded-full bg-button-primary px-3 text-xs font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20'
+                : 'h-9 rounded-full px-3 text-xs font-semibold text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20'
             }
           >
             {mode === 'single' ? 'Mês' : 'Intervalo'}
@@ -63,7 +64,7 @@ export function PeriodRangeControl({
           <button
             type="button"
             aria-label="Mês anterior"
-            className="grid h-9 w-9 place-items-center rounded-full text-ink-muted hover:bg-surface-muted"
+            className="grid h-9 w-9 place-items-center rounded-full text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
             onClick={() => shiftSingle(-1)}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -74,7 +75,7 @@ export function PeriodRangeControl({
           <button
             type="button"
             aria-label="Próximo mês"
-            className="grid h-9 w-9 place-items-center rounded-full text-ink-muted hover:bg-surface-muted"
+            className="grid h-9 w-9 place-items-center rounded-full text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
             onClick={() => shiftSingle(1)}
           >
             <ChevronRight className="h-4 w-4" />
@@ -89,7 +90,7 @@ export function PeriodRangeControl({
               value={value.inicio}
               max={value.fim}
               onChange={(event) => onChange({ ...value, inicio: event.target.value })}
-              className="h-9 bg-transparent text-sm font-semibold text-ink focus:outline-none"
+              className="h-9 bg-transparent text-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20"
             />
             <span className="text-ink-muted">→</span>
             <input
@@ -98,7 +99,7 @@ export function PeriodRangeControl({
               value={value.fim}
               min={value.inicio}
               onChange={(event) => onChange({ ...value, fim: event.target.value })}
-              className="h-9 bg-transparent text-sm font-semibold text-ink focus:outline-none"
+              className="h-9 bg-transparent text-sm font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20"
             />
           </div>
           <div className="inline-flex h-11 items-center gap-1 rounded-full border border-line bg-surface p-1 shadow-[var(--shadow-card)]">
@@ -107,7 +108,7 @@ export function PeriodRangeControl({
                 key={preset.key}
                 type="button"
                 onClick={() => onChange(presetRange(preset.key))}
-                className="h-9 rounded-full px-3 text-xs font-semibold text-ink-muted hover:bg-surface-muted hover:text-ink"
+                className="h-9 rounded-full px-3 text-xs font-semibold text-ink-muted hover:bg-surface-muted hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
               >
                 {preset.label}
               </button>

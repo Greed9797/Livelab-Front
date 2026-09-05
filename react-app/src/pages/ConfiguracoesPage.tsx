@@ -338,7 +338,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Administração" accent="Configurações" title="da unidade" subtitle="Campos principais da franquia e integrações expostos pelo backend." />
+      <PageHeader eyebrow="Administração" accent="Configurações" title="da unidade" subtitle="Dados da unidade, equipe e preferências de operação." />
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
         {[
@@ -353,7 +353,8 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
         ].map(([key, Icon, label]) => (
           <button
             key={String(key)}
-            className={settingsTab === key ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white' : 'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted'}
+            aria-pressed={settingsTab === key}
+            className={settingsTab === key ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-button-primary px-4 text-sm font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20' : 'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20'}
             onClick={() => switchSettingsTab(key as SettingsTab)}
             type="button"
           >
@@ -683,7 +684,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
             </p>
             <div className="flex flex-wrap gap-2">
               <Link
-                className="inline-flex h-11 items-center justify-center rounded-full bg-brand px-5 text-sm font-bold text-white hover:bg-brand-hover"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-button-primary px-5 text-sm font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
                 to="/comissoes/config"
               >
                 Escada padrão em Comissões
@@ -808,9 +809,16 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
         </CardHeader>
         <CardBody>
           <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
-            {['nome_franquia', 'cnpj', 'email', 'telefone', 'cidade', 'estado'].map((key) => (
+            {([
+              ['nome_franquia', 'Nome da unidade'],
+              ['cnpj', 'CNPJ'],
+              ['email', 'E-mail'],
+              ['telefone', 'Telefone'],
+              ['cidade', 'Cidade'],
+              ['estado', 'Estado'],
+            ] as const).map(([key, label]) => (
               <label key={key} className="block">
-                <span className="text-sm font-semibold capitalize text-ink">{key.replace(/_/g, ' ')}</span>
+                <span className="text-sm font-semibold text-ink">{label}</span>
                 <input
                   className="design-input mt-2 h-11 w-full px-4"
                   value={asString(form[key], '')}

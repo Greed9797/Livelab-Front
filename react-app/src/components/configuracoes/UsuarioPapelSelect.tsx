@@ -43,14 +43,15 @@ export function UsuarioPapelSelect({ value, onChange, allowedRoles, disabled = f
             key={option.value}
             type="button"
             disabled={disabled}
+            aria-pressed={active}
             className={clsx(
-              'flex min-h-20 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus:ring-4 focus:ring-brand/20',
+              'flex min-h-20 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20',
               active ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-surface text-ink hover:bg-surface-muted',
               disabled && 'cursor-not-allowed opacity-60',
             )}
             onClick={() => onChange(option.value)}
           >
-            <span className={clsx('grid h-10 w-10 shrink-0 place-items-center rounded-xl', active ? 'bg-brand text-white' : 'bg-surface-muted text-ink-muted')}>
+            <span className={clsx('grid h-10 w-10 shrink-0 place-items-center rounded-xl', active ? 'bg-button-primary text-button-primary-foreground' : 'bg-surface-muted text-ink-muted')}>
               <Icon className="h-5 w-5" />
             </span>
             <span>

@@ -19,6 +19,12 @@ function nullableNumber(value: unknown): number | null {
   return value == null || value === '' ? null : asNumber(value)
 }
 
+/** Largura visual da cobertura; o texto continua exibindo a fração recebida da API. */
+export function coveragePercent(registered: number, total: number): number {
+  if (total <= 0) return 0
+  return Math.min(100, Math.max(0, (registered / total) * 100))
+}
+
 export function buildBrandAudienceRows(rows: JsonRecord[]): BrandAudienceRow[] {
   return rows.map((row, index) => {
     const marcaNome = asString(row.marca_nome, '').trim() || 'Marca não identificada'

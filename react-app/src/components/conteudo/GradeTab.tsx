@@ -257,8 +257,9 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
                   type="button"
                   disabled={editPadrao}
                   onClick={() => setView(key)}
-                  className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${
-                    !editPadrao && view === key ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
+                  aria-pressed={!editPadrao && view === key}
+                  className={`rounded-full px-4 py-1.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 ${
+                    !editPadrao && view === key ? 'bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover' : 'text-ink-muted hover:text-ink'
                   } ${editPadrao ? 'opacity-40' : ''}`}
                 >
                   {label}
@@ -294,8 +295,9 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, canWrite
                     key={String(scope.key)}
                     type="button"
                     onClick={() => setPadraoScope(scope.key)}
-                    className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
-                      padraoScope === scope.key ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
+                    aria-pressed={padraoScope === scope.key}
+                    className={`rounded-full px-3 py-1.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 ${
+                      padraoScope === scope.key ? 'bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover' : 'text-ink-muted hover:text-ink'
                     }`}
                   >
                     {scope.label}

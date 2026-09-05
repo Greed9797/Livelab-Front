@@ -58,7 +58,7 @@ function FilterSelect({ value, onChange, ariaLabel, children }: { value: string;
         aria-label={ariaLabel}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 min-w-[190px] cursor-pointer appearance-none rounded-full border border-line bg-surface pl-4 pr-9 text-sm font-semibold text-ink transition [color-scheme:dark] hover:border-[var(--border-strong)] focus:border-brand focus:outline-none"
+        className="h-9 min-w-[190px] cursor-pointer appearance-none rounded-full border border-line bg-surface pl-4 pr-9 text-sm font-semibold text-ink transition [color-scheme:dark] hover:border-[var(--border-strong)] focus-visible:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/15"
       >
         {children}
       </select>
@@ -78,7 +78,7 @@ function FilterDate({ value, min, max, onChange, ariaLabel }: { value: string; m
         min={min}
         max={max}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 cursor-pointer rounded-full border border-line bg-surface pl-9 pr-3 text-sm font-semibold text-ink transition [color-scheme:dark] hover:border-[var(--border-strong)] focus:border-brand focus:outline-none"
+        className="h-9 cursor-pointer rounded-full border border-line bg-surface pl-9 pr-3 text-sm font-semibold text-ink transition [color-scheme:dark] hover:border-[var(--border-strong)] focus-visible:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/15"
       />
     </div>
   )
@@ -117,8 +117,9 @@ export function AnalyticsFilterBar(props: AnalyticsFilterBarProps) {
               key={p.key}
               type="button"
               onClick={() => props.onPreset(p.key)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${
-                props.preset === p.key ? 'bg-brand text-white' : 'border border-line text-ink-muted hover:bg-surface-muted hover:text-ink'
+              aria-pressed={props.preset === p.key}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 ${
+                props.preset === p.key ? 'bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover' : 'border border-line text-ink-muted hover:bg-surface-muted hover:text-ink'
               }`}
             >
               {p.label}
@@ -162,7 +163,7 @@ export function AnalyticsFilterBar(props: AnalyticsFilterBarProps) {
           <button
             type="button"
             onClick={() => { props.onMarca(''); props.onApresentadora('') }}
-            className="inline-flex h-9 items-center gap-1 rounded-full border border-line px-3 text-sm font-semibold text-ink-muted hover:bg-surface-muted hover:text-ink"
+            className="inline-flex h-9 items-center gap-1 rounded-full border border-line px-3 text-sm font-semibold text-ink-muted hover:bg-surface-muted hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
           >
             <X className="h-3.5 w-3.5" /> Limpar
           </button>

@@ -70,7 +70,8 @@ export function ClienteAnalyticsPanel() {
             key={p.key}
             type="button"
             onClick={() => setPreset(p.key)}
-            className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${preset === p.key ? 'bg-brand text-white' : 'border border-line text-ink-muted hover:bg-surface-muted hover:text-ink'}`}
+            aria-pressed={preset === p.key}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 ${preset === p.key ? 'bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover' : 'border border-line text-ink-muted hover:bg-surface-muted hover:text-ink'}`}
           >
             {p.label}
           </button>

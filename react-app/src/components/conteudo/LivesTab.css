@@ -1,0 +1,46 @@
+.lives-mobile-open {
+  display: none;
+}
+
+.lives-table-row:focus-within .lives-row-actions {
+  opacity: 1 !important;
+  transform: translateX(0) !important;
+}
+
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  /* Desktop keeps `overflow: clip` so its sticky header remains viewport-bound.
+     On touch the compact Abrir action is already visible; this scroll only exposes
+     secondary columns and the existing kebab actions. */
+  .lives-table-scroll {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lives-mobile-open {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+    min-height: 40px;
+    padding: 5px 7px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-elev-2);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .lives-mobile-open svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .lives-row-actions {
+    opacity: 1 !important;
+    transform: translateX(0) !important;
+  }
+}

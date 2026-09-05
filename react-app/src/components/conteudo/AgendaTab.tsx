@@ -229,8 +229,9 @@ export function AgendaTab(props: AgendaTabProps) {
                       key={s.key}
                       type="button"
                       onClick={() => onAgendaViewChange(s.key)}
-                      className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${
-                        agendaView === s.key ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'
+                      aria-pressed={agendaView === s.key}
+                      className={`rounded-full px-4 py-1.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 ${
+                        agendaView === s.key ? 'bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover' : 'text-ink-muted hover:text-ink'
                       }`}
                     >
                       {s.label}
@@ -482,8 +483,9 @@ function MonthView({
                   <button
                     type="button"
                     onClick={() => onOpenDay(day)}
-                    className={`grid h-6 w-6 place-items-center self-start rounded-full text-[13px] font-bold ${
-                      day === today ? 'bg-brand text-white' : inMonth ? 'text-ink hover:bg-surface-muted' : 'text-ink-muted'
+                    aria-current={day === today ? 'date' : undefined}
+                    className={`grid h-6 w-6 place-items-center self-start rounded-full text-[13px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20 ${
+                      day === today ? 'bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover' : inMonth ? 'text-ink hover:bg-surface-muted' : 'text-ink-muted'
                     }`}
                   >
                     {dayNumber(day)}

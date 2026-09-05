@@ -28,6 +28,7 @@ import { officialLiveGmv } from '../../utils/live-gmv'
 import { calcDuration, fmtTime, livePresenterCellModel, livePresenterNames, type LiveFilterOption } from './live-helpers'
 import { InlineApresentadoraCell, InlineGmvCell, InlinePedidosCell } from './LiveInlineCells'
 import { LiveDetailModal } from './LiveDetailModal'
+import './LivesTab.css'
 import type { JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
 
@@ -984,9 +985,9 @@ export function LivesTab({
             gap: 7,
             padding: '8px 14px',
             borderRadius: 9,
-            background: 'linear-gradient(180deg, var(--primary), var(--primary-hover))',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,.15)',
+            background: 'var(--primary)',
+            color: 'var(--button-primary-foreground)',
+            border: '1px solid transparent',
             boxShadow: '0 4px 14px -6px var(--primary)',
             fontSize: 12.5,
             fontWeight: 600,
@@ -1010,6 +1011,7 @@ export function LivesTab({
 
       {/* ── Table ── */}
       <div
+        className="lives-table-scroll"
         style={{
           border: '1px solid var(--border)',
           borderRadius: 16,
@@ -1283,20 +1285,32 @@ export function LivesTab({
                             paddingRight: 14,
                           }}
                         >
-                          <span
-                            style={{
-                              fontSize: 13.5,
-                              fontWeight: 600,
-                              color: 'var(--text-primary)',
-                              letterSpacing: -0.005,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {clientName || '—'}
-                            <BotBadge origem={live.origem_dados} className="ml-2 align-middle" />
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                            <span
+                              style={{
+                                fontSize: 13.5,
+                                fontWeight: 600,
+                                color: 'var(--text-primary)',
+                                letterSpacing: -0.005,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {clientName || '—'}
+                              <BotBadge origem={live.origem_dados} className="ml-2 align-middle" />
+                            </span>
+                            <button
+                              type="button"
+                              className="lives-mobile-open"
+                              aria-label={`Abrir detalhes de ${clientName || 'live'}`}
+                              title="Abrir"
+                              onClick={() => onOpenLiveDetail(live)}
+                            >
+                              <ExternalLink aria-hidden="true" />
+                              <span>Abrir</span>
+                            </button>
+                          </div>
                           <span
                             style={{
                               fontSize: 11,

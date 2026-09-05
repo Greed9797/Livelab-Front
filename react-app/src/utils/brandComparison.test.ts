@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateBrandComparison, sortBrandComparison } from './brandComparison'
+import { aggregateBrandComparison, brandComparisonReference, comparisonMetricMaximum, comparisonMetricWidth, formatCalendarDate, metricVariation, previousPeriodRange, sortBrandComparison } from './brandComparison'
 
 describe('brand comparison aggregation', () => {
   it('sums daily rows by brand and keeps GMV videos out of GMV/h', () => {
@@ -33,5 +33,36 @@ describe('brand comparison aggregation', () => {
     expect(sortBrandComparison(rows, 'gmvLives').map((row) => row.marcaId)).toEqual(['a', 'b', 'c'])
     expect(sortBrandComparison(rows, 'gmvTotal').map((row) => row.marcaId)).toEqual(['c', 'b', 'a'])
     expect(sortBrandComparison(rows, 'gmvHora').map((row) => row.marcaId)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('uses a weighted GMV/h reference and a bounded relative scale', () => {
+    const rows = aggregateBrandComparison([
+      { marca_id: 'a', marca_nome: 'A', gmv_lives: 100, horas_live: 1, total_lives: 1 },
+      { marca_id: 'b', marca_nome: 'B', gmv_lives: 100, horas_live: 9, total_lives: 2 },
+      { marca_id: 'video', marca_nome: 'Vídeo', gmv_videos: 50, horas_live: 0, total_lives: 0 },
+    ])
+    expect(brandComparisonReference(rows)).toMatchObject({ marcas: 3, lives: 3, gmvLives: 200, horasLive: 10, gmvHora: 20 })
+    expect(comparisonMetricMaximum(rows, 'gmvLives')).toBe(100)
+    expect(comparisonMetricWidth(100, 100)).toBe(100)
+    expect(comparisonMetricWidth(0, 100)).toBe(0)
+    expect(comparisonMetricWidth(null, 100)).toBe(0)
+  })
+
+  it('calculates the prior calendar window in UTC across month/year boundaries', () => {
+    expect(previousPeriodRange('2026-01-01', '2026-01-07')).toEqual({ from: '2025-12-25', to: '2025-12-31' })
+    expect(previousPeriodRange('2024-03-01', '2024-03-01')).toEqual({ from: '2024-02-29', to: '2024-02-29' })
+    expect(previousPeriodRange('2026-02-30', '2026-03-01')).toBeNull()
+    expect(previousPeriodRange('2026-03-02', '2026-03-01')).toBeNull()
+    expect(formatCalendarDate('2025-12-31')).toBe('31/12/2025')
+  })
+
+  it('does not manufacture a percentage for a missing or zero base', () => {
+    expect(metricVariation(20, undefined)).toEqual({ direction: 'none' })
+    expect(metricVariation(null, 10)).toEqual({ direction: 'none' })
+    expect(metricVariation(20, 0)).toEqual({ direction: 'new' })
+    expect(metricVariation(0, 0)).toEqual({ direction: 'flat', percent: 0 })
+    expect(metricVariation(100, 100)).toEqual({ direction: 'flat', percent: 0 })
+    expect(metricVariation(150, 100)).toEqual({ direction: 'up', percent: 50 })
+    expect(metricVariation(50, 100)).toEqual({ direction: 'down', percent: 50 })
   })
 })

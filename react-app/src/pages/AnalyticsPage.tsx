@@ -24,6 +24,7 @@ import { rankingId, rankingName } from '../utils/ranking'
 import { FileDown } from 'lucide-react'
 import { sumDailyTotals } from './page-helpers'
 import { buildDailyPulse } from '../utils/dailyPulse'
+import { previousPeriodRange } from '../utils/brandComparison'
 import { QK } from '../services/query-keys'
 import { useToast } from '../components/ui/Toast'
 import { useCurrentUser } from '../stores/auth-store'
@@ -42,6 +43,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
   // Filtro ÚNICO: período (range) + marca + apresentadora rege a página toda.
   const { from, to } = presetRange(preset, customFrom, customTo)
+  const previousPeriod = useMemo(() => previousPeriodRange(from, to), [from, to])
   // Seções mensais legadas usam o mês do FIM do intervalo (mês corrente), não o
   // início — senão "7 dias" cruzando meses (31/05→06/06) cairia em maio e zeraria.
   const mes = to.slice(0, 7)
@@ -69,6 +71,14 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const query = useQuery({
     queryKey: ['daily-pulse', from, to, marcaId, apresentadoraId],
     queryFn: () => getDailyAnalytics({ from, to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
+    staleTime: 60_000,
+  })
+  // Consulta separada, com a mesma duração-calendário e os mesmos filtros. Uma falha
+  // aqui não interfere no recorte atual nem transforma ausência de marca em zero.
+  const previousQuery = useQuery({
+    queryKey: ['daily-pulse', 'previous', previousPeriod?.from, previousPeriod?.to, marcaId, apresentadoraId],
+    queryFn: () => getDailyAnalytics({ from: previousPeriod!.from, to: previousPeriod!.to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
+    enabled: Boolean(previousPeriod) && !apresentadoraId,
     staleTime: 60_000,
   })
 
@@ -192,6 +202,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
   // Tudo abaixo segue o range do filtro (mesma fonte do Pulso: /diario por dia).
   const diarioRows = useMemo(() => unwrapList<JsonRecord>(query.data), [query.data])
+  const previousDiarioRows = useMemo(() => previousQuery.isSuccess ? unwrapList<JsonRecord>(previousQuery.data) : undefined, [previousQuery.data, previousQuery.isSuccess])
+  const previousStatus = previousQuery.isSuccess ? 'ready' : previousQuery.isError ? 'error' : 'loading'
   const totals = useMemo(() => sumDailyTotals(diarioRows), [diarioRows])
   const serie = useMemo(() => buildDailyPulse(diarioRows).serieDiaria, [diarioRows])
   const totalLives = totals.total_lives
@@ -218,7 +230,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
       {!query.isLoading && !query.isError ? (
         <>
-          <BrandComparisonSection rows={diarioRows} marcaId={marcaId} apresentadoraId={apresentadoraId} onSelectMarca={setMarcaId} onClearMarca={() => setMarcaId('')} onClearApresentadora={() => setApresentadoraId('')} />
+          <BrandComparisonSection rows={diarioRows} marcaId={marcaId} apresentadoraId={apresentadoraId} onSelectMarca={setMarcaId} onClearMarca={() => setMarcaId('')} onClearApresentadora={() => setApresentadoraId('')} previousRows={previousDiarioRows} previousPeriod={previousQuery.isSuccess ? previousPeriod : null} previousStatus={previousStatus} currentPeriodEndsToday={to === ymd(new Date())} />
           {!apresentadoraId ? <BrandAudienceComparisonSection from={from} to={to} marcaId={marcaId} /> : null}
         </>
       ) : null}

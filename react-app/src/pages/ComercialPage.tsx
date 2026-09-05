@@ -620,7 +620,8 @@ export function ComercialPage() {
           <button
             key={String(key)}
             type="button"
-            className={tab === key ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white' : 'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted'}
+            aria-pressed={tab === key}
+            className={tab === key ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-button-primary px-4 text-sm font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20' : 'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20'}
             onClick={() => setTab(key as ComercialTab)}
           >
             <Icon className="h-4 w-4" />

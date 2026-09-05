@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildBrandAudienceRows } from './brandAudience'
+import { buildBrandAudienceRows, coveragePercent } from './brandAudience'
 
 describe('brand audience rows', () => {
   it('preserves an informed zero and a missing metric separately', () => {
@@ -12,5 +12,12 @@ describe('brand audience rows', () => {
     expect(zero.livesComVisualizacoesRegistradas).toBe(1)
     expect(missing.impressoesLive).toBeNull()
     expect(missing.livesComImpressoesRegistradas).toBe(0)
+  })
+
+  it('renders coverage as a bounded fraction without changing the reported values', () => {
+    expect(coveragePercent(2, 4)).toBe(50)
+    expect(coveragePercent(0, 4)).toBe(0)
+    expect(coveragePercent(4, 0)).toBe(0)
+    expect(coveragePercent(8, 4)).toBe(100)
   })
 })

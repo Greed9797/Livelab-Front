@@ -8,11 +8,15 @@ import { Button } from '../ui/Button'
 import { getBrandAudienceAnalytics } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
 import { asArray, getRecord } from '../../utils/format'
-import { buildBrandAudienceRows, sortBrandAudienceRows, type BrandAudienceRow } from '../../utils/brandAudience'
+import { buildBrandAudienceRows, coveragePercent, sortBrandAudienceRows, type BrandAudienceRow } from '../../utils/brandAudience'
 import type { JsonRecord, TableColumn } from '../../types/models'
 
 const count = (value: number | null) => value == null ? '—' : value.toLocaleString('pt-BR')
-const metric = (value: number | null, coverage: number, total: number) => <div><div className="font-semibold tabular-nums text-ink">{count(value)}</div><div className="mt-0.5 text-xs font-normal text-ink-muted">{coverage}/{total} lives com registro</div></div>
+const metric = (value: number | null, coverage: number, total: number) => {
+  const percent = Math.round(coveragePercent(coverage, total))
+  const coverageText = `${coverage} de ${total} lives com registro (${percent}%)`
+  return <div className="min-w-28 text-right"><div className="font-semibold tabular-nums text-ink">{count(value)}</div><div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-muted" role="progressbar" aria-label="Cobertura de registros" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-valuetext={coverageText}><div className="h-full rounded-full bg-ink-muted" style={{ width: `${percent}%` }} /></div><div className="mt-1 text-xs font-normal text-ink-muted">{coverage}/{total} lives com registro</div></div>
+}
 const columns: TableColumn<BrandAudienceRow>[] = [
   { key: 'marcaNome', header: 'Marca' },
   { key: 'impressoesLive', header: 'Impressões live', align: 'right', render: (row) => metric(row.impressoesLive, row.livesComImpressoesRegistradas, row.livesTotal) },
@@ -46,6 +50,7 @@ export function BrandAudienceComparisonSection({ from, to, marcaId }: { from: st
             <Button key={key} type="button" variant={sort === key ? 'primary' : 'secondary'} aria-pressed={sort === key} className="h-8 px-3 text-xs" onClick={() => setSort(key as typeof sort)}>{label}</Button>
           ))}
         </div>
+        <p className="mb-3 text-xs text-ink-muted">Barras mostram cobertura de registros, não volume.</p>
         {rows.length > 0 ? <p className="mb-2 text-xs text-ink-muted sm:hidden">Deslize a tabela para ver todas as métricas.</p> : null}
         <DataTable columns={columns} data={rows} rowKey={(row) => row.key} footer={<p className="text-xs text-ink-muted">Cada valor traz sua própria contagem de lives com campo registrado. Importações antigas podem gravar zero quando a coluna não existia no arquivo; confira relatórios zerados antes de comparar.</p>} />
       </>}

@@ -8,7 +8,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 export function Card({ children, className, ...props }: CardProps) {
   return (
     <div
-      className={clsx('design-card overflow-hidden transition-shadow duration-150 hover:shadow-[var(--shadow-card-lg)]', className)}
+      className={clsx('design-card overflow-hidden', className)}
       {...props}
     >
       {children}

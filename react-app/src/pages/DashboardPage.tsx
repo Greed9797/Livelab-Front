@@ -189,7 +189,7 @@ export function DashboardPage() {
       <PageHead liveCount={liveCabines.length} />
 
       {atualizacaoFalhou ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-ink">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:color-mix(in_srgb,var(--warning)_32%,transparent)] bg-[var(--warning-soft)] px-4 py-2 text-sm text-ink">
           <span>Não foi possível atualizar agora — os números abaixo são da última atualização.</span>
           <button
             type="button"

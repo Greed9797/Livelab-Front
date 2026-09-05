@@ -115,8 +115,9 @@ export function GradeSemanaView({
             key={dia.data}
             type="button"
             onClick={() => onOpenDia(dia.data)}
-            className={`rounded-lg px-2 py-2 text-center text-xs font-bold uppercase tracking-wide transition hover:bg-surface-muted ${
-              dia.data === today ? 'bg-brand text-white' : 'bg-surface-muted text-ink-muted'
+            aria-current={dia.data === today ? 'date' : undefined}
+            className={`rounded-lg px-2 py-2 text-center text-xs font-bold uppercase tracking-wide transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 ${
+              dia.data === today ? 'bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover' : 'bg-surface-muted text-ink-muted'
             }`}
           >
             {dayLabel(dia.data)}

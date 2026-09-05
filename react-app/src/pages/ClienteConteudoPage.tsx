@@ -44,7 +44,8 @@ export function ClienteConteudoPage() {
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${tab === t ? 'bg-brand text-white' : 'text-ink-muted hover:text-ink'}`}
+            aria-pressed={tab === t}
+            className={`rounded-full px-4 py-1.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 ${tab === t ? 'bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover' : 'text-ink-muted hover:text-ink'}`}
           >
             {t === 'lives' ? 'Lives realizadas' : 'Analytics'}
           </button>
