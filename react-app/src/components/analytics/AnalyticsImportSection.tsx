@@ -23,7 +23,15 @@ import type { ImportDecisao } from '../../services/domain'
 import { QK } from '../../services/query-keys'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../../utils/format'
 import { formatDuracao } from '../../utils/duracao'
-import { importedGmvPresence, summarizeImportedGmv } from '../../utils/analyticsImportCoverage'
+import {
+  buildImportMetricReview,
+  importedGmvPresence,
+  importedMetricPresence,
+  REVIEW_METRICS,
+  summarizeImportedGmv,
+  summarizeMetricPresence,
+  type ImportMetricReview,
+} from '../../utils/analyticsImportCoverage'
 import { useToast } from '../ui/Toast'
 import { ImportRateioModal } from './ImportRateioModal'
 import { ImportVincularLiveModal } from './ImportVincularLiveModal'
@@ -60,6 +68,30 @@ function decisaoClass(decisao: string) {
   if (decisao === 'ignorar') return 'border-line bg-surface-muted opacity-70'
   if (decisao === 'pendente') return 'border-amber-500/40 bg-amber-500/10'
   return 'border-line bg-surface'
+}
+
+const COVERAGE_METRICS = REVIEW_METRICS.slice(0, 6)
+
+function formatReviewMetricValue(metric: ImportMetricReview, value: unknown) {
+  if (value === null || value === undefined || value === '') return '—'
+  if (metric.key === 'official_gmv' || metric.key === 'ads_cost') return formatMoney(value)
+  return asNumber(value).toLocaleString('pt-BR')
+}
+
+function metricActionLabel(metric: ImportMetricReview) {
+  if (!metric.presenceConfirmed) return 'Histórico indisponível — confirme antes de importar'
+  if (metric.manuallyCorrected) return 'GMV corrigido manualmente — mantém o valor atual'
+  if (metric.presence === 'zero') return 'Zero informado — atualiza'
+  if (metric.presence === 'provided') return 'Informado — atualiza'
+  if (metric.presence === 'missing') return 'Não informado — mantém o valor atual'
+  return 'Sem valor confiável — mantém o valor atual'
+}
+
+function metricValueCell(row: JsonRecord, key: 'attributed_orders' | 'likes', sourceType: string) {
+  const presence = importedMetricPresence(row, key, sourceType)
+  if (presence === 'missing') return <span className="text-xs font-medium text-ink-muted">Não informado</span>
+  if (presence === 'unknown') return <span className="text-xs font-medium text-ink-muted">Sem dado confiável</span>
+  return <span className={presence === 'zero' ? 'font-medium text-ink' : ''}>{asNumber(row[key]).toLocaleString('pt-BR')}</span>
 }
 
 export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) {
@@ -123,6 +155,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
   const batch = batchQuery.data ?? null
   const rows = asArray<JsonRecord>(batch?.rows)
   const summary = getRecord(batch?.summary)
+  const sourceType = asString(batch?.source_type)
   const isApplied = asString(batch?.status) === 'applied'
   const cabinesLista = asArray<JsonRecord>(cabinesQuery.data)
   const livesLista = asArray<JsonRecord>(livesQuery.data)
@@ -135,7 +168,11 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
     }
     return counts
   }, [rows])
-  const gmvCoverage = useMemo(() => summarizeImportedGmv(rows), [rows])
+  const gmvCoverage = useMemo(() => summarizeImportedGmv(rows, sourceType), [rows, sourceType])
+  const metricCoverage = useMemo(
+    () => COVERAGE_METRICS.map(([key, label]) => ({ key, label, ...summarizeMetricPresence(rows, key, sourceType) })),
+    [rows, sourceType],
+  )
 
   // Uma live só pode receber uma linha do arquivo — o backend devolve 409, então a tela já
   // mostra qual linha reservou cada live em vez de deixar o usuário descobrir no erro.
@@ -205,6 +242,8 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
         queryClient.invalidateQueries({ queryKey: ['analytics-import', batchId] }),
         queryClient.invalidateQueries({ queryKey: QK.analyticsDashboard() }),
         queryClient.invalidateQueries({ queryKey: QK.homeDashboard }),
+        queryClient.invalidateQueries({ queryKey: ['daily-pulse'] }),
+        queryClient.invalidateQueries({ queryKey: ['audiencia-marcas'] }),
         // Sem mês definido o prefixo invalida o funil de qualquer período.
         queryClient.invalidateQueries({ queryKey: mesAno ? ['funil-analytics', mesAno] : ['funil-analytics'] }),
         queryClient.invalidateQueries({ queryKey: QK.lives }),
@@ -237,6 +276,8 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: QK.analyticsDashboard() }),
         queryClient.invalidateQueries({ queryKey: QK.homeDashboard }),
+        queryClient.invalidateQueries({ queryKey: ['daily-pulse'] }),
+        queryClient.invalidateQueries({ queryKey: ['audiencia-marcas'] }),
         queryClient.invalidateQueries({ queryKey: QK.lives }),
       ])
     },
@@ -287,8 +328,8 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
           <div>
             <p className="text-base font-bold tracking-[-0.01em] text-ink">Importar relatório do TikTok</p>
             <p className="mt-1 text-xs text-ink-muted">
-              Aceita o Creator Live Performance (TikTok Studio) e o relatório de Ads. Nada é gravado até você
-              revisar e confirmar. O GMV importado vira o GMV oficial da live nos dashboards.
+              Aceita o Creator Live Performance (TikTok Studio) e o relatório de Ads. As métricas da live só
+              mudam após sua confirmação. Correções manuais de GMV são preservadas.
             </p>
           </div>
         </div>
@@ -326,7 +367,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button type="button" icon={Upload} onClick={handlePreview} isLoading={previewMutation.isPending}>
+          <Button type="button" variant={batchId ? 'secondary' : 'primary'} icon={Upload} onClick={handlePreview} isLoading={previewMutation.isPending}>
             Revisar antes de importar
           </Button>
           <Button
@@ -372,8 +413,19 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
               GMV informado em <span className="font-semibold tabular-nums text-ink">{gmvCoverage.provided + gmvCoverage.zero} de {gmvCoverage.total}</span> linhas.
               {gmvCoverage.zero > 0 ? ` ${gmvCoverage.zero} ${gmvCoverage.zero === 1 ? 'linha trouxe' : 'linhas trouxeram'} GMV zero, mantido como informado.` : ''}
               {gmvCoverage.missing > 0 ? ` ${gmvCoverage.missing} ${gmvCoverage.missing === 1 ? 'linha não informou' : 'linhas não informaram'} GMV.` : ''}
+              {gmvCoverage.unknown > 0 ? ` ${gmvCoverage.unknown} ${gmvCoverage.unknown === 1 ? 'linha tem' : 'linhas têm'} histórico de preenchimento indisponível.` : ''}
             </p>
-            <p className="mt-1 text-xs text-ink-muted">Pedidos e audiência zerados precisam ser conferidos no arquivo, pois exportações antigas podem omitir essas colunas.</p>
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-muted" aria-label="Cobertura das métricas no arquivo">
+              {metricCoverage.map((metric) => (
+                <span key={metric.key}>
+                  <span className="font-semibold text-ink">{metric.label}:</span> {metric.provided + metric.zero}/{metric.total} informadas
+                  {metric.zero > 0 ? ` · ${metric.zero} zero` : ''}
+                  {metric.missing > 0 ? ` · ${metric.missing} não informadas` : ''}
+                  {metric.unknown > 0 ? ` · ${metric.unknown} sem histórico` : ''}
+                </span>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-ink-muted">Campo não informado mantém o valor atual. Zero informado atualiza o valor para zero; GMV corrigido manualmente continua preservado. Lotes sem histórico de preenchimento pedem conferência antes de importar.</p>
           </section>
 
           {isApplied ? (
@@ -392,7 +444,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
           ) : null}
 
           <div className="mt-4 overflow-x-auto rounded-2xl border border-line">
-            <table className="w-full min-w-[1180px] divide-y divide-line text-sm">
+            <table className="w-full min-w-[1280px] divide-y divide-line text-sm [&_td]:align-top">
               <thead className="bg-surface-muted text-left text-[11px] font-bold uppercase tracking-wide text-ink-muted">
                 <tr>
                   <th className="px-3 py-2">Status</th>
@@ -402,6 +454,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                   <th className="px-3 py-2 text-right">GMV</th>
                   <th className="px-3 py-2 text-right">Pedidos</th>
                   <th className="px-3 py-2 text-right">Likes</th>
+                  <th className="px-3 py-2">Atualização</th>
                   <th className="px-3 py-2">O que fazer</th>
                   <th className="px-3 py-2">Apresentadoras</th>
                 </tr>
@@ -411,8 +464,10 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                   const status = asString(row.match_status)
                   const decisao = asString(row.decisao, 'pendente')
                   const rateio = asArray<JsonRecord>(row.apresentadoras)
-                  const gmv = row.attributed_gmv ?? row.ads_gmv
-                  const gmvPresence = importedGmvPresence(row)
+                  const gmv = row.official_gmv ?? (sourceType === 'tiktok_ads' ? row.ads_gmv : row.attributed_gmv)
+                  const gmvPresence = importedGmvPresence(row, sourceType)
+                  const metricReview = buildImportMetricReview(row, sourceType)
+                  const keptMissing = metricReview.filter((metric) => metric.presence === 'missing' && !metric.manuallyCorrected)
                   const erro = asString(row.error, '')
                   // O rótulo do botão precisa dizer QUAL live está vinculada. A lista completa
                   // resolve o caso normal; os candidatos que a própria linha carrega cobrem a
@@ -439,9 +494,37 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                       </td>
                       <td className="px-3 py-2 text-ink-muted">{asString(row.start_time, '—')}</td>
                       <td className="px-3 py-2 text-right text-ink-muted">{(asNumber(row.duration_seconds) / 3600).toFixed(1)}h</td>
-                      <td className="px-3 py-2 text-right font-semibold text-ink">{gmvPresence === 'missing' ? <span className="text-xs font-medium text-ink-muted">Não informado</span> : <><span>{formatMoney(gmv)}</span>{gmvPresence === 'zero' ? <span className="mt-0.5 block text-[10px] font-medium text-ink-muted">Zero informado</span> : null}</>}</td>
-                      <td className="px-3 py-2 text-right text-ink-muted">{asNumber(row.attributed_orders).toLocaleString('pt-BR')}</td>
-                      <td className="px-3 py-2 text-right text-ink-muted">{asNumber(row.likes).toLocaleString('pt-BR')}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-ink">{gmvPresence === 'missing' ? <span className="text-xs font-medium text-ink-muted">Não informado</span> : gmvPresence === 'unknown' ? <span className="text-xs font-medium text-ink-muted">Sem dado confiável</span> : <><span>{formatMoney(gmv)}</span>{gmvPresence === 'zero' ? <span className="mt-0.5 block text-[10px] font-medium text-ink-muted">Zero informado</span> : null}</>}{row.gmv_manually_corrected === true ? <span className="mt-1 block text-xs font-medium text-ink-muted">Correção manual preservada</span> : null}</td>
+                      <td className="px-3 py-2 text-right text-ink-muted">{metricValueCell(row, 'attributed_orders', sourceType)}</td>
+                      <td className="px-3 py-2 text-right text-ink-muted">{metricValueCell(row, 'likes', sourceType)}</td>
+                      <td className="px-3 py-2 align-top">
+                        <details className="group w-64 whitespace-normal sm:w-96">
+                          <summary className="cursor-pointer list-none text-xs font-semibold text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
+                            <span className="inline-flex items-center gap-1">
+                              Revisar métricas <span aria-hidden="true" className="text-ink-muted group-open:hidden">▸</span><span aria-hidden="true" className="hidden text-ink-muted group-open:inline">▾</span>
+                            </span>
+                          </summary>
+                          <ul className="mt-2 space-y-1 border-l border-line pl-2 text-xs leading-relaxed text-ink-muted">
+                            {metricReview.filter((metric) => metric.presence !== 'missing' || metric.manuallyCorrected).map((metric) => (
+                              <li key={metric.key}>
+                                <span className="font-semibold text-ink">{metric.label}:</span>{' '}
+                                {metric.current !== null && metric.current !== undefined
+                                  ? <><span className="tabular-nums">{formatReviewMetricValue(metric, metric.current)}</span> <span aria-hidden="true">→</span> <span className="tabular-nums">{metric.manuallyCorrected || metric.presence === 'missing' || metric.presence === 'unknown' ? formatReviewMetricValue(metric, metric.current) : formatReviewMetricValue(metric, metric.incoming)}</span>. </>
+                                  : (metric.presence === 'provided' || metric.presence === 'zero')
+                                    ? <><span className="tabular-nums">Arquivo: {formatReviewMetricValue(metric, metric.incoming)}.</span> </>
+                                    : null}
+                                <span className={metric.presence === 'zero' && !metric.manuallyCorrected ? 'font-semibold text-ink' : ''}>{metricActionLabel(metric)}.</span>
+                              </li>
+                            ))}
+                            {keptMissing.length > 0 ? (
+                              <li className="mt-2 border-t border-line pt-2">
+                                <span className="font-medium text-ink">{keptMissing.length} métricas não informadas — valores atuais mantidos:</span>{' '}
+                                {keptMissing.map((metric) => metric.label).join(', ')}.
+                              </li>
+                            ) : null}
+                          </ul>
+                        </details>
+                      </td>
                       <td className="px-3 py-2">
                         <select
                           className="design-input h-9 w-full px-2 text-xs"
@@ -538,7 +621,8 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
         <p className="text-sm text-ink-muted">
           {decisionCounts.vincular > 0 ? `${decisionCounts.vincular} atualizam lives já cadastradas. ` : ''}
           {decisionCounts.criar > 0 ? `${decisionCounts.criar} criam lives novas. ` : ''}
-          O GMV do TikTok passa a valer nos dashboards e no cálculo de comissão dessas lives.
+          Campos não informados mantêm os valores atuais. Zeros informados substituem os anteriores.
+          Correções manuais de GMV são preservadas.
         </p>
       </Modal>
 
