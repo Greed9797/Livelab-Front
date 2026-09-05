@@ -1,8 +1,9 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
 import { Users } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { ModalSection } from '../ui/ModalSection'
 import { MoneyInput } from '../ui/MoneyInput'
 import { PresenterSelect } from './PresenterSelect'
 import { extractErrorMessage } from '../../services/api'
@@ -225,6 +226,7 @@ export function montarCamposNumericos(form: EditForm, prefill: EditForm, temAdsG
 
 export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Props) {
   const client = useQueryClient()
+  const formId = useId()
   const [form, setForm] = useState<EditForm>(emptyForm)
   // Snapshot do formulário como ele nasceu. Serve de referência para decidir o que o usuário
   // realmente alterou — sem isso o save reenvia campos numéricos intocados (ver handleSubmit).
@@ -318,7 +320,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     setError(null)
 
     if (form.hora_inicio && form.hora_fim && form.hora_fim <= form.hora_inicio) {
-      setError('hora_fim deve ser maior que hora_inicio')
+      setError('O término deve ser depois do início.')
       return
     }
 
@@ -364,12 +366,23 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
   const rateioPlanejado = resumoRateioPlanejado(live)
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar live" size="xl">
-      <form onSubmit={onSubmit} className="space-y-6">
-        {/* Geral */}
-        <section className="space-y-3">
-          <h3 className="text-sm font-bold text-ink">Geral</h3>
-          <div className="grid grid-cols-2 gap-3">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Editar live"
+      size="lg"
+      footer={(
+        <div className="flex w-full flex-wrap items-center justify-end gap-2">
+          {error ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">{error}</p> : null}
+          <p className="w-full text-xs text-ink-muted sm:mr-auto sm:w-auto sm:self-center">Ao salvar, a comissão é recalculada.</p>
+          <Button variant="ghost" type="button" onClick={onClose} disabled={saveMutation.isPending}>Cancelar</Button>
+          <Button type="submit" form={formId} isLoading={saveMutation.isPending}>Salvar alterações</Button>
+        </div>
+      )}
+    >
+      <form id={formId} onSubmit={onSubmit} className="space-y-5">
+        <ModalSection title="Dados da live" description="Defina onde, para quem e com quem a live acontece.">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
               <span className="text-xs text-ink-muted">Cabine</span>
               <select className="design-input mt-1 h-11 w-full px-3" value={form.cabine_id} onChange={(e) => setField('cabine_id', e.target.value)}>
@@ -410,7 +423,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
             {/* A ação vive AQUI, junto dos campos que ela substitui. Antes o texto mandava o
                 operador para "Dividir entre apresentadoras" sem link nenhum, e o único botão
                 estava no modal de detalhe — o mesmo que mostra o relatório para copiar. */}
-            <div className="col-span-2 flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 md:col-span-2">
               {asArray<JsonRecord>(live.apresentadoras).length > 1 ? (
                 rateioPlanejado ? (
                   <p className="text-xs font-semibold text-[color:var(--warning)]">
@@ -448,21 +461,11 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
                 <option value="teste">Teste</option>
               </select>
             </label>
-            <label className="block">
-              <span className="text-xs text-ink-muted">Status de publicação</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={form.status_publicacao} onChange={(e) => setField('status_publicacao', e.target.value)}>
-                <option value="rascunho">Rascunho</option>
-                <option value="revisado">Revisado</option>
-                <option value="publicado">Publicado</option>
-              </select>
-            </label>
           </div>
-        </section>
+        </ModalSection>
 
-        {/* Tempo */}
-        <section className="space-y-3">
-          <h3 className="text-sm font-bold text-ink">Tempo</h3>
-          <div className="grid grid-cols-3 gap-3">
+        <ModalSection title="Data e horário" description="Use o horário real de início e término.">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             <label className="block">
               <span className="text-xs text-ink-muted">Data</span>
               <input type="date" className="design-input mt-1 h-11 w-full px-3" value={form.data} onChange={(e) => setField('data', e.target.value)} />
@@ -476,12 +479,10 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               <input type="time" className="design-input mt-1 h-11 w-full px-3" value={form.hora_fim} onChange={(e) => setField('hora_fim', e.target.value)} />
             </label>
           </div>
-        </section>
+        </ModalSection>
 
-        {/* Financeiro */}
-        <section className="space-y-3">
-          <h3 className="text-sm font-bold text-ink">Financeiro</h3>
-          <div className="grid grid-cols-2 gap-3">
+        <ModalSection title="Resultado da live" description="Registre o resultado principal antes de salvar.">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
               <span className="text-xs text-ink-muted">GMV faturado</span>
               <MoneyInput
@@ -496,12 +497,17 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               ) : null}
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">GMV manual</span>
-              <MoneyInput value={form.manual_gmv} onChange={(v) => setField('manual_gmv', v)} />
-            </label>
-            <label className="block">
               <span className="text-xs text-ink-muted">Pedidos</span>
               <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.qtd_pedidos} onChange={(e) => setField('qtd_pedidos', e.target.value)} />
+            </label>
+          </div>
+        </ModalSection>
+
+        <ModalSection title="Ajustes financeiros" description="Use apenas para correções manuais e investimento em mídia." collapsible>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="text-xs text-ink-muted">GMV manual</span>
+              <MoneyInput value={form.manual_gmv} onChange={(v) => setField('manual_gmv', v)} />
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">Pedidos manuais</span>
@@ -512,12 +518,23 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               <MoneyInput value={form.ads_cost} onChange={(v) => setField('ads_cost', v)} />
             </label>
           </div>
-        </section>
+        </ModalSection>
 
-        {/* Métricas TikTok — mesma ordem de importância do CSV do TikTok Studio */}
-        <section className="space-y-3">
-          <h3 className="text-sm font-bold text-ink">Métricas TikTok</h3>
-          <div className="grid grid-cols-3 gap-3">
+        <ModalSection title="Publicação" description="Controle interno de disponibilidade da live." collapsible>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="text-xs text-ink-muted">Status de publicação</span>
+              <select className="design-input mt-1 h-11 w-full px-3" value={form.status_publicacao} onChange={(e) => setField('status_publicacao', e.target.value)}>
+                <option value="rascunho">Rascunho</option>
+                <option value="revisado">Revisado</option>
+                <option value="publicado">Publicado</option>
+              </select>
+            </label>
+          </div>
+        </ModalSection>
+
+        <ModalSection title="Métricas do TikTok" description="Métricas complementares importadas ou ajustadas manualmente." collapsible>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
               <span className="text-xs text-ink-muted">Impressões da live</span>
               <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.live_impressions} onChange={(e) => setField('live_impressions', e.target.value)} />
@@ -543,7 +560,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.avg_viewing_duration} onChange={(e) => setField('avg_viewing_duration', e.target.value)} />
             </label>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
               <span className="text-xs text-ink-muted">Likes</span>
               <input type="text" inputMode="numeric" className="design-input mt-1 h-11 w-full px-3" value={form.manual_likes} onChange={(e) => setField('manual_likes', e.target.value)} />
@@ -573,14 +590,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
             <span className="text-xs text-ink-muted">Resumo</span>
             <textarea className="design-input mt-1 w-full px-3 py-2" rows={2} value={form.resumo} onChange={(e) => setField('resumo', e.target.value)} />
           </label>
-        </section>
-
-        {error ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{error}</p> : null}
-
-        <div className="flex justify-end gap-2 border-t border-line pt-4">
-          <Button variant="ghost" type="button" onClick={onClose} disabled={saveMutation.isPending}>Cancelar</Button>
-          <Button type="submit" isLoading={saveMutation.isPending}>Salvar e recalcular comissão</Button>
-        </div>
+        </ModalSection>
       </form>
     </Modal>
   )

@@ -1,7 +1,8 @@
 import { CheckCircle2, PlayCircle, Plus, Trash2 } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { ModalSection } from '../ui/ModalSection'
 import { PresenterSelect } from './PresenterSelect'
 import { useToast } from '../ui/Toast'
 import { extractErrorMessage } from '../../services/api'
@@ -984,8 +985,8 @@ export function AgendarLiveModal({
     await aplicarTurnos(novoId, turnos, true)
   }
 
-  const title = mode === 'edit' ? 'Editar agendamento' : mode === 'now' ? 'Iniciar live agora' : 'Agendar'
-  const submitLabel = mode === 'edit' ? 'Salvar agendamento' : mode === 'now' ? 'Iniciar live' : 'Agendar'
+  const title = mode === 'edit' ? 'Editar agendamento' : mode === 'now' ? 'Iniciar live agora' : 'Agendar live'
+  const submitLabel = mode === 'edit' ? 'Salvar agendamento' : mode === 'now' ? 'Iniciar live' : 'Agendar live'
   const SubmitIcon = mode === 'now' ? PlayCircle : mode === 'edit' ? CheckCircle2 : Plus
   const accountRequired = form.tipo !== 'bloqueio_manutencao' && (mode !== 'now' || form.live_tipo !== 'teste')
   const accountInvalid = accountRequired && accountLookup.trim().length > 0 && !form.marca_id && !form.cliente_id
@@ -997,73 +998,110 @@ export function AgendarLiveModal({
   // o espelho escalar pela série e deixaria os turnos nesta ocorrência.
   const turnosPresosNestaOcorrencia = mode === 'edit' && (revezamentoAtivo || eventoTemTurnos)
   const salvando = Boolean(isSaving) || gravandoTurnos
+  const formId = useId()
 
   return (
-    <Modal open={open} title={title} subtitle="Reserva de cabine com recorrência opcional." size="lg" onClose={onClose}>
-      <form className="space-y-3" onSubmit={onSubmit}>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">Tipo</span>
-            <select className="design-input mt-2 h-11 w-full px-4" value={form.tipo} onChange={(item) => setField('tipo', item.target.value)} disabled={mode === 'now'}>
-              <option value="live">Live</option>
-              <option value="gravacao_video">Gravação</option>
-              <option value="bloqueio_manutencao">Bloqueio/manutenção</option>
-            </select>
-          </label>
-          {mode === 'now' ? (
+    <Modal
+      open={open}
+      title={title}
+      subtitle={mode === 'now' ? 'Confirme quem entra no ar e em qual cabine.' : 'Organize a operação; os demais detalhes ficam disponíveis abaixo.'}
+      size="lg"
+      onClose={onClose}
+      footer={(
+        <>
+          {error ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(error)}</p> : null}
+          {turnoFalha ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">{turnoFalha.mensagem}</p> : null}
+          {mode === 'edit' && event && onDelete ? (
+            <Button type="button" variant="danger" icon={Trash2} disabled={salvando} onClick={() => onDelete(asString(event.id, ''), form.modo_recorrencia)}>
+              Cancelar evento
+            </Button>
+          ) : null}
+          <Button type="button" variant="secondary" disabled={salvando} onClick={onClose}>Cancelar</Button>
+          <Button type="submit" form={formId} icon={SubmitIcon} isLoading={salvando}>{submitLabel}</Button>
+        </>
+      )}
+    >
+      <form id={formId} className="space-y-0" onSubmit={onSubmit}>
+        <ModalSection title="Dados da operação" description="Defina a marca, o horário, a cabine e quem apresenta.">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="text-sm font-semibold text-ink">Tipo de live</span>
-              <select className="design-input mt-2 h-11 w-full px-4" value={form.live_tipo} onChange={(item) => setField('live_tipo', item.target.value)}>
-                <option value="cliente">Cliente</option>
-                <option value="afiliado">Afiliado</option>
-                <option value="teste">Teste</option>
+              <span className="text-sm font-semibold text-ink">Tipo do evento</span>
+              <select className="design-input mt-2 h-11 w-full px-4" value={form.tipo} onChange={(item) => setField('tipo', item.target.value)} disabled={mode === 'now'}>
+                <option value="live">Live</option>
+                <option value="gravacao_video">Gravação</option>
+                <option value="bloqueio_manutencao">Bloqueio/manutenção</option>
               </select>
             </label>
-          ) : (
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">Status</span>
-              <select className="design-input mt-2 h-11 w-full px-4" value={form.status} onChange={(item) => setField('status', item.target.value)}>
-                <option value="planejado">Planejado</option>
-                <option value="confirmado">Confirmado</option>
-                <option value="ao_vivo">Ao vivo</option>
-                <option value="concluido">Concluído</option>
-                <option value="cancelado">Cancelado</option>
-              </select>
-            </label>
-          )}
-        </div>
-        <label className="block">
-          <span className="text-sm font-semibold text-ink">Cabine</span>
-          <input
-            className="design-input mt-2 h-11 w-full px-4"
-            list="agenda-cabine-options"
-            value={cabineLookup}
-            onChange={(item) => onCabineLookupChange(item.target.value)}
-            placeholder="Buscar cabine"
-            required={mode === 'now'}
-          />
-          <datalist id="agenda-cabine-options">
-            {cabineOptions.map((option) => <option key={option.value} value={option.label} />)}
-          </datalist>
-        </label>
-        {form.tipo !== 'bloqueio_manutencao' ? (
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">Marca/cliente</span>
-            <AccountCombobox
-              value={accountLookup}
-              options={accountOptions}
-              required={accountRequired}
-              invalid={accountInvalid}
-              onChange={onAccountLookupChange}
-              onSelect={onAccountOptionSelect}
-            />
-            {accountInvalid ? (
-              <span className="mt-1 block text-xs font-semibold text-[var(--danger)]">
-                Escolha uma opção da lista para vincular a live corretamente.
-              </span>
+            {mode === 'now' ? (
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Tipo de live</span>
+                <select className="design-input mt-2 h-11 w-full px-4" value={form.live_tipo} onChange={(item) => setField('live_tipo', item.target.value)}>
+                  <option value="cliente">Cliente</option>
+                  <option value="afiliado">Afiliado</option>
+                  <option value="teste">Teste</option>
+                </select>
+              </label>
             ) : null}
-          </label>
-        ) : null}
+            {form.tipo !== 'bloqueio_manutencao' ? (
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Marca ou cliente</span>
+                <AccountCombobox
+                  value={accountLookup}
+                  options={accountOptions}
+                  required={accountRequired}
+                  invalid={accountInvalid}
+                  onChange={onAccountLookupChange}
+                  onSelect={onAccountOptionSelect}
+                />
+                {accountInvalid ? (
+                  <span className="mt-1 block text-xs font-semibold text-[var(--danger)]">
+                    Escolha uma opção da lista para vincular a live corretamente.
+                  </span>
+                ) : null}
+              </label>
+            ) : null}
+            <label className="block">
+              <span className="text-sm font-semibold text-ink">Cabine</span>
+              <input
+                className="design-input mt-2 h-11 w-full px-4"
+                list="agenda-cabine-options"
+                value={cabineLookup}
+                onChange={(item) => onCabineLookupChange(item.target.value)}
+                placeholder="Buscar cabine"
+                required={mode === 'now'}
+              />
+              <datalist id="agenda-cabine-options">
+                {cabineOptions.map((option) => <option key={option.value} value={option.label} />)}
+              </datalist>
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold text-ink">Data</span>
+              <input className="design-input mt-2 h-11 w-full px-3" type="date" value={form.data} onChange={(item) => setField('data', item.target.value)} required />
+            </label>
+            <div className="grid grid-cols-2 gap-3 md:col-span-2">
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Início</span>
+                <input className="design-input mt-2 h-11 w-full px-3" type="time" value={form.hora_inicio} onChange={(item) => setField('hora_inicio', item.target.value)} required />
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Fim</span>
+                <input className="design-input mt-2 h-11 w-full px-3" type="time" value={form.hora_fim} onChange={(item) => setField('hora_fim', item.target.value)} required />
+              </label>
+            </div>
+          </div>
+          {availability.status !== 'idle' ? (
+            <p
+              role={availability.status === 'conflict' || availability.status === 'error' ? 'alert' : 'status'}
+              className={[
+                'rounded-xl px-4 py-3 text-sm font-medium',
+                availability.status === 'available' ? 'bg-[var(--success-soft)] text-[var(--success)]' : '',
+                availability.status === 'checking' || availability.status === 'partial' ? 'bg-surface-muted text-ink-muted' : '',
+                availability.status === 'conflict' || availability.status === 'error' ? 'bg-[var(--danger-soft)] text-[var(--danger)]' : '',
+              ].filter(Boolean).join(' ')}
+            >
+              {availability.message}
+            </p>
+          ) : null}
         {revezamentoAtivo ? (
           <div className="rounded-2xl border border-line bg-surface-muted p-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1173,43 +1211,37 @@ export function AgendarLiveModal({
             {AVISO_LIVE_ABERTA}
           </p>
         ) : null}
-        <div className="grid grid-cols-3 gap-3">
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">Data</span>
-            <input className="design-input mt-2 h-11 w-full px-3" type="date" value={form.data} onChange={(item) => setField('data', item.target.value)} required />
-          </label>
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">Início</span>
-            <input className="design-input mt-2 h-11 w-full px-3" type="time" value={form.hora_inicio} onChange={(item) => setField('hora_inicio', item.target.value)} required />
-          </label>
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">Fim</span>
-            <input className="design-input mt-2 h-11 w-full px-3" type="time" value={form.hora_fim} onChange={(item) => setField('hora_fim', item.target.value)} required />
-          </label>
-        </div>
-        {availability.status !== 'idle' ? (
-          <p
-            // Conflito/erro é alerta; "verificando"/"disponível" é status contínuo.
-            role={availability.status === 'conflict' || availability.status === 'error' ? 'alert' : 'status'}
-            className={[
-            'rounded-2xl px-4 py-3 text-sm font-medium',
-            availability.status === 'available' ? 'bg-[var(--success-soft)] text-[var(--success)]' : '',
-            availability.status === 'checking' || availability.status === 'partial' ? 'bg-surface-muted text-ink-muted' : '',
-            availability.status === 'conflict' || availability.status === 'error' ? 'bg-[var(--danger-soft)] text-[var(--danger)]' : '',
-          ].filter(Boolean).join(' ')}
-          >
-            {availability.message}
-          </p>
-        ) : null}
+        </ModalSection>
+        <ModalSection title="Detalhes do evento" description="Status, responsável e observações." collapsible defaultOpen={mode === 'edit'}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {mode !== 'now' ? (
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Status</span>
+                <select className="design-input mt-2 h-11 w-full px-4" value={form.status} onChange={(item) => setField('status', item.target.value)}>
+                  <option value="planejado">Planejado</option>
+                  <option value="confirmado">Confirmado</option>
+                  <option value="ao_vivo">Ao vivo</option>
+                  <option value="concluido">Concluído</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </label>
+            ) : null}
+          </div>
         {mode !== 'now' ? (
           <label className="block">
             <span className="text-sm font-semibold text-ink">Responsável de marketing</span>
             <input className="design-input mt-2 h-11 w-full px-4" value={form.responsavel_marketing} onChange={(item) => setField('responsavel_marketing', item.target.value)} />
           </label>
         ) : null}
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Observações</span>
+            <textarea className="design-input mt-2 min-h-24 w-full px-4 py-3" value={form.observacoes} onChange={(item) => setField('observacoes', item.target.value)} />
+          </label>
+        </ModalSection>
         {mode !== 'now' ? (
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="block">
+          <ModalSection title="Recorrência" description="Use somente para repetir esta reserva." collapsible defaultOpen={recorrenciaAtiva}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="block md:col-span-2">
               <span className="text-sm font-semibold text-ink">Recorrência</span>
               <select className="design-input mt-2 h-11 w-full px-4" value={form.recorrencia_tipo} onChange={(item) => setRecurrenceType(item.target.value)} disabled={mode === 'edit' || revezamentoAtivo}>
                 <option value="nenhuma">Sem recorrência</option>
@@ -1229,8 +1261,7 @@ export function AgendarLiveModal({
               <input className="design-input mt-2 h-11 w-full px-4" type="text" inputMode="numeric" pattern="[0-9.,]*" value={form.recorrencia_total_ocorrencias} onChange={(item) => setField('recorrencia_total_ocorrencias', item.target.value)} disabled={form.recorrencia_tipo === 'nenhuma' || mode === 'edit'} />
             </label>
           </div>
-        ) : null}
-        {mode !== 'now' && ['semanal', 'quinzenal'].includes(form.recorrencia_tipo) ? (
+        {['semanal', 'quinzenal'].includes(form.recorrencia_tipo) ? (
           <div className="rounded-2xl border border-line bg-surface-muted p-3">
             <p className="text-sm font-semibold text-ink">Dias da recorrência</p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -1261,7 +1292,10 @@ export function AgendarLiveModal({
             </div>
           </div>
         ) : null}
+          </ModalSection>
+        ) : null}
         {mode === 'edit' ? (
+          <ModalSection title="Aplicar alteração" description="Escolha quais eventos da série devem receber esta mudança." collapsible defaultOpen={turnosPresosNestaOcorrencia}>
           <label className="block">
             <span className="text-sm font-semibold text-ink">Aplicar alteração</span>
             <select
@@ -1278,12 +1312,8 @@ export function AgendarLiveModal({
               <span className="mt-1 block text-xs font-medium text-ink-muted">{AVISO_TURNOS_SEM_SERIE}</span>
             ) : null}
           </label>
+          </ModalSection>
         ) : null}
-        <label className="block">
-          <span className="text-sm font-semibold text-ink">Observações</span>
-          <textarea className="design-input mt-2 min-h-24 w-full px-4 py-3" value={form.observacoes} onChange={(item) => setField('observacoes', item.target.value)} />
-        </label>
-        {error ? <p role="alert" className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(error)}</p> : null}
         {turnoFalha ? (
           <div className="space-y-2 rounded-2xl bg-[var(--danger-soft)] px-4 py-3">
             <p role="alert" className="text-sm font-medium text-[var(--danger)]">{turnoFalha.mensagem}</p>
@@ -1300,15 +1330,6 @@ export function AgendarLiveModal({
             ) : null}
           </div>
         ) : null}
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" icon={SubmitIcon} isLoading={salvando}>{submitLabel}</Button>
-          {mode === 'edit' && event && onDelete ? (
-            <Button type="button" variant="danger" icon={Trash2} disabled={salvando} onClick={() => onDelete(asString(event.id, ''), form.modo_recorrencia)}>
-              Cancelar evento
-            </Button>
-          ) : null}
-          <Button type="button" variant="secondary" disabled={salvando} onClick={onClose}>Fechar</Button>
-        </div>
       </form>
     </Modal>
   )
