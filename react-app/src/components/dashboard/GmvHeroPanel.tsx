@@ -797,14 +797,14 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
       style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
     >
       {/* header: title + legend */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span
           className="text-[11px] font-semibold uppercase tracking-[0.1em]"
           style={{ color: 'var(--text-muted)' }}
         >
           {tituloCard}
         </span>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
           {/* segmented toggle: Hoje | Mês (only when a chart can render) */}
           {(hasIntraday || hasDaily) && (
             <div

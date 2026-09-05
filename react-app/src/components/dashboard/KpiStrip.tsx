@@ -46,16 +46,16 @@ function KpiItem({ label, value, metric, delta: d, spark, sparkColor, prefix, su
       className="flex flex-col justify-between gap-3 rounded-xl p-4"
       style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-          <span className="truncate">{label}</span>
+      <div className="flex flex-wrap items-start gap-1 sm:gap-2">
+        <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+          <span className="leading-tight">{label}</span>
           <MetricInfo metric={metric} align={align} />
         </span>
         {d !== undefined && <DeltaPill d={d} />}
       </div>
 
-      <div className="flex items-end justify-between gap-2">
-        <div className="min-w-0">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="shrink-0">
           <div className="flex items-baseline gap-0.5">
             {prefix && (
               <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
@@ -76,7 +76,7 @@ function KpiItem({ label, value, metric, delta: d, spark, sparkColor, prefix, su
           </div>
         </div>
         {spark && spark.length > 2 && (
-          <div className="shrink-0 opacity-80">
+          <div className="hidden shrink-0 opacity-80 sm:block">
             <Sparkline data={spark} width={60} height={22} stroke={sparkColor ?? 'var(--primary)'} />
           </div>
         )}
@@ -197,7 +197,7 @@ export function KpiStrip({ raw, loading = false }: KpiStripProps) {
   ]
 
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
       {items.map((item, index) => (
         // Últimas colunas ancoram o popover à direita para não vazar da faixa.
         <KpiItem

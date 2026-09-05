@@ -21,11 +21,11 @@ export function Button({
   return (
     <button
       className={clsx(
-        'inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold tracking-[0.01em] transition focus:outline-none focus:ring-4',
-        variant === 'primary' && 'bg-button-primary text-white shadow-button-primary hover:bg-button-primary-hover hover:-translate-y-0.5 focus:ring-button-primary/20',
+        'inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold tracking-[0.01em] transition-colors focus:outline-none focus:ring-4 disabled:pointer-events-none disabled:cursor-not-allowed',
+        variant === 'primary' && 'bg-button-primary text-button-primary-foreground shadow-button-primary hover:bg-button-primary-hover focus:ring-button-primary/25',
         variant === 'secondary' && 'border border-line bg-surface text-ink hover:border-[var(--border-strong)] hover:bg-surface-muted focus:ring-brand/20',
         variant === 'ghost' && 'border border-transparent text-ink-muted hover:bg-surface-muted hover:text-ink focus:ring-brand/20',
-        variant === 'danger' && 'bg-[var(--danger)] text-white shadow-sm hover:brightness-95 focus:ring-brand/20',
+        variant === 'danger' && 'bg-button-danger text-button-danger-foreground shadow-sm hover:bg-button-danger-hover focus:ring-button-danger/25',
         (disabled || isLoading) && 'opacity-60',
         className,
       )}

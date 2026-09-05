@@ -247,17 +247,13 @@ export function DashboardPage() {
       </div>
 
       {/* KPI strip */}
-      <div className="overflow-x-auto">
-        <div style={{ minWidth: 720 }}>
-          <KpiStrip raw={raw} loading={homeQuery.isPending && !homeQuery.data} />
-        </div>
-      </div>
+      <KpiStrip raw={raw} loading={homeQuery.isPending && !homeQuery.data} />
 
       {/* Alerts (only if any) */}
       <AlertsStrip raw={raw} />
 
       {/* Hero row */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 340px' }}>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <GmvHeroPanel raw={raw} />
         <PresenterLeaderboard
           rows={rankingApresentadoras}
@@ -273,9 +269,9 @@ export function DashboardPage() {
       </div>
 
       {/* Grade de hoje — largura total */}
-      <div className="grid gap-4">
+      <div className="grid min-w-0 grid-cols-1 gap-4">
         <div
-          className="flex flex-col gap-4 rounded-xl p-4"
+          className="flex min-w-0 flex-col gap-4 rounded-xl p-4"
           style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
         >
           <div className="flex items-center justify-between gap-3">
@@ -297,11 +293,13 @@ export function DashboardPage() {
           {gradeQuery.isLoading ? (
             <p className="py-6 text-center text-xs" style={{ color: 'var(--text-muted)' }}>Carregando grade…</p>
           ) : (
-            <GradeDiaView
-              celulas={celulasHoje}
-              cabines={cabinesOrdenadas}
-              onCellClick={() => navigate('/conteudo')}
-            />
+            <div className="min-w-0">
+              <GradeDiaView
+                celulas={celulasHoje}
+                cabines={cabinesOrdenadas}
+                onCellClick={() => navigate('/conteudo')}
+              />
+            </div>
           )}
         </div>
       </div>
