@@ -99,6 +99,11 @@ export const QK = {
     ['funil-analytics', mesAno, marcaId ?? '', apresentadoraId ?? ''] as const,
   dailyAnalytics: (mesAno: string, marcaId?: string, apresentadoraId?: string) =>
     ['daily-analytics', mesAno, marcaId ?? '', apresentadoraId ?? ''] as const,
+  // Série diária por intervalo: AnalyticsPage, Pulso e relatório por entidade
+  // apontam para esta mesma chave. Assim o React Query compartilha uma única
+  // leitura de /analytics/diario para um mesmo recorte.
+  analyticsDailyRange: (from: string, to: string, marcaId?: string, apresentadoraId?: string) =>
+    ['daily-pulse', from, to, marcaId ?? '', apresentadoraId ?? ''] as const,
   analyticsImportPreview: ['analytics-import-preview'] as const,
   clienteOperacionalPainel: (period: { mes: number; ano: number }) =>
     ['cliente-operacional-painel', period.ano, period.mes] as const,
@@ -120,8 +125,8 @@ export const QK = {
  *
  * Fora daqui de propósito:
  *  - ['videos'] — só muda em escrita de vídeo; ConteudoPage invalida à parte.
- *  - ['funil-analytics'] / ['relatorio-diario'] — vêm do import de analytics
- *    (ads), não do CRUD de live; quem importa já invalida.
+ *  - ['funil-analytics'] / ['daily-pulse'] — podem vir de importação de
+ *    analytics (ads); quem importa já invalida.
  *  - ['apresentadora-detalhe-*'] — escopadas por id em outra rota; staleTime +
  *    refetchOnWindowFocus cobrem.
  */

@@ -41,6 +41,27 @@ export function parseConteudoLivesDeepLink(params: URLSearchParams): ConteudoLiv
   }
 }
 
+/**
+ * Filtro mínimo para localizar a reserva pedida por um deep link da Grade.
+ * O endpoint aceita `data` em horário local; para um intervalo, precisa de um
+ * fim inclusivo com offset de São Paulo, pois `data_fim=YYYY-MM-DD` equivale à
+ * meia-noite e deixaria de fora reservas iniciadas no último dia.
+ */
+export function agendaContextQueryParams({ dateFrom, dateTo, cabineId }: Pick<ConteudoLivesDeepLink, 'dateFrom' | 'dateTo' | 'cabineId'>): Record<string, string> {
+  const params: Record<string, string> = cabineId ? { cabine_id: cabineId } : {}
+  if (dateFrom && dateFrom === dateTo) return { ...params, data: dateFrom }
+  if (dateFrom && dateTo) {
+    return {
+      ...params,
+      data_inicio: `${dateFrom}T00:00:00.000-03:00`,
+      data_fim: `${dateTo}T23:59:59.999-03:00`,
+    }
+  }
+  // Links externos antigos podem trazer somente `agenda`. É raro, mas precisa
+  // continuar resolvendo a reserva em vez de transformar a ação em falso erro.
+  return params
+}
+
 // ---- Agenda: cálculo de dias por visão (semana/mês) + range de fetch ----
 // O range de fetch DEVE cobrir exatamente os dias exibidos em cada visão, senão
 // a agenda fica dessincronizada (mostra dia sem dados que existem fora do range).

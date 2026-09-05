@@ -10,22 +10,9 @@ import { asNumber, asString, formatDate, formatMoney } from '../../utils/format'
 import { extractErrorMessage } from '../../services/api'
 import type { JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
+import type { VideoForm } from './video-form'
 
-const today = () => new Date().toISOString().slice(0, 10)
-
-export const emptyVideo = {
-  marca_id: '',
-  apresentadora_id: '',
-  data: today(),
-  quantidade: '1',
-  plataforma: 'tiktok',
-  campanha: '',
-  gmv_atribuido: '0',
-  pedidos_atribuidos: '0',
-  observacoes: '',
-}
-
-export type VideoForm = typeof emptyVideo
+export { emptyVideo, type VideoForm } from './video-form'
 
 export interface VideosTabProps {
   /** false = papel read-only: lista visível, ações de escrita escondidas. */

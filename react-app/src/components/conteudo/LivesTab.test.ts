@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_LIVE_COLUMNS, LIVE_COLUMN_OPTIONS, buildLivesGridTemplate, dateRangeToWindow, gmvPorHora, isValidCustomDateRange, type LiveColumnKey } from './LivesTab'
+import { DEFAULT_LIVE_COLUMNS, LIVE_COLUMN_OPTIONS, buildLivesGridTemplate, gmvPorHora, type LiveColumnKey } from './LivesTab'
+import { dateRangeToWindow, isValidCustomDateRange } from './live-date-range'
 
 describe('LivesTab custom date range', () => {
   it('accepts an unlimited historical range and sends its exact boundaries', () => {

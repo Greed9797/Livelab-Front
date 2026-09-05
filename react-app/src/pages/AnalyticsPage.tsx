@@ -69,14 +69,14 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   // Mesma chave do Pulso → React Query dedup (1 fetch só). Os gráficos de série
   // seguem o range do filtro, não um mês fixo.
   const query = useQuery({
-    queryKey: ['daily-pulse', from, to, marcaId, apresentadoraId],
+    queryKey: QK.analyticsDailyRange(from, to, marcaId, apresentadoraId),
     queryFn: () => getDailyAnalytics({ from, to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
     staleTime: 60_000,
   })
   // Consulta separada, com a mesma duração-calendário e os mesmos filtros. Uma falha
   // aqui não interfere no recorte atual nem transforma ausência de marca em zero.
   const previousQuery = useQuery({
-    queryKey: ['daily-pulse', 'previous', previousPeriod?.from, previousPeriod?.to, marcaId, apresentadoraId],
+    queryKey: QK.analyticsDailyRange(previousPeriod?.from ?? '', previousPeriod?.to ?? '', marcaId, apresentadoraId),
     queryFn: () => getDailyAnalytics({ from: previousPeriod!.from, to: previousPeriod!.to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
     enabled: Boolean(previousPeriod) && !apresentadoraId,
     staleTime: 60_000,
@@ -149,13 +149,22 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   }, [rankingApresentadorasQ.data, apresentadorasOpts.data, apresentadoraId])
 
   function refreshAll() {
+    // A série atual é compartilhada por página, Pulso e relatório: refetch só
+    // aqui atualiza os três sem invalidar a mesma chave em seguida.
     void query.refetch()
-    void comissoesApresentadorasQ.refetch()
-    void comissoesMarcasQ.refetch()
-    void rankingMarcasQ.refetch()
-    void queryClient.invalidateQueries({ queryKey: ['daily-pulse'] })
-    void queryClient.invalidateQueries({ queryKey: ['audiencia-marcas'] })
-    void queryClient.invalidateQueries({ queryKey: ['funil-analytics'] })
+    if (previousPeriod && !apresentadoraId) void previousQuery.refetch()
+    if (marcaId) void comissoesMarcasQ.refetch()
+    if (apresentadoraId) void comissoesApresentadorasQ.refetch()
+    // O relatório lê o percentual individual com staleTime 0 para não reutilizar
+    // o cadastro do dropdown. Atualizar precisa refazê-lo explicitamente: só
+    // invalidar a série diária não atualiza essa configuração da marca.
+    if (marcaId) void queryClient.refetchQueries({ queryKey: ['relatorio-marca-pct', marcaId], exact: true, type: 'active' })
+    if (canSeeComissoes) {
+      void rankingMarcasQ.refetch()
+      void rankingApresentadorasQ.refetch()
+    }
+    if (!apresentadoraId) void queryClient.invalidateQueries({ queryKey: ['audiencia-marcas', from, to, marcaId] })
+    void queryClient.invalidateQueries({ queryKey: ['funil-analytics', from, to, marcaId, apresentadoraId] })
   }
 
   async function handleExport() {

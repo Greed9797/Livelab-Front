@@ -12,12 +12,12 @@ import { RegistrarMetricasLiveModal, type RegistrarMetricasLiveMode } from '../c
 import { EditarLiveModal } from '../components/forms/EditarLiveModal'
 import { AgendaTab } from '../components/conteudo/AgendaTab'
 import { GradeTab } from '../components/conteudo/GradeTab'
-import { agendaFetchRange, parseConteudoLivesDeepLink } from './conteudo-helpers'
+import { agendaContextQueryParams, agendaFetchRange, parseConteudoLivesDeepLink } from './conteudo-helpers'
 import { invalidateOperational as invalidateOperationalQueries, QK } from '../services/query-keys'
-// Tipos/helpers leves importados estaticamente; os componentes pesados das abas
-// são carregados sob demanda via React.lazy (ver abaixo) para reduzir o chunk inicial.
-import { dateRangeToWindow, isValidCustomDateRange, type DateRange } from '../components/conteudo/LivesTab'
-import { emptyVideo, type VideoForm } from '../components/conteudo/VideosTab'
+// Helpers pequenos ficam fora das abas lazy. Assim, abrir a Grade não baixa a tabela
+// de Lives nem o modal de Vídeos apenas para obter tipos/defaults compartilhados.
+import { dateRangeToWindow, isValidCustomDateRange, type DateRange } from '../components/conteudo/live-date-range'
+import { emptyVideo, type VideoForm } from '../components/conteudo/video-form'
 
 // Abas pesadas carregadas sob demanda — só baixam o chunk quando a aba é aberta.
 const LivesTab = lazy(() => import('../components/conteudo/LivesTab').then((m) => ({ default: m.LivesTab })))
@@ -258,10 +258,25 @@ export function ConteudoPage() {
     setParams(next, { replace: true })
   }
 
+  const legacyAgendaEnabled = USE_LEGACY_AGENDA && tab === 'agenda'
   const range = agendaFetchRange(agendaDate, agendaView)
-  const agenda = useQuery({ queryKey: ['agenda', agendaDate, agendaView], queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }), placeholderData: (prev) => prev })
+  // A Grade tem consultas próprias. AgendaTab e os fallbacks de lives só existem no
+  // rollback legado; deixá-los ativos atrasava a Grade e baixava até 200 lives inúteis.
+  const agenda = useQuery({
+    queryKey: ['agenda', agendaDate, agendaView],
+    queryFn: () => getAgenda({ data_inicio: range.start, data_fim: range.end }),
+    enabled: legacyAgendaEnabled,
+    placeholderData: (prev) => prev,
+  })
+  // O formulário de métricas pode abrir a partir da lista de Lives; mantemos as
+  // cabines pré-carregadas para ele nunca parecer sem opções em rede lenta.
   const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
-  const lives = useQuery({ queryKey: ['lives', 'encerrada'], queryFn: () => getLives({ status: 'encerrada', limit: 200 }), placeholderData: (prev) => prev })
+  const legacyLives = useQuery({
+    queryKey: ['lives', 'encerrada'],
+    queryFn: () => getLives({ status: 'encerrada', limit: 200 }),
+    enabled: legacyAgendaEnabled,
+    placeholderData: (prev) => prev,
+  })
   // Lista da aba "Lives realizadas" — paginada e filtrada server-side (separada da
   // query `lives` acima, que segue completa para alimentar a Agenda e o lookup por ?live=).
   const livesWindow = dateRangeToWindow(livesDateRange, livesCustomFrom, livesCustomTo)
@@ -302,6 +317,14 @@ export function ConteudoPage() {
   })
   const clientes = useQuery({ queryKey: ['clientes'], queryFn: () => getClientes() })
   const apresentadoras = useQuery({ queryKey: ['apresentadoras'], queryFn: getApresentadoras })
+
+  // O link da Grade pode pedir o resultado de uma reserva. Esta leitura é pontual e
+  // conserva o fluxo mesmo com a Agenda legada desligada, sem reativar o range inteiro.
+  const contextAgenda = useQuery({
+    queryKey: ['agenda', 'context', livesDeepLink.agendaId, livesDeepLink.dateFrom, livesDeepLink.dateTo, livesDeepLink.cabineId],
+    queryFn: () => getAgenda(agendaContextQueryParams(livesDeepLink)),
+    enabled: tab === 'lives' && Boolean(livesDeepLink.agendaId),
+  })
 
   function invalidateOperational() {
     invalidateOperationalQueries(client)
@@ -370,11 +393,11 @@ export function ConteudoPage() {
   const selectedLiveId = livesDeepLink.liveId
   const selectedLiveLocal = useMemo(() => {
     if (!selectedLiveId) return null
-    const rows = (lives.data ?? []) as unknown as JsonRecord[]
+    const rows = (legacyLives.data ?? []) as unknown as JsonRecord[]
     return rows.find((live) => asString(live.id, '') === selectedLiveId)
       ?? livesItems.find((live) => asString(live.id, '') === selectedLiveId)
       ?? null
-  }, [lives.data, livesItems, selectedLiveId])
+  }, [legacyLives.data, livesItems, selectedLiveId])
 
   // A live do ?live= pode não estar em NENHUMA das duas listas: `lives.data` é o top-200 de
   // encerradas (medido em produção, esse corte começa em 11/08 e anda sozinho conforme lives
@@ -416,19 +439,21 @@ export function ConteudoPage() {
     return livesItems.find((live) => asString(live.id, '') === id) ?? selectedLiveRecord
   }, [livesItems, selectedLiveRecord, selectedLiveRemota.data])
 
-  // Bloqueia o primeiro paint apenas no que a aba ATUAL precisa.
-  // Agenda (default) só precisa de agenda + cabines; marcas/clientes/apresentadoras/
-  // videos/lives seguem buscando em background sem segurar o spinner de página inteira.
-  // As demais abas (lives/videos/analytics) carregam o próprio chunk lazy + dados em background,
-  // exibindo o fallback do <Suspense> — não há query bloqueante de página inteira para elas.
-  const isLoading = tab === 'agenda' ? (agenda.isLoading || cabines.isLoading) : false
-  const error = tab === 'agenda' ? (agenda.error ?? cabines.error) : null
+  // As cabines definem a matriz visível da Grade; aguardá-las evita uma tela vazia
+  // que parece não haver cabines. Agenda e o top-200 seguem exclusivos do rollback.
+  const isLoading = tab === 'agenda' && (cabines.isLoading || (legacyAgendaEnabled && agenda.isLoading))
+  const error = tab === 'agenda' ? (cabines.error ?? (legacyAgendaEnabled ? agenda.error : null)) : null
   if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => { void agenda.refetch(); void cabines.refetch() }} />
+  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
+    void cabines.refetch()
+    if (legacyAgendaEnabled) void agenda.refetch()
+  }} />
 
   const cabineRows = cabines.data ?? []
   const activeCabines = cabineRows.filter((c) => (c as unknown as JsonRecord).ativo !== false && asString(c.status, '') !== 'inativa')
-  const agendaRows = mergeAgendaWithLiveFallbacks(agenda.data ?? [], lives.data ?? [], cabineRows as unknown as JsonRecord[], range)
+  const agendaRows = legacyAgendaEnabled
+    ? mergeAgendaWithLiveFallbacks(agenda.data ?? [], legacyLives.data ?? [], cabineRows as unknown as JsonRecord[], range)
+    : []
   const marcaRows = marcas.data ?? []
   const clienteRows = clientes.data ?? []
   const apresentadoraRows = apresentadoras.data ?? []
@@ -444,7 +469,7 @@ export function ConteudoPage() {
   const marcaFilterOptions = marcaRows.map((m) => ({ id: asString(m.id, ''), nome: asString(m.nome, 'Sem nome') })).filter((m) => m.id)
   const apresentadoraFilterOptions = apresentadoraRows.map((a) => ({ id: asString(a.id, ''), nome: asString(a.nome, 'Sem nome') })).filter((a) => a.id)
   const contextAgendaEvent = livesDeepLink.agendaId
-    ? (agenda.data ?? []).find((event) => asString(event.id, '') === livesDeepLink.agendaId) ?? null
+    ? (contextAgenda.data ?? []).find((event) => asString(event.id, '') === livesDeepLink.agendaId) ?? null
     : null
 
   function switchTab(next: ConteudoTab) {
@@ -457,7 +482,7 @@ export function ConteudoPage() {
 
   function openEditAgendaModal(event: JsonRecord) {
     if (isSyntheticLiveEvent(event)) {
-      const live = (lives.data ?? []).find((item) => asString(item.id, '') === asString(event.live_id, ''))
+      const live = (legacyLives.data ?? []).find((item) => asString(item.id, '') === asString(event.live_id, ''))
       if (live) { setSelectedLiveRecord(live); setLiveModalMode('detail'); setLivesParams({ live: asString(live.id, '') }, { resetPage: false }) }
       return
     }
@@ -657,7 +682,7 @@ export function ConteudoPage() {
           onRetry={() => { void livesList.refetch(); void duplicatas.refetch() }}
           contextSource={livesDeepLink.source}
           contextAgendaId={livesDeepLink.agendaId}
-          contextAgendaLoading={Boolean(livesDeepLink.agendaId) && agenda.isLoading}
+          contextAgendaLoading={Boolean(livesDeepLink.agendaId) && contextAgenda.isLoading}
           duplicateStatus={duplicatas.isLoading ? 'loading' : duplicatas.error ? 'error' : 'ready'}
           onRegisterAgendaResult={podeEscrever && livesDeepLink.agendaId ? () => {
             if (!contextAgendaEvent) {

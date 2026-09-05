@@ -25,13 +25,13 @@ function ChartFallback({ title, subtitle }: { title: string; subtitle?: string }
 }
 
 function makePanel(name: 'AreaPanel' | 'BarPanel' | 'LinePanel') {
+  // A stable lazy type preserves the chart instance across data/parent updates.
+  // The dynamic import still waits until this panel is first rendered.
+  const Inner = lazy(async () => {
+    const mod = await import('./Charts.impl')
+    return { default: mod[name] as ComponentType<PanelProps> }
+  })
   return function LazyPanel(props: PanelProps) {
-    // Re-import named export via wrapper component
-    const Inner = lazy(async () => {
-      const mod = await import('./Charts.impl')
-      const C = mod[name] as ComponentType<PanelProps>
-      return { default: C }
-    })
     return (
       <Suspense fallback={<ChartFallback title={props.title} subtitle={props.subtitle} />}>
         <Inner {...props} />
@@ -52,15 +52,15 @@ type ComboProps = {
   accumulatedValue?: string
 }
 
+const ComboChart = lazy(async () => {
+  const mod = await import('./Charts.impl')
+  return { default: mod.GmvHoraComboPanel as ComponentType<ComboProps> }
+})
+
 export function GmvHoraComboPanel(props: ComboProps) {
-  const Inner = lazy(async () => {
-    const mod = await import('./Charts.impl')
-    return { default: mod.GmvHoraComboPanel as ComponentType<ComboProps> }
-  })
   return (
     <Suspense fallback={<ChartFallback title={props.title} subtitle={props.subtitle} />}>
-      <Inner {...props} />
+      <ComboChart {...props} />
     </Suspense>
   )
 }
-

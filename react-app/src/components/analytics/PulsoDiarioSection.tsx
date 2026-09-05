@@ -6,6 +6,7 @@ import { Card, CardBody, CardHeader } from '../ui/Card'
 import { GmvHoraComboPanel } from '../charts/Charts'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
 import { getDailyAnalytics } from '../../services/domain'
+import { QK } from '../../services/query-keys'
 import { extractErrorMessage } from '../../services/api'
 import { formatMoney, unwrapList } from '../../utils/format'
 import { buildDailyPulse, formatHoras, PULSE_STATUS_CRITERIA, type PulseStatus } from '../../utils/dailyPulse'
@@ -56,7 +57,7 @@ export function PulsoDiarioSection({ from, to, marcaId, apresentadoraId }: Pulso
   const rangeValid = Boolean(from && to && from <= to)
 
   const dailyQuery = useQuery({
-    queryKey: ['daily-pulse', from, to, marcaId, apresentadoraId],
+    queryKey: QK.analyticsDailyRange(from, to, marcaId, apresentadoraId),
     queryFn: () => getDailyAnalytics({ from, to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
     enabled: rangeValid,
     staleTime: 60_000,

@@ -7,10 +7,11 @@ import { DataTable } from '../ui/DataTable'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
-import { getComissoesApresentadoras, getComissoesMarcas, getDailyAnalytics, getMarcas } from '../../services/domain'
+import { getComissoesApresentadoras, getComissoesMarcas, getDailyAnalytics, getMarca } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
 import { asArray, asNumber, asString, formatMoney, unwrapList } from '../../utils/format'
 import { metric, moneyMetric, sumDailyTotals } from '../../pages/page-helpers'
+import { QK } from '../../services/query-keys'
 import type { JsonRecord, Metric } from '../../types/models'
 
 interface RelatorioEntidadeSectionProps {
@@ -45,18 +46,18 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
   const mesToken = from === to ? from : `${from}_a_${to}`
 
   const query = useQuery({
-    queryKey: ['relatorio-diario', from, to, marcaId, apresentadoraId],
+    queryKey: QK.analyticsDailyRange(from, to, marcaId, apresentadoraId),
     queryFn: () => getDailyAnalytics({ from, to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
     enabled: Boolean(marcaId || apresentadoraId),
     staleTime: 5 * 60_000,
   })
 
-  // Lê o % de franquia FRESCO direto pela marcaId que o relatório usa — alinha o
-  // id (mesmo registro do analytics) e ignora cache do dropdown (evita divergência
-  // com o que foi salvo em Comercial).
+  // Lê o % de franquia FRESCO da marca do relatório. O endpoint individual tem
+  // o mesmo readAccess da lista e inclui marcas inativas, sem baixar o cadastro
+  // inteiro nem perder uma marca histórica selecionada.
   const marcaPctQuery = useQuery({
     queryKey: ['relatorio-marca-pct', marcaId],
-    queryFn: () => getMarcas({ status: 'ativa' }),
+    queryFn: () => getMarca(marcaId),
     enabled: tipo === 'marca' && Boolean(marcaId),
     staleTime: 0,
   })
@@ -68,8 +69,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
 
   // % de franquia: prioriza o valor FRESCO da API pela marcaId; cai pro prop se
   // ainda não carregou. Comissão = GMV total × % (tempo real, qualquer mês).
-  const franquiaPctFromApi = unwrapList<JsonRecord>(marcaPctQuery.data)
-    .find((m) => asString(m.id) === marcaId)?.comissao_franquia_pct
+  const franquiaPctFromApi = marcaPctQuery.data?.comissao_franquia_pct
   const franquiaPctNum = asNumber(franquiaPctFromApi ?? franquiaPct)
   const semFranquiaPct = tipo === 'marca' && !marcaPctQuery.isLoading && franquiaPctNum <= 0
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   assignAgendaLanes,
+  agendaContextQueryParams,
   eventIntersectsSaoPauloDate,
   formatSaoPauloTime,
   getAgendaEventLayout,
@@ -53,6 +54,16 @@ describe('deep links da lista de lives', () => {
 
   it('ignora bucket desconhecido sem perder os outros filtros', () => {
     expect(parseConteudoLivesDeepLink(new URLSearchParams('pendencia=confirmada&cabine=cab-1')).pending).toBe('')
+  })
+
+  it('busca a reserva contextual no dia inteiro de São Paulo quando o recorte tem mais de um dia', () => {
+    expect(agendaContextQueryParams({
+      dateFrom: '2026-09-01', dateTo: '2026-09-05', cabineId: 'cab-1',
+    })).toEqual({
+      data_inicio: '2026-09-01T00:00:00.000-03:00',
+      data_fim: '2026-09-05T23:59:59.999-03:00',
+      cabine_id: 'cab-1',
+    })
   })
 })
 

@@ -170,6 +170,9 @@ async function setup(page: Page, theme: 'light' | 'dark' = 'light') {
     if (url.pathname === '/v1/comissoes/apresentadoras') return json([
       { id: apresentadoraId, nome: 'Ana', gmv_total: 1_600, total_lives: 4 },
     ])
+    if (url.pathname === `/v1/marcas/${auroraId}`) return json(
+      { id: auroraId, nome: 'Marca Aurora', status: 'ativa', comissao_franquia_pct: 10 },
+    )
     if (url.pathname === '/v1/marcas') return json([
       { id: auroraId, nome: 'Marca Aurora', status: 'ativa', comissao_franquia_pct: 10 },
       { id: brisaId, nome: 'Marca Brisa', status: 'ativa', comissao_franquia_pct: 10 },
@@ -243,5 +246,56 @@ test('mantém ausência separada de zero e mostra cobertura parcial no tema escu
   await page.locator('#analytics-audience-coverage').screenshot({ path: info.outputPath('audiencia-dark.png') })
   await page.screenshot({ path: info.outputPath(`analytics-parcial-dark-${info.project.name}.png`), fullPage: true })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  expect(writes).toEqual([])
+})
+
+test('compartilha a série diária e atualiza sem repetir o mesmo recorte ou remontar gráficos', async ({ page }) => {
+  const writes = await setup(page)
+  const dailyRequests: URL[] = []
+  const brandCommissionRequests: URL[] = []
+  const brandDetailRequests: URL[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (url.pathname === '/v1/analytics/diario') dailyRequests.push(url)
+    if (url.pathname === '/v1/comissoes/marcas') brandCommissionRequests.push(url)
+    if (url.pathname === `/v1/marcas/${auroraId}`) brandDetailRequests.push(url)
+  })
+
+  await selectFixedPeriod(page)
+  dailyRequests.length = 0
+  brandCommissionRequests.length = 0
+
+  const chartSurfaces = await page.locator('.recharts-surface').elementHandles()
+  expect(chartSurfaces.length).toBeGreaterThan(0)
+  await page.getByRole('button', { name: 'Atualizar', exact: true }).click()
+
+  await expect.poll(() => dailyRequests.filter((url) =>
+    url.searchParams.get('from') === currentPeriod.from && url.searchParams.get('to') === currentPeriod.to,
+  ).length).toBe(1)
+  await expect.poll(() => brandCommissionRequests.filter((url) =>
+    url.searchParams.get('data_inicio') === currentPeriod.from && url.searchParams.get('data_fim') === currentPeriod.to,
+  ).length).toBe(1)
+  await expect.poll(() => Promise.all(chartSurfaces.map((surface) => surface.evaluate((node) => node.isConnected))))
+    .toEqual(chartSurfaces.map(() => true))
+
+  dailyRequests.length = 0
+  await page.getByLabel('Filtrar por cliente ou marca').selectOption(auroraId)
+  await expect(page.getByText('Relatório da marca', { exact: false })).toBeVisible()
+  await expect.poll(() => dailyRequests.filter((url) =>
+    url.searchParams.get('from') === currentPeriod.from
+      && url.searchParams.get('to') === currentPeriod.to
+      && url.searchParams.get('marca_id') === auroraId,
+  ).length).toBe(1)
+  await expect.poll(() => brandDetailRequests.length).toBe(1)
+
+  dailyRequests.length = 0
+  brandDetailRequests.length = 0
+  await page.getByRole('button', { name: 'Atualizar', exact: true }).click()
+  await expect.poll(() => dailyRequests.filter((url) =>
+    url.searchParams.get('from') === currentPeriod.from
+      && url.searchParams.get('to') === currentPeriod.to
+      && url.searchParams.get('marca_id') === auroraId,
+  ).length).toBe(1)
+  await expect.poll(() => brandDetailRequests.length).toBe(1)
   expect(writes).toEqual([])
 })
