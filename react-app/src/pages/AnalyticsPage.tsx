@@ -6,6 +6,8 @@ import { ErrorState, LoadingState } from '../components/ui/States'
 import { FunilAnalyticsSection } from '../components/analytics/FunilAnalyticsSection'
 import { RelatorioEntidadeSection } from '../components/analytics/RelatorioEntidadeSection'
 import { PulsoDiarioSection } from '../components/analytics/PulsoDiarioSection'
+import { BrandComparisonSection } from '../components/analytics/BrandComparisonSection'
+import { BrandAudienceComparisonSection } from '../components/analytics/BrandAudienceComparisonSection'
 import { AssiduidadeStrip } from '../components/dashboard/AssiduidadeStrip'
 import { AnalyticsFilterBar, presetRange, ymd, type Preset } from '../components/analytics/AnalyticsFilterBar'
 import {
@@ -17,10 +19,9 @@ import {
   getMarcas,
 } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asArray, asNumber, asString, formatMoney, unwrapList } from '../utils/format'
-import { rankingGmv, rankingId, rankingName } from '../utils/ranking'
-import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { FileDown, Trophy } from 'lucide-react'
+import { asArray, asNumber, asString, unwrapList } from '../utils/format'
+import { rankingId, rankingName } from '../utils/ranking'
+import { FileDown } from 'lucide-react'
 import { sumDailyTotals } from './page-helpers'
 import { buildDailyPulse } from '../utils/dailyPulse'
 import { QK } from '../services/query-keys'
@@ -143,6 +144,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     void comissoesMarcasQ.refetch()
     void rankingMarcasQ.refetch()
     void queryClient.invalidateQueries({ queryKey: ['daily-pulse'] })
+    void queryClient.invalidateQueries({ queryKey: ['audiencia-marcas'] })
+    void queryClient.invalidateQueries({ queryKey: ['funil-analytics'] })
   }
 
   async function handleExport() {
@@ -197,37 +200,28 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
   const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
   const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
-  const rankingMarcasRows = asArray<JsonRecord>(rankingMarcasQ.data)
-
-  // Ranking de marcas por GMV (desc) — só GMV aqui; comissão vive no Financeiro
-  // (fonte única). Helpers tolerantes a aliases de campo (nome|marca_nome, gmv_total|gmv).
-  const rankingMarcas = useMemo(
-    () =>
-      rankingMarcasRows
-        .map((row) => ({
-          id: rankingId(row, 'marca'),
-          nome: rankingName(row, 'marca'),
-          gmv: rankingGmv(row),
-        }))
-        .sort((a, b) => b.gmv - a.gmv),
-    [rankingMarcasRows],
-  )
-
   return (
     <div className="space-y-6">
       {embedded ? (
-        <p className="text-base font-bold text-ink">Pulso Diário</p>
+        <p className="text-base font-bold text-ink">Resultados da operação</p>
       ) : (
         <PageHeader
           eyebrow="Analytics · Operação"
-          accent="Pulso"
-          title="diário"
-          subtitle="Status, produtividade das lives e relatórios por marca e apresentadora."
+          accent="Resultados"
+          title="da operação"
+          subtitle="Compare marcas, acompanhe a eficiência das lives e entenda a audiência."
         />
       )}
 
       {/* Filtro único — rege Pulso + gráficos de série + relatório por entidade */}
       {filterBar}
+
+      {!query.isLoading && !query.isError ? (
+        <>
+          <BrandComparisonSection rows={diarioRows} marcaId={marcaId} apresentadoraId={apresentadoraId} onSelectMarca={setMarcaId} onClearMarca={() => setMarcaId('')} onClearApresentadora={() => setApresentadoraId('')} />
+          {!apresentadoraId ? <BrandAudienceComparisonSection from={from} to={to} marcaId={marcaId} /> : null}
+        </>
+      ) : null}
 
       {/* Relatório por entidade — logo abaixo do filtro: é o que se vem buscar para
           exportar. Sem filtro, um hint ensina o caminho em vez da seção surgir do nada. */}
@@ -254,6 +248,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         </div>
       )}
 
+      <FunilAnalyticsSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
+
       <PulsoDiarioSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
 
       {/* Assiduidade obedece o filtro de período da página (decisão do dono). marcaId NÃO entra:
@@ -279,43 +275,6 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
               data={pedidosPoints}
             />
           </section>
-
-          {/* Ranking de marcas por GMV — escaneável, barras horizontais. */}
-          {rankingMarcas.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-[var(--primary)]" />
-                  <p className="text-base font-bold text-ink">Ranking de marcas</p>
-                </div>
-                <p className="mt-1 text-xs text-ink-muted">Por GMV no período selecionado</p>
-              </CardHeader>
-              <CardBody className="space-y-2">
-                {rankingMarcas.map((m, i) => {
-                  const top = rankingMarcas[0]?.gmv || 1
-                  const pct = Math.max(2, Math.round((m.gmv / top) * 100))
-                  return (
-                    <div key={m.id || m.nome} className="flex items-center gap-3 rounded-xl border border-line px-3 py-2">
-                      <span className="num grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--primary-soft)] text-xs font-black text-[var(--primary)]">
-                        {i + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline justify-between gap-3">
-                          <p className="truncate text-sm font-bold text-ink">{m.nome}</p>
-                          <p className="num shrink-0 text-sm font-black text-ink">{formatMoney(m.gmv)}</p>
-                        </div>
-                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-muted">
-                          <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </CardBody>
-            </Card>
-          ) : null}
-
-          <FunilAnalyticsSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
 
           {/* A importação de planilha mudou para Conteúdo › Lives realizadas, ao lado da
               exportação: é lá que as lives que ela preenche são geridas. */}

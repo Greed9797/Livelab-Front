@@ -1,5 +1,5 @@
 import { CalendarClock, MonitorPlay, Video } from 'lucide-react'
-import { FormEvent, Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { FormEvent, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -52,6 +52,26 @@ import { useCurrentUser } from '../stores/auth-store'
 import { parseBRMoneyToDecimal } from '../utils/money'
 import type { JsonRecord } from '../types/models'
 import type { AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
+
+export function shouldOpenLiveDetail({
+  selectedLiveId,
+  hasSelectedLive,
+  liveModalMode,
+  metricsModalMode,
+  dismissedLiveId,
+}: {
+  selectedLiveId: string
+  hasSelectedLive: boolean
+  liveModalMode: string | null
+  metricsModalMode: string | null
+  dismissedLiveId: string | null
+}) {
+  return Boolean(selectedLiveId && hasSelectedLive && !liveModalMode && !metricsModalMode && dismissedLiveId !== selectedLiveId)
+}
+
+export function isLatestLiveEditRequest(request: number, latestRequest: number): boolean {
+  return request === latestRequest
+}
 
 type ConteudoTab = 'agenda' | 'lives' | 'videos'
 
@@ -155,12 +175,14 @@ export function ConteudoPage() {
   const [fetchingAgendaLive, setFetchingAgendaLive] = useState(false)
   const [metricsModalMode, setMetricsModalMode] = useState<RegistrarMetricasLiveMode | null>(null)
   const [editLiveData, setEditLiveData] = useState<JsonRecord | null>(null)
+  const editLiveRequestRef = useRef(0)
   const [metricsAgendaEvent, setMetricsAgendaEvent] = useState<JsonRecord | null>(null)
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const [videoForm, setVideoForm] = useState<VideoForm>(emptyVideo)
   const [selectedVideo, setSelectedVideo] = useState<JsonRecord | null>(null)
   const [liveModalMode, setLiveModalMode] = useState<'detail' | null>(null)
   const [selectedLiveRecord, setSelectedLiveRecord] = useState<JsonRecord | null>(null)
+  const dismissedLiveIdRef = useRef<string | null>(null)
   const [reportCopied, setReportCopied] = useState(false)
   // Live aberta no modal de rateio, já hidratada por getLivePorId (a linha da tabela não traz
   // o array `apresentadoras`, e abrir sem ele apagaria a divisão anterior ao salvar).
@@ -177,6 +199,28 @@ export function ConteudoPage() {
     void getLivePorId(id)
       .then((fullLive) => setRateioLive(fullLive as unknown as JsonRecord))
       .catch((err) => toast.push(extractErrorMessage(err), 'error'))
+  }
+
+  function openLiveForEditing(live: JsonRecord, options?: { onError?: () => void; onSettled?: () => void }) {
+    const request = ++editLiveRequestRef.current
+    // Uma abertura pela lista também invalida qualquer carregamento visual da Agenda que
+    // tenha ficado para trás. Sem isso, a resposta antiga é descartada mas o spinner segue.
+    if (!options?.onSettled) setFetchingAgendaLive(false)
+    const id = asString(live.id, '')
+    const isCurrent = () => isLatestLiveEditRequest(request, editLiveRequestRef.current)
+    if (!id) {
+      if (isCurrent()) setEditLiveData(live)
+      options?.onSettled?.()
+      return
+    }
+    void getLivePorId(id)
+      .then((fullLive) => { if (isCurrent()) setEditLiveData(fullLive as unknown as JsonRecord) })
+      .catch(() => {
+        if (!isCurrent()) return
+        if (options?.onError) options.onError()
+        else setEditLiveData(live)
+      })
+      .finally(() => { if (isCurrent()) options?.onSettled?.() })
   }
 
   // Filtros/busca/página da aba "Lives realizadas" vivem na URL (searchParams) —
@@ -310,10 +354,15 @@ export function ConteudoPage() {
   const selectedLive = ((selectedLiveRemota.data ?? null) as JsonRecord | null) ?? selectedLiveLocal
 
   useEffect(() => {
-    if (!selectedLive || liveModalMode || metricsModalMode) return
+    if (!selectedLiveId) {
+      dismissedLiveIdRef.current = null
+      return
+    }
+    if (dismissedLiveIdRef.current && dismissedLiveIdRef.current !== selectedLiveId) dismissedLiveIdRef.current = null
+    if (!shouldOpenLiveDetail({ selectedLiveId, hasSelectedLive: Boolean(selectedLive), liveModalMode, metricsModalMode, dismissedLiveId: dismissedLiveIdRef.current })) return
     setSelectedLiveRecord(selectedLive)
     setLiveModalMode('detail')
-  }, [liveModalMode, metricsModalMode, selectedLive])
+  }, [liveModalMode, metricsModalMode, selectedLive, selectedLiveId])
 
   // O modal de detalhe lia direto de selectedLiveRecord, que é uma CÓPIA da linha tirada no
   // momento da abertura. Depois de salvar, invalidateOperational atualiza a tabela atrás do
@@ -375,9 +424,10 @@ export function ConteudoPage() {
     }
     if (asString(event.status) === 'ao_vivo' && event.live_id) {
       setFetchingAgendaLive(true)
-      getLivePorId(asString(event.live_id, '')).then((fullLive) => {
-        setEditLiveData(fullLive as unknown as JsonRecord)
-      }).catch(() => { setSelectedAgendaEvent(event); setAgendaModalMode('edit') }).finally(() => setFetchingAgendaLive(false))
+      openLiveForEditing({ ...event, id: asString(event.live_id, '') }, {
+        onError: () => { setSelectedAgendaEvent(event); setAgendaModalMode('edit') },
+        onSettled: () => setFetchingAgendaLive(false),
+      })
       return
     }
     setSelectedAgendaEvent(event)
@@ -536,11 +586,7 @@ export function ConteudoPage() {
           // Aconteceu 3x em produção (ex.: 1817 → 2419 e, 378s depois, de volta para 1817).
           // Mesmo padrão já usado no caminho da Agenda logo acima.
           onOpenEditLive={(live) => {
-            const id = asString(live.id, '')
-            if (!id) { setEditLiveData(live); return }
-            getLivePorId(id)
-              .then((fullLive) => setEditLiveData(fullLive as unknown as JsonRecord))
-              .catch(() => setEditLiveData(live)) // sem rede, editar com o que temos é melhor que travar
+            openLiveForEditing(live) // sem rede, editar com a linha disponível é melhor que travar
           }}
           onDeleteLive={(live) => {
             const label = asString(live.marca_nome ?? live.cliente_nome ?? live.id, 'live')
@@ -548,6 +594,7 @@ export function ConteudoPage() {
             deleteLiveMutation.mutate(asString(live.id, ''))
           }}
           onCloseLiveModal={() => {
+            dismissedLiveIdRef.current = selectedLiveId
             setLiveModalMode(null); setSelectedLiveRecord(null); setReportCopied(false)
             const nextParams = new URLSearchParams(params); nextParams.delete('live'); setParams(nextParams, { replace: true })
           }}

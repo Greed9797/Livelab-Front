@@ -513,6 +513,10 @@ export function getFunilAnalytics(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/analytics/funil', filters)
 }
 
+export function getBrandAudienceAnalytics(filters: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord>('/analytics/audiencia-marcas', filters)
+}
+
 export function getDailyAnalytics(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/analytics/diario', filters)
 }

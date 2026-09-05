@@ -3,8 +3,8 @@ import { Card, CardBody, CardHeader } from '../ui/Card'
 import { LoadingState, ErrorState } from '../ui/States'
 import { extractErrorMessage } from '../../services/api'
 import { getFunilAnalytics } from '../../services/domain'
-import { asArray, asNumber, asString, getRecord } from '../../utils/format'
-import type { JsonRecord } from '../../types/models'
+import { getRecord } from '../../utils/format'
+import { buildAudienceMetrics } from '../../utils/audienceMetrics'
 
 interface Props {
   from: string
@@ -13,10 +13,12 @@ interface Props {
   apresentadoraId?: string
 }
 
-function pct(value: unknown): string {
-  const n = Number(value)
-  if (!Number.isFinite(n)) return '—'
-  return `${(n * 100).toFixed(1)}%`
+function count(value: number | null): string {
+  return value == null ? '—' : value.toLocaleString('pt-BR')
+}
+
+function percent(value: number | null): string {
+  return value == null ? '—' : value.toLocaleString('pt-BR', { style: 'percent', maximumFractionDigits: 1 })
 }
 
 export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Props) {
@@ -30,19 +32,30 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
     }),
     staleTime: 5 * 60_000,
   })
-
-  const data = getRecord(query.data)
-  const etapas = asArray<JsonRecord>(data.etapas)
-  const resumo = getRecord(data.resumo)
-  const temDadosAds = Boolean(data.tem_dados_ads)
-  const maxValor = etapas.reduce((max, etapa) => Math.max(max, asNumber(etapa.valor)), 0)
+  const metrics = buildAudienceMetrics(getRecord(query.data))
+  const groups: { title: string; items: [string, number | null][] }[] = [
+    { title: 'Exposição da live', items: [
+      ['Impressões da live', metrics.impressions],
+      ['Visualizações / pico registrado', metrics.views],
+    ] },
+    { title: 'Interesse nos produtos', items: [
+      ['Impressões de produto', metrics.productImpressions],
+      ['Cliques no produto', metrics.clicks],
+    ] },
+    { title: 'Resultado e engajamento', items: [
+      ['Pedidos', metrics.orders],
+      ['Likes', metrics.likes],
+      ['Novos seguidores', metrics.newFollowers],
+    ] },
+  ]
 
   return (
     <Card>
       <CardHeader>
-        <p className="text-base font-bold tracking-[-0.01em] text-ink">Funil de conversão</p>
-        <p className="mt-0.5 text-xs text-ink-muted">
-          Impressões → visualizações → produto → cliques → pedidos. Lives encerradas ≥ 5 min no período.
+        <h2 className="text-base font-semibold text-ink">Audiência e interação</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          {marcaId ? 'Marca selecionada' : 'Todas as marcas'}{apresentadoraId ? ' · apresentadora selecionada' : ''}.
+          {' '}Lives encerradas com pelo menos 5 minutos, no período do filtro.
         </p>
       </CardHeader>
       <CardBody>
@@ -50,63 +63,57 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
           <LoadingState />
         ) : query.isError ? (
           <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
-        ) : etapas.length === 0 ? (
-          <p className="py-6 text-center text-sm text-ink-muted">Nenhuma live encerrada no período.</p>
+        ) : metrics.totalLives === 0 ? (
+          <p className="py-6 text-center text-sm text-ink-muted">Nenhuma live encerrada com pelo menos 5 minutos neste recorte.</p>
         ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              {etapas.map((etapa, idx) => {
-                const valor = asNumber(etapa.valor)
-                const width = maxValor > 0 ? Math.max(2, (valor / maxValor) * 100) : 0
-                return (
-                  <div key={asString(etapa.chave, String(idx))} className="flex items-center gap-3">
-                    <div className="w-40 shrink-0 text-sm font-medium text-ink">{asString(etapa.label)}</div>
-                    <div className="relative h-9 flex-1 overflow-hidden rounded-lg bg-surface-muted">
-                      <div
-                        className="flex h-full items-center rounded-lg bg-[var(--primary)] px-3 text-sm font-bold text-white transition-all"
-                        style={{ width: `${width}%` }}
-                      >
-                        <span className="tabular-nums">{valor.toLocaleString('pt-BR')}</span>
+          <div className="space-y-5">
+            <p className="text-sm text-ink-muted">
+              {metrics.totalLives == null ? 'Lives do período' : `${count(metrics.totalLives)} lives no recorte`}.
+              {' '}Impressões contam exibições e podem se repetir; não representam pessoas únicas.
+            </p>
+            <div className="grid gap-5 lg:grid-cols-3">
+              {groups.map((group) => (
+                <section key={group.title} className="min-w-0 border-t border-line pt-3">
+                  <h3 className="text-sm font-semibold text-ink">{group.title}</h3>
+                  <dl className="mt-3 space-y-3">
+                    {group.items.map(([label, value]) => (
+                      <div key={label} className="flex items-baseline justify-between gap-3">
+                        <dt className="text-sm text-ink-muted">{label}</dt>
+                        <dd className="shrink-0 text-lg font-semibold tabular-nums text-ink">{count(value)}</dd>
                       </div>
-                    </div>
-                    <div className="w-28 shrink-0 text-right text-xs tabular-nums text-ink-muted">
-                      {idx === 0 ? (
-                        <span className="font-semibold text-ink">topo</span>
-                      ) : (
-                        <>
-                          <span className="font-semibold text-ink">
-                            {etapa.taxa_etapa == null ? '—' : pct(etapa.taxa_etapa)}
-                          </span>
-                          <span className="block text-[10px]">
-                            {etapa.taxa_total == null ? '' : `${pct(etapa.taxa_total)} do topo`}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              {[
-                ['Likes', asNumber(resumo.likes).toLocaleString('pt-BR')],
-                ['% de likes', resumo.like_rate_medio == null ? '—' : `${asNumber(resumo.like_rate_medio).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`],
-                ['Novos seguidores', asNumber(resumo.novos_seguidores).toLocaleString('pt-BR')],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-line bg-surface-muted p-3">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-ink-muted">{label}</p>
-                  <p className="mt-1 text-xl font-black tabular-nums text-ink">{value}</p>
-                </div>
+                    ))}
+                  </dl>
+                </section>
               ))}
             </div>
-
-            {!temDadosAds ? (
-              <p className="rounded-xl border border-dashed border-line bg-surface-muted/50 p-3 text-xs text-ink-muted">
-                As etapas de impressões e cliques dependem do import do TikTok. Sem esses dados, o funil
-                mostra só visualizações → pedidos. Use a seção “Importar relatório do TikTok” acima.
+            <div className="rounded-xl bg-surface-muted p-4">
+              <dl className="grid gap-4 sm:grid-cols-3">
+                {[
+                  ['Cliques / impressões de produto', percent(metrics.clicksPerProductImpression)],
+                  ['Pedidos / cliques', percent(apresentadoraId ? null : metrics.ordersPerClick)],
+                  ['Taxa média de likes · TikTok', metrics.reportedLikeRate == null ? '—' : `${metrics.reportedLikeRate.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs text-ink-muted">{label}</dt>
+                    <dd className="mt-1 text-lg font-semibold tabular-nums text-ink">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+                As duas primeiras taxas relacionam os totais do período; não acompanham uma jornada individual.
+                {' '}A taxa de likes é a média informada pelo TikTok.
+                {apresentadoraId ? ' Pedidos por clique não é comparável neste filtro: os pedidos são atribuídos à apresentadora, mas os cliques abrangem a live.' : ''}
               </p>
-            ) : null}
+            </div>
+            <p className="text-xs leading-relaxed text-ink-muted">
+              {metrics.hasCoverage
+                ? 'Cada métrica soma os campos registrados no período. Zero registrado aparece como 0; ausência aparece como “—”. Importações antigas podem ter gravado zero para colunas ausentes no arquivo.'
+                : metrics.hasAds
+                ? 'Impressões e cliques dependem dos relatórios importados e podem cobrir só parte das lives.'
+                : 'Não há valores positivos de impressões ou cliques neste recorte. O resumo atual não distingue ausência de importação de um relatório zerado.'}
+              {' '}Registros antigos de visualizações podem usar o pico de espectadores como alternativa.
+              {' '}“—” indica dado indisponível ou taxa sem base para cálculo.
+            </p>
           </div>
         )}
       </CardBody>

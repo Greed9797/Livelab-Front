@@ -1,5 +1,5 @@
 import { Building2, CircleDollarSign, Download, Eye, Handshake, LayoutDashboard, Plus, Search, Store, Trash2, Users, Workflow } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useId, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -11,6 +11,7 @@ import { BotBadge } from '../components/ui/BotBadge'
 import { LoadingState, ErrorState } from '../components/ui/States'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
+import { ModalSection } from '../components/ui/ModalSection'
 import { ImagePicker } from '../components/ui/ImagePicker'
 import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
 import { BriefingSection } from '../components/comercial/BriefingSection'
@@ -59,6 +60,17 @@ export function statusLabel(status: string) {
   return STATUS_LABELS[status] ?? (status || '—')
 }
 
+export function perfilOperacionalLabel(tipo: string) {
+  const labels: Record<string, string> = {
+    cliente_ecommerce: 'Cliente',
+    cliente: 'Cliente',
+    afiliada: 'Afiliada',
+    parceira: 'Parceira',
+    propria: 'Marca própria',
+  }
+  return labels[tipo] ?? 'Marca'
+}
+
 // Busca insensível a acento/caixa (client-side).
 export function normalizarBusca(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -97,6 +109,7 @@ function officialOperationalGmv(item: JsonRecord) {
 }
 
 export function ComercialPage() {
+  const ativoFormId = useId()
   const [tab, setTab] = useState<ComercialTab>('ativos')
   const [showClienteForm, setShowClienteForm] = useState(false)
   const [showAfiliadoForm, setShowAfiliadoForm] = useState(false)
@@ -398,6 +411,10 @@ export function ComercialPage() {
 
   function openAtivo(item: JsonRecord) {
     const isCliente = asString(item.tipo_operacional) === 'cliente_ecommerce'
+    ativoUpdateMutation.reset()
+    updateMarcaPctMutation.reset()
+    ativoDeleteMutation.reset()
+    uploadAtivoImage.reset()
     setMarcaPctId(null) // evita salvar % na marca do item anterior antes do effect repopular
     setSelectedAtivo(item)
     setAtivoCorTouch(null)
@@ -724,13 +741,16 @@ export function ComercialPage() {
                   </Button>
                 ) : undefined}
                 columns={[
-                  { key: 'tipo_operacional', header: 'Tipo', render: (item) => <Badge tone="brand">{asString(item.tipo_operacional ?? item.tipo)}</Badge> },
+                  { key: 'tipo_operacional', header: 'Perfil', render: (item) => <Badge tone="brand">{perfilOperacionalLabel(asString(item.tipo_operacional ?? item.tipo))}</Badge> },
                   {
                     key: 'nome',
-                    header: 'Nome',
+                    header: 'Cliente / marca',
                     render: (item) => {
                       const image = getBrandImage(item)
-                      const initials = asString(item.nome, 'CL').slice(0, 2).toUpperCase()
+                      const nome = asString(item.nome, 'CL')
+                      const marcaPrincipal = asString(item.marca_principal)
+                      const mostraMarcaOperacional = Boolean(marcaPrincipal) && normalizarBusca(marcaPrincipal) !== normalizarBusca(nome)
+                      const initials = nome.slice(0, 2).toUpperCase()
                       return (
                         <div className="flex min-w-56 items-center gap-3">
                           <div
@@ -741,16 +761,16 @@ export function ComercialPage() {
                           </div>
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-ink">
-                              {asString(item.nome)}
+                              {nome}
                               <BotBadge origem={item.origem_dados} className="ml-2 align-middle" />
                             </p>
+                            {mostraMarcaOperacional ? <p className="mt-0.5 truncate text-xs text-ink-muted">Marca operacional: {marcaPrincipal}</p> : null}
                             {asNumber(item.duplicado_count) > 1 ? <Badge className="mt-1" tone="warning">{asNumber(item.duplicado_count)} cadastros</Badge> : null}
                           </div>
                         </div>
                       )
                     },
                   },
-                  { key: 'marca_principal', header: 'Marca principal', render: (item) => asString(item.marca_principal) },
                   { key: 'status', header: 'Status', render: (item) => <Badge tone={statusTone(asString(item.status, 'ativa'))}>{statusLabel(asString(item.status, 'ativa'))}</Badge> },
                   {
                     key: 'acesso',
@@ -922,27 +942,39 @@ export function ComercialPage() {
       <Modal
         open={Boolean(selectedAtivo)}
         title={selectedAtivoKind === 'cliente' ? 'Cliente' : 'Afiliado'}
-        subtitle="Dados operacionais, histórico e configuração comercial."
-        size="xl"
+        subtitle={selectedAtivoKind === 'cliente' ? 'Dados do cliente e da marca operacional vinculada.' : 'Dados operacionais, histórico e configuração comercial.'}
+        size="lg"
         onClose={() => setSelectedAtivo(null)}
+        footer={
+          <>
+            {ativoUpdateMutation.isError ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
+            {updateMarcaPctMutation.isError ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">Cadastro salvo; as condições comerciais da marca não foram salvas: {extractErrorMessage(updateMarcaPctMutation.error)}</p> : null}
+            <Button type="button" variant="secondary" onClick={() => setSelectedAtivo(null)}>Cancelar</Button>
+            <Button type="submit" form={ativoFormId} disabled={!ativoDetailQuery.data || ativoDetailQuery.isLoading} isLoading={ativoUpdateMutation.isPending || updateMarcaPctMutation.isPending}>Salvar alterações</Button>
+          </>
+        }
       >
         <div className="space-y-5">
           {ativoDetailQuery.isLoading ? <LoadingState label="Carregando histórico" /> : null}
           {ativoDetailQuery.isError ? <ErrorState message={extractErrorMessage(ativoDetailQuery.error)} onRetry={() => void ativoDetailQuery.refetch()} /> : null}
           {ativoDetailQuery.data ? (
             <>
-              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {[
-                  moneyMetric('GMV mês', getRecord(ativoDetailQuery.data.metrics).gmv_mes, 'período atual', 'brand'),
-                  moneyMetric('GMV acumulado', getRecord(ativoDetailQuery.data.metrics).gmv_acumulado, 'histórico total', 'success'),
-                  metric('Lives', getRecord(ativoDetailQuery.data.metrics).total_lives ?? 0, 'histórico', 'neutral'),
-                  metric('Vídeos', getRecord(ativoDetailQuery.data.metrics).total_videos ?? 0, 'histórico', 'info'),
-                ].map((item) => <MetricCard key={item.label} metric={item} icon={Store} />)}
-              </section>
+              <dl className="grid gap-3 rounded-xl border border-line bg-surface-muted p-4 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-semibold text-ink-muted">GMV mês</dt>
+                  <dd className="mt-1 text-lg font-bold text-ink">{formatMoney(getRecord(ativoDetailQuery.data.metrics).gmv_mes)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-ink-muted">GMV acumulado</dt>
+                  <dd className="mt-1 text-lg font-bold text-ink">{formatMoney(getRecord(ativoDetailQuery.data.metrics).gmv_acumulado)}</dd>
+                </div>
+              </dl>
 
-              <form className="grid gap-3 rounded-2xl border border-line bg-surface-muted p-4 md:grid-cols-2" onSubmit={onAtivoSubmit}>
+              <form id={ativoFormId} className="space-y-0" onSubmit={onAtivoSubmit}>
+                <ModalSection title={selectedAtivoKind === 'cliente' ? 'Dados do cliente' : 'Identidade da marca'} description={selectedAtivoKind === 'cliente' ? 'Contato, situação e imagem do cadastro comercial.' : 'Nome, situação e imagem usadas na operação.'}>
+                  <div className="grid gap-3 md:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-semibold text-ink">Nome</span>
+                  <span className="text-sm font-semibold text-ink">{selectedAtivoKind === 'cliente' ? 'Nome do cliente' : 'Nome da marca'}</span>
                   <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.nome} onChange={(event) => setAtivoForm((current) => ({ ...current, nome: event.target.value }))} />
                 </label>
                 <label className="block">
@@ -981,6 +1013,9 @@ export function ComercialPage() {
                 ) : null}
                 {selectedAtivoKind === 'cliente' ? (
                   <>
+                    {asString(selectedAtivo?.marca_principal) && normalizarBusca(asString(selectedAtivo?.marca_principal)) !== normalizarBusca(ativoForm.nome) ? (
+                      <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-ink-muted md:col-span-2">Marca operacional: <strong className="font-semibold text-ink">{asString(selectedAtivo?.marca_principal)}</strong>. Alterar o nome do cliente não altera este nome.</p>
+                    ) : null}
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">E-mail</span>
                       <input className="design-input mt-2 h-11 w-full px-4" value={ativoForm.email} onChange={(event) => setAtivoForm((current) => ({ ...current, email: event.target.value }))} />
@@ -991,7 +1026,11 @@ export function ComercialPage() {
                     </label>
                   </>
                 ) : null}
-                <>
+                  </div>
+                </ModalSection>
+
+                <ModalSection title="Condições comerciais" description="Valores aplicados à marca operacional nas lives e vídeos." collapsible>
+                  <div className="grid gap-3 md:grid-cols-2">
                     <div className="col-span-full"><p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Comissão da marca</p></div>
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">Comissão Franquia (%)</span>
@@ -1039,9 +1078,10 @@ export function ComercialPage() {
                         <span className="mt-1 text-[11px] text-ink-muted">Rateia o fixo por dias no mês de entrada/saída. Vazio = sem recorte.</span>
                       </label>
                     </div>
-                </>
-                <div className="flex flex-wrap items-end gap-2">
-                  <Button type="submit" isLoading={ativoUpdateMutation.isPending}>Salvar alterações</Button>
+                  </div>
+                </ModalSection>
+                <ModalSection title="Ações administrativas" description="Cancelar, arquivar ou excluir este cadastro." collapsible>
+                  <div className="flex flex-wrap items-end gap-2">
                   <Button type="button" variant="secondary" onClick={() => toggleAtivoStatus()} disabled={ativoUpdateMutation.isPending}>
                     {selectedAtivoKind === 'cliente'
                       ? (ativoForm.status === 'ativo' ? 'Cancelar cliente' : 'Reativar')
@@ -1062,17 +1102,15 @@ export function ComercialPage() {
                   <Button type="button" variant="ghost" icon={Trash2} onClick={deleteAtivo} disabled={ativoDeleteMutation.isPending}>
                     Excluir
                   </Button>
-                </div>
-                {uploadAtivoImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadAtivoImage.error)}</p> : null}
-                {ativoUpdateMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
-                {updateMarcaPctMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">Comissão da marca principal não foi salva: {extractErrorMessage(updateMarcaPctMutation.error)}</p> : null}
-                {ativoDeleteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(ativoDeleteMutation.error)}</p> : null}
+                  </div>
+                </ModalSection>
+                {uploadAtivoImage.isError ? <p role="alert" className="mt-3 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">{extractErrorMessage(uploadAtivoImage.error)}</p> : null}
+                {ativoDeleteMutation.isError ? <p role="alert" className="mt-3 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">{extractErrorMessage(ativoDeleteMutation.error)}</p> : null}
               </form>
 
-              {selectedAtivoKind === 'cliente' && selectedAtivoId ? (
-                <BriefingSection key={selectedAtivoId} clienteId={selectedAtivoId} />
-              ) : null}
+              {selectedAtivoKind === 'cliente' && selectedAtivoId ? <BriefingSection key={selectedAtivoId} clienteId={selectedAtivoId} /> : null}
 
+              <ModalSection title="Histórico operacional" description={`${asNumber(getRecord(ativoDetailQuery.data.metrics).total_lives).toLocaleString('pt-BR')} lives · ${asNumber(getRecord(ativoDetailQuery.data.metrics).total_videos).toLocaleString('pt-BR')} vídeos registrados para esta conta.`}>
               <section className="grid gap-4 xl:grid-cols-2">
                 <Card>
                   <CardHeader><p className="text-base font-bold text-ink">Histórico de lives</p></CardHeader>
@@ -1103,6 +1141,7 @@ export function ComercialPage() {
                   </CardBody>
                 </Card>
               </section>
+              </ModalSection>
             </>
           ) : null}
         </div>

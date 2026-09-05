@@ -5,10 +5,8 @@ import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { ModalSection } from '../ui/ModalSection'
 import { MoneyInput } from '../ui/MoneyInput'
-import { PresenterSelect } from './PresenterSelect'
 import { extractErrorMessage } from '../../services/api'
 import {
-  getApresentadoras,
   getCabines,
   getClientes,
   getMarcas,
@@ -25,8 +23,6 @@ type EditForm = {
   cabine_id: string
   cliente_id: string
   marca_id: string
-  apresentador_id: string
-  apresentador2_id: string
   gestor_id: string
   agenda_evento_id: string
   status: string
@@ -58,8 +54,6 @@ const emptyForm: EditForm = {
   cabine_id: '',
   cliente_id: '',
   marca_id: '',
-  apresentador_id: '',
-  apresentador2_id: '',
   gestor_id: '',
   agenda_evento_id: '',
   status: '',
@@ -87,15 +81,27 @@ const emptyForm: EditForm = {
   resumo: '',
 }
 
-export function presenterIdsFromLive(live: JsonRecord): { principalId: string; supportId: string } {
-  const rateio = asArray<JsonRecord>(live.apresentadoras)
-    .filter((item) => asString(item.apresentadora_id, ''))
-  const principal = rateio.find((item) => asString(item.papel) === 'principal') ?? rateio[0]
-  const support = rateio.find((item) => item !== principal)
-  return {
-    principalId: asString(principal?.apresentadora_id ?? live.apresentadora_id ?? live.apresentador_id, ''),
-    supportId: asString(support?.apresentadora_id ?? live.apresentadora2_id ?? live.apresentador2_id, ''),
+export type LiveAccountOption = { value: string; label: string }
+
+export function liveAccountOptions(marcas: JsonRecord[], clientes: JsonRecord[]): LiveAccountOption[] {
+  const clientesComMarca = new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean))
+  return [
+    ...marcas.map((marca) => ({ value: `marca:${asString(marca.id, '')}`, label: `Marca · ${asString(marca.nome ?? marca.cliente_nome, 'Marca')}` })),
+    ...clientes
+      .filter((cliente) => !clientesComMarca.has(asString(cliente.id, '')))
+      .map((cliente) => ({ value: `cliente:${asString(cliente.id, '')}`, label: `Cliente · ${asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente')}` })),
+  ].filter((option) => option.value !== 'marca:' && option.value !== 'cliente:')
+}
+
+export function liveAccountSelection(value: string, marcas: JsonRecord[]): { marca_id: string; cliente_id: string } | null {
+  if (value === '') return { marca_id: '', cliente_id: '' }
+  if (value.startsWith('marca:')) {
+    const marcaId = value.slice('marca:'.length)
+    const marca = marcas.find((item) => asString(item.id, '') === marcaId)
+    return marca ? { marca_id: marcaId, cliente_id: asString(marca.cliente_id, '') } : null
   }
+  if (value.startsWith('cliente:')) return { marca_id: '', cliente_id: value.slice('cliente:'.length) }
+  return null
 }
 
 /**
@@ -111,10 +117,19 @@ export function resumoRateioPlanejado(live: JsonRecord): string | null {
   if (!rows.every((row) => row.gmv == null)) return null
   return rows
     .map((row) => {
-      const nome = asString(row.nome, 'Apresentadora')
+      const nome = presenterDisplayName(row)
       return row.percentual == null ? nome : `${nome} ${formatPercent(row.percentual)}`
     })
     .join(' · ')
+}
+
+/** A resposta completa usa `nome`; listas e dados antigos podem trazer os aliases abaixo. */
+export function presenterDisplayName(row: JsonRecord): string {
+  return asString(row.nome ?? row.apresentadora_nome ?? row.apresentador_nome, 'Apresentadora')
+}
+
+export function hasUnsavedLiveChanges<T extends object>(form: T, prefill: T): boolean {
+  return (Object.keys(form) as Array<keyof T>).some((key) => form[key] !== prefill[key])
 }
 
 function toLookupOptions(rows: JsonRecord[], labelKey = 'nome'): LookupOption[] {
@@ -233,19 +248,18 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
   const prefillRef = useRef<EditForm>(emptyForm)
   const [error, setError] = useState<string | null>(null)
 
-  const [cabinesQuery, clientesQuery, marcasQuery, apresentadorasQuery] = useQueries({
+  const [cabinesQuery, clientesQuery, marcasQuery] = useQueries({
     queries: [
       { queryKey: QK.cabines, queryFn: getCabines, staleTime: 15_000, enabled: open },
       { queryKey: QK.clientes('live-edit'), queryFn: () => getClientes(), enabled: open },
       { queryKey: QK.marcas('live-edit'), queryFn: () => getMarcas({ status: 'ativa' }), enabled: open },
-      { queryKey: QK.apresentadoras('live-edit'), queryFn: getApresentadoras, enabled: open },
     ],
   })
 
   const cabineOptions = useMemo(() => toLookupOptions(asArray(cabinesQuery.data) as JsonRecord[], 'numero'), [cabinesQuery.data])
-  const clienteOptions = useMemo(() => toLookupOptions(asArray(clientesQuery.data) as JsonRecord[]), [clientesQuery.data])
-  const marcaOptions = useMemo(() => toLookupOptions(asArray(marcasQuery.data) as JsonRecord[]), [marcasQuery.data])
-  const apresentadoraRows = useMemo(() => asArray<JsonRecord>(apresentadorasQuery.data), [apresentadorasQuery.data])
+  const clienteRows = useMemo(() => asArray<JsonRecord>(clientesQuery.data), [clientesQuery.data])
+  const marcaRows = useMemo(() => asArray<JsonRecord>(marcasQuery.data), [marcasQuery.data])
+  const accountOptions = useMemo(() => liveAccountOptions(marcaRows, clienteRows), [clienteRows, marcaRows])
 
   useEffect(() => {
     if (!live) {
@@ -253,13 +267,10 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
       prefillRef.current = emptyForm
       return
     }
-    const presenterIds = presenterIdsFromLive(live)
     const prefill: EditForm = {
       cabine_id: asString(live.cabine_id, ''),
       cliente_id: asString(live.cliente_id, ''),
       marca_id: asString(live.marca_id, ''),
-      apresentador_id: presenterIds.principalId,
-      apresentador2_id: presenterIds.supportId,
       gestor_id: asString(live.gestor_id, ''),
       agenda_evento_id: asString(live.agenda_evento_id, ''),
       status: asString(live.status, 'em_andamento'),
@@ -304,6 +315,11 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     setForm((current) => ({ ...current, [key]: value }))
   }
 
+  function setAccount(value: string) {
+    const selection = liveAccountSelection(value, marcaRows)
+    if (selection) setForm((current) => ({ ...current, ...selection }))
+  }
+
   const saveMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateLive(id, payload),
     onSuccess: () => {
@@ -336,9 +352,6 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     if (form.cabine_id && form.cabine_id !== asString(live.cabine_id, '')) payload.cabine_id = form.cabine_id
     setIfChanged('cliente_id', form.cliente_id, live.cliente_id)
     setIfChanged('marca_id', form.marca_id, live.marca_id)
-    const presenterIds = presenterIdsFromLive(live)
-    setIfChanged('apresentador_id', form.apresentador_id, presenterIds.principalId)
-    setIfChanged('apresentador2_id', form.apresentador2_id, presenterIds.supportId)
     setIfChanged('gestor_id', form.gestor_id, live.gestor_id)
     setIfChanged('agenda_evento_id', form.agenda_evento_id, live.agenda_evento_id)
     setIfChanged('status', form.status, live.status)
@@ -364,6 +377,14 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
   if (!open || !live) return null
 
   const rateioPlanejado = resumoRateioPlanejado(live)
+  const rateioAtual = asArray<JsonRecord>(live.apresentadoras)
+  const hasUnsavedChanges = hasUnsavedLiveChanges(form, prefillRef.current)
+  const accountValue = form.marca_id ? `marca:${form.marca_id}` : form.cliente_id ? `cliente:${form.cliente_id}` : ''
+  const accountKnown = !accountValue || accountOptions.some((option) => option.value === accountValue)
+  const legacyPresenters = [
+    asString(live.apresentadora_nome ?? live.apresentador_nome, ''),
+    asString(live.apresentadora2_nome ?? live.apresentador2_nome, ''),
+  ].filter(Boolean)
 
   return (
     <Modal
@@ -391,60 +412,13 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               </select>
             </label>
             <label className="block">
-              <span className="text-xs text-ink-muted">Cliente</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={form.cliente_id} onChange={(e) => setField('cliente_id', e.target.value)}>
+              <span className="text-xs text-ink-muted">Marca ou cliente</span>
+              <select className="design-input mt-1 h-11 w-full px-3" value={accountValue} onChange={(e) => setAccount(e.target.value)}>
                 <option value="">—</option>
-                {clienteOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {!accountKnown ? <option value={accountValue}>Conta atual indisponível</option> : null}
+                {accountOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
-            <label className="block">
-              <span className="text-xs text-ink-muted">Marca</span>
-              <select className="design-input mt-1 h-11 w-full px-3" value={form.marca_id} onChange={(e) => setField('marca_id', e.target.value)}>
-                <option value="">—</option>
-                {marcaOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </label>
-            <PresenterSelect
-              rows={apresentadoraRows}
-              label="Apresentadora principal"
-              value={form.apresentador_id}
-              onChange={(value) => setField('apresentador_id', value)}
-              placeholder="Sem apresentadora definida"
-              disabled={asArray<JsonRecord>(live.apresentadoras).length > 1}
-            />
-            <PresenterSelect
-              rows={apresentadoraRows}
-              label="Apresentadora 2"
-              value={form.apresentador2_id}
-              onChange={(value) => setField('apresentador2_id', value)}
-              placeholder="Sem segunda apresentadora"
-              disabled={asArray<JsonRecord>(live.apresentadoras).length > 1}
-            />
-            {/* A ação vive AQUI, junto dos campos que ela substitui. Antes o texto mandava o
-                operador para "Dividir entre apresentadoras" sem link nenhum, e o único botão
-                estava no modal de detalhe — o mesmo que mostra o relatório para copiar. */}
-            <div className="flex flex-wrap items-center gap-2 md:col-span-2">
-              {asArray<JsonRecord>(live.apresentadoras).length > 1 ? (
-                rateioPlanejado ? (
-                  <p className="text-xs font-semibold text-[color:var(--warning)]">
-                    Rateio ainda é o PLANEJADO ({rateioPlanejado}). Confirme quem realmente apresentou:
-                  </p>
-                ) : (
-                  <p className="text-xs font-medium text-ink-muted">
-                    Esta live tem rateio salvo. Nomes, tempo e GMV se alteram aqui:
-                  </p>
-                )
-              ) : (
-                <p className="text-xs font-medium text-ink-muted">
-                  Mais de uma apresentadora se revezou nesta live?
-                </p>
-              )}
-              {onDividir ? (
-                <Button type="button" variant="secondary" icon={Users} onClick={() => onDividir(live)}>
-                  Dividir entre apresentadoras
-                </Button>
-              ) : null}
-            </div>
             <label className="block">
               <span className="text-xs text-ink-muted">Status</span>
               <select className="design-input mt-1 h-11 w-full px-3" value={form.status} onChange={(e) => setField('status', e.target.value)}>
@@ -461,6 +435,22 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
                 <option value="teste">Teste</option>
               </select>
             </label>
+          </div>
+        </ModalSection>
+
+        <ModalSection title="Apresentadoras e divisão" description="Gerencie aqui quem participou e a divisão registrada para esta live.">
+          <div className="flex flex-wrap items-center gap-2">
+            {rateioAtual.length > 0 ? (
+              rateioPlanejado ? (
+                <p className="text-xs font-semibold text-[color:var(--warning)]">Divisão planejada: {rateioPlanejado}.</p>
+              ) : (
+                <p className="text-xs text-ink-muted">Participantes: {rateioAtual.map(presenterDisplayName).join(' · ')}.</p>
+              )
+            ) : legacyPresenters.length > 0 ? (
+              <p className="text-xs text-ink-muted">Participantes do registro anterior: {legacyPresenters.join(' · ')}; revise a divisão.</p>
+            ) : <p className="text-xs text-ink-muted">Nenhuma divisão registrada.</p>}
+            {hasUnsavedChanges ? <p className="w-full text-xs text-ink-muted">Salve as alterações da live antes de gerenciar a divisão.</p> : null}
+            {onDividir ? <Button type="button" variant="secondary" icon={Users} onClick={() => onDividir(live)} disabled={hasUnsavedChanges}>Gerenciar divisão</Button> : null}
           </div>
         </ModalSection>
 
@@ -486,6 +476,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
             <label className="block">
               <span className="text-xs text-ink-muted">GMV faturado</span>
               <MoneyInput
+                className="design-input mt-1 h-11 w-full px-3"
                 value={form.fat_gerado}
                 onChange={(v) => setField('fat_gerado', v)}
               />
@@ -507,7 +498,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
               <span className="text-xs text-ink-muted">GMV manual</span>
-              <MoneyInput value={form.manual_gmv} onChange={(v) => setField('manual_gmv', v)} />
+              <MoneyInput className="design-input mt-1 h-11 w-full px-3" value={form.manual_gmv} onChange={(v) => setField('manual_gmv', v)} />
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">Pedidos manuais</span>
@@ -515,7 +506,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
             </label>
             <label className="block">
               <span className="text-xs text-ink-muted">Verba Ads investida</span>
-              <MoneyInput value={form.ads_cost} onChange={(v) => setField('ads_cost', v)} />
+              <MoneyInput className="design-input mt-1 h-11 w-full px-3" value={form.ads_cost} onChange={(v) => setField('ads_cost', v)} />
             </label>
           </div>
         </ModalSection>

@@ -123,18 +123,18 @@ export function ImportRateioModal({ row, apresentadoras, onClose, onSave, isSavi
   return (
     <Modal
       open
-      title="Apresentadoras da live"
+      title="Divisão entre apresentadoras"
       subtitle={`${formatDuracao(totalSegundos)} · ${formatMoney(gmvTotal)} a dividir`}
       size="lg"
       onClose={onClose}
       footer={(
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-col text-xs font-semibold">
-            <span className={fechaTempo ? 'text-emerald-600' : 'text-red-600'}>
+            <span className={fechaTempo ? 'text-[var(--success)]' : 'text-[var(--danger)]'}>
               Tempo: {formatDuracao(somaSegundos)} de {formatDuracao(totalSegundos)}
               {fechaTempo ? '' : ` · ${difSegundos < 0 ? 'faltam' : 'sobram'} ${formatDiferenca(difSegundos)}`}
             </span>
-            <span className={fechaGmv ? 'text-emerald-600' : 'text-red-600'}>
+            <span className={fechaGmv ? 'text-[var(--success)]' : 'text-[var(--danger)]'}>
               GMV: {formatMoney(somaGmv)} de {formatMoney(gmvTotal)}
               {fechaGmv ? '' : ` · ${difCentavos < 0 ? 'faltam' : 'sobram'} ${formatMoney(Math.abs(difCentavos) / 100)}`}
             </span>
@@ -142,7 +142,7 @@ export function ImportRateioModal({ row, apresentadoras, onClose, onSave, isSavi
           <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
             <Button type="button" disabled={!podeSalvar} isLoading={isSaving} onClick={() => onSave(montarPayloadRateio(lista, totalSegundos))}>
-              Salvar rateio
+              Salvar divisão
             </Button>
           </div>
         </div>
@@ -153,7 +153,7 @@ export function ImportRateioModal({ row, apresentadoras, onClose, onSave, isSavi
           <div key={index} className="flex flex-wrap items-end gap-2 rounded-2xl border border-line p-3">
             <PresenterSelect
               className="min-w-[200px] flex-1"
-              label={index === 0 ? 'Principal' : 'Apoio'}
+              label={`Apresentadora ${index + 1}`}
               value={item.apresentadora_id}
               rows={apresentadoras}
               onChange={(value) => update(index, { apresentadora_id: value })}

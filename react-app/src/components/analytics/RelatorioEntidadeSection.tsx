@@ -88,8 +88,8 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
       metric('Vídeos', t.total_videos.toLocaleString('pt-BR'), 'no mês', 'neutral'),
       metric('Pedidos', t.pedidos.toLocaleString('pt-BR'), 'atribuídos', 'success'),
       moneyMetric('Ticket médio', t.ticket_medio, 'GMV / pedidos', 'neutral'),
-      moneyMetric('GMV / hora', t.gmv_por_hora, 'GMV total / horas', 'success'),
-      moneyMetric('GMV / live', t.gmv_por_live, 'GMV total / lives', 'info'),
+      moneyMetric('GMV / hora', t.gmv_por_hora, 'GMV lives / horas de live', 'success'),
+      moneyMetric('GMV / live', t.gmv_por_live, 'GMV total / live', 'info'),
       ...comissaoMetrics,
     ]
   }

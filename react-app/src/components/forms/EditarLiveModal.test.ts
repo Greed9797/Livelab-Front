@@ -1,30 +1,31 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-import { presenterIdsFromLive, resumoRateioPlanejado } from './EditarLiveModal'
+import { hasUnsavedLiveChanges, liveAccountOptions, liveAccountSelection, presenterDisplayName, resumoRateioPlanejado } from './EditarLiveModal'
 
-describe('EditarLiveModal presenter id contract', () => {
+describe('EditarLiveModal account and split contract', () => {
   const source = readFileSync(new URL('./EditarLiveModal.tsx', import.meta.url), 'utf8')
 
-  it('prefers apresentadoras ids over legacy user ids when hydrating presenter selects', () => {
-    expect(source).toContain('apresentador_id: presenterIds.principalId')
-    expect(source).toContain('apresentador2_id: presenterIds.supportId')
+  it('uses one account selector and never submits legacy presenter ids', () => {
+    expect(source).toContain('Marca ou cliente')
+    expect(source).not.toContain("setIfChanged('apresentador_id'")
+    expect(source).not.toContain("setIfChanged('apresentador2_id'")
+    expect(source).toContain('Gerenciar divisão')
   })
 
-  it('compares saved presenter fields against apresentadoras ids', () => {
-    expect(source).toContain("setIfChanged('apresentador_id', form.apresentador_id, presenterIds.principalId)")
-    expect(source).toContain("setIfChanged('apresentador2_id', form.apresentador2_id, presenterIds.supportId)")
+  it('selecting a brand preserves its client link while client-only remains a legacy fallback', () => {
+    const marcas = [{ id: 'marca-a', nome: 'Marca A', cliente_id: 'cliente-a' }]
+    const clientes = [{ id: 'cliente-a', nome: 'Cliente A' }, { id: 'cliente-legado', nome: 'Cliente legado' }]
+    expect(liveAccountOptions(marcas, clientes)).toEqual([
+      { value: 'marca:marca-a', label: 'Marca · Marca A' },
+      { value: 'cliente:cliente-legado', label: 'Cliente · Cliente legado' },
+    ])
+    expect(liveAccountSelection('marca:marca-a', marcas)).toEqual({ marca_id: 'marca-a', cliente_id: 'cliente-a' })
+    expect(liveAccountSelection('cliente:cliente-legado', marcas)).toEqual({ marca_id: '', cliente_id: 'cliente-legado' })
   })
 
-  it('hydrates both selects from the authoritative rateio before legacy aliases', () => {
-    expect(presenterIdsFromLive({
-      apresentadoras: [
-        { apresentadora_id: 'sandy', papel: 'principal' },
-        { apresentadora_id: 'cliceane', papel: 'apoio' },
-      ],
-      apresentadora_id: 'legacy-primary',
-      apresentadora2_id: 'legacy-support',
-    })).toEqual({ principalId: 'sandy', supportId: 'cliceane' })
+  it('does not turn an unavailable account value into a destructive replacement', () => {
+    expect(liveAccountSelection('marca:missing', [])).toBeNull()
   })
 })
 
@@ -43,6 +44,16 @@ describe('resumoRateioPlanejado', () => {
     })).toBe('Ana 25,0% · Bia 75,0%')
   })
 
+  it('lê nome canônico e aliases de respostas antigas', () => {
+    expect(presenterDisplayName({ nome: 'Ana' })).toBe('Ana')
+    expect(presenterDisplayName({ apresentadora_nome: 'Bia' })).toBe('Bia')
+    expect(presenterDisplayName({ apresentador_nome: 'Carol' })).toBe('Carol')
+    expect(resumoRateioPlanejado({ apresentadoras: [
+      { apresentadora_nome: 'Bia', gmv: null, percentual: 50 },
+      { apresentador_nome: 'Carol', gmv: null, percentual: 50 },
+    ] })).toBe('Bia 50,0% · Carol 50,0%')
+  })
+
   it('não acusa planejado quando alguém já tem GMV rateado', () => {
     expect(resumoRateioPlanejado({
       apresentadoras: [
@@ -58,6 +69,13 @@ describe('resumoRateioPlanejado', () => {
   })
 })
 
+describe('alterações pendentes antes da divisão', () => {
+  it('bloqueia a troca de tela quando qualquer campo do formulário diverge do prefill', () => {
+    expect(hasUnsavedLiveChanges({ gmv: '100', marca: 'a' }, { gmv: '100', marca: 'a' })).toBe(false)
+    expect(hasUnsavedLiveChanges({ gmv: '200', marca: 'a' }, { gmv: '100', marca: 'a' })).toBe(true)
+  })
+})
+
 /**
  * O rateio era alcançável só pelo modal de detalhe — o mesmo que mostra o "Relatório para
  * copiar". Quem abria "Editar" lia "altere em Dividir entre apresentadoras" e não tinha
@@ -67,16 +85,14 @@ describe('acesso ao rateio a partir da edição', () => {
   const modal = readFileSync(new URL('./EditarLiveModal.tsx', import.meta.url), 'utf8')
   const page = readFileSync(new URL('../../pages/ConteudoPage.tsx', import.meta.url), 'utf8')
 
-  it('oferece o botão de dividir dentro do próprio modal de edição', () => {
+  it('oferece o gerenciamento da divisão dentro do próprio modal de edição', () => {
     expect(modal).toContain('onDividir?: (live: JsonRecord) => void')
     expect(modal).toContain('onClick={() => onDividir(live)}')
-    expect(modal).toContain('Dividir entre apresentadoras')
+    expect(modal).toContain('Gerenciar divisão')
   })
 
-  it('mostra o convite mesmo quando a live ainda tem uma apresentadora só', () => {
-    // Sem isto o botão só apareceria em live já dividida — e dividir uma live de uma
-    // apresentadora só continuaria escondido no modal de detalhe.
-    expect(modal).toContain('Mais de uma apresentadora se revezou nesta live?')
+  it('mantém o gerenciamento disponível mesmo sem divisão registrada', () => {
+    expect(modal).toContain('Nenhuma divisão registrada.')
   })
 
   it('fecha a edição antes de abrir o rateio, para os dois não salvarem por cima', () => {
