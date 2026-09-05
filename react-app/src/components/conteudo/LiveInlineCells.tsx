@@ -64,7 +64,7 @@ export function InlineGmvCell({
     height: 24,
     display: 'grid',
     placeItems: 'center',
-    borderRadius: 6,
+    borderRadius: 'var(--radius-pill)',
     border: '1px solid var(--border)',
     background: 'var(--bg-elev-2)',
     color,
@@ -142,7 +142,7 @@ export function InlineGmvCell({
             e.stopPropagation()
             begin()
           }}
-          style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+          style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 'var(--radius-pill)', border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
         >
           <Edit2 style={{ width: 12, height: 12 }} />
         </button>
@@ -199,7 +199,7 @@ export function InlinePedidosCell({
     height: 24,
     display: 'grid',
     placeItems: 'center',
-    borderRadius: 6,
+    borderRadius: 'var(--radius-pill)',
     border: '1px solid var(--border)',
     background: 'var(--bg-elev-2)',
     color,
@@ -264,7 +264,7 @@ export function InlinePedidosCell({
             e.stopPropagation()
             begin()
           }}
-          style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+          style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 'var(--radius-pill)', border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
         >
           <Edit2 style={{ width: 12, height: 12 }} />
         </button>
@@ -314,7 +314,7 @@ export function InlineApresentadoraCell({
     height: 24,
     display: 'grid',
     placeItems: 'center',
-    borderRadius: 6,
+    borderRadius: 'var(--radius-pill)',
     border: '1px solid var(--border)',
     background: 'var(--bg-elev-2)',
     color,
@@ -384,7 +384,7 @@ export function InlineApresentadoraCell({
             e.stopPropagation()
             begin()
           }}
-          style={{ marginLeft: 'auto', width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}
+          style={{ marginLeft: 'auto', width: 22, height: 22, display: 'grid', placeItems: 'center', borderRadius: 'var(--radius-pill)', border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}
         >
           <Edit2 style={{ width: 12, height: 12 }} />
         </button>

@@ -542,7 +542,7 @@ export function AnalyticsImportSection({ mesAno }: AnalyticsImportSectionProps) 
                         {decisao === 'vincular' || decisao === 'pendente' ? (
                           <button
                             type="button"
-                            className="mt-1 flex w-full items-center gap-1 rounded-lg border border-line px-2 py-1.5 text-left text-[11px] font-semibold text-ink-muted hover:bg-surface-muted disabled:opacity-50"
+                            className="mt-1 flex w-full items-center gap-1 rounded-[var(--radius-pill)] border border-line px-2 py-1.5 text-left text-[11px] font-semibold text-ink-muted hover:bg-surface-muted disabled:opacity-50"
                             disabled={isApplied || rowMutation.isPending}
                             onClick={() => setVincularRow(row)}
                           >

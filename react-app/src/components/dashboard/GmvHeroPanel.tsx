@@ -831,7 +831,7 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
             <div
               role="group"
               aria-label="Período do gráfico"
-              className="inline-flex items-center rounded-[7px] p-0.5"
+              className="inline-flex items-center rounded-[var(--radius-pill)] p-0.5"
               style={{ background: 'var(--bg-elev-2)', border: '1px solid var(--border)' }}
             >
               <button
@@ -840,7 +840,7 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
                 disabled={!hasIntraday}
                 aria-pressed={effectiveView === 'hoje'}
                 hidden={!hasIntraday}
-                className="rounded-[5px] px-2 py-0.5 text-[11px] font-medium transition-colors"
+                className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11px] font-medium transition-colors"
                 style={{
                   background: effectiveView === 'hoje' ? 'var(--bg-elev-1)' : 'transparent',
                   color: effectiveView === 'hoje' ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -855,7 +855,7 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
                 disabled={!hasDaily}
                 aria-pressed={effectiveView === 'mes'}
                 hidden={!hasDaily}
-                className="rounded-[5px] px-2 py-0.5 text-[11px] font-medium transition-colors"
+                className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11px] font-medium transition-colors"
                 style={{
                   background: effectiveView === 'mes' ? 'var(--bg-elev-1)' : 'transparent',
                   color: effectiveView === 'mes' ? 'var(--text-primary)' : 'var(--text-muted)',

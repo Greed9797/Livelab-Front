@@ -86,7 +86,7 @@ export function LoginPage() {
                     />
                     <button
                       type="button"
-                      className="rounded-xl p-2 text-ink-muted hover:bg-surface"
+                      className="rounded-[var(--radius-pill)] p-2 text-ink-muted hover:bg-surface"
                       aria-label={showSenha ? 'Ocultar senha' : 'Mostrar senha'}
                       onClick={() => setShowSenha((value) => !value)}
                     >

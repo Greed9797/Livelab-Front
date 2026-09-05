@@ -147,9 +147,9 @@ function BrandPeriodDiagnostic({ label, current, previous, currentPeriod, previo
         </details>
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Link className="inline-flex min-h-9 items-center rounded-lg border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted" to={brandLivesDrilldownUrl(marcaId, currentPeriod)}>Ver lives atuais</Link>
-        {previousPeriod ? <Link className="inline-flex min-h-9 items-center rounded-lg border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted" to={brandLivesDrilldownUrl(marcaId, previousPeriod)}>Ver lives anteriores</Link> : null}
-        <a className="inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-semibold text-ink underline-offset-4 hover:underline" href="#analytics-audience-coverage">Ver cobertura de audiência</a>
+        <Link className="inline-flex min-h-9 items-center rounded-[var(--radius-pill)] border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted" to={brandLivesDrilldownUrl(marcaId, currentPeriod)}>Ver lives atuais</Link>
+        {previousPeriod ? <Link className="inline-flex min-h-9 items-center rounded-[var(--radius-pill)] border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted" to={brandLivesDrilldownUrl(marcaId, previousPeriod)}>Ver lives anteriores</Link> : null}
+        <a className="inline-flex min-h-9 items-center rounded-[var(--radius-pill)] px-2 text-xs font-semibold text-ink underline-offset-4 hover:underline" href="#analytics-audience-coverage">Ver cobertura de audiência</a>
       </div>
       {previous ? <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted"><span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-1.5 w-4 rounded-full bg-[var(--primary)]" />Atual</span><span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-1.5 w-4 rounded-full bg-[var(--text-muted)]" />Anterior</span><span>Escala própria em cada métrica.</span></p> : null}
     </section>
@@ -181,7 +181,7 @@ export function BrandComparisonSection({ rows, marcaId, apresentadoraId, onSelec
               {row.marcaNome}
             </button>
           ) : <p className="font-semibold text-ink">{row.marcaNome}</p>}
-          {previousStatus === 'ready' && previousPeriod ? <button type="button" aria-label={`Analisar ${row.marcaNome}`} className="mt-1 flex min-h-9 items-center rounded-lg border border-line px-2 text-xs font-semibold text-ink hover:bg-surface-muted" onClick={() => { setDiagnosticBrandKey(row.key); requestAnimationFrame(() => diagnosticPanel.current?.focus()) }}>Analisar</button> : null}
+          {previousStatus === 'ready' && previousPeriod ? <button type="button" aria-label={`Analisar ${row.marcaNome}`} className="mt-1 flex min-h-9 items-center rounded-[var(--radius-pill)] border border-line px-2 text-xs font-semibold text-ink hover:bg-surface-muted" onClick={() => { setDiagnosticBrandKey(row.key); requestAnimationFrame(() => diagnosticPanel.current?.focus()) }}>Analisar</button> : null}
           {row.gmvVideos > 0 ? <p className="mt-0.5 text-xs text-ink-muted">Vídeos: {formatMoney(row.gmvVideos)}</p> : null}
         </div>
       ),
@@ -274,7 +274,7 @@ export function BrandComparisonSection({ rows, marcaId, apresentadoraId, onSelec
             </div>
             <p className="mb-3 text-xs text-ink-muted">Escala relativa ao maior {SORT_OPTIONS.find((option) => option.key === sort)?.label.toLowerCase()}: <span className="font-semibold text-ink">{metricLabel(maximum, sort)}</span>{previousPeriod ? ` · variações por marca em relação a ${formatCalendarDate(previousPeriod.from)}–${formatCalendarDate(previousPeriod.to)}` : ''}{currentPeriodEndsToday ? ' · período atual inclui o dia em andamento' : ''}</p>
             {previousStatus === 'ready' && previousPeriod ? <div ref={diagnosticPanel} tabIndex={-1} className="rounded-xl focus:outline-2 focus:outline-offset-4 focus:outline-[var(--text-primary)]">
-              {diagnosticBrand && !marcaId ? <button type="button" onClick={() => setDiagnosticBrandKey('operacao')} className="mb-2 min-h-9 rounded-lg border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted">Ver operação completa</button> : null}
+              {diagnosticBrand && !marcaId ? <button type="button" onClick={() => setDiagnosticBrandKey('operacao')} className="mb-2 min-h-9 rounded-[var(--radius-pill)] border border-line px-3 text-xs font-semibold text-ink hover:bg-surface-muted">Ver operação completa</button> : null}
               <BrandPeriodDiagnostic label={diagnosticLabelName} current={diagnosticCurrent} previous={diagnosticPrevious} currentPeriod={currentPeriod} previousPeriod={previousPeriod} currentPeriodEndsToday={currentPeriodEndsToday} marcaId={diagnosticBrand?.marcaId ?? null} />
             </div> : null}
             {previousStatus === 'loading' ? <p className="mb-3 text-xs text-ink-muted">Carregando a comparação com o intervalo anterior. Os números deste período continuam disponíveis.</p> : null}

@@ -57,7 +57,7 @@ function Sidebar({
             </div>
             {onToggle ? (
               <button
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-surface text-ink-muted transition hover:bg-surface-muted hover:text-ink"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-pill)] border border-line bg-surface text-ink-muted transition hover:bg-surface-muted hover:text-ink"
                 type="button"
                 aria-label="Recolher menu"
                 title="Recolher menu"
@@ -75,7 +75,7 @@ function Sidebar({
         ) : null}
         {!expanded && onToggle ? (
           <button
-            className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-surface text-ink-muted transition hover:bg-surface-muted hover:text-ink"
+            className="grid h-10 w-10 place-items-center rounded-[var(--radius-pill)] border border-line bg-surface text-ink-muted transition hover:bg-surface-muted hover:text-ink"
             type="button"
             aria-label="Expandir menu"
             title="Expandir menu"
@@ -138,11 +138,11 @@ function Sidebar({
           )}
         </div>
         {expanded ? (
-          <Button className="mt-3 h-11 w-full justify-start rounded-[var(--radius-control)]" variant="secondary" icon={LogOut} onClick={() => void handleLogout()}>
+          <Button className="mt-3 h-11 w-full justify-start" variant="secondary" icon={LogOut} onClick={() => void handleLogout()}>
             Sair
           </Button>
         ) : (
-          <Button className="mt-3 h-11 w-full rounded-[var(--radius-control)] px-0" variant="secondary" icon={LogOut} aria-label="Sair" onClick={() => void handleLogout()}>
+          <Button className="mt-3 h-11 w-full px-0" variant="secondary" icon={LogOut} aria-label="Sair" onClick={() => void handleLogout()}>
             <span className="sr-only">Sair</span>
           </Button>
         )}
@@ -178,7 +178,7 @@ export function Shell() {
         <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 px-4 py-3 backdrop-blur md:px-7 lg:hidden">
           <div className="flex items-center justify-between">
             <button
-              className="grid h-11 w-11 place-items-center rounded-xl border border-line bg-surface text-ink-muted"
+              className="grid h-11 w-11 place-items-center rounded-[var(--radius-pill)] border border-line bg-surface text-ink-muted"
               aria-label="Abrir menu"
               aria-haspopup="dialog"
               aria-expanded={open}

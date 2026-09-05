@@ -190,7 +190,7 @@ export function BoletosPanel({ embedded = false }: { embedded?: boolean }) {
                 </div>
 
                 {detalhe.gateway_pix_copia_cola ? (
-                  <button type="button" className="flex w-full items-center gap-3 rounded-2xl border border-line bg-surface-muted p-3 text-left text-sm text-ink hover:border-brand/35" onClick={() => copyText(detalhe.gateway_pix_copia_cola)}>
+                  <button type="button" className="flex w-full items-center gap-3 rounded-[var(--radius-pill)] border border-line bg-surface-muted p-3 text-left text-sm text-ink hover:border-brand/35" onClick={() => copyText(detalhe.gateway_pix_copia_cola)}>
                     <Copy className="h-4 w-4 shrink-0 text-brand" />
                     <span className="min-w-0 truncate">{asString(detalhe.gateway_pix_copia_cola)}</span>
                   </button>

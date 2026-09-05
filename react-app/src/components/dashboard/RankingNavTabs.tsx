@@ -21,7 +21,7 @@ export function RankingNavTabs() {
             key={tab.to}
             to={tab.to}
             className={clsx(
-              'rounded-lg px-3 py-1.5 text-sm font-semibold transition',
+              'rounded-[var(--radius-pill)] px-3 py-1.5 text-sm font-semibold transition',
               active ? 'bg-brand-soft text-brand' : 'text-ink-muted hover:text-ink',
             )}
           >

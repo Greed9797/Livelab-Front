@@ -244,15 +244,15 @@ export function AgendaTab(props: AgendaTabProps) {
 
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1">
-                <button type="button" onClick={goPrev} aria-label="Período anterior" className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted">
+                <button type="button" onClick={goPrev} aria-label="Período anterior" className="grid h-9 w-9 place-items-center rounded-[var(--radius-pill)] border border-line text-ink hover:bg-surface-muted">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <span className="min-w-[180px] text-center text-sm font-bold text-ink">{periodLabel}</span>
-                <button type="button" onClick={goNext} aria-label="Próximo período" className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted">
+                <button type="button" onClick={goNext} aria-label="Próximo período" className="grid h-9 w-9 place-items-center rounded-[var(--radius-pill)] border border-line text-ink hover:bg-surface-muted">
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
-              <button type="button" onClick={() => onAgendaDateChange(today)} className="h-9 rounded-lg border border-line px-3 text-sm font-bold text-ink-muted hover:text-ink">
+              <button type="button" onClick={() => onAgendaDateChange(today)} className="h-9 rounded-[var(--radius-pill)] border border-line px-3 text-sm font-bold text-ink-muted hover:text-ink">
                 Hoje
               </button>
               <input className="design-input h-9 px-3 text-sm [color-scheme:dark]" type="date" value={agendaDate} onChange={(e) => onAgendaDateChange(e.target.value)} />
@@ -262,7 +262,7 @@ export function AgendaTab(props: AgendaTabProps) {
                   <option key={asString(c.id)} value={asString(c.id)}>{asString(c.nome ?? c.razao_social, 'Sem nome')}</option>
                 ))}
               </select>
-              <button type="button" onClick={() => setDensity(compact ? 'comfortable' : 'compacto')} className="h-9 rounded-lg border border-line px-3 text-sm font-bold text-ink-muted hover:text-ink">
+              <button type="button" onClick={() => setDensity(compact ? 'comfortable' : 'compacto')} className="h-9 rounded-[var(--radius-pill)] border border-line px-3 text-sm font-bold text-ink-muted hover:text-ink">
                 {compact ? 'Densidade: compacta' : 'Densidade: confortável'}
               </button>
             </div>
@@ -554,7 +554,7 @@ function EventDrawer({
           </span>
           <h3 className="mt-3 text-2xl font-black tracking-[-0.01em] text-ink">{eventTitle(event)}</h3>
           <p className="mt-1 text-sm text-ink-muted">{formatDate(asString(event.data_inicio, ''))}</p>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="absolute right-5 top-5 grid h-8 w-8 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted">
+          <button type="button" onClick={onClose} aria-label="Fechar" className="absolute right-5 top-5 grid h-8 w-8 place-items-center rounded-[var(--radius-pill)] border border-line text-ink hover:bg-surface-muted">
             <X className="h-4 w-4" />
           </button>
         </div>

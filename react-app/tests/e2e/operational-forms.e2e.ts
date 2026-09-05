@@ -61,7 +61,18 @@ async function openEdit(page: Page, navigate = true) {
 
 test('preserva edição ao sair por Escape, permite continuar ou descartar e restaura o formulário', async ({ page }, info) => {
   const writes = await setup(page)
-  const dialog = await openEdit(page)
+  await page.goto('/lives?periodo=custom&data_inicio=2026-09-04&data_fim=2026-09-04')
+  await expect(page.getByRole('button', { name: 'Cadastrar live', exact: true })).toHaveCSS('border-radius', '999px')
+  const exportOptions = page.getByRole('button', { name: 'Opções de exportação', exact: true })
+  await exportOptions.click()
+  const csvOption = page.getByRole('button', { name: /Exportar como CSV/ })
+  await expect(csvOption).toBeVisible()
+  // O pill da exportação não pode recortar o menu suspenso nem impedir o clique.
+  await csvOption.click({ trial: true })
+  await exportOptions.click()
+  const dialog = await openEdit(page, false)
+  await expect(dialog.getByRole('button', { name: 'Fechar', exact: true })).toHaveCSS('border-radius', '999px')
+  await expect(dialog.getByRole('button', { name: 'Salvar alterações', exact: true })).toHaveCSS('border-radius', '999px')
   const status = dialog.getByLabel('Situação da transmissão')
   await status.selectOption('cancelada')
   await page.keyboard.press('Escape')

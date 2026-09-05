@@ -40,7 +40,7 @@ function StatusBadge({ situacao }: { situacao: GradeSituacao }) {
 
 function ActionLink({ to, children }: { to: string; children: string }) {
   return (
-    <Link to={to} className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-bold text-brand hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20">
+    <Link to={to} className="inline-flex min-h-9 items-center gap-1 rounded-[var(--radius-pill)] px-2 text-xs font-bold text-brand hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20">
       {children}<ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
     </Link>
   )

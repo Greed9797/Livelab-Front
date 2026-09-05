@@ -95,7 +95,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
           color: 'var(--text-muted)',
           display: 'flex',
           alignItems: 'center',
-          borderRadius: 6,
+          borderRadius: 'var(--radius-pill)',
           marginTop: '2px',
         }}
       >

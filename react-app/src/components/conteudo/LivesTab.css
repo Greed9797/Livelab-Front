@@ -50,7 +50,7 @@
   gap: 6px;
   min-height: 30px;
   padding: 4px 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 600;
 }
@@ -80,6 +80,7 @@
 .lives-pending-panel__clear {
   margin-left: auto;
   padding: 5px 8px;
+  border-radius: var(--radius-pill);
   border-color: transparent;
   background: transparent;
   color: var(--text-muted);
@@ -112,7 +113,7 @@
 .lives-context-action {
   min-height: 30px;
   padding: 4px 9px;
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 600;
 }
@@ -126,7 +127,7 @@
 .lives-pending-row-action {
   align-self: flex-start;
   padding: 2px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-pill);
   color: var(--primary);
   font-size: 10.5px;
   font-weight: 600;
@@ -164,7 +165,7 @@
     min-height: 40px;
     padding: 5px 7px;
     border: 1px solid var(--border);
-    border-radius: 7px;
+    border-radius: var(--radius-pill);
     background: var(--bg-elev-2);
     color: var(--text-secondary);
     font: inherit;

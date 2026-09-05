@@ -360,15 +360,15 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, catalogs
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1">
-                <button type="button" onClick={() => setDate(shiftDate(date, view, -1))} aria-label="Período anterior" className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted">
+                <button type="button" onClick={() => setDate(shiftDate(date, view, -1))} aria-label="Período anterior" className="grid h-9 w-9 place-items-center rounded-[var(--radius-pill)] border border-line text-ink hover:bg-surface-muted">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <span className="min-w-[170px] text-center text-sm font-bold capitalize text-ink">{periodLabel}</span>
-                <button type="button" onClick={() => setDate(shiftDate(date, view, 1))} aria-label="Próximo período" className="grid h-9 w-9 place-items-center rounded-lg border border-line text-ink hover:bg-surface-muted">
+                <button type="button" onClick={() => setDate(shiftDate(date, view, 1))} aria-label="Próximo período" className="grid h-9 w-9 place-items-center rounded-[var(--radius-pill)] border border-line text-ink hover:bg-surface-muted">
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
-              <button type="button" onClick={() => setDate(today)} className="h-9 rounded-lg border border-line px-3 text-sm font-bold text-ink-muted hover:text-ink">
+              <button type="button" onClick={() => setDate(today)} className="h-9 rounded-[var(--radius-pill)] border border-line px-3 text-sm font-bold text-ink-muted hover:text-ink">
                 Hoje
               </button>
               <input className="design-input h-9 px-3 text-sm [color-scheme:dark]" type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />

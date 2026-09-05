@@ -415,7 +415,7 @@ export function FinanceiroPage() {
             key={String(key)}
             type="button"
             aria-pressed={tab === key}
-            className={tab === key ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-button-primary px-4 text-sm font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20' : 'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20'}
+            className={tab === key ? 'inline-flex h-10 items-center gap-2 rounded-[var(--radius-pill)] bg-button-primary px-4 text-sm font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20' : 'inline-flex h-10 items-center gap-2 rounded-[var(--radius-pill)] px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20'}
             onClick={() => switchTab(key as FinanceiroTab)}
           >
             <Icon className="h-4 w-4" />
@@ -433,7 +433,7 @@ export function FinanceiroPage() {
                 <h2 id="margem-resumo-title" className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">Margem após custos manuais</h2>
                 <p className="mt-1 max-w-3xl text-sm text-ink-muted">Receita de marcas conforme as condições comerciais, menos custos lançados. Não desconta a remuneração automática das apresentadoras; se os custos excederem a receita, este resumo exibe R$ 0,00.</p>
               </div>
-              <a href="#resultado-operacional-title" className="inline-flex min-h-10 items-center rounded-lg border border-line px-3 text-sm font-semibold text-ink hover:bg-surface-muted">Ver resultado operacional completo</a>
+              <a href="#resultado-operacional-title" className="inline-flex min-h-10 items-center rounded-[var(--radius-pill)] border border-line px-3 text-sm font-semibold text-ink hover:bg-surface-muted">Ver resultado operacional completo</a>
             </div>
             {resumoCompleto ? (
               <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">

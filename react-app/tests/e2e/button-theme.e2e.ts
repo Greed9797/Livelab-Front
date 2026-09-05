@@ -6,6 +6,8 @@ for (const theme of ['dark', 'light']) {
     await page.goto('/login')
     const primaryButton = page.getByRole('button', { name: 'Entrar', exact: true })
     await expect(primaryButton).toBeVisible()
+    await expect(primaryButton).toHaveCSS('border-radius', '999px')
+    await expect(page.getByRole('button', { name: 'Mostrar senha', exact: true })).toHaveCSS('border-radius', '999px')
     await expect(primaryButton).toHaveCSS('background-color', theme === 'dark' ? 'rgb(255, 77, 28)' : 'rgb(255, 90, 31)')
     if (await page.evaluate(() => matchMedia('(hover: hover)').matches)) {
       await primaryButton.hover()

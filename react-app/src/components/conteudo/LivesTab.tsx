@@ -925,7 +925,7 @@ export function LivesTab({
         >
           <button
             type="button"
-            style={{ ...tbtn, borderRadius: '9px 0 0 9px', borderRight: 'none', paddingRight: 11 }}
+            style={{ ...tbtn, borderRadius: 'var(--radius-pill) 0 0 var(--radius-pill)', borderRight: 'none', paddingRight: 11 }}
             onClick={() => doExportCSV(filteredLives)}
           >
             <Download style={{ width: 14, height: 14 }} />
@@ -933,7 +933,7 @@ export function LivesTab({
           </button>
           <button
             type="button"
-            style={{ ...tbtn, borderRadius: '0 9px 9px 0', padding: '8px 9px', borderLeft: '1px solid var(--border)' }}
+            style={{ ...tbtn, borderRadius: '0 var(--radius-pill) var(--radius-pill) 0', padding: '8px 9px', borderLeft: '1px solid var(--border)' }}
             aria-label="Opções de exportação"
             onClick={() => setExportOpen((v) => !v)}
           >
@@ -985,7 +985,7 @@ export function LivesTab({
             alignItems: 'center',
             gap: 7,
             padding: '8px 14px',
-            borderRadius: 9,
+            borderRadius: 'var(--radius-pill)',
             background: 'var(--primary)',
             color: 'var(--button-primary-foreground)',
             border: '1px solid transparent',
@@ -1108,7 +1108,7 @@ export function LivesTab({
                         height: 18,
                         display: 'grid',
                         placeItems: 'center',
-                        borderRadius: 5,
+                        borderRadius: 'var(--radius-pill)',
                         background: 'var(--bg-elev-3)',
                         color: 'var(--text-muted)',
                         cursor: 'pointer',
@@ -1539,7 +1539,7 @@ export function LivesTab({
                               height: 28,
                               display: 'grid',
                               placeItems: 'center',
-                              borderRadius: 7,
+                              borderRadius: 'var(--radius-pill)',
                               background: 'transparent',
                               border: '1px solid transparent',
                               color: 'var(--text-muted)',
@@ -1564,7 +1564,7 @@ export function LivesTab({
                                 height: 28,
                                 display: 'grid',
                                 placeItems: 'center',
-                                borderRadius: 7,
+                                borderRadius: 'var(--radius-pill)',
                                 background: 'transparent',
                                 border: '1px solid transparent',
                                 color: 'var(--text-muted)',

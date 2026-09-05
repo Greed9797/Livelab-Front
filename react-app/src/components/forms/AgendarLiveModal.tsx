@@ -1146,7 +1146,7 @@ export function AgendarLiveModal({
                   </label>
                   <button
                     type="button"
-                    className="grid h-11 w-11 place-items-center rounded-2xl border border-line text-ink-muted transition hover:bg-surface hover:text-[var(--danger)]"
+                    className="grid h-11 w-11 place-items-center rounded-[var(--radius-pill)] border border-line text-ink-muted transition hover:bg-surface hover:text-[var(--danger)]"
                     aria-label={`Remover turno ${index + 1}`}
                     onClick={() => removerTurno(index)}
                   >
