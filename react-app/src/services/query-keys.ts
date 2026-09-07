@@ -87,6 +87,7 @@ export const QK = {
   historicoGmv: (liveId: string) => ['historico-gmv', liveId] as const,
   metaUnidade: (anoMes?: string) =>
     anoMes ? ['meta-unidade', anoMes] as const : ['meta-unidade'] as const,
+  analyticsUnidadeMensal: (anoMes: string, tenantId: string) => ['analytics-unidade-mensal', tenantId, anoMes] as const,
   metasApresentadoras: (mes?: string) =>
     mes ? ['metas-apresentadoras', mes] as const : ['metas-apresentadoras'] as const,
   metasSupervisor: (mes?: string) =>

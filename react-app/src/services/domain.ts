@@ -693,8 +693,21 @@ export function getMetaUnidade(anoMes?: string) {
   return apiGet<JsonRecord>('/meta-unidade', anoMes ? { ano_mes: anoMes } : {})
 }
 
-export function upsertMetaUnidade(anoMes: string, metaGmv: number) {
-  return apiPut<JsonRecord>('/meta-unidade', { ano_mes: anoMes, meta_gmv: metaGmv })
+export type MetaUnidadePatch = {
+  meta_gmv?: number
+  meta_horas_live?: number | null
+  meta_gmv_hora?: number | null
+}
+
+export function upsertMetaUnidade(anoMes: string, payload: MetaUnidadePatch | number) {
+  // Mantém a assinatura antiga para Configurações e permite que o Analytics
+  // atualize só as metas operacionais, sem apagar a meta mensal de GMV.
+  const normalized = typeof payload === 'number' ? { meta_gmv: payload } : payload
+  return apiPut<JsonRecord>('/meta-unidade', { ano_mes: anoMes, ...normalized })
+}
+
+export function getAnalyticsUnidadeMensal(anoMes: string) {
+  return apiGet<JsonRecord>('/analytics/unidade-mensal', { ano_mes: anoMes })
 }
 
 export function getUltimaLiveCabine(cabineId: string): Promise<{

@@ -119,6 +119,17 @@ async function setup(page: Page, theme: 'light' | 'dark' = 'light') {
       return route.fulfill({ status: 405, json: { error: 'E2E não autoriza escrita' } })
     }
 
+    if (url.pathname === '/v1/analytics/unidade-mensal') {
+      const mes = url.searchParams.get('ano_mes')
+      return json({
+        ano_mes: mes, escopo: 'unidade',
+        periodo: { inicio: `${mes}-01`, fim: `${mes}-30`, dias_no_mes: 30, dias_decorridos: 6 },
+        realizado: { horas_live: 7, gmv: 1600, gmv_por_hora: 1600 / 7 },
+        projecao: { horas_live: 35, gmv: 8000, gmv_por_hora: 1600 / 7 },
+        metas: { horas_live: null, gmv_por_hora: null },
+      })
+    }
+
     if (url.pathname === '/v1/analytics/diario') {
       const isPrevious = url.searchParams.get('from') === previousPeriod.from
         && url.searchParams.get('to') === previousPeriod.to

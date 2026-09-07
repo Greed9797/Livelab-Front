@@ -7,6 +7,7 @@ import { RelatorioEntidadeSection } from '../components/analytics/RelatorioEntid
 import { PulsoDiarioSection } from '../components/analytics/PulsoDiarioSection'
 import { BrandComparisonSection } from '../components/analytics/BrandComparisonSection'
 import { BrandAudienceComparisonSection } from '../components/analytics/BrandAudienceComparisonSection'
+import { MonthlyUnitGoals } from '../components/analytics/MonthlyUnitGoals'
 import { AssiduidadeStrip } from '../components/dashboard/AssiduidadeStrip'
 import { AnalyticsFilterBar, presetRange, ymd, type Preset } from '../components/analytics/AnalyticsFilterBar'
 import {
@@ -162,6 +163,9 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     }
     if (!apresentadoraId) void queryClient.invalidateQueries({ queryKey: ['audiencia-marcas', from, to, marcaId] })
     void queryClient.invalidateQueries({ queryKey: ['funil-analytics', from, to, marcaId, apresentadoraId] })
+    // O resumo de metas é da unidade/mês e não recebe os filtros da página,
+    // mas o refresh explícito deve atualizá-lo uma vez para a competência ativa.
+    if (user?.tenant_id) void queryClient.refetchQueries({ queryKey: QK.analyticsUnidadeMensal(mes, user.tenant_id), exact: true, type: 'active' })
   }
 
   async function handleExport() {
@@ -225,6 +229,10 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
       {/* Filtro único — rege Pulso + gráficos de série + relatório por entidade */}
       {filterBar}
+
+      {/* Metas são sempre mensais e da unidade inteira. Elas não reutilizam o
+          recorte ativo para não comparar um período parcial com uma meta mensal. */}
+      <MonthlyUnitGoals mes={mes} />
 
       {!query.isLoading && !query.isError ? (
         <>
