@@ -17,7 +17,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { createFinanceiroCusto, deleteFinanceiroCusto, exportarComissoesCSV, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroOperacional, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
+import { createFinanceiroCusto, deleteFinanceiroCusto, exportarComissoesCSV, getClienteOperacional, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroOperacional, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { canWrite } from '../utils/access'
@@ -41,6 +41,7 @@ import { historyPoints, metric, moneyMetric } from './page-helpers'
 import { BoletosPanel } from './BoletosPage'
 import { QK } from '../services/query-keys'
 import { financeiroClienteRef, hasReportedNumber, hasReportedNumbers } from '../components/financeiro/financeiro-presentation'
+import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
 import type { MetricKey } from '../utils/metricGlossary'
 import type { JsonRecord } from '../types/models'
 
@@ -76,6 +77,7 @@ const OPERACIONAL_CATEGORIA_LABEL: Record<string, string> = {
   comissao_franquia: 'Comissão de franquia',
   fixo_marca: 'Fixo de marca',
   comissao_apresentadora: 'Comissão apresentadora',
+  adicional_apresentadora: 'Adicional de apresentadora',
   fixo_apresentadora: 'Fixo apresentadora',
   custo_manual: 'Custo manual',
 }
@@ -93,6 +95,8 @@ function memoriaText(categoria: string, memoria: JsonRecord): string {
       return `GMV atribuído ${formatMoney(memoria.gmv_atribuido)} × ${formatPercent(memoria.pct_medio)} médio`
     case 'fixo_apresentadora':
       return 'Fixo mensal de apresentadora ativa (valor cadastrado, com teto padrão)'
+    case 'adicional_apresentadora':
+      return `${asString(memoria.tipo, 'adicional')} confirmado${memoria.data_referencia ? ` · ${formatDate(asString(memoria.data_referencia))}` : ''}`
     case 'custo_manual':
       return `Custo lançado manualmente · tipo ${asString(memoria.tipo, 'outros')}`
     default:
@@ -223,7 +227,6 @@ export function FinanceiroPage() {
   const faturamento = useQuery({ queryKey: QK.financeiroFaturamento(pk), queryFn: () => getFinanceiroFaturamento(fp), enabled: !isCliente, placeholderData: keepPreviousData })
   const custos = useQuery({ queryKey: QK.financeiroCustos(custo.competencia), queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
   const franqueadora = useQuery({ queryKey: QK.financeiroFranqueadora(pk), queryFn: () => getFinanceiroFranqueadora(fp), enabled: isMaster, placeholderData: keepPreviousData })
-  const comissoesApresentadoras = useQuery({ queryKey: [...QK.comissoesApresentadoras, pk], queryFn: () => getComissoesApresentadoras(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
   const comissoesMarcas = useQuery({ queryKey: [...QK.comissoesMarcas, pk], queryFn: () => getComissoesMarcas(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
 
   const { kind: selectedClienteKind, id: selectedClienteId } = financeiroClienteRef(selectedCliente)
@@ -285,10 +288,6 @@ export function FinanceiroPage() {
   )
   const clientesView = clientes.slice(0, 100)
   const custosRows = custos.data ?? []
-  const apresentadorasRows = useMemo(
-    () => [...(comissoesApresentadoras.data ?? [])].sort((a, b) => asNumber(b.comissao_apresentadora ?? b.comissao_total) - asNumber(a.comissao_apresentadora ?? a.comissao_total)),
-    [comissoesApresentadoras.data],
-  )
   const marcasRows = useMemo(
     () => [...(comissoesMarcas.data ?? [])].sort((a, b) => asNumber(b.gmv_total) - asNumber(a.gmv_total)),
     [comissoesMarcas.data],
@@ -636,13 +635,12 @@ export function FinanceiroPage() {
 
       {tab === 'comissoes' ? (
         <>
-          {comissoesApresentadoras.isLoading || comissoesMarcas.isLoading ? (
+          {comissoesMarcas.isLoading ? (
             <LoadingState />
-          ) : comissoesApresentadoras.isError || comissoesMarcas.isError ? (
+          ) : comissoesMarcas.isError ? (
             <ErrorState
-              message={extractErrorMessage(comissoesApresentadoras.error ?? comissoesMarcas.error)}
+              message={extractErrorMessage(comissoesMarcas.error)}
               onRetry={() => {
-                void comissoesApresentadoras.refetch()
                 void comissoesMarcas.refetch()
               }}
             />
@@ -718,30 +716,7 @@ export function FinanceiroPage() {
               </div>
 
               <section className="grid gap-4 xl:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <p className="text-base font-bold text-ink">Valores calculados por apresentadora</p>
-                    <p className="mt-1 text-xs text-ink-muted">GMV base, lives e vídeos que compõem a comissão. Abra uma linha para consultar o detalhe e o histórico.</p>
-                  </CardHeader>
-                  <CardBody>
-                    <DataTable<JsonRecord>
-                      data={apresentadorasRows}
-                      onRowClick={(item) => {
-                        const id = asString(item.apresentadora_id ?? item.id, '')
-                        if (id) navigate(`/apresentadoras/${id}`)
-                      }}
-                      columns={[
-                        { key: 'apresentadora_nome', header: 'Apresentador', render: (item) => asString(item.apresentadora_nome ?? item.nome, 'Sem apresentador') },
-                        { key: 'gmv_total', header: 'GMV base', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_total)}</span> },
-                        { key: 'gmv_videos', header: 'Vídeos', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_videos)}</span> },
-                        { key: 'registros', header: 'Registros', align: 'right', render: (item) => <span className="num">{num(item.registros)}</span> },
-                        { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_apresentadora ?? item.comissao_total)}</span> },
-                      ]}
-                    />
-                    {apresentadorasRows.length ? <TotalsBar items={[{ label: 'Total comissão', value: formatMoney(sumBy(apresentadorasRows, 'comissao_apresentadora', 'comissao_total')) }]} /> : null}
-                  </CardBody>
-                </Card>
-
+                <PresenterSettlement mes={committed.fim.slice(0, 7)} />
                 <Card>
                   <CardHeader>
                     <p className="text-base font-bold text-ink">Receita calculada por marca</p>

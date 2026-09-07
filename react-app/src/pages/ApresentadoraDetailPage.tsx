@@ -14,6 +14,9 @@ import { getApresentadoras, getComissaoMemoria, getComissoesApresentadoras, getC
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord, unwrapList } from '../utils/format'
 import { officialLiveGmv } from '../utils/live-gmv'
+import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
+import { useCurrentUser } from '../stores/auth-store'
+import { financeRoles, masterRoles } from '../utils/access'
 import type { JsonRecord } from '../types/models'
 
 export type DateRange = 'hoje' | '7d' | '30d' | 'mes' | 'mes_anterior' | 'custom'
@@ -132,6 +135,8 @@ function regraLabel(linha: JsonRecord): string {
 
 export function ApresentadoraDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
+  const user = useCurrentUser()
+  const canSeeSettlement = [...financeRoles, ...masterRoles].some((role) => role === user?.papel)
   const navigate = useNavigate()
   const toast = useToast()
   const [range, setRange] = useState<DateRange>('mes')
@@ -195,16 +200,14 @@ export function ApresentadoraDetailPage() {
   const gmv = asNumber(row.gmv_total ?? row.gmv)
   const gmvHora = asNumber(row.gmv_por_hora)
   const comissaoVar = asNumber(row.comissao_apresentadora)
-  const fixo = asNumber(row.fixo)
-  const totalRecebido = asNumber(row.total_recebido)
   const totalLives = asNumber(row.total_lives ?? row.lives)
   const horas = asNumber(row.horas_live)
 
   const isLoading = comissaoQ.isLoading || livesQ.isLoading
   const isError = comissaoQ.isError || livesQ.isError
 
-  // PDF do fechamento: KPIs + memória de cálculo (regra aplicada em cada venda)
-  // + histórico live-a-live — o documento que justifica a comissão do período.
+  // Desempenho aceita intervalos livres. Remuneração e seus adicionais pertencem
+  // ao fechamento mensal compartilhado com o Financeiro, com PDF próprio.
   async function exportPdf() {
     setExporting(true)
     try {
@@ -248,15 +251,13 @@ export function ApresentadoraDetailPage() {
       }
       buildRelatorioPdf({
         titulo: nome,
-        subtitulo: 'Relatório da apresentadora',
+        subtitulo: 'Desempenho no período',
         mes: periodoLabel(data_inicio, data_fim),
         metrics: [
           { label: 'GMV total', value: formatMoney(gmv) },
           { label: 'GMV / hora', value: formatMoney(gmvHora) },
           { label: 'Lives no período', value: `${totalLives.toLocaleString('pt-BR')} · ${horas.toFixed(1)}h no ar` },
-          { label: 'Fixo mensal', value: formatMoney(fixo) },
           { label: 'Comissão variável', value: formatMoney(comissaoVar) },
-          { label: 'Total recebido', value: formatMoney(totalRecebido) },
         ],
         tables,
         geradoEm: new Date().toLocaleString('pt-BR'),
@@ -310,9 +311,9 @@ export function ApresentadoraDetailPage() {
               isLoading={exporting}
               // memoriaQ/comissaoLivesQ também: sem elas o PDF sairia sem a memória
               // de cálculo e com '—' nas comissões por live, silenciosamente.
-              disabled={isLoading || isError || memoriaQ.isLoading || comissaoLivesQ.isLoading}
+              disabled={isLoading || isError || memoriaQ.isLoading || comissaoLivesQ.isLoading || memoriaQ.isError || comissaoLivesQ.isError || comissaoQ.isFetching || livesQ.isFetching || memoriaQ.isFetching || comissaoLivesQ.isFetching}
             >
-              Exportar PDF
+              Exportar desempenho
             </Button>
           </div>
           {range === 'custom' ? (
@@ -343,6 +344,8 @@ export function ApresentadoraDetailPage() {
         </div>
       </div>
 
+      {canSeeSettlement ? <PresenterSettlement mes={winFim.slice(0, 7)} apresentadoraId={id} embedded /> : null}
+
       {isError ? (
         <ErrorState
           message={extractErrorMessage(comissaoQ.error ?? livesQ.error)}
@@ -357,11 +360,10 @@ export function ApresentadoraDetailPage() {
         <>
           {/* KpiHero */}
           <Card>
-            <CardBody className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <CardBody className="grid gap-5 sm:grid-cols-3">
               <Stat label="GMV total" value={formatMoney(gmv)} hint={`${totalLives.toLocaleString('pt-BR')} lives · ${horas.toFixed(1)}h`} />
               <Stat label="GMV / hora" value={formatMoney(gmvHora)} hint="GMV de live ÷ horas no ar" />
               <Stat label="Comissão variável" value={formatMoney(comissaoVar)} hint="escada × GMV no período" />
-              <Stat label="Total recebido" value={formatMoney(totalRecebido)} hint={`fixo ${formatMoney(fixo)} + variável`} />
             </CardBody>
           </Card>
 
@@ -373,9 +375,7 @@ export function ApresentadoraDetailPage() {
             </CardHeader>
             <CardBody className="space-y-4">
               <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between gap-3"><span className="text-ink-muted">Fixo mensal</span><span className="num font-semibold text-ink">{formatMoney(fixo)}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-ink-muted">Comissão variável (escada × GMV)</span><span className="num font-semibold text-ink">{formatMoney(comissaoVar)}</span></div>
-                <div className="flex justify-between gap-3 border-t border-line pt-1.5"><span className="font-bold text-ink">Total recebido</span><span className="num font-bold text-ink">{formatMoney(totalRecebido)}</span></div>
               </div>
 
               {memoriaQ.isLoading ? (
@@ -399,7 +399,7 @@ export function ApresentadoraDetailPage() {
               ) : (
                 <p className="flex items-start gap-2 rounded-xl border border-dashed border-line bg-surface-muted/50 p-3 text-xs text-ink-muted">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  Sem vendas atribuídas no período — a comissão variável vem de lives com marca/apresentadora resolvidas. O <strong>fixo é mensal</strong>: períodos menores que o mês cheio mostram o fixo somado uma vez, sem rateio.
+                  Sem vendas atribuídas no período. O fixo e os adicionais podem ser consultados no fechamento mensal do Financeiro.
                 </p>
               )}
             </CardBody>

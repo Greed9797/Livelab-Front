@@ -9,7 +9,7 @@ describe('comissões: apuração e regras', () => {
     expect(financeiroSource).toContain("const podeConfigurarComissoes = user?.papel === 'franqueado'")
     expect(financeiroSource).toContain("pathname: '/financeiro/comissoes/regras'")
     expect(financeiroSource).toContain('Comissões do período')
-    expect(financeiroSource).toContain('Valores calculados por apresentadora')
+    expect(financeiroSource).toContain('PresenterSettlement')
     expect(financeiroSource).toContain('Receita calculada por marca')
   })
 
