@@ -319,3 +319,24 @@ test('compartilha a série diária e atualiza sem repetir o mesmo recorte ou rem
   await expect.poll(() => brandDetailRequests.length).toBe(1)
   expect(writes).toEqual([])
 })
+
+test('mostra somente métricas factuais no pulso, sem classificação arbitrária ou gráfico de pedidos', async ({ page }, info) => {
+  const writes = await setup(page)
+  await selectFixedPeriod(page)
+
+  await expect(page.getByText('Resumo do período', { exact: false })).toBeVisible()
+  await expect(page.getByText('GMV por Hora vs Horas de Live', { exact: true })).toBeVisible()
+  await expect(page.getByText('Status do período', { exact: false })).toHaveCount(0)
+  await expect(page.getByText('Clientes críticos', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Como o status operacional é classificado', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Pedidos · período', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Crítico', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Atenção', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Ótimo', { exact: true })).toHaveCount(0)
+  // R$ 1.600 de lives / 7h; os R$ 200 de vídeos não entram nesta taxa.
+  await expect(page.getByText('R$ 228,57', { exact: true })).toBeVisible()
+  await expect(page.getByText('7h00', { exact: true })).toBeVisible()
+  await expect(page.getByText('Assiduidade', { exact: false })).toBeVisible()
+  await page.getByText('Resumo do período', { exact: false }).locator('..').screenshot({ path: info.outputPath('resumo-sem-classificacoes.png') })
+  expect(writes).toEqual([])
+})

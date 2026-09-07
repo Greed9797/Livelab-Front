@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Activity, Gauge, Users } from 'lucide-react'
+import { Gauge, Users } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { GmvHoraComboPanel } from '../charts/Charts'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
@@ -9,7 +9,7 @@ import { getDailyAnalytics } from '../../services/domain'
 import { QK } from '../../services/query-keys'
 import { extractErrorMessage } from '../../services/api'
 import { formatMoney, unwrapList } from '../../utils/format'
-import { buildDailyPulse, formatHoras, PULSE_STATUS_CRITERIA, type PulseStatus } from '../../utils/dailyPulse'
+import { buildDailyPulse, formatHoras } from '../../utils/dailyPulse'
 import type { JsonRecord } from '../../types/models'
 
 interface PulsoDiarioSectionProps {
@@ -17,26 +17,6 @@ interface PulsoDiarioSectionProps {
   to: string
   marcaId: string
   apresentadoraId: string
-}
-
-const STATUS_META: Record<PulseStatus, { label: string; color: string; soft: string }> = {
-  critico: { label: 'Crítico', color: 'var(--danger)', soft: 'var(--danger-soft)' },
-  atencao: { label: 'Atenção', color: 'var(--warning)', soft: 'var(--warning-soft)' },
-  ok: { label: 'OK', color: 'var(--success)', soft: 'var(--success-soft)' },
-  otimo: { label: 'Ótimo', color: 'var(--primary)', soft: 'var(--primary-soft)' },
-}
-
-function StatusBadge({ status }: { status: PulseStatus }) {
-  const meta = STATUS_META[status]
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.08em]"
-      style={{ backgroundColor: meta.soft, color: meta.color }}
-    >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: meta.color }} />
-      {meta.label}
-    </span>
-  )
 }
 
 function HeroNumber({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -70,7 +50,6 @@ export function PulsoDiarioSection({ from, to, marcaId, apresentadoraId }: Pulso
     () => pulse.serieDiaria.map((d) => ({ label: d.label, gmvHora: Math.round(d.gmvHora * 100) / 100, horas: Math.round(d.horas * 10) / 10 })),
     [pulse.serieDiaria],
   )
-  const heroMeta = STATUS_META[pulse.resumo.statusGeral]
   const periodoLabel = from === to ? brDate(from) : `${brDate(from)} → ${brDate(to)}`
 
   if (!rangeValid) return <ErrorState message="Período inválido — data inicial deve ser anterior ou igual à final." />
@@ -89,37 +68,15 @@ export function PulsoDiarioSection({ from, to, marcaId, apresentadoraId }: Pulso
         accumulatedValue={formatMoney(pulse.resumo.gmvTotal)}
       />
 
-      {/* Hero de status */}
-      <Card style={{ borderColor: heroMeta.color }}>
+      <Card>
         <CardBody className="space-y-5">
-          <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl" style={{ backgroundColor: heroMeta.soft, color: heroMeta.color }}>
-              <Activity className="h-4 w-4 stroke-[2.4]" />
-            </span>
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-muted">Status do período · {periodoLabel}</p>
-              <p className="text-lg font-black uppercase tracking-[0.02em]" style={{ color: heroMeta.color }}>{heroMeta.label}</p>
-            </div>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-muted">Resumo do período · {periodoLabel}</p>
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <HeroNumber label="Horas no ar" value={formatHoras(pulse.resumo.horasTotal)} />
             <HeroNumber label="GMV" value={formatMoney(pulse.resumo.gmvTotal)} />
             <HeroNumber label="Pedidos" value={pulse.resumo.pedidosTotal.toLocaleString('pt-BR')} />
-          </div>
-          <div className="grid gap-5 border-t border-line pt-4 sm:grid-cols-3">
             <HeroNumber label="GMV / hora" value={formatMoney(pulse.resumo.gmvHora)} />
-            <HeroNumber label="Clientes críticos" value={pulse.resumo.clientesCriticos.toLocaleString('pt-BR')} hint={`${pulse.resumo.clientesAtencao} em atenção · ${pulse.resumo.clientesOk} ok`} />
-            <HeroNumber label="Horas sem venda" value={formatHoras(pulse.resumo.horasSemVenda)} hint={`${pulse.resumo.diasComZeroVenda} dia(s) com zero venda`} />
           </div>
-          <details className="border-t border-line pt-4">
-            <summary className="cursor-pointer text-xs font-semibold text-ink">Como o status operacional é classificado</summary>
-            <ul className="mt-2 grid gap-1.5 text-xs leading-5 text-ink-muted sm:grid-cols-2">
-              {PULSE_STATUS_CRITERIA.map((criterion) => (
-                <li key={criterion.status}><span className="font-semibold text-ink">{criterion.label}:</span> {criterion.rule}</li>
-              ))}
-            </ul>
-            <p className="mt-2 text-xs leading-5 text-ink-muted">Os rótulos descrevem produtividade de live neste painel. Eles não medem receita da unidade, custo, margem ou lucratividade.</p>
-          </details>
         </CardBody>
       </Card>
 
@@ -141,7 +98,6 @@ export function PulsoDiarioSection({ from, to, marcaId, apresentadoraId }: Pulso
                     {formatHoras(c.horas)} · {formatMoney(c.gmvHora)}/h · {c.pedidos.toLocaleString('pt-BR')} pedidos
                   </p>
                 </div>
-                <StatusBadge status={c.status} />
               </li>
             ))}
           </ul>
@@ -170,7 +126,6 @@ export function PulsoDiarioSection({ from, to, marcaId, apresentadoraId }: Pulso
                       {formatMoney(ap.gmvHora)}/h · {ap.pedidosHora.toFixed(1).replace('.', ',')} pedidos/h · {formatHoras(ap.horas)}
                     </p>
                   </div>
-                  <StatusBadge status={ap.status} />
                 </Link>
               </li>
             ))}

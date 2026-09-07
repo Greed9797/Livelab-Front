@@ -1,30 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDailyPulse, computeStatus, diagnose, formatHoras, PULSE_STATUS_CRITERIA } from './dailyPulse'
-
-describe('diagnose (não hardcoda R$0)', () => {
-  it('crítico com GMV>0 e zero pedidos reflete o GMV real', () => {
-    const d = diagnose('critico', { gmv: 500, pedidos: 0, horas: 2.5, totalLives: 1, gmvHora: 200, pedidosHora: 0 })
-    expect(d.descricao).toContain('500')
-    expect(d.descricao).not.toContain('R$0')
-  })
-})
-
-describe('buildDailyPulse edge cases', () => {
-  it('rows vazias = resumo zerado, sem crash', () => {
-    const p = buildDailyPulse([])
-    expect(p.resumo.gmvTotal).toBe(0)
-    expect(p.clientes).toEqual([])
-    expect(p.alertas).toEqual([])
-    expect(p.resumo.statusGeral).toBe('ok')
-  })
-  it('marca_id null agrupa por nome sem perder a linha', () => {
-    const p = buildDailyPulse([
-      { dia: '2026-06-01', marca_id: null, marca_nome: 'Sem marca', apresentadora_id: null, apresentadora_nome: 'X', gmv_total: 100, pedidos: 3, horas_live: 1, total_lives: 1 },
-    ])
-    expect(p.clientes.length).toBe(1)
-    expect(p.clientes[0].clienteNome).toBe('Sem marca')
-  })
-})
+import { buildDailyPulse, formatHoras } from './dailyPulse'
 
 describe('formatHoras', () => {
   it('formats fractional hours as HhMM', () => {
@@ -34,69 +9,46 @@ describe('formatHoras', () => {
   })
 })
 
-describe('computeStatus (regras agressivas)', () => {
-  it('2h+ no ar e zero pedidos = critico', () => {
-    expect(computeStatus({ gmv: 0, pedidos: 0, horas: 6.02, totalLives: 1, gmvHora: 0, pedidosHora: 0 })).toBe('critico')
-  })
-  it('qualquer recorte com live e zero pedidos continua crítico', () => {
-    expect(computeStatus({ gmv: 20, pedidos: 0, horas: 0.25, totalLives: 1, gmvHora: 80, pedidosHora: 0 })).toBe('critico')
-  })
-  it('1,5h com GMV/h zero continua crítico mesmo com pedido', () => {
-    const metrics = { gmv: 0, pedidos: 1, horas: 1.5, totalLives: 1, gmvHora: 0, pedidosHora: 2 / 3 }
-    expect(computeStatus(metrics)).toBe('critico')
-    expect(diagnose('critico', metrics)).toMatchObject({ titulo: 'Live sem GMV' })
-  })
-  it('pedidos>0 e gmvHora baixa = atencao', () => {
-    expect(computeStatus({ gmv: 100, pedidos: 5, horas: 5, totalLives: 1, gmvHora: 20, pedidosHora: 1 })).toBe('atencao')
-  })
-  it('pedidos>0 e gmvHora>=50 = ok', () => {
-    expect(computeStatus({ gmv: 300, pedidos: 10, horas: 4, totalLives: 1, gmvHora: 75, pedidosHora: 2.5 })).toBe('ok')
-  })
-  it('gmvHora>=150 e pedidosHora>=2 = otimo', () => {
-    expect(computeStatus({ gmv: 800, pedidos: 12, horas: 4, totalLives: 1, gmvHora: 200, pedidosHora: 3 })).toBe('otimo')
-  })
-  it('preserva exatamente as bordas de GMV/h e pedidos/h', () => {
-    expect(computeStatus({ gmv: 49.99, pedidos: 1, horas: 1, totalLives: 1, gmvHora: 49.99, pedidosHora: 1 })).toBe('atencao')
-    expect(computeStatus({ gmv: 50, pedidos: 1, horas: 1, totalLives: 1, gmvHora: 50, pedidosHora: 1 })).toBe('ok')
-    expect(computeStatus({ gmv: 150, pedidos: 1.99, horas: 1, totalLives: 1, gmvHora: 150, pedidosHora: 1.99 })).toBe('ok')
-    expect(computeStatus({ gmv: 150, pedidos: 2, horas: 1, totalLives: 1, gmvHora: 150, pedidosHora: 2 })).toBe('otimo')
-  })
-
-  it('expõe os critérios operacionais exibidos na tela', () => {
-    expect(PULSE_STATUS_CRITERIA).toEqual([
-      { status: 'critico', label: 'Crítico', rule: 'Recorte com live e 0 pedidos; ou pelo menos 1,5h no ar com GMV/h igual a R$ 0.' },
-      { status: 'atencao', label: 'Atenção', rule: 'GMV/h maior que R$ 0 e menor que R$ 50; ou, com pedidos, menos de 1 pedido/h.' },
-      { status: 'ok', label: 'OK', rule: 'Demais casos após as regras acima; com vendas, GMV/h de pelo menos R$ 50.' },
-      { status: 'otimo', label: 'Ótimo', rule: 'GMV/h de pelo menos R$ 150 e pelo menos 2 pedidos/h.' },
-    ])
-  })
-})
-
 describe('buildDailyPulse', () => {
-  const rows = [
-    // Make Zone: 6h01 no ar, zero pedido = crítico (gmv_lives=0)
-    { dia: '2026-06-05', marca_id: 'm1', marca_nome: 'Make Zone', apresentadora_id: 'a1', apresentadora_nome: 'Jady', gmv_total: 0, gmv_lives: 0, pedidos: 0, horas_live: 6.02, total_lives: 1 },
-    // Cliente Y: ok (GMV de live → gmv_lives alimenta o GMV/hora, não gmv_total)
-    { dia: '2026-06-04', marca_id: 'm2', marca_nome: 'Cliente Y', apresentadora_id: 'a1', apresentadora_nome: 'Jady', gmv_total: 1000, gmv_lives: 1000, pedidos: 17, horas_live: 4.33, total_lives: 1 },
-  ]
-  const pulse = buildDailyPulse(rows)
+  it('returns neutral empty aggregates without a generated status or diagnosis', () => {
+    const pulse = buildDailyPulse([])
+    expect(pulse.resumo).toEqual({ gmvTotal: 0, pedidosTotal: 0, horasTotal: 0, gmvHora: 0 })
+    expect(pulse.clientes).toEqual([])
+    expect(pulse.rankingApresentadoras).toEqual([])
+    expect(pulse).not.toHaveProperty('alertas')
+    expect(pulse.resumo).not.toHaveProperty('statusGeral')
+  })
 
-  it('agrega resumo correto', () => {
-    expect(pulse.resumo.gmvTotal).toBe(1000)
-    expect(pulse.resumo.pedidosTotal).toBe(17)
-    expect(pulse.resumo.clientesCriticos).toBe(1)
-    expect(pulse.resumo.statusGeral).toBe('critico')
+  it('aggregates numeric metrics without classifying either a zero or high-GMV live', () => {
+    const pulse = buildDailyPulse([
+      { dia: '2026-06-05', marca_id: 'm1', marca_nome: 'Sem pedidos', apresentadora_id: 'a1', apresentadora_nome: 'Jady', gmv_total: 0, gmv_lives: 0, pedidos: 0, horas_live: 6, total_lives: 1 },
+      { dia: '2026-06-04', marca_id: 'm2', marca_nome: 'Alta venda', apresentadora_id: 'a1', apresentadora_nome: 'Jady', gmv_total: 1_200, gmv_lives: 1_000, pedidos: 17, horas_live: 4, total_lives: 1 },
+    ])
+
+    expect(pulse.resumo).toEqual({ gmvTotal: 1_200, pedidosTotal: 17, horasTotal: 10, gmvHora: 100 })
+    expect(pulse.serieDiaria.map((day) => day.data)).toEqual(['2026-06-04', '2026-06-05'])
+    expect(pulse.clientes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ clienteNome: 'Sem pedidos', gmv: 0, pedidos: 0, horas: 6, gmvHora: 0 }),
+      expect.objectContaining({ clienteNome: 'Alta venda', gmv: 1_200, pedidos: 17, horas: 4, gmvHora: 250 }),
+    ]))
+    expect(JSON.stringify(pulse)).not.toMatch(/critico|atencao|otimo|status|alerta|diagnostico/i)
   })
-  it('ordena clientes com crítico primeiro', () => {
-    expect(pulse.clientes[0].clienteNome).toBe('Make Zone')
-    expect(pulse.clientes[0].status).toBe('critico')
+
+  it('uses live-only GMV for GMV/h while keeping total GMV visible', () => {
+    const pulse = buildDailyPulse([
+      { dia: '2026-06-01', marca_id: 'm1', marca_nome: 'Marca', apresentadora_id: 'a1', apresentadora_nome: 'Ana', gmv_total: 700, gmv_lives: 500, pedidos: 4, horas_live: 2, total_lives: 1 },
+    ])
+
+    expect(pulse.resumo.gmvTotal).toBe(700)
+    expect(pulse.resumo.gmvHora).toBe(250)
+    expect(pulse.clientes[0]).toMatchObject({ gmv: 700, gmvHora: 250 })
   })
-  it('gera alerta crítico de live longa sem venda', () => {
-    expect(pulse.alertas.length).toBeGreaterThan(0)
-    expect(pulse.alertas[0].severity).toBe('critical')
-    expect(pulse.alertas[0].clienteNome).toBe('Make Zone')
-  })
-  it('série diária ordenada por data', () => {
-    expect(pulse.serieDiaria.map((d) => d.data)).toEqual(['2026-06-04', '2026-06-05'])
+
+  it('keeps a null brand grouped by its name', () => {
+    const pulse = buildDailyPulse([
+      { dia: '2026-06-01', marca_id: null, marca_nome: 'Sem marca', apresentadora_id: null, apresentadora_nome: 'X', gmv_total: 100, gmv_lives: 100, pedidos: 3, horas_live: 1, total_lives: 1 },
+    ])
+    expect(pulse.clientes).toHaveLength(1)
+    expect(pulse.clientes[0].clienteNome).toBe('Sem marca')
   })
 })

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
-import { BarPanel } from '../components/charts/Charts'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { FunilAnalyticsSection } from '../components/analytics/FunilAnalyticsSection'
 import { RelatorioEntidadeSection } from '../components/analytics/RelatorioEntidadeSection'
@@ -22,8 +21,6 @@ import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, unwrapList } from '../utils/format'
 import { rankingId, rankingName } from '../utils/ranking'
 import { FileDown } from 'lucide-react'
-import { sumDailyTotals } from './page-helpers'
-import { buildDailyPulse } from '../utils/dailyPulse'
 import { previousPeriodRange } from '../utils/brandComparison'
 import { QK } from '../services/query-keys'
 import { useToast } from '../components/ui/Toast'
@@ -213,12 +210,6 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const diarioRows = useMemo(() => unwrapList<JsonRecord>(query.data), [query.data])
   const previousDiarioRows = useMemo(() => previousQuery.isSuccess ? unwrapList<JsonRecord>(previousQuery.data) : undefined, [previousQuery.data, previousQuery.isSuccess])
   const previousStatus = previousQuery.isSuccess ? 'ready' : previousQuery.isError ? 'error' : 'loading'
-  const totals = useMemo(() => sumDailyTotals(diarioRows), [diarioRows])
-  const serie = useMemo(() => buildDailyPulse(diarioRows).serieDiaria, [diarioRows])
-  const totalLives = totals.total_lives
-  const totalVideos = totals.total_videos
-  const pedidosPoints = useMemo(() => serie.map((d) => ({ label: d.label, value: d.pedidos })), [serie])
-
   const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
   const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
   return (
@@ -284,20 +275,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
         <LoadingState />
       ) : query.isError ? (
         <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
-      ) : (
-        <>
-          <section>
-            <BarPanel
-              title={`Pedidos · ${periodNoun}`}
-              subtitle={`Pedidos por dia no período · ${totalLives.toLocaleString('pt-BR')} lives · ${totalVideos.toLocaleString('pt-BR')} vídeos`}
-              data={pedidosPoints}
-            />
-          </section>
-
-          {/* A importação de planilha mudou para Conteúdo › Lives realizadas, ao lado da
-              exportação: é lá que as lives que ela preenche são geridas. */}
-        </>
-      )}
+      ) : null}
     </div>
   )
 }
