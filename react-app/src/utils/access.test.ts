@@ -23,8 +23,9 @@ describe('routeForRole', () => {
     expect(routeForRole('cliente_parceiro', false)).toBe('/onboarding')
   })
 
-  it('routes live presenters directly to cabines', () => {
-    expect(routeForRole('apresentadora')).toBe('/agenda')
+  it('routes both presenter aliases to their private home', () => {
+    expect(routeForRole('apresentadora')).toBe('/minha-home')
+    expect(routeForRole('apresentador')).toBe('/minha-home')
   })
 })
 
@@ -81,8 +82,10 @@ describe('menuForUser', () => {
     expect(franqueadoMenu).not.toContain('/cabines')
     expect(franqueadoMenu).not.toContain('/boletos')
 
-    expect(presenterMenu).toContain('/agenda')
-    expect(presenterMenu).toContain('/lives')
+    expect(presenterMenu).toContain('/minha-home')
+    expect(presenterMenu).toContain('/minhas-lives')
+    expect(presenterMenu).not.toContain('/agenda')
+    expect(presenterMenu).not.toContain('/lives')
     expect(presenterMenu).not.toContain('/analytics-dashboard')
     expect(presenterMenu).not.toContain('/cabines')
   })

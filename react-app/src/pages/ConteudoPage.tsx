@@ -44,6 +44,7 @@ import { canWrite } from '../utils/access'
 import { useCurrentUser } from '../stores/auth-store'
 import type { JsonRecord } from '../types/models'
 import type { AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
+import { PresenterSubmissionQueue } from '../components/conteudo/PresenterSubmissionQueue'
 
 export function shouldOpenLiveDetail({
   selectedLiveId,
@@ -148,7 +149,9 @@ function mergeAgendaWithLiveFallbacks(
 export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   // Papéis read-only (auditor, suporte, marketing, comercial_readonly, …) chegam nesta
   // página para consultar; escondemos as ações de escrita em vez de deixar o backend 403.
-  const podeEscrever = canWrite(useCurrentUser())
+  const currentUser = useCurrentUser()
+  const podeEscrever = canWrite(currentUser)
+  const canReviewPresenterSubmissions = Boolean(currentUser && ['franqueador_master', 'franqueado', 'gerente', 'operacional', 'produtor_live'].includes(currentUser.papel))
   const [params, setParams] = useSearchParams()
   const livesDeepLink = parseConteudoLivesDeepLink(params)
   const requestedTab = view
@@ -523,6 +526,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
 
       {tab === 'lives' ? (
         <Suspense fallback={<LoadingState />}>
+        {canReviewPresenterSubmissions ? <PresenterSubmissionQueue /> : null}
         <LivesTab
           canWrite={podeEscrever}
           livesData={livesItems}

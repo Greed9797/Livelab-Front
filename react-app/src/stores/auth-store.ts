@@ -4,6 +4,7 @@ import { routeForRole } from '../utils/access'
 import { clearSession, restoreSession, saveUser } from '../services/auth-storage'
 import { extractErrorMessage, unauthorizedEventName } from '../services/api'
 import * as authService from '../services/auth'
+import { queryClient } from '../services/query-client'
 
 interface AuthState {
   user: User | null
@@ -32,6 +33,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const session = await authService.login(email, senha)
+      queryClient.clear()
       set({ user: session.user, isLoading: false, error: null })
       return routeForRole(session.user.papel, session.user.onboarding_completed ?? true)
     } catch (error) {
@@ -53,11 +55,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true })
     await authService.logout()
     clearSession()
+    queryClient.clear()
     set({ user: null, isLoading: false, error: null })
   },
 
   expire: () => {
     clearSession()
+    queryClient.clear()
     set({ user: null, error: 'Sessão expirada. Faça login novamente.' })
   },
 }))

@@ -186,7 +186,7 @@ export function routeForRole(role?: Role, onboardingCompleted = true): string {
   const normalized = normalizeRole(role)
 
   if (normalized === 'franqueador_master') return '/master'
-  if (normalized === 'apresentador') return '/agenda'
+  if (normalized === 'apresentador') return '/minha-home'
   if (normalized === 'cliente_parceiro') return onboardingCompleted ? '/cliente' : '/onboarding'
   if (['franqueado', 'operacional'].includes(normalized)) return '/'
 
@@ -215,8 +215,10 @@ export const menuItems: MenuItem[] = [
   { label: 'Consolidado', path: '/master/consolidado', icon: ChartNoAxesCombined, roles: masterRoles },
   { label: 'Franqueados', path: '/master/franqueados', icon: Store, roles: ['franqueador_master'] },
   { label: 'Clientes', path: '/clientes', icon: UsersRound, roles: [...masterRoles, ...commercialRoles] },
-  { label: 'Agenda', path: '/agenda', icon: CalendarDays, roles: cabineRoles },
-  { label: 'Lives', path: '/lives', icon: MonitorPlay, roles: cabineRoles },
+  { label: 'Agenda', path: '/agenda', icon: CalendarDays, roles: cabineRoles.filter((role) => role !== 'apresentador' && role !== 'apresentadora') },
+  { label: 'Lives', path: '/lives', icon: MonitorPlay, roles: cabineRoles.filter((role) => role !== 'apresentador' && role !== 'apresentadora') },
+  { label: 'Meu desempenho', path: '/minha-home', icon: Home, roles: ['apresentador', 'apresentadora'] },
+  { label: 'Minhas lives', path: '/minhas-lives', icon: MonitorPlay, roles: ['apresentador', 'apresentadora'] },
   // Analytics standalone — mesmos roles da rota /analytics-dashboard no AppRouter.
   { label: 'Analytics', path: '/analytics-dashboard', icon: ChartSpline, roles: [...masterRoles, ...financeRoles, ...commercialRoles] },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },

@@ -34,6 +34,8 @@ const RankingMarcasPage = lazy(() => import('../pages/RankingMarcasPage').then(m
 const ConfiguracoesPage = lazy(() => import('../pages/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
 const KnowledgePage = lazy(() => import('../pages/KnowledgePage').then(m => ({ default: m.KnowledgePage })))
 const OnboardingPage = lazy(() => import('../pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
+const PresenterPortalHomePage = lazy(() => import('../pages/PresenterPortalHomePage'))
+const PresenterPortalLivesPage = lazy(() => import('../pages/PresenterPortalLivesPage'))
 
 const PageFallback = () => <LoadingState label="Carregando página" />
 
@@ -46,7 +48,9 @@ function RouterApplication() {
         <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
         <Route path="/aceitar-convite" element={<AceitarConvitePage />} />
         <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
-        <Route path="/ranking" element={<PublicRankingPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/ranking" element={<PublicRankingPage />} />
+        </Route>
 
         <Route element={<ProtectedRoute allowedRoles={clienteRoles} />}>
           <Route path="/onboarding" element={<Suspense fallback={<PageFallback />}><OnboardingPage /></Suspense>} />
@@ -82,13 +86,18 @@ function RouterApplication() {
               <Route path="/cliente/configuracoes" element={<Suspense fallback={<PageFallback />}><ConfiguracoesPage clienteMode /></Suspense>} />
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={[...cabineRoles, 'apresentador']} />}>
+            <Route element={<ProtectedRoute allowedRoles={cabineRoles.filter((role) => role !== 'apresentador' && role !== 'apresentadora')} />}>
               <Route path="/agenda" element={<Suspense fallback={<PageFallback />}><ConteudoPage key="agenda" view="agenda" /></Suspense>} />
               <Route path="/lives" element={<Suspense fallback={<PageFallback />}><ConteudoPage key="lives" view="lives" /></Suspense>} />
               <Route path="/conteudo" element={<LegacyPageRedirect to="conteudo" />} />
               <Route path="/cabines" element={<LegacyPageRedirect to="/agenda" />} />
               {/* Compatibilidade dos atalhos antigos de agenda. */}
               <Route path="/agendamentos" element={<LegacyPageRedirect to="/agenda" />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={['apresentador', 'apresentadora']} />}>
+              <Route path="/minha-home" element={<Suspense fallback={<PageFallback />}><PresenterPortalHomePage /></Suspense>} />
+              <Route path="/minhas-lives" element={<Suspense fallback={<PageFallback />}><PresenterPortalLivesPage /></Suspense>} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={opsRoles} />}>
