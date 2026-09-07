@@ -6,6 +6,7 @@ import {
   Mail,
   Shield,
   Trash2,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -98,6 +99,7 @@ interface RowActions {
   onResetSenha: (id: string) => void
   onResendConvite: (id: string) => void
   onForceLogout: (id: string) => void
+  onCreateAccess: (item: JsonRecord) => void
 }
 
 interface MutationState {
@@ -158,12 +160,11 @@ export function UsuariosList({ data, actions, mutations, faixasPorApresentadora 
                       <Mail className="h-3.5 w-3.5 shrink-0" />
                       {asString(item.email)}
                     </p>
-                    {profileOnly || isPresenterMissingProfile(item) ? (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {profileOnly ? <Badge tone="warning">sem acesso</Badge> : null}
-                        {isPresenterMissingProfile(item) ? <Badge tone="danger">perfil operacional pendente</Badge> : null}
-                      </div>
-                    ) : null}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {profileOnly ? <Badge tone="warning">sem acesso</Badge> : null}
+                      {isPresenterMissingProfile(item) ? <Badge tone="danger">perfil operacional pendente</Badge> : null}
+                      {!profileOnly && !isPresenterMissingProfile(item) ? <Badge tone="neutral">acesso criado</Badge> : null}
+                    </div>
                   </div>
                 </div>
               )
@@ -231,6 +232,17 @@ export function UsuariosList({ data, actions, mutations, faixasPorApresentadora 
                   >
                     Editar
                   </Button>
+                  {presenterOnly ? (
+                    <Button
+                      className="h-9 px-3"
+                      variant="secondary"
+                      icon={UserPlus}
+                      disabled={mutations.updatePending}
+                      onClick={() => actions.onCreateAccess(item)}
+                    >
+                      Criar acesso
+                    </Button>
+                  ) : null}
                   <IconActionButton
                     icon={ativo ? Shield : CheckCircle2}
                     label={ativo ? 'Inativar' : 'Reativar'}

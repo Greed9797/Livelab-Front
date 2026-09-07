@@ -304,6 +304,21 @@ export function SettingsUsuariosPanel() {
     })
   }
 
+  function openCreateAccess(item: JsonRecord) {
+    inviteMutation.reset()
+    setForm({
+      ...emptyForm,
+      nome: asString(item.nome, ''),
+      email: asString(item.email, ''),
+      papel: 'apresentador',
+      apresentadora_id: presenterProfileId(item),
+      // O perfil já existe: não sugerir que este acesso muda a remuneração.
+      fixo: '',
+      foto_url: '',
+    })
+    setCreateOpen(true)
+  }
+
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     inviteMutation.mutate({
@@ -312,8 +327,9 @@ export function SettingsUsuariosPanel() {
       papel: form.papel,
       ...(form.papel === 'cliente_parceiro' ? { cliente_id: form.cliente_id } : {}),
       ...(isPresenterRole(form.papel) && form.apresentadora_id ? { apresentadora_id: form.apresentadora_id } : {}),
-      ...(isPresenterRole(form.papel) && form.fixo !== '' ? { fixo: parseBRMoneyToDecimal(form.fixo) } : {}),
-      ...(isPresenterRole(form.papel) && form.foto_url ? { foto_url: form.foto_url } : {}),
+      // Vínculos preservam os dados financeiros e visuais do perfil existente.
+      ...(isPresenterRole(form.papel) && !form.apresentadora_id && form.fixo !== '' ? { fixo: parseBRMoneyToDecimal(form.fixo) } : {}),
+      ...(isPresenterRole(form.papel) && !form.apresentadora_id && form.foto_url ? { foto_url: form.foto_url } : {}),
       senha_temporaria: form.senha_temporaria,
     })
   }
@@ -411,6 +427,7 @@ export function SettingsUsuariosPanel() {
               onResetSenha: (id) => resetMutation.mutate(id),
               onResendConvite: (id) => resendMutation.mutate(id),
               onForceLogout: (id) => logoutMutation.mutate(id),
+              onCreateAccess: openCreateAccess,
             }}
           />
         </CardBody>

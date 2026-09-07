@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { menuForUser, needsClientOnboarding, routeForRole } from './access'
+import { menuForUser, needsClientOnboarding, roleLabel, routeForRole } from './access'
 import type { User } from '../types/models'
 
 const baseUser: User = {
@@ -26,6 +26,13 @@ describe('routeForRole', () => {
   it('routes both presenter aliases to their private home', () => {
     expect(routeForRole('apresentadora')).toBe('/minha-home')
     expect(routeForRole('apresentador')).toBe('/minha-home')
+  })
+})
+
+describe('roleLabel', () => {
+  it('uses one product label for both persisted presenter aliases', () => {
+    expect(roleLabel('apresentador')).toBe('Apresentadora')
+    expect(roleLabel('apresentadora')).toBe('Apresentadora')
   })
 })
 

@@ -1,8 +1,8 @@
 import { Navigate } from 'react-router-dom'
 
-// Apresentadoras virou aba dentro de Configurações (decisão 2026-05-25).
-// O conteúdo de edição/listagem de apresentadoras + escada de comissão fica
-// em /configuracoes?tab=apresentadoras (single source via SettingsUsuariosPanel).
+// Apresentadoras virou parte de Usuários e equipe (decisão 2026-05-25).
+// O painel canônico concentra identidade, login, status e comissão; o detalhe
+// individual permanece apenas como histórico operacional e financeiro.
 export function ApresentadorasPage() {
-  return <Navigate to="/configuracoes?tab=apresentadoras" replace />
+  return <Navigate to="/configuracoes?tab=usuarios" replace />
 }

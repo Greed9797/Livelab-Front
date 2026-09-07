@@ -248,7 +248,7 @@ export function roleLabel(role?: Role): string {
     franqueador_master: 'Franqueador Master',
     franqueado: 'Franqueado',
     operacional: 'Operacional',
-    apresentador: 'Apresentador',
+    apresentador: 'Apresentadora',
     cliente_parceiro: 'Cliente Parceiro',
 
     // Papel real do backend (migration 070), ainda sem UI multi-tenant própria.
@@ -264,7 +264,7 @@ export function roleLabel(role?: Role): string {
     produtor_live: 'Produtor Live (legado)',
     marketing: 'Marketing (legado)',
     comercial_readonly: 'Comercial Leitura (legado)',
-    apresentadora: 'Apresentadora (legado)',
+    apresentadora: 'Apresentadora',
   }
   return role ? labels[role] ?? role : 'Sem papel'
 }

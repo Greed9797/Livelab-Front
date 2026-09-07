@@ -15,6 +15,7 @@ export function ForgotPasswordPage() {
     event.preventDefault()
     setLoading(true)
     setError(null)
+    setMessage(null)
     try {
       await requestPasswordReset(email.trim())
       setMessage('Se este email estiver cadastrado, você receberá o link em breve.')

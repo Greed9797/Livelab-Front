@@ -57,6 +57,7 @@ export function UsuarioForm({
   inviteError,
   isInviteError,
 }: Props) {
+  const linkingExistingPresenter = isPresenterRole(form.papel) && Boolean(form.apresentadora_id)
   const faixasDefault = useQuery({
     queryKey: QK.comissaoFaixasDefault,
     queryFn: getComissaoFaixasDefault,
@@ -139,14 +140,20 @@ export function UsuarioForm({
             </div>
             <Badge tone="success">padrão ativo</Badge>
           </div>
-          <ImagePicker
-            label="Foto da apresentadora"
-            value={form.foto_url}
-            onChange={(value) => onFieldChange('foto_url', value)}
-            onFileSelect={onFileSelect}
-            isUploading={uploadState.isPending}
-            helper="Aparece nos rankings de apresentadoras."
-          />
+          {linkingExistingPresenter ? (
+            <p className="rounded-xl border border-line bg-surface px-3 py-2.5 text-xs text-ink-muted">
+              Você está criando o acesso de um perfil existente. Foto, fixo e regras de comissão desse perfil serão preservados.
+            </p>
+          ) : (
+            <ImagePicker
+              label="Foto da apresentadora"
+              value={form.foto_url}
+              onChange={(value) => onFieldChange('foto_url', value)}
+              onFileSelect={onFileSelect}
+              isUploading={uploadState.isPending}
+              helper="Aparece nos rankings de apresentadoras."
+            />
+          )}
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="block md:col-span-2">
               <span className="text-sm font-semibold text-ink">Perfil operacional</span>
@@ -161,14 +168,16 @@ export function UsuarioForm({
                 ))}
               </select>
             </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
-              <MoneyInput
-                className="design-input mt-2 h-11 w-full px-4"
-                value={form.fixo}
-                onChange={(raw) => onFieldChange('fixo', raw)}
-              />
-            </label>
+            {!linkingExistingPresenter ? (
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
+                <MoneyInput
+                  className="design-input mt-2 h-11 w-full px-4"
+                  value={form.fixo}
+                  onChange={(raw) => onFieldChange('fixo', raw)}
+                />
+              </label>
+            ) : null}
           </div>
           {/* Escada padrão do tenant — a comissão vem sempre das faixas por GMV. */}
           <div className="flex flex-wrap gap-2">
