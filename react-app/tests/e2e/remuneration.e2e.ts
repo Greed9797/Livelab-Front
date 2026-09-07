@@ -5,9 +5,10 @@ const ana = '22222222-2222-4222-8222-222222222222'
 const bia = '33333333-3333-4333-8333-333333333333'
 type Extra = { id: string; apresentadora_id: string; mes: string; tipo: string; descricao: string; data_referencia: string | null; valor: number; request_id?: string }
 
-async function setup(page: Page, editable = true, failBonusOnce = false) {
+async function setup(page: Page, editable = true, failBonusOnce = false, detailMode: 'normal' | 'error' | 'mismatch' | 'long' = 'normal') {
   const extras: Extra[] = [{ id: 'bonus-bia', apresentadora_id: bia, mes: '2026-09', tipo: 'bonificacao', descricao: 'Apoio especial', data_referencia: null, valor: 55.55 }]
   const writes: { method: string; body?: Record<string, unknown> }[] = []
+  const detailRequests: string[] = []
   await page.addInitScript(write => {
     localStorage.setItem('livelab.react.remember', 'true')
     localStorage.setItem('livelab.react.access_token', 'synthetic-remuneration-token')
@@ -18,6 +19,28 @@ async function setup(page: Page, editable = true, failBonusOnce = false) {
   await page.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.fulfill({ status: 204 }))
   await page.route('**/v1/**', async route => {
     const req = route.request(), url = new URL(req.url()), path = url.pathname
+    if (/\/financeiro\/fechamento-apresentadoras\/[^/]+\/detalhes$/.test(path)) {
+      detailRequests.push(req.url())
+      if (detailMode === 'error') return route.fulfill({ status: 500, json: { error: 'Detalhamento indisponível' } })
+      const id = path.split('/').at(-2), mes = url.searchParams.get('mes')
+      const commission = id === ana ? 350.10 : 0
+      const count = detailMode === 'long' ? 205 : 2
+      return route.fulfill({ json: {
+        mes, apresentadora_id: id, memoria_completa: true,
+        performance: { total_lives: count, horas_live: count * 2, gmv_lives: 17505, gmv_por_hora: 17505 / (count * 2) },
+        total_variavel: detailMode === 'mismatch' ? commission + 1 : commission,
+        lives: Array.from({ length: count }, (_, index) => ({
+          live_id: `live-${index}`, data: '2026-09-05', marca_nome: index === count - 1 ? 'Marca ultima live' : 'Marca Aurora',
+          cabine_nome: 'Cabine Norte', duracao_horas: 2, gmv: index === 0 ? 17505 : 0, pedidos: index === 0 ? 25 : 0,
+          gmv_atribuido: index === 0 ? 17505 : 0, horas_atribuidas: 2, comissao: index === 0 ? commission : 0,
+        })),
+        memoria: Array.from({ length: detailMode === 'long' ? 505 : 1 }, (_, index) => ({
+          id: `venda-${index}`, data: '2026-09-05', origem: 'live', marca_nome: index === 504 ? 'Ultima venda memoria' : 'Marca Aurora',
+          gmv: index === 0 ? 17505 : 0, comissao_apresentadora: index === 0 ? commission : 0, pct_aplicado: index === 0 ? 2 : 0,
+          base_gmv_mes: 17505, faixa: null, fim_de_semana: true,
+        })),
+      } })
+    }
     if (path === '/v1/financeiro/fechamento-apresentadoras') {
       const mes = url.searchParams.get('mes') ?? ''
       const rows = [[ana, 'Ana'], [bia, 'Bia']].map(([id, nome]) => {
@@ -58,7 +81,7 @@ async function setup(page: Page, editable = true, failBonusOnce = false) {
     if (path === '/v1/financeiro/resumo' || path === '/v1/financeiro/fluxo-caixa' || path === '/v1/financeiro/faturamento') return route.fulfill({ json: {} })
     return route.fulfill({ json: [] })
   })
-  return { writes, extras }
+  return { writes, extras, detailRequests }
 }
 
 async function openAna(page: Page) {
@@ -86,13 +109,13 @@ test('marca cada dia, lança bonificação e exporta exatamente o total mensal n
   expect(writes.filter(write => write.method === 'POST')).toHaveLength(3)
   expect(writes[2].body).toMatchObject({ mes: '2026-09', apresentadora_id: ana, tipo: 'bonificacao', descricao: 'Meta de vendas', valor: 125.35 })
   const download = page.waitForEvent('download')
-  await modal.getByRole('button', { name: 'Exportar PDF', exact: true }).click()
+  await modal.getByRole('button', { name: 'Exportar relatório mensal', exact: true }).click()
   const artifact = await download
   const path = info.outputPath('fechamento-ana.pdf')
   await artifact.saveAs(path)
   const pdf = (await readFile(path)).toString('latin1')
   expect(pdf.startsWith('%PDF')).toBe(true)
-  for (const text of ['3.375,45', '325,35', '350,10', '2.700,00', '125,35', '05/09/2026', '06/09/2026', 'Meta de vendas']) expect(pdf).toContain(text)
+  for (const text of ['3.375,45', '325,35', '350,10', '2.700,00', '125,35', '05/09/2026', '06/09/2026', 'Meta de vendas', 'Marca Aurora', 'Marca ultima live', 'Cabine Norte', 'Pedidos']) expect(pdf).toContain(text)
   await modal.screenshot({ path: info.outputPath('fechamento-com-extras.png') })
   await modal.getByRole('button', { name: 'Remover Meta de vendas', exact: true }).click()
   await expect(modal.getByText('R$ 3.250,10', { exact: true })).toBeVisible()
@@ -128,12 +151,46 @@ test('repete bonificação após falha de resposta sem duplicar o lançamento', 
   expect(extras.filter(extra => extra.apresentadora_id === ana)).toHaveLength(1)
 })
 
-test('perfil usa o mesmo fechamento e mantém desempenho separado do pagamento', async ({ page }) => {
+test('perfil exporta o mesmo relatório mensal completo do Financeiro', async ({ page }, info) => {
   await setup(page)
   await page.goto(`/apresentadoras/${ana}`)
-  await expect(page.getByRole('button', { name: 'Exportar desempenho', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Exportar desempenho', exact: true })).toHaveCount(0)
   await page.getByLabel('Competência do fechamento').fill('2026-09')
   await page.getByRole('button', { name: 'Abrir fechamento', exact: true }).click()
   await expect(page.getByRole('dialog').getByText('R$ 3.050,10', { exact: true })).toBeVisible()
+  const download = page.waitForEvent('download')
+  await page.getByRole('dialog').getByRole('button', { name: 'Exportar relatório mensal', exact: true }).click()
+  const artifact = await download
+  const path = info.outputPath('relatorio-unificado-perfil.pdf')
+  await artifact.saveAs(path)
+  const pdf = (await readFile(path)).toString('latin1')
+  for (const text of ['3.050,10', '350,10', '2.700,00', 'Marca Aurora', 'Marca ultima live', 'Cabine Norte', 'Pedidos']) expect(pdf).toContain(text)
   expect(new URL(page.url()).pathname).toBe(`/apresentadoras/${ana}`)
+})
+
+for (const detailMode of ['error', 'mismatch'] as const) {
+  test(`não baixa relatório incompleto: ${detailMode}`, async ({ page }) => {
+    await setup(page, true, false, detailMode)
+    const modal = await openAna(page)
+    const downloads: string[] = []
+    page.on('download', download => downloads.push(download.suggestedFilename()))
+    await modal.getByRole('button', { name: 'Exportar relatório mensal', exact: true }).click()
+    await expect(page.getByText(detailMode === 'error' ? 'O servidor está indisponível no momento.' : 'O fechamento foi atualizado. Aguarde os dados recarregarem e tente exportar novamente.').last()).toBeVisible()
+    await expect(modal.getByRole('button', { name: 'Exportar relatório mensal', exact: true })).toBeEnabled()
+    expect(downloads).toEqual([])
+  })
+}
+
+test('preserva a última live e a última linha da memória em relatórios longos', async ({ page }, info) => {
+  await setup(page, false, false, 'long')
+  const modal = await openAna(page)
+  const download = page.waitForEvent('download')
+  await modal.getByRole('button', { name: 'Exportar relatório mensal', exact: true }).click()
+  const artifact = await download
+  const path = info.outputPath('relatorio-unificado-longo.pdf')
+  await artifact.saveAs(path)
+  const pdf = (await readFile(path)).toString('latin1')
+  expect(pdf).toContain('Marca ultima live')
+  expect(pdf).toContain('Ultima venda memoria')
+  expect(pdf).toContain('3.050,10')
 })
