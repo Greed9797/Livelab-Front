@@ -1,7 +1,8 @@
 import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
-import { clearSession, getAccessToken, getRefreshToken, updateAccessToken } from './auth-storage'
+import { clearSession, getAccessToken, getRefreshToken, getSavedUser, saveUser, updateAccessToken } from './auth-storage'
 
 export const unauthorizedEventName = 'livelab:unauthorized'
+export const authUserUpdatedEventName = 'livelab:auth-user-updated'
 
 function resolveBaseUrl(): string {
   const raw = import.meta.env.VITE_API_URL?.trim() || 'http://127.0.0.1:3001/v1'
@@ -54,6 +55,14 @@ async function refreshAccessToken(): Promise<string | null> {
       const rotatedRefreshToken = response.data?.refresh_token as string | undefined
       if (!accessToken) return null
       updateAccessToken(accessToken, rotatedRefreshToken)
+      const currentUser = getSavedUser()
+      const responseUser = response.data?.user
+      if (currentUser && responseUser && typeof responseUser === 'object') {
+        // A resposta pode trazer foto; mesclamos sobre a identidade existente em
+        // vez de reconstruí-la a partir de um JWT que não carrega esse campo.
+        saveUser({ ...currentUser, ...(responseUser as Record<string, unknown>) })
+        window.dispatchEvent(new CustomEvent(authUserUpdatedEventName))
+      }
       return accessToken
     } catch {
       return null

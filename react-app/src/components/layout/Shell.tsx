@@ -18,6 +18,15 @@ function initials(name?: string) {
     .toUpperCase()
 }
 
+function AccountAvatar({ user, className = 'h-9 w-9' }: { user: { nome?: string; foto_url?: string | null } | null; className?: string }) {
+  const image = user?.foto_url
+  return (
+    <span className={clsx('grid shrink-0 place-items-center overflow-hidden rounded-[10px] bg-[var(--bg-elev-3)] text-xs font-bold text-ink', className)}>
+      {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : initials(user?.nome)}
+    </span>
+  )
+}
+
 function Sidebar({
   onNavigate,
   expanded = false,
@@ -123,18 +132,14 @@ function Sidebar({
         <div className={clsx('rounded-xl border border-line bg-[var(--bg-elev-3)]', expanded ? 'p-3' : 'grid h-12 place-items-center')}>
           {expanded ? (
             <div className="flex min-w-0 items-center gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[var(--bg-elev-3)] text-xs font-bold text-ink">
-                {initials(user?.nome)}
-              </span>
+              <AccountAvatar user={user} />
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-ink">{user?.nome}</p>
                 <p className="mt-1 truncate text-xs text-ink-muted">{roleLabel(user?.papel)}</p>
               </div>
             </div>
           ) : (
-            <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-[var(--bg-elev-3)] text-xs font-bold text-ink">
-              {initials(user?.nome)}
-            </span>
+            <AccountAvatar user={user} />
           )}
         </div>
         {expanded ? (
@@ -187,9 +192,7 @@ export function Shell() {
               <Menu aria-hidden="true" className="h-5 w-5" />
             </button>
             <div className="flex items-center gap-2">
-              <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-[var(--bg-elev-3)] text-xs font-bold text-ink">
-                {initials(user?.nome)}
-              </span>
+              <AccountAvatar user={user} />
               <div className="text-right">
                 <p className="text-sm font-bold text-ink">{user?.nome ?? 'Livelab'}</p>
                 <p className="text-xs text-ink-muted">{roleLabel(user?.papel)}</p>

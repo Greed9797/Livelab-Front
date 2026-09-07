@@ -18,6 +18,7 @@ import { asArray, asNumber, asString, formatPercent } from '../../utils/format'
 import { officialLiveGmvRaw } from '../../utils/live-gmv'
 import { QK, invalidateOperational } from '../../services/query-keys'
 import type { JsonRecord } from '../../types/models'
+import { isOperationalBrand, isOperationalClient } from '../../utils/operational-status'
 
 type LookupOption = { value: string; label: string }
 
@@ -85,14 +86,19 @@ const emptyForm: EditForm = {
 
 export type LiveAccountOption = { value: string; label: string }
 
-export function liveAccountOptions(marcas: JsonRecord[], clientes: JsonRecord[]): LiveAccountOption[] {
+export function liveAccountOptions(marcas: JsonRecord[], clientes: JsonRecord[], selected?: { marcaId?: string; clienteId?: string; historicalName?: string }): LiveAccountOption[] {
   const clientesComMarca = new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean))
-  return [
-    ...marcas.map((marca) => ({ value: `marca:${asString(marca.id, '')}`, label: `Marca · ${asString(marca.nome ?? marca.cliente_nome, 'Marca')}` })),
+  const options = [
+    ...marcas.filter(isOperationalBrand).map((marca) => ({ value: `marca:${asString(marca.id, '')}`, label: `Marca · ${asString(marca.nome ?? marca.cliente_nome, 'Marca')}` })),
     ...clientes
-      .filter((cliente) => !clientesComMarca.has(asString(cliente.id, '')))
+      .filter((cliente) => isOperationalClient(cliente) && !clientesComMarca.has(asString(cliente.id, '')))
       .map((cliente) => ({ value: `cliente:${asString(cliente.id, '')}`, label: `Cliente · ${asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente')}` })),
   ].filter((option) => option.value !== 'marca:' && option.value !== 'cliente:')
+  const selectedValue = selected?.marcaId ? `marca:${selected.marcaId}` : selected?.clienteId ? `cliente:${selected.clienteId}` : ''
+  if (!selectedValue || options.some((option) => option.value === selectedValue)) return options
+  const record = selected?.marcaId ? marcas.find((item) => asString(item.id, '') === selected.marcaId) : clientes.find((item) => asString(item.id, '') === selected?.clienteId)
+  const name = asString(record?.nome ?? record?.cliente_nome ?? record?.razao_social ?? record?.email, selected?.historicalName || (selected?.marcaId ? 'Marca' : 'Cliente'))
+  return [{ value: selectedValue, label: `${selected?.marcaId ? 'Marca' : 'Cliente'} · ${name} (inativo)` }, ...options]
 }
 
 export function liveAccountSelection(value: string, marcas: JsonRecord[]): { marca_id: string; cliente_id: string } | null {
@@ -262,7 +268,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
   const cabineOptions = useMemo(() => toLookupOptions(asArray(cabinesQuery.data) as JsonRecord[], 'numero'), [cabinesQuery.data])
   const clienteRows = useMemo(() => asArray<JsonRecord>(clientesQuery.data), [clientesQuery.data])
   const marcaRows = useMemo(() => asArray<JsonRecord>(marcasQuery.data), [marcasQuery.data])
-  const accountOptions = useMemo(() => liveAccountOptions(marcaRows, clienteRows), [clienteRows, marcaRows])
+  const accountOptions = useMemo(() => liveAccountOptions(marcaRows, clienteRows, { marcaId: form.marca_id, clienteId: form.cliente_id, historicalName: asString(live?.marca_nome ?? live?.cliente_nome, '') }), [clienteRows, form.cliente_id, form.marca_id, live?.cliente_nome, live?.marca_nome, marcaRows])
 
   useEffect(() => {
     if (!open) { initializedLiveRef.current = ''; return }

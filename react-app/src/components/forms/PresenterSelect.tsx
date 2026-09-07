@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { JsonRecord } from '../../types/models'
-import { toPresenterOptions } from '../../utils/presenters'
+import { presenterDisplayName, presenterProfileId, toPresenterOptions } from '../../utils/presenters'
 
 type PresenterSelectProps = {
   value: string
@@ -24,11 +24,16 @@ export function PresenterSelect({
   placeholder = 'Selecione uma apresentadora',
   required = false,
   disabled = false,
-  includeInactive = true,
+  includeInactive = false,
   className = '',
   describedBy,
 }: PresenterSelectProps) {
-  const options = useMemo(() => toPresenterOptions(rows, { includeInactive }), [includeInactive, rows])
+  const options = useMemo(() => {
+    const base = toPresenterOptions(rows, { includeInactive })
+    if (includeInactive || !value || base.some((option) => option.value === value)) return base
+    const selected = rows.find((row) => presenterProfileId(row) === value)
+    return selected ? [{ value, label: `${presenterDisplayName(selected)} (inativa)` }, ...base] : base
+  }, [includeInactive, rows, value])
 
   return (
     <label className={`block ${className}`.trim()}>

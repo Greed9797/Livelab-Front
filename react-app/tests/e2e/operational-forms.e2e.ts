@@ -151,6 +151,18 @@ test('marca inativa da reserva carrega sem apagar dados já digitados', async ({
   await expect(dialog).not.toBeVisible()
 })
 
+test('edição mantém a marca histórica ausente do catálogo ativo sem oferecer outras inativas', async ({ page }) => {
+  const writes = await setup(page)
+  await page.route('**/v1/marcas**', (route) => route.fulfill({ json: [] }))
+  const dialog = await openEdit(page)
+  const account = dialog.getByLabel('Marca ou cliente')
+  await expect(account).toHaveValue(`marca:${marcaId}`)
+  const labels = await account.locator('option').allTextContents()
+  expect(labels).toContain('Marca · Marca Aurora (inativo)')
+  expect(labels).not.toContain('Outra marca inativa')
+  expect(writes).toEqual([])
+})
+
 test('rota protegida mantém redirecionamento para login sem sessão', async ({ page }) => {
   await page.route('**/v1/**', (route) => route.fulfill({ status: 401, json: { error: 'Sem sessão' } }))
   await page.goto('/conteudo')

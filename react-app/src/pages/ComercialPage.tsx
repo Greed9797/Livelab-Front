@@ -31,8 +31,6 @@ import type { JsonRecord } from '../types/models'
 
 // Vocabulário de status alinhado aos CHECKs do banco:
 // clientes (migrations 016/042) e marcas (migrations 080/121).
-const CLIENTE_STATUS_OPTIONS = ['ativo', 'inadimplente', 'cancelado', 'arquivado']
-const MARCA_STATUS_OPTIONS = ['ativa', 'pausada', 'inativa', 'arquivada']
 const STATUS_LABELS: Record<string, string> = {
   ativo: 'Ativo',
   ativa: 'Ativa',
@@ -601,9 +599,12 @@ export function ComercialPage() {
     const id = asString(item.id, '')
     const kind = selectedAtivoKind
     const current = asString(ativoForm.status || item.status)
+    const operacional = kind === 'cliente'
+      ? current === 'ativo' || current === 'inadimplente'
+      : current === 'ativa'
     const nextStatus = kind === 'cliente'
-      ? current === 'ativo' ? 'cancelado' : 'ativo'
-      : current === 'ativa' ? 'inativa' : 'ativa'
+      ? operacional ? 'cancelado' : 'ativo'
+      : operacional ? 'inativa' : 'ativa'
     ativoUpdateMutation.mutate(
       { id, kind, payload: { status: nextStatus } },
       { onSuccess: () => {
@@ -614,33 +615,13 @@ export function ComercialPage() {
     )
   }
 
-  function toggleArquivarAtivo(item = selectedAtivo) {
-    if (!item) return
-    const id = asString(item.id, '')
-    const kind = selectedAtivoKind
-    const current = asString(ativoForm.status || item.status)
-    const arquivado = current === 'arquivada' || current === 'arquivado'
-    // Arquivar = ocultar de tudo (revés. Desarquivar volta pra ativa/ativo).
-    const nextStatus = kind === 'cliente'
-      ? (arquivado ? 'ativo' : 'arquivado')
-      : (arquivado ? 'ativa' : 'arquivada')
-    ativoUpdateMutation.mutate(
-      { id, kind, payload: { status: nextStatus } },
-      { onSuccess: () => {
-        ativoInitialRef.current = { ...ativoInitialRef.current, status: nextStatus }
-        setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
-        toast.push(arquivado ? 'Cadastro desarquivado.' : 'Cadastro arquivado.', 'success')
-      } },
-    )
-  }
-
   function deleteAtivo() {
     if (!selectedAtivo) return
     const id = asString(selectedAtivo.id, '')
     const kind = selectedAtivoKind
     const ok = window.confirm(
       `Excluir ${kind === 'cliente' ? 'o cliente' : 'o afiliado'} "${asString(selectedAtivo.nome)}"?\n\n`
-      + 'O cadastro sai da carteira. Se houver histórico de lives ou vídeos, a API pode bloquear a exclusão — nesse caso, prefira Arquivar.',
+      + 'O cadastro sai da carteira. Se houver histórico de lives ou vídeos, a API pode bloquear a exclusão — nesse caso, prefira desativar.',
     )
     if (!ok) return
     ativoDeleteMutation.mutate({ id, kind })
@@ -1001,17 +982,11 @@ export function ComercialPage() {
                   <input className="design-input mt-2 h-11 w-full px-4" required value={ativoForm.nome} onChange={(event) => setAtivoForm((current) => ({ ...current, nome: event.target.value }))} />
                   {selectedAtivoKind === 'cliente' && marcaPctId ? <span className="mt-1 block text-[11px] text-ink-muted">Ao alterar este nome, a marca vinculada será renomeada também.</span> : null}
                 </label>
-                <label className="block">
+                <div className="block">
                   <span className="text-sm font-semibold text-ink">Status</span>
-                  <select className="design-input mt-2 h-11 w-full px-4" value={ativoForm.status} onChange={(event) => setAtivoForm((current) => ({ ...current, status: event.target.value }))}>
-                    {(() => {
-                      const options = selectedAtivoKind === 'cliente' ? CLIENTE_STATUS_OPTIONS : MARCA_STATUS_OPTIONS
-                      // status atual fora da lista curta (ex.: funil do CRM) entra como opção para não ser trocado sem querer
-                      const withCurrent = options.includes(ativoForm.status) ? options : [ativoForm.status, ...options]
-                      return withCurrent.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)
-                    })()}
-                  </select>
-                </label>
+                  <p className="mt-2 flex h-11 items-center rounded-xl border border-line bg-surface-muted px-4 text-sm text-ink">{statusLabel(ativoForm.status)}</p>
+                  <span className="mt-1 block text-[11px] text-ink-muted">Use a ação abaixo para desativar ou reativar o cadastro.</span>
+                </div>
                 <div className="md:col-span-2">
                   <ImagePicker
                     label={selectedAtivoKind === 'cliente' ? 'Imagem do cliente' : 'Imagem da marca'}
@@ -1104,15 +1079,10 @@ export function ComercialPage() {
                     </div>
                   </div>
                 </ModalSection>
-                <ModalSection title="Ações administrativas" description="Cancelar, arquivar ou excluir este cadastro." collapsible>
+                <ModalSection title="Ações administrativas" description="Desative, reative ou exclua este cadastro. O histórico é preservado." collapsible>
                   <div className="flex flex-wrap items-end gap-2">
                   <Button type="button" variant="secondary" onClick={() => toggleAtivoStatus()} disabled={ativoUpdateMutation.isPending}>
-                    {selectedAtivoKind === 'cliente'
-                      ? (ativoForm.status === 'ativo' ? 'Cancelar cliente' : 'Reativar')
-                      : (ativoForm.status === 'ativa' ? 'Inativar' : 'Reativar')}
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={() => toggleArquivarAtivo()} disabled={ativoUpdateMutation.isPending}>
-                    {['arquivada', 'arquivado'].includes(ativoForm.status) ? 'Desarquivar' : 'Arquivar'}
+                    {((selectedAtivoKind === 'cliente' && ['ativo', 'inadimplente'].includes(ativoForm.status)) || (selectedAtivoKind === 'marca' && ativoForm.status === 'ativa')) ? 'Desativar' : 'Reativar'}
                   </Button>
                   {selectedAtivoKind === 'marca' && selectedAtivoId ? (
                     <Button

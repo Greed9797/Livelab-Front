@@ -11,6 +11,7 @@ import { extractErrorMessage } from '../../services/api'
 import { getAgendaConflitos, putAgendaTurnos } from '../../services/domain'
 import { asArray, asNumber, asString } from '../../utils/format'
 import { presenterProfileId } from '../../utils/presenters'
+import { isOperationalBrand, isOperationalClient, isOperationalPresenter } from '../../utils/operational-status'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import type { AgendaTurno, Cabine, JsonRecord } from '../../types/models'
 
@@ -493,17 +494,26 @@ export function AgendarLiveModal({
 
   const clientesComMarca = useMemo(() => new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean)), [marcas])
   const accountOptions = useMemo<LookupOption[]>(() => [
-    ...marcas.map((marca) => ({
+    ...marcas.filter(isOperationalBrand).map((marca) => ({
       value: `marca:${asString(marca.id, '')}`,
       label: asString(marca.nome ?? marca.cliente_nome, 'Marca'),
     })),
     ...clientes
-      .filter((cliente) => !clientesComMarca.has(asString(cliente.id, '')))
+      .filter((cliente) => isOperationalClient(cliente) && !clientesComMarca.has(asString(cliente.id, '')))
       .map((cliente) => ({
         value: `cliente:${asString(cliente.id, '')}`,
         label: asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente'),
       })),
   ].filter((option) => option.value !== 'marca:' && option.value !== 'cliente:'), [clientes, clientesComMarca, marcas])
+  const accountOptionsWithHistorical = useMemo<LookupOption[]>(() => {
+    if (mode !== 'edit' || !event) return accountOptions
+    const marcaId = asString(event.marca_id, '')
+    const clienteId = asString(event.cliente_id, '')
+    const value = marcaId ? `marca:${marcaId}` : clienteId ? `cliente:${clienteId}` : ''
+    if (!value || accountOptions.some((option) => option.value === value)) return accountOptions
+    const name = asString(event.marca_nome ?? event.cliente_nome, marcaId ? 'Marca da agenda' : 'Cliente da agenda')
+    return [{ value, label: `${name} (inativo)` }, ...accountOptions]
+  }, [accountOptions, event, mode])
   const cabineOptions = useMemo<LookupOption[]>(() => cabines.map((cabine) => ({
     value: asString(cabine.id, ''),
     label: `Cabine ${asString(cabine.numero, '')}`,
@@ -516,8 +526,13 @@ export function AgendarLiveModal({
   // sintética abaixo o select não a acharia e o replace-all apagaria o turno
   // dela em silêncio ao salvar.
   const apresentadorasComTurnos = useMemo(() => {
-    const conhecidas = new Set(apresentadoras.map((row) => presenterProfileId(row)).filter(Boolean))
-    const faltantes = asArray<JsonRecord>(event?.apresentadoras)
+    const conhecidas = new Set(apresentadoras.filter(isOperationalPresenter).map((row) => presenterProfileId(row)).filter(Boolean))
+    const alocacoes = [...asArray<JsonRecord>(event?.apresentadoras)]
+    const apresentadoraLegadaId = asString(event?.apresentadora_id, '')
+    if (apresentadoraLegadaId && !alocacoes.some((turno) => asString(turno.apresentadora_id, '') === apresentadoraLegadaId)) {
+      alocacoes.push({ apresentadora_id: apresentadoraLegadaId, apresentadora_nome: asString(event?.apresentadora_nome, 'Apresentadora') })
+    }
+    const faltantes = alocacoes
       .filter((turno) => {
         const id = asString(turno.apresentadora_id, '')
         return Boolean(id) && !conhecidas.has(id)
@@ -525,8 +540,10 @@ export function AgendarLiveModal({
       .map((turno) => ({
         id: asString(turno.apresentadora_id, ''),
         nome: asString(turno.apresentadora_nome, 'Apresentadora'),
+        ativo: true,
+        historico_inativo: true,
       }))
-    return faltantes.length > 0 ? [...apresentadoras, ...faltantes] : apresentadoras
+    return [...apresentadoras.filter(isOperationalPresenter), ...faltantes]
   }, [apresentadoras, event])
 
   // useRef rastreia se form já foi inicializado pra esta abertura do modal.
@@ -581,7 +598,7 @@ export function AgendarLiveModal({
       }
       initialFormRef.current = nextForm
       setForm(nextForm)
-      setAccountLookup(optionLabel(accountOptions, nextForm.marca_id ? `marca:${nextForm.marca_id}` : nextForm.cliente_id ? `cliente:${nextForm.cliente_id}` : ''))
+      setAccountLookup(optionLabel(accountOptionsWithHistorical, nextForm.marca_id ? `marca:${nextForm.marca_id}` : nextForm.cliente_id ? `cliente:${nextForm.cliente_id}` : ''))
       setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
       return
     }
@@ -603,7 +620,7 @@ export function AgendarLiveModal({
     }
     initialFormRef.current = nextForm
     setForm(nextForm)
-    setAccountLookup(marcaPadrao ? optionLabel(accountOptions, `marca:${asString(marcaPadrao.id, '')}`) : '')
+    setAccountLookup(marcaPadrao ? optionLabel(accountOptionsWithHistorical, `marca:${asString(marcaPadrao.id, '')}`) : '')
     setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
     // Deps mínimas — accountOptions/cabineOptions removidas pra estabilizar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1055,7 +1072,7 @@ export function AgendarLiveModal({
                 <span className="text-sm font-semibold text-ink">Marca ou cliente</span>
                 <AccountCombobox
                   value={accountLookup}
-                  options={accountOptions}
+              options={accountOptionsWithHistorical}
                   required={accountRequired}
                   invalid={accountInvalid}
                   onChange={onAccountLookupChange}

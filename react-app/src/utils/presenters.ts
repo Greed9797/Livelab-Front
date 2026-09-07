@@ -1,5 +1,6 @@
 import type { JsonRecord } from '../types/models'
 import { asString } from './format'
+import { isOperationalPresenter } from './operational-status'
 
 export type PresenterOption = {
   value: string
@@ -24,10 +25,10 @@ export function presenterDisplayName(item: JsonRecord | null | undefined): strin
 export function toPresenterOptions(rows: JsonRecord[] = [], { includeInactive = true } = {}): PresenterOption[] {
   const seen = new Set<string>()
   return rows
-    .filter((item) => includeInactive || item.ativo !== false)
+    .filter((item) => includeInactive || isOperationalPresenter(item) || item.historico_inativo === true)
     .map((item) => {
       const value = presenterProfileId(item)
-      const inactive = item.ativo === false
+      const inactive = !isOperationalPresenter(item) || item.historico_inativo === true
       const label = `${presenterDisplayName(item)}${inactive ? ' (inativa)' : ''}`
       return { value, label }
     })

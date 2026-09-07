@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import type { User } from '../types/models'
 import { routeForRole } from '../utils/access'
-import { clearSession, restoreSession, saveUser } from '../services/auth-storage'
-import { extractErrorMessage, unauthorizedEventName } from '../services/api'
+import { clearSession, getSavedUser, restoreSession, saveUser } from '../services/auth-storage'
+import { authUserUpdatedEventName, extractErrorMessage, unauthorizedEventName } from '../services/api'
 import * as authService from '../services/auth'
 import { queryClient } from '../services/query-client'
 
@@ -69,6 +69,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 if (typeof window !== 'undefined') {
   window.addEventListener(unauthorizedEventName, () => {
     useAuthStore.getState().expire()
+  })
+  window.addEventListener(authUserUpdatedEventName, () => {
+    const user = getSavedUser()
+    if (user) useAuthStore.setState({ user })
   })
 }
 

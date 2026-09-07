@@ -44,6 +44,7 @@ export interface User {
   papel: Role
   tenant_id: string
   tenant_nome: string
+  foto_url?: string | null
   onboarding_completed?: boolean
 }
 

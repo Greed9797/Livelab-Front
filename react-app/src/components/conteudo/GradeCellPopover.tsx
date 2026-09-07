@@ -7,6 +7,7 @@ import { UnsavedChangesNotice } from '../ui/UnsavedChangesNotice'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { getAgenda } from '../../services/domain'
 import { asArray, asString } from '../../utils/format'
+import { isOperationalBrand, isOperationalPresenter } from '../../utils/operational-status'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import type { JsonRecord } from '../../types/models'
 import type { GradeCelula } from './gradeUtils'
@@ -160,6 +161,8 @@ export function GradeCellPopover({
   const lives = target.data
     ? eventosNoSlot(agendaQuery.data ?? [], { data: target.data, horaInicio: target.horaInicio, horaFim: target.horaFim })
     : []
+  const marcasDisponiveis = marcas.filter((marca) => isOperationalBrand(marca) || asString(marca.id) === marcaId)
+  const apresentadorasDisponiveis = apresentadoras.filter((apresentadora) => isOperationalPresenter(apresentadora) || asString(apresentadora.id) === apresentadoraId)
 
   return (
     <Modal open title={titulo} subtitle={subtitulo} size="sm" onClose={closeGuard.requestClose} closeDisabled={isSaving}>
@@ -168,8 +171,8 @@ export function GradeCellPopover({
           <span className="mb-2 block font-semibold text-ink">Marca</span>
           <select className="design-input h-11 w-full px-3" value={marcaId} onChange={(e) => setMarcaId(e.target.value)} required>
             <option value="">Selecione uma marca</option>
-            {marcas.map((m) => (
-              <option key={asString(m.id)} value={asString(m.id)}>{asString(m.nome, 'Sem nome')}</option>
+            {marcasDisponiveis.map((m) => (
+              <option key={asString(m.id)} value={asString(m.id)}>{asString(m.nome, 'Sem nome')}{isOperationalBrand(m) ? '' : ' (inativa)'}</option>
             ))}
           </select>
         </label>
@@ -178,8 +181,8 @@ export function GradeCellPopover({
           <span className="mb-2 block font-semibold text-ink">Apresentadora</span>
           <select className="design-input h-11 w-full px-3" value={apresentadoraId} onChange={(e) => setApresentadoraId(e.target.value)}>
             <option value="">Sem apresentadora definida</option>
-            {apresentadoras.map((a) => (
-              <option key={asString(a.id)} value={asString(a.id)}>{asString(a.nome, 'Sem nome')}</option>
+            {apresentadorasDisponiveis.map((a) => (
+              <option key={asString(a.id)} value={asString(a.id)}>{asString(a.nome, 'Sem nome')}{isOperationalPresenter(a) ? '' : ' (inativa)'}</option>
             ))}
           </select>
         </label>

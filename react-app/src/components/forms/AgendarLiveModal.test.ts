@@ -22,4 +22,10 @@ describe('AgendarLiveModal source contract', () => {
     expect(source).toContain('getSaoPauloDateInput')
     expect(source).toContain("return `${date}T${time}:00-03:00`")
   })
+
+  it('preserva a conta e a apresentadora legadas ao editar fora do catálogo ativo', () => {
+    expect(source).toContain('accountOptionsWithHistorical')
+    expect(source).toContain('const apresentadoraLegadaId')
+    expect(source).toContain('(inativo)')
+  })
 })

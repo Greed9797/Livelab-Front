@@ -14,14 +14,22 @@ describe('EditarLiveModal account and split contract', () => {
   })
 
   it('selecting a brand preserves its client link while client-only remains a legacy fallback', () => {
-    const marcas = [{ id: 'marca-a', nome: 'Marca A', cliente_id: 'cliente-a' }]
-    const clientes = [{ id: 'cliente-a', nome: 'Cliente A' }, { id: 'cliente-legado', nome: 'Cliente legado' }]
+    const marcas = [{ id: 'marca-a', nome: 'Marca A', cliente_id: 'cliente-a', status: 'ativa' }]
+    const clientes = [{ id: 'cliente-a', nome: 'Cliente A', status: 'ativo' }, { id: 'cliente-legado', nome: 'Cliente legado', status: 'inadimplente' }]
     expect(liveAccountOptions(marcas, clientes)).toEqual([
       { value: 'marca:marca-a', label: 'Marca · Marca A' },
       { value: 'cliente:cliente-legado', label: 'Cliente · Cliente legado' },
     ])
     expect(liveAccountSelection('marca:marca-a', marcas)).toEqual({ marca_id: 'marca-a', cliente_id: 'cliente-a' })
     expect(liveAccountSelection('cliente:cliente-legado', marcas)).toEqual({ marca_id: '', cliente_id: 'cliente-legado' })
+  })
+
+  it('oculta cadastros inativos em novas escolhas e conserva a conta histórica selecionada', () => {
+    const marcas = [{ id: 'ativa', nome: 'Ativa', status: 'ativa' }, { id: 'inativa', nome: 'Histórica', status: 'inativa' }]
+    const clientes = [{ id: 'cliente-ativo', nome: 'Atual', status: 'ativo' }, { id: 'cliente-cancelado', nome: 'Legado', status: 'cancelado' }]
+    expect(liveAccountOptions(marcas, clientes).map((item) => item.value)).toEqual(['marca:ativa', 'cliente:cliente-ativo'])
+    expect(liveAccountOptions(marcas, clientes, { marcaId: 'inativa' })[0]).toEqual({ value: 'marca:inativa', label: 'Marca · Histórica (inativo)' })
+    expect(liveAccountOptions([], [], { marcaId: 'ausente', historicalName: 'Marca removida do catálogo' })[0]).toEqual({ value: 'marca:ausente', label: 'Marca · Marca removida do catálogo (inativo)' })
   })
 
   it('does not turn an unavailable account value into a destructive replacement', () => {

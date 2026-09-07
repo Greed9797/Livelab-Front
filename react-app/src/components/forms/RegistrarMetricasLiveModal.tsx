@@ -12,6 +12,7 @@ import { asString } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
 import { formatBRLWithoutSymbol } from '../../utils/money'
 import { buildFunilPayload, buildManualLivePayload, type ManualLiveForm } from '../../utils/live-manual'
+import { isOperationalBrand, isOperationalClient } from '../../utils/operational-status'
 import type { Cabine, JsonRecord } from '../../types/models'
 
 export type RegistrarMetricasLiveMode = 'manual' | 'edit' | 'result'
@@ -222,18 +223,23 @@ export function RegistrarMetricasLiveModal({
   const clientesComMarca = useMemo(() => new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean)), [marcas])
   const accountOptions = useMemo(() => form.tipo === 'afiliado'
     ? marcas
+      .filter((marca) => isOperationalBrand(marca) || asString(marca.id, '') === form.marca_id)
       .filter((marca) => ['afiliada', 'parceira', 'propria'].includes(asString(marca.tipo, '')))
-      .map((marca) => ({ value: `marca:${asString(marca.id, '')}`, label: asString(marca.nome ?? marca.cliente_nome, 'Afiliada') }))
+      .map((marca) => ({ value: `marca:${asString(marca.id, '')}`, label: `${asString(marca.nome ?? marca.cliente_nome, 'Afiliada')}${isOperationalBrand(marca) ? '' : ' (inativa)'}` }))
     : [
       ...marcas
-        .filter((marca) => asString(marca.tipo, 'cliente') === 'cliente')
-        .map((marca) => ({ value: `marca:${asString(marca.id, '')}`, label: asString(marca.nome ?? marca.cliente_nome, 'Marca') })),
+        .filter((marca) => (isOperationalBrand(marca) || asString(marca.id, '') === form.marca_id) && asString(marca.tipo, 'cliente') === 'cliente')
+        .map((marca) => ({ value: `marca:${asString(marca.id, '')}`, label: `${asString(marca.nome ?? marca.cliente_nome, 'Marca')}${isOperationalBrand(marca) ? '' : ' (inativa)'}` })),
       ...clientes
-        .filter((cliente) => !clientesComMarca.has(asString(cliente.id, '')))
-        .map((cliente) => ({ value: `cliente:${asString(cliente.id, '')}`, label: asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente') })),
-    ], [clientes, clientesComMarca, form.tipo, marcas])
+        .filter((cliente) => (isOperationalClient(cliente) || asString(cliente.id, '') === form.cliente_id) && !clientesComMarca.has(asString(cliente.id, '')))
+        .map((cliente) => ({ value: `cliente:${asString(cliente.id, '')}`, label: `${asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente')}${isOperationalClient(cliente) ? '' : ' (inativo)'}` })),
+    ], [clientes, clientesComMarca, form.cliente_id, form.marca_id, form.tipo, marcas])
 
   const accountValue = form.marca_id ? `marca:${form.marca_id}` : form.cliente_id ? `cliente:${form.cliente_id}` : ''
+  const apresentadorasDisponiveis = useMemo(() => {
+    if (!form.apresentador_id || apresentadoras.some((item) => asString(item.id ?? item.apresentadora_id, '') === form.apresentador_id)) return apresentadoras
+    return [...apresentadoras, { id: form.apresentador_id, nome: asString(live?.apresentadora_nome ?? agendaEvent?.apresentadora_nome, 'Apresentadora'), ativo: true, historico_inativo: true }]
+  }, [agendaEvent?.apresentadora_nome, apresentadoras, form.apresentador_id, live?.apresentadora_nome])
 
   function setField(key: keyof MetricsForm, value: string) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -338,7 +344,7 @@ export function RegistrarMetricasLiveModal({
           {preserveAgendaBrand ? <span className="mt-1 block text-xs text-ink-muted">Marca e tipo seguem a reserva. Para alterá-los, edite o agendamento.</span> : null}
         </label>
         <PresenterSelect
-          rows={apresentadoras}
+          rows={apresentadorasDisponiveis}
           value={form.apresentador_id}
           onChange={(value) => setField('apresentador_id', value)}
           placeholder="Sem apresentadora definida"

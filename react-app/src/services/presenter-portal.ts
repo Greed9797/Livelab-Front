@@ -29,7 +29,7 @@ export type PresenterPortalRankingRow = {
 export type PresenterPortalHome = {
   perfil: { id: string; nome: string; foto_url: string | null }
   desempenho: PresenterPortalPerformance
-  remuneracao: { fixo: number | null }
+  remuneracao: { mes?: string; fixo: number | null; comissao?: number | null; adicionais?: number | null; total?: number | null; extras?: Array<{ id: string; tipo: string; data_referencia: string; descricao: string; valor: number }> }
   ranking: PresenterPortalRankingRow[]
 }
 
@@ -57,6 +57,8 @@ export type PresenterSubmission = {
   observacao?: string | null
   gmv_declarado?: number | null
   pedidos_declarados?: number | null
+  live_impressions_declaradas?: number | null
+  manual_views_declaradas?: number | null
   motivo_devolucao?: string | null
   versao?: number
 }
@@ -72,14 +74,15 @@ export type PresenterPortalOptions = {
 }
 
 export type PresenterSubmissionPayload = {
-  marca_id?: string
-  marca_descricao?: string
+  marca_id: string
   cabine_id?: string
   iniciado_em: string
   encerrado_em: string
   observacao?: string
-  gmv_declarado?: number
-  pedidos_declarados?: number
+  gmv_declarado: number
+  pedidos_declarados: number
+  live_impressions_declaradas?: number
+  manual_views_declaradas?: number
   request_id?: string
 }
 
@@ -121,7 +124,7 @@ export function getPresenterReviewQueue(status = 'pendente') {
   return apiGet<{ items: PresenterReviewSubmission[] }>('/lives/submissoes-apresentadoras', { status })
 }
 
-export function approvePresenterSubmission(id: string, payload: { live_id: string } | { marca_id: string; cabine_id: string; iniciado_em: string; encerrado_em: string; gmv_oficial: number; pedidos_oficiais: number }) {
+export function approvePresenterSubmission(id: string, payload: { live_id: string } | { marca_id: string; cabine_id: string; iniciado_em: string; encerrado_em: string; gmv_oficial: number; pedidos_oficiais: number; live_impressions_oficiais?: number; manual_views_oficiais?: number }) {
   return apiPost(`/lives/submissoes-apresentadoras/${encodeURIComponent(id)}/aprovar`, payload)
 }
 
