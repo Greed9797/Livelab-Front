@@ -59,6 +59,9 @@ export type PresenterSubmission = {
   pedidos_declarados?: number | null
   live_impressions_declaradas?: number | null
   manual_views_declaradas?: number | null
+  /** Tombstone confirmado pelo backend; ausência isolada de live oficial não basta. */
+  live_oficial_excluida_id?: string | null
+  live_oficial_excluida_em?: string | null
   motivo_devolucao?: string | null
   versao?: number
 }

@@ -10,6 +10,10 @@ export function submissionStatusLabel(status: PresenterSubmissionStatus): string
   return ({ pendente: 'Em revisão', devolvida: 'Devolvida para ajuste', aprovada: 'Aprovada', cancelada: 'Cancelada' })[status]
 }
 
+export function submissionHasOfficialLiveTombstone(submission: { status: PresenterSubmissionStatus; live_oficial_excluida_id?: string | null; live_oficial_excluida_em?: string | null }): boolean {
+  return submission.status === 'aprovada' && Boolean(submission.live_oficial_excluida_id && submission.live_oficial_excluida_em)
+}
+
 export function submissionStatusTone(status: PresenterSubmissionStatus): BadgeTone {
   const tones: Record<PresenterSubmissionStatus, BadgeTone> = { pendente: 'warning', devolvida: 'danger', aprovada: 'success', cancelada: 'neutral' }
   return tones[status]

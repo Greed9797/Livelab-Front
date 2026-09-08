@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_LIVE_COLUMNS, LIVE_COLUMN_OPTIONS, buildLivesGridTemplate, gmvPorHora, type LiveColumnKey } from './LivesTab'
+import { DEFAULT_LIVE_COLUMNS, LIVE_COLUMN_OPTIONS, buildLivesGridTemplate, gmvPorHora, groupLivesBySaoPauloDay, type LiveColumnKey } from './LivesTab'
 import { dateRangeToWindow, isValidCustomDateRange } from './live-date-range'
 
 describe('LivesTab custom date range', () => {
@@ -60,5 +60,27 @@ describe('LivesTab colunas configuráveis', () => {
     const padrao = buildLivesGridTemplate(new Set(DEFAULT_LIVE_COLUMNS))
     expect(padrao).not.toContain('90px minmax')
     expect(padrao.startsWith('80px minmax(180px,1.4fr) 72px 115px 92px')).toBe(true)
+  })
+})
+
+describe('LivesTab agrupamento por dia operacional', () => {
+  it('mantém no mesmo dia de São Paulo lives antes e depois da virada UTC', () => {
+    const groups = groupLivesBySaoPauloDay([
+      { id: 'cedo', iniciado_em: '2026-09-07T03:30:00Z' },
+      // 01:00Z é 22:00 do dia anterior em São Paulo: não pode virar grupo do dia 08.
+      { id: 'noite', iniciado_em: '2026-09-08T01:00:00Z' },
+    ])
+    expect(groups).toHaveLength(1)
+    expect(groups[0].dateKey).toBe('2026-09-07')
+    expect(groups[0].lives.map((live) => live.id)).toEqual(['cedo', 'noite'])
+  })
+
+  it('fixa o rótulo no fuso de São Paulo e mantém fallback para timestamp inválido', () => {
+    const groups = groupLivesBySaoPauloDay([
+      { id: 'noite', iniciado_em: '2026-09-08T01:00:00Z' },
+      { id: 'invalida', iniciado_em: 'data inválida' },
+    ])
+    expect(groups.find((group) => group.dateKey === '2026-09-07')?.label).toContain('7')
+    expect(groups.find((group) => group.dateKey === '1970-01-01')).toMatchObject({ label: 'Sem data' })
   })
 })

@@ -6,10 +6,10 @@ const brand = '33333333-3333-4333-8333-333333333333'
 const cabin = '44444444-4444-4444-8444-444444444444'
 const submission = '55555555-5555-4555-8555-555555555555'
 
-async function setup(page: Page, role = 'apresentadora', initialStatus = 'pendente', failCreateOnce = false, fixture: { submissionCount?: number; legacyBrand?: boolean } = {}) {
+async function setup(page: Page, role = 'apresentadora', initialStatus = 'pendente', failCreateOnce = false, fixture: { submissionCount?: number; legacyBrand?: boolean; tombstone?: boolean } = {}) {
   page.on('pageerror', error => { throw error })
   const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = []
-  let items: Record<string, unknown>[] = initialStatus === 'empty' ? [] : Array.from({ length: fixture.submissionCount ?? 1 }, (_, index) => ({ id: index === 0 ? submission : `55555555-5555-4555-8555-${String(index).padStart(12, '0')}`, apresentadora_id: presenter, apresentadora_nome: 'Ana', status: initialStatus, iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', marca_id: brand, marca_nome: fixture.legacyBrand ? null : `Marca Aurora${index ? ` ${index + 1}` : ''}`, marca_descricao: fixture.legacyBrand ? 'Marca legada' : 'Marca Aurora', cabine_id: cabin, cabine_nome: 'Cabine Norte', gmv_declarado: 200, pedidos_declarados: 2, motivo_devolucao: initialStatus === 'devolvida' ? 'Confira os pedidos' : null, versao: 1 }))
+  let items: Record<string, unknown>[] = initialStatus === 'empty' ? [] : Array.from({ length: fixture.submissionCount ?? 1 }, (_, index) => ({ id: index === 0 ? submission : `55555555-5555-4555-8555-${String(index).padStart(12, '0')}`, apresentadora_id: presenter, apresentadora_nome: 'Ana', status: initialStatus, iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', marca_id: brand, marca_nome: fixture.legacyBrand ? null : `Marca Aurora${index ? ` ${index + 1}` : ''}`, marca_descricao: fixture.legacyBrand ? 'Marca legada' : 'Marca Aurora', cabine_id: cabin, cabine_nome: 'Cabine Norte', gmv_declarado: 200, pedidos_declarados: 2, live_oficial_excluida_id: fixture.tombstone ? '99999999-9999-4999-8999-999999999999' : null, live_oficial_excluida_em: fixture.tombstone ? '2026-09-08T01:00:00Z' : null, motivo_devolucao: initialStatus === 'devolvida' ? 'Confira os pedidos' : null, versao: 1 }))
   await page.addInitScript(({ role, tenant }) => {
     localStorage.setItem('livelab.react.remember', 'true')
     localStorage.setItem('livelab.react.access_token', 'synthetic-portal-token')
@@ -130,6 +130,16 @@ test('mantém marca legada, não marca envio pendente como cancelado e volta à 
   await expect(page.getByText('Página 2 de 2', { exact: true })).toBeVisible()
   await page.getByLabel('Mês das minhas lives').fill('2026-08')
   await expect(page.getByText('Página 1 de 2', { exact: true })).toBeVisible()
+})
+
+test('preserva envio aprovado como histórico quando a live oficial foi excluída pelo gestor', async ({ page }) => {
+  await setup(page, 'apresentadora', 'aprovada', false, { tombstone: true })
+  await page.goto('/minhas-lives')
+  await expect(page.getByText('Aprovada', { exact: true })).toBeVisible()
+  await expect(page.getByText('Live excluída pelo gestor', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Corrigir', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Reenviar', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Cancelar envio', exact: true })).toHaveCount(0)
 })
 
 test('aceita zero nas métricas declaradas e bloqueia contagens fora do limite', async ({ page }) => {

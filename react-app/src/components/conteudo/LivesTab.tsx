@@ -25,6 +25,7 @@ import { ErrorState, LoadingState } from '../ui/States'
 import { AnalyticsImportSection } from '../analytics/AnalyticsImportSection'
 import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
+import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { officialLiveGmv } from '../../utils/live-gmv'
 import {
   calcDuration,
@@ -135,19 +136,23 @@ function localIsoDate(date: Date): string {
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
-function groupByDay(lives: JsonRecord[]) {
+const saoPauloDayLabel = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+})
+
+/** Agrupa e exporta pela data-calendário operacional, nunca pela data UTC do instantâneo. */
+export function groupLivesBySaoPauloDay(lives: JsonRecord[]) {
   const map = new Map<string, { label: string; lives: JsonRecord[] }>()
   for (const live of lives) {
     const d = live.iniciado_em ? new Date(live.iniciado_em as string) : null
     const key =
-      d && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '1970-01-01'
+      d && !Number.isNaN(d.getTime()) ? getSaoPauloDateInput(d) : '1970-01-01'
     const label =
       d && !Number.isNaN(d.getTime())
-        ? new Intl.DateTimeFormat('pt-BR', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-          }).format(d)
+        ? saoPauloDayLabel.format(d)
         : 'Sem data'
     if (!map.has(key)) map.set(key, { label, lives: [] })
     map.get(key)!.lives.push(live)
@@ -172,7 +177,7 @@ function doExportCSV(lives: JsonRecord[]) {
     'GMV (R$)',
     'GMV/h (R$)',
   ]
-  const groups = groupByDay(lives)
+  const groups = groupLivesBySaoPauloDay(lives)
   const rows: string[][] = [header]
   for (const g of groups) {
     for (const l of g.lives) {
@@ -574,7 +579,7 @@ export function LivesTab({
   const hasAnyFilter = Boolean(search.trim()) || activeFilterCount > 0
   const clearFilters = onClearFilters
 
-  const dayGroups = useMemo(() => groupByDay(filteredLives), [filteredLives])
+  const dayGroups = useMemo(() => groupLivesBySaoPauloDay(filteredLives), [filteredLives])
   // Pré-computa as agregações por grupo (duração/GMV/publicadas/rascunhos) uma única
   // vez por mudança de `dayGroups`, em vez de recalcular reduce/filter por render
   // dentro do map. Keyed pela própria referência de `group.lives`.
