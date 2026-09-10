@@ -92,6 +92,7 @@ const emptyForm: CreateFormState = {
 
 const emptyEditForm = {
   nome: '',
+  email: '',
   papel: 'gerente',
   ativo: true,
   fixo: '2700',
@@ -212,6 +213,7 @@ export function SettingsUsuariosPanel() {
       const presenterPayload: JsonRecord = {}
       if (presenterPapel) {
         presenterPayload.nome = ef.nome
+        presenterPayload.email = ef.email
         presenterPayload.ativo = ef.ativo
         if (ef.fixo !== '') presenterPayload.fixo = parseBRMoneyToDecimal(ef.fixo)
         presenterPayload.foto_url = ef.foto_url || null
@@ -221,6 +223,7 @@ export function SettingsUsuariosPanel() {
       if (isPresenterProfile(user)) return updateApresentadora(presenterIdResolved, presenterPayload)
       return updateUsuario(asString(user.id, ''), {
         nome: ef.nome,
+        email: ef.email,
         papel: ef.papel,
         ativo: ef.ativo,
         ...(presenterPapel ? presenterPayload : {}),
@@ -295,6 +298,7 @@ export function SettingsUsuariosPanel() {
     setEditingUser(item)
     setEditForm({
       nome: asString(item.nome, ''),
+      email: asString(item.email, ''),
       papel: asString(item.papel, 'gerente'),
       ativo: ativoValue(item.ativo),
       fixo: isPresenterUser(item) || isPresenterProfile(item) ? presenterFixedValue(item) : asString(item.fixo_mensal ?? item.fixo, ''),
@@ -490,6 +494,10 @@ export function SettingsUsuariosPanel() {
             <label className="block">
               <span className="text-sm font-semibold text-ink">Nome</span>
               <input className="design-input mt-2 h-11 w-full px-4" value={editForm.nome} onChange={(e) => setEditField('nome', e.target.value)} placeholder="Nome completo" required />
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold text-ink">E-mail</span>
+              <input type="email" className="design-input mt-2 h-11 w-full px-4" value={editForm.email} onChange={(e) => setEditField('email', e.target.value)} placeholder="email@exemplo.com" required />
             </label>
             <label className="block">
               <span className="text-sm font-semibold text-ink">Status</span>
