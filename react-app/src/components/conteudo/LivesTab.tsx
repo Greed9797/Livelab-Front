@@ -18,15 +18,20 @@ import {
   SlidersHorizontal,
   Trash2,
   Upload,
+  Check,
+  Copy,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { BotBadge } from '../ui/BotBadge'
 import { ErrorState, LoadingState } from '../ui/States'
+import { useToast } from '../ui/Toast'
 import { AnalyticsImportSection } from '../analytics/AnalyticsImportSection'
 import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { officialLiveGmv } from '../../utils/live-gmv'
+import { getLivesResumoDia } from '../../services/domain'
+import { buildClientResumoDiaText } from './live-resumo-dia'
 import {
   calcDuration,
   classifyLivePendings,
@@ -508,6 +513,40 @@ export function LivesTab({
   const apresentadoraOptions = apresentadoraFilterOptions
   const kebabOpenId = kebabMenu?.liveId ?? null
   const todayIso = localIsoDate(new Date())
+
+  const toast = useToast()
+  const [copiedDayKey, setCopiedDayKey] = useState<string | null>(null)
+  const [copyingDayKey, setCopyingDayKey] = useState<string | null>(null)
+
+  async function handleCopyDaySummary(dateKey: string, lives: JsonRecord[]) {
+    try {
+      setCopyingDayKey(dateKey)
+      let text = ''
+      try {
+        const res = await getLivesResumoDia({ data: dateKey })
+        if (res && res.texto_whatsapp) {
+          text = res.texto_whatsapp
+        }
+      } catch {
+        text = buildClientResumoDiaText(lives, dateKey)
+      }
+
+      if (!text) {
+        text = buildClientResumoDiaText(lives, dateKey)
+      }
+
+      await navigator.clipboard.writeText(text)
+      setCopiedDayKey(dateKey)
+      toast.push('Resumo do dia copiado para o WhatsApp!', 'success')
+      setTimeout(() => {
+        setCopiedDayKey((prev) => (prev === dateKey ? null : prev))
+      }, 2500)
+    } catch {
+      toast.push('Não foi possível copiar o resumo.', 'error')
+    } finally {
+      setCopyingDayKey((prev) => (prev === dateKey ? null : prev))
+    }
+  }
 
   // Close overlay menus on outside click
   useEffect(() => {
@@ -1166,46 +1205,89 @@ export function LivesTab({
                     </div>
                   </div>
 
-                  {/* GMV pill */}
-                  {totalGmv > 0 && (
-                    <div
+                  {/* Day header actions: Copiar resumo + GMV pill */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        void handleCopyDaySummary(group.dateKey, group.lives)
+                      }}
+                      disabled={copyingDayKey === group.dateKey}
+                      title="Copiar resumo do dia para o WhatsApp"
                       style={{
-                        display: 'flex',
-                        alignItems: 'baseline',
-                        gap: 8,
-                        padding: '5px 12px 5px 14px',
-                        borderRadius: 9,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        fontWeight: 500,
+                        color: copiedDayKey === group.dateKey ? 'var(--success)' : 'var(--text-secondary)',
                         background:
-                          'linear-gradient(90deg, var(--primary-soft), var(--primary-softer))',
-                        border: '1px solid var(--primary-soft)',
+                          copiedDayKey === group.dateKey
+                            ? 'var(--success-soft, rgba(16, 185, 129, 0.1))'
+                            : 'var(--bg-elev-3)',
+                        border: `1px solid ${copiedDayKey === group.dateKey ? 'var(--success)' : 'var(--border)'}`,
+                        borderRadius: 8,
+                        cursor: copyingDayKey === group.dateKey ? 'wait' : 'pointer',
+                        transition: 'all 0.15s ease',
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      <span
+                      {copiedDayKey === group.dateKey ? (
+                        <>
+                          <Check style={{ width: 13, height: 13 }} />
+                          <span>Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy style={{ width: 13, height: 13 }} />
+                          <span>{copyingDayKey === group.dateKey ? 'Copiando...' : 'Copiar resumo'}</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* GMV pill */}
+                    {totalGmv > 0 && (
+                      <div
                         style={{
-                          fontFamily: 'var(--font-sans)',
-                          fontSize: 10,
-                          color: 'var(--text-muted)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.10em',
-                          fontWeight: 500,
+                          display: 'flex',
+                          alignItems: 'baseline',
+                          gap: 8,
+                          padding: '5px 12px 5px 14px',
+                          borderRadius: 9,
+                          background:
+                            'linear-gradient(90deg, var(--primary-soft), var(--primary-softer))',
+                          border: '1px solid var(--primary-soft)',
+                          whiteSpace: 'nowrap',
                         }}
                       >
-                        GMV do dia
-                      </span>
-                      <b
-                        style={{
-                          color: 'var(--primary)',
-                          fontSize: 15,
-                          fontWeight: 600,
-                          letterSpacing: -0.01,
-                          fontVariantNumeric: 'tabular-nums',
-                        }}
-                      >
-                        {formatMoney(totalGmv)}
-                      </b>
-                    </div>
-                  )}
+                        <span
+                          style={{
+                            fontFamily: 'var(--font-sans)',
+                            fontSize: 10,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.10em',
+                            fontWeight: 500,
+                          }}
+                        >
+                          GMV do dia
+                        </span>
+                        <b
+                          style={{
+                            color: 'var(--primary)',
+                            fontSize: 15,
+                            fontWeight: 600,
+                            letterSpacing: -0.01,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {formatMoney(totalGmv)}
+                        </b>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Rows */}

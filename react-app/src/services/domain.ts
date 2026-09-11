@@ -459,6 +459,48 @@ export function getLivesDuplicatas() {
   return apiGet<JsonRecord>('/lives/duplicatas')
 }
 
+export interface LiveResumoDiaResponse {
+  data: string
+  data_formatada: string
+  consolidado_em: string
+  consolidado_em_formatado: string
+  totais: {
+    gmv: number
+    pedidos: number
+    minutos: number
+    horas: number
+    horas_formatadas: string
+    gmv_por_hora: number
+    lives_count: number
+  }
+  marcas: Array<{
+    marca_id: string | null
+    nome: string
+    gmv: number
+    pedidos: number
+    minutos: number
+    horas: number
+    horas_formatadas: string
+    gmv_por_hora: number
+    lives_count: number
+  }>
+  apresentadoras: Array<{
+    apresentadora_id: string | null
+    nome: string
+    gmv: number
+    minutos: number
+    horas: number
+    horas_formatadas: string
+    gmv_por_hora: number
+    lives_count: number
+  }>
+  texto_whatsapp: string
+}
+
+export function getLivesResumoDia(params: { data: string; status?: string }) {
+  return apiGet<LiveResumoDiaResponse>('/lives/resumo-dia', params)
+}
+
 export async function getLiveAtualDaCabine(cabineId: string): Promise<LiveAtual | null> {
   const res = await apiGet<JsonRecord>(`/cabines/${cabineId}/live-atual`)
   if (!res.live_ativa) return null

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLiveTiktokStatus, getMasterCrm, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
+import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -95,6 +95,14 @@ describe('domain live operations', () => {
     await getLivesPaginado({ status: 'encerrada', page: 2, limit: 25, q: 'haag' })
 
     expect(apiGet).toHaveBeenCalledWith('/lives', { status: 'encerrada', page: 2, limit: 25, q: 'haag', paginado: 1 })
+  })
+
+  it('loads daily summary for lives via /lives/resumo-dia', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ data: '2026-09-11', texto_whatsapp: '...' })
+
+    await getLivesResumoDia({ data: '2026-09-11' })
+
+    expect(apiGet).toHaveBeenCalledWith('/lives/resumo-dia', { data: '2026-09-11' })
   })
 
   it('loads daily analytics with filters', async () => {
