@@ -369,7 +369,6 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     setIfChanged('agenda_evento_id', form.agenda_evento_id, live.agenda_evento_id)
     setIfChanged('status', form.status, live.status)
     setIfChanged('tipo', form.tipo, live.tipo)
-    setIfChanged('status_publicacao', form.status_publicacao, live.status_publicacao)
     setIfChanged('origem_dados', form.origem_dados, live.origem_dados)
     setIfChanged('resumo', form.resumo, live.resumo)
 
@@ -532,11 +531,8 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Status de publicação</span>
-              <select className="design-input mt-2 h-11 w-full px-3" value={form.status_publicacao} onChange={(e) => setField('status_publicacao', e.target.value)}>
-                <option value="rascunho">Rascunho</option>
-                <option value="revisado">Revisado</option>
-                <option value="publicado">Publicado</option>
-              </select>
+              <p className="mt-2 rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-ink">{form.status_publicacao === 'publicado' ? 'Publicado' : form.status_publicacao === 'revisado' ? 'Revisado' : 'Rascunho'}</p>
+              <p className="mt-2 text-xs text-ink-muted">Use a ação de publicação na lista de lives para avançar ao próximo status permitido.</p>
             </label>
           </div>
         </ModalSection>
