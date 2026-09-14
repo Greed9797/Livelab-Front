@@ -284,7 +284,7 @@ function TipoBadge({ tipo }: { tipo: unknown }) {
   const t = asString(tipo, 'manual').toLowerCase()
   // 'bot' é automação também: antes caía em MANUAL e brigava com o chip BOT ao lado do nome.
   const isAuto = ['api', 'auto', 'tiktok', 'sync', 'bot'].includes(t)
-  const rotulo = t === 'bot' ? 'BOT' : isAuto ? 'AUTO' : 'MANUAL'
+  const rotulo = t === 'apresentadora' ? 'APRESENTADORA' : t === 'bot' ? 'BOT' : isAuto ? 'AUTO' : 'MANUAL'
   return (
     <span
       style={{

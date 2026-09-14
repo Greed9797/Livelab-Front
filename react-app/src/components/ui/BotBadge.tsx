@@ -9,11 +9,16 @@ export function isBot(origem: unknown): boolean {
   return origem === 'bot'
 }
 
+export function isPresenterOrigin(origem: unknown): boolean {
+  return origem === 'apresentadora'
+}
+
 export function BotBadge({ origem, className }: { origem: unknown; className?: string }) {
-  if (!isBot(origem)) return null
+  const label = isBot(origem) ? 'BOT' : isPresenterOrigin(origem) ? 'APRESENTADORA' : null
+  if (!label) return null
   return (
     <Badge tone="sistema" className={className}>
-      BOT
+      {label}
     </Badge>
   )
 }

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { BotBadge, isBot } from './BotBadge'
+import { BotBadge, isBot, isPresenterOrigin } from './BotBadge'
 
 // Sem ambiente DOM no repo: markup estático, como os outros testes de ui/.
 describe('BotBadge', () => {
@@ -8,6 +8,11 @@ describe('BotBadge', () => {
     const html = renderToStaticMarkup(<BotBadge origem="bot" />)
     expect(html).toContain('BOT')
     expect(isBot('bot')).toBe(true)
+  })
+
+  it("renderiza o chip APRESENTADORA quando origem_dados é 'apresentadora'", () => {
+    expect(renderToStaticMarkup(<BotBadge origem="apresentadora" />)).toContain('APRESENTADORA')
+    expect(isPresenterOrigin('apresentadora')).toBe(true)
   })
 
   it.each([['manual'], ['api'], [undefined], [null], ['']])('não renderiza nada para %s', (origem) => {

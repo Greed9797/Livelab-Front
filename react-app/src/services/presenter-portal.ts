@@ -82,7 +82,7 @@ export type PresenterSubmissionPayload = {
   iniciado_em: string
   encerrado_em: string
   observacao?: string
-  gmv_declarado: number
+  gmv_declarado: string
   pedidos_declarados: number
   live_impressions_declaradas?: number
   manual_views_declaradas?: number
