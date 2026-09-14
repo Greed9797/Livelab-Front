@@ -377,6 +377,8 @@ export interface LivesTabProps {
   onCloseLiveModal: () => void
   onCopyLiveReport: (text: string) => void
   onInlineSaveLive?: (liveId: string, payload: JsonRecord) => Promise<unknown>
+  /** Avança a máquina de estados rascunho → revisado → publicado. */
+  onPublishLive?: (live: JsonRecord) => void
   duplicateLiveIds?: string[]
   duplicateClusterCount?: number
   pendingFilter: LivePendingKind | ''
@@ -444,6 +446,7 @@ export function LivesTab({
   onCloseLiveModal,
   onCopyLiveReport,
   onInlineSaveLive,
+  onPublishLive,
   duplicateLiveIds,
   duplicateClusterCount = 0,
   pendingFilter,
@@ -1758,6 +1761,17 @@ export function LivesTab({
               onOpenEditLive(live)
             }}
           />
+          {onPublishLive && asString(kebabMenu.live.status_publicacao, 'rascunho').toLowerCase() !== 'publicado' ? (
+            <MenuBtn
+              icon={<Check style={{ width: 13, height: 13 }} />}
+              label={asString(kebabMenu.live.status_publicacao, 'rascunho').toLowerCase() === 'revisado' ? 'Publicar live' : 'Marcar como revisada'}
+              onClick={() => {
+                const live = kebabMenu.live
+                setKebabMenu(null)
+                onPublishLive(live)
+              }}
+            />
+          ) : null}
           <hr
             style={{
               border: 'none',

@@ -280,15 +280,20 @@ export function RegistrarMetricasLiveModal({
       apresentadora_id: form.apresentador_id || null,
       encerrado_em: toDatetimeLocal(form.data, form.hora_fim),
       origem_dados: form.origem_dados,
-      status_publicacao: form.status_publicacao,
     }
+  }
+
+  function buildUpdatePayload(): JsonRecord {
+    const payload = buildManualLivePayload(form)
+    delete payload.status_publicacao
+    return payload
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (isSaving || agendaBrandUnavailable) return
     if (mode === 'edit' && live && onUpdateLive) {
-      onUpdateLive(asString(live.id, ''), buildManualLivePayload(form))
+      onUpdateLive(asString(live.id, ''), buildUpdatePayload())
       return
     }
     if (mode === 'result' && agendaEvent?.live_id && onCloseLive) {
@@ -406,11 +411,8 @@ export function RegistrarMetricasLiveModal({
         </label>
         <label className="block">
           <span className="text-sm font-semibold text-ink">Status de publicação</span>
-          <select className="design-input mt-2 h-11 w-full px-4" value={form.status_publicacao} onChange={(event) => setField('status_publicacao', event.target.value)}>
-            <option value="rascunho">Rascunho</option>
-            <option value="revisado">Revisado</option>
-            <option value="publicado">Publicado</option>
-          </select>
+          <p className="mt-2 rounded-lg border border-line bg-surface-muted px-4 py-3 text-sm text-ink">{form.status_publicacao === 'publicado' ? 'Publicado' : form.status_publicacao === 'revisado' ? 'Revisado' : 'Rascunho'}</p>
+          <p className="mt-2 text-xs text-ink-muted">Altere pela ação de publicação na lista de lives.</p>
         </label>
         <label className="block md:col-span-2 xl:col-span-3">
           <span className="text-sm font-semibold text-ink">Observações</span>

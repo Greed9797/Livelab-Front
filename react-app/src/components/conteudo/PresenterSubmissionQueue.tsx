@@ -6,14 +6,14 @@ import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
 import { Modal } from '../ui/Modal'
-import { approvePresenterSubmission, getPresenterReviewQueue, returnPresenterSubmission, type PresenterReviewSubmission } from '../../services/presenter-portal'
+import { approvePresenterSubmission, getPresenterLiveLinkCandidates, getPresenterReviewQueue, returnPresenterSubmission, type PresenterReviewSubmission } from '../../services/presenter-portal'
 import { QK, invalidateOperational } from '../../services/query-keys'
 import { useCurrentUser } from '../../stores/auth-store'
 import { extractErrorMessage } from '../../services/api'
-import { formatDate } from '../../utils/format'
+import { formatDate, formatMoney } from '../../utils/format'
 import { isoFromLocalDateTime, localDateTimeValue, submissionHasOfficialLiveTombstone, submissionStatusLabel, submissionStatusTone } from '../../utils/presenter-portal'
 import { useToast } from '../ui/Toast'
-import { getCabines, getLives, getMarcas } from '../../services/domain'
+import { getCabines, getMarcas } from '../../services/domain'
 import { DataTable } from '../ui/DataTable'
 import { parsePresenterCount, parsePresenterMoney } from '../../utils/presenter-input'
 
@@ -25,13 +25,13 @@ const counter = (v: string, max: number) => {
   const result = parsePresenterCount(v, max)
   return result.ok ? result.value : null
 }
-const unitDay = (value?: string) => value ? new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value)) : undefined
+const time = (value?: string) => value ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) : '—'
 
 export function PresenterSubmissionQueue() {
   const user = useCurrentUser(); const client = useQueryClient(); const toast = useToast(); const [row, setRow] = useState<PresenterReviewSubmission | null>(null); const [linking, setLinking] = useState<PresenterReviewSubmission | null>(null); const [returning, setReturning] = useState<PresenterReviewSubmission | null>(null)
   const [marca, setMarca] = useState(''); const [cabine, setCabine] = useState(''); const [inicio, setInicio] = useState(''); const [fim, setFim] = useState(''); const [gmv, setGmv] = useState(''); const [pedidos, setPedidos] = useState(''); const [impressions, setImpressions] = useState(''); const [views, setViews] = useState(''); const [motivo, setMotivo] = useState(''); const [liveId, setLiveId] = useState('')
   const key = QK.presenterReviewQueue(user?.tenant_id ?? '', user?.id ?? '', 'pendente')
-  const queue = useQuery({ queryKey: key, queryFn: () => getPresenterReviewQueue(), enabled: Boolean(user?.id) }); const brands = useQuery({ queryKey: QK.marcas('review-submissions'), queryFn: getMarcas, enabled: Boolean(row) }); const cabins = useQuery({ queryKey: QK.cabines, queryFn: getCabines, enabled: Boolean(row) }); const candidates = useQuery({ queryKey: ['submission-candidates', user?.tenant_id, user?.id, linking?.id], queryFn: () => getLives({ status: 'encerrada', marca_id: linking?.marca_id, data_inicio: unitDay(linking?.iniciado_em), data_fim: unitDay(linking?.encerrado_em), limit: 200 }), enabled: Boolean(linking) })
+  const queue = useQuery({ queryKey: key, queryFn: () => getPresenterReviewQueue(), enabled: Boolean(user?.id) }); const brands = useQuery({ queryKey: QK.marcas('review-submissions'), queryFn: getMarcas, enabled: Boolean(row) }); const cabins = useQuery({ queryKey: QK.cabines, queryFn: getCabines, enabled: Boolean(row) }); const candidates = useQuery({ queryKey: ['submission-candidates', user?.tenant_id, user?.id, linking?.id], queryFn: async () => (await getPresenterLiveLinkCandidates(linking!.id)).items.map((live) => ({ ...live, marca_nome: `${time(live.iniciado_em)}–${time(live.encerrado_em)} · ${formatMoney(live.gmv, true)}` })), enabled: Boolean(linking?.id) })
   const refresh = () => { void client.invalidateQueries({ queryKey: key }); void client.invalidateQueries({ queryKey: ['presenter-portal-home'] }); void client.invalidateQueries({ queryKey: ['presenter-portal-lives'] }); invalidateOperational(client) }
   const approve = useMutation({ mutationFn: (payload: Parameters<typeof approvePresenterSubmission>[1]) => approvePresenterSubmission((row ?? linking)!.id, payload), onSuccess: () => { refresh(); setRow(null); setLinking(null); toast.push('Envio aprovado e incluído no histórico oficial.', 'success') }, onError: (e) => toast.push(extractErrorMessage(e), 'error') }); const devolver = useMutation({ mutationFn: () => returnPresenterSubmission(returning!.id, motivo), onSuccess: () => { void client.invalidateQueries({ queryKey: key }); setReturning(null); toast.push('Envio devolvido para ajuste.', 'success') }, onError: (e) => toast.push(extractErrorMessage(e), 'error') })
   if (queue.isLoading) return <LoadingState label="Carregando envios para revisão" />

@@ -8,6 +8,8 @@ export type PresenterPortalPerformance = {
   gmv_por_hora: number | null
   total_lives: number
   pedidos: number
+  gmv_pendente_aprovacao?: number
+  total_lives_pendentes_aprovacao?: number
 }
 
 export type PresenterPortalRankingRow = {
@@ -42,6 +44,7 @@ export type PresenterPortalLive = {
   gmv: number
   horas: number
   pedidos: number
+  pendente_aprovacao?: boolean
 }
 
 export type PresenterSubmission = {
@@ -95,6 +98,17 @@ export type PresenterReviewSubmission = PresenterSubmission & {
   tenant_nome?: string | null
 }
 
+export type PresenterLiveLinkCandidate = {
+  id: string
+  iniciado_em: string
+  encerrado_em: string
+  marca_nome?: string | null
+  cabine_nome?: string | null
+  cabine_numero?: number | null
+  gmv: number
+  origem_dados?: string | null
+}
+
 export function getPresenterPortalHome(mes: string) {
   return apiGet<PresenterPortalHome>('/portal/apresentadora/me', { mes })
 }
@@ -125,6 +139,10 @@ export function cancelPresenterSubmission(id: string) {
 
 export function getPresenterReviewQueue(status = 'pendente') {
   return apiGet<{ items: PresenterReviewSubmission[] }>('/lives/submissoes-apresentadoras', { status })
+}
+
+export function getPresenterLiveLinkCandidates(submissionId: string) {
+  return apiGet<{ items: PresenterLiveLinkCandidate[] }>(`/lives/submissoes-apresentadoras/${encodeURIComponent(submissionId)}/candidatas-vinculo`)
 }
 
 export function approvePresenterSubmission(id: string, payload: { live_id: string } | { marca_id: string; cabine_id: string; iniciado_em: string; encerrado_em: string; gmv_oficial: number; pedidos_oficiais: number; live_impressions_oficiais?: number; manual_views_oficiais?: number }) {

@@ -35,6 +35,7 @@ import {
   type ImportApresentadoraRateio,
   getMarcas,
   getMarca,
+  publishLive,
   updateAgendaEvento,
   updateLive,
 } from '../services/domain'
@@ -326,6 +327,14 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   const deleteAgendaMutation = useMutation({ mutationFn: ({ id, modoRecorrencia }: { id: string; modoRecorrencia: string }) => deleteAgendaEvento(id, { modo_recorrencia: modoRecorrencia }), onSuccess: closeAgendaModal })
   const createManualLiveMutation = useMutation({ mutationFn: criarLiveManual, onSuccess: closeMetrics })
   const updateLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setSelectedLiveRecord(null); invalidateOperational() } })
+  const publishLiveMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'revisado' | 'publicado' }) => publishLive(id, status),
+    onSuccess: () => {
+      invalidateOperational()
+      toast.push('Status de publicação atualizado.', 'success')
+    },
+    onError: (error) => toast.push(extractErrorMessage(error), 'error'),
+  })
   const encerrarLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => encerrarLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setMetricsAgendaEvent(null); invalidateOperational() } })
   const deleteLiveMutation = useMutation({ mutationFn: deleteLive, onSuccess: closeLiveRecord })
   // Rateio da live entre apresentadoras. O backend salva rateio e atribuições/comissões na
@@ -592,6 +601,10 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
           }}
           onCopyLiveReport={(text) => void navigator.clipboard.writeText(text).then(() => { setReportCopied(true); setTimeout(() => setReportCopied(false), 2000) })}
           onInlineSaveLive={podeEscrever ? (id, payload) => updateLiveMutation.mutateAsync({ id, payload }) : undefined}
+          onPublishLive={podeEscrever ? (live) => {
+            const current = asString(live.status_publicacao, 'rascunho').toLowerCase()
+            publishLiveMutation.mutate({ id: asString(live.id, ''), status: current === 'revisado' ? 'publicado' : 'revisado' })
+          } : undefined}
           onSplitApresentadoras={abrirRateio}
           duplicateLiveIds={duplicateLiveIds}
           duplicateClusterCount={dupClusters.length}
