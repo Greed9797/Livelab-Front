@@ -66,6 +66,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
     .slice()
     .sort((a, b) => asString(a.dia).localeCompare(asString(b.dia)))
   const totals = sumDailyTotals(rows)
+  const pendingLives = rows.reduce((total, row) => total + asNumber(row.total_lives_pendentes_aprovacao), 0)
 
   // % de franquia: prioriza o valor FRESCO da API pela marcaId; cai pro prop se
   // ainda não carregou. Comissão = GMV total × % (tempo real, qualquer mês).
@@ -77,7 +78,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
     // Comissão de franquia: SEMPRE preferir o valor do endpoint /comissoes/marcas —
     // ele aplica MAX(piso, gmv×pct); o cálculo local (gmv×pct) é só fallback de loading.
     const comissaoMetrics: Metric[] = tipo === 'marca'
-      ? [moneyMetric('Comissão franquia', row?.comissao_franquia ?? t.gmv_total * (franquiaPctNum / 100), `${franquiaPctNum.toLocaleString('pt-BR')}% do GMV · respeita piso`, 'success')]
+      ? [moneyMetric('Comissão franquia', row?.comissao_franquia ?? (pendingLives ? 0 : t.gmv_total * (franquiaPctNum / 100)), pendingLives ? 'Aguardando validação dos envios pendentes' : `${franquiaPctNum.toLocaleString('pt-BR')}% do GMV · respeita piso`, 'success')]
       : [moneyMetric('Comissão', row?.comissao_apresentadora ?? 0, 'no período', 'success')]
     return [
       moneyMetric('GMV total (faturamento)', t.gmv_total, 'lives + vídeos', 'brand'),
@@ -193,6 +194,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
               </Link>
             </div>
           ) : null}
+          {pendingLives > 0 ? <div className="mb-4 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning-soft)] px-4 py-3 text-sm text-ink"><strong>{pendingLives} live{pendingLives > 1 ? 's' : ''} pendente{pendingLives > 1 ? 's' : ''} de aprovação</strong> já entra{pendingLives > 1 ? 'm' : ''} nas métricas operacionais. Comissão só é calculada após a validação da gestão.</div> : null}
           {query.isLoading ? (
             <p className="py-6 text-center text-sm text-ink-muted">Carregando relatório...</p>
           ) : query.isError ? (
@@ -213,7 +215,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
                   columns={[
                     { key: 'dia', header: 'Dia', render: (r) => diaCurto(r.dia) },
                     { key: 'marca_nome', header: 'Marca', render: (r) => asString(r.marca_nome, '—') },
-                    { key: 'gmv_lives', header: 'GMV lives', align: 'right', render: (r) => formatMoney(r.gmv_lives ?? r.gmv) },
+                    { key: 'gmv_lives', header: 'GMV lives', align: 'right', render: (r) => <span>{formatMoney(r.gmv_lives ?? r.gmv)}{asNumber(r.gmv_pendente_aprovacao) > 0 ? <small className="block text-[var(--warning)]">inclui {formatMoney(r.gmv_pendente_aprovacao)} pendente</small> : null}</span> },
                     { key: 'comissao_apresentadora', header: 'R$ comissão', align: 'right', render: (r) => formatMoney(r.comissao_apresentadora) },
                     { key: 'comissao_pct', header: '% comissão', align: 'right', render: (r) => `${asNumber(r.comissao_pct).toFixed(2)}%` },
                     { key: 'horas_live', header: 'Horas', align: 'right', render: (r) => asNumber(r.horas_live).toFixed(1) },
