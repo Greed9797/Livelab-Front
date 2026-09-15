@@ -1,17 +1,28 @@
 # Plano: unir trechos de uma transmissão contínua
 
-Status: implementação desenvolvida com subagentes Sol/Terra. Usuário autorizou publicação completa, incluindo execução da migração 150 em produção. Liberação em preparação, ainda sem deploy nesta etapa.
+Status: publicada em 2026-09-15 após autorização explícita de publicação completa, migração 150 e ativação para todas as unidades. Implementação desenvolvida com subagentes Sol/Terra.
+
+## Publicação e verificação
+
+- Backend de produção: `17cbf330f25dbd46525a9332576a891e3d8c1863`, branch remota `codex/blumenau-operational-fase1`. Railway marcou sucesso; `/health` confirmou o SHA. Deploy final: `c2c70713-d1bf-4621-932b-35d174cce9c3`.
+- Frontend publicado: `8ca62a1d85dd686e9aa1531e8e8d608127c2ab5d`, branch remota `feat/multi-apresentadora-agenda`. Vercel `dpl_8WV7neqJcLAieLUmYZE635j3E9Tj`, build na nuvem, promovido para `https://app.grupolivelab.com.br`. Versão pública: `1789491834526`. Arquivos não versionados ficaram fora do artefato.
+- Migração 150 consta no executor obrigatório de preDeploy e inicialização. A conclusão do deploy e o SHA servido são evidência indireta da execução bem-sucedida; não houve consulta direta a `schema_migrations` por falta de credencial DB/Railway.
+- Ativação global configurada na imagem: `LIVE_MERGE_TENANT_ALLOWLIST="*"`. Autenticação, papel de gestão e isolamento de tenant permanecem obrigatórios. Override Railway `off` desliga novas uniões; uma lista de UUIDs restringe unidades. Sem variável, o helper continua desligado. Não foi possível inspecionar eventuais overrides do provedor nem fazer smoke autenticado com dados reais.
+- Smoke: `/readyz` 200, rota de capacidades 401 sem autenticação; Chrome abriu `/login`, exibiu formulário e não registrou erros JS. Bundle público contém a URL correta da API e não contém `[SENSITIVE]`. Consulta Vercel pós-promoção não encontrou erros no intervalo observado.
+- Gates finais: backend 1.082 testes passaram / 7 já ignorados; frontend 516 passaram; build passou; 6 cenários Playwright simulados passaram; auditoria npm de produção: zero vulnerabilidades nos dois repositórios. Fluxos SQL isolados e revisão independente da concorrência/ativação aprovados.
+- Não foram criadas uniões nem cobranças de teste em produção. Backup/PITR não foi verificado.
+- Retorno compatível: backend `b829188162f2ca74f5f08155d538df67fdb99c56`, deploy Railway `de6c2eea-6067-449c-8351-ffd79304f7fe`, mantém leitores da união e não inclui ativação global na imagem. Não retornar a `44e5380` depois de existirem uniões ativas. Frontend anterior: Vercel `dpl_VucU4TkVrackF2B86U9wkMUSvhwe`. Rollback não remove a migração aditiva.
 
 ## Registro da implementação
 
 - Backend efetivo: `/private/tmp/livelab-presenter-lives-back`, branch `codex/presenter-lives-safe-back`, base `44e538015c351f757f9f5d5fae2a94a49ba7abba`. A cópia inicialmente inspecionada em `/Users/lucas/Livelab-back` estava anterior aos fluxos mais recentes; as alterações foram transferidas para a base correta e a cópia antiga foi restaurada, preservando seu arquivo não versionado.
-- Frontend permanece na base `42c177f` da seção abaixo.
-- SQL aditivo preparado em `migrations/150_live_unioes.sql`; as migrações 148 e 149 já pertencem aos fluxos APRESENTADORA e arquivamento existentes. O SQL foi exercitado somente em PGlite descartável, sem conexão com produção.
-- Novas uniões ficam desligadas por padrão. A API verifica `LIVE_MERGE_TENANT_ALLOWLIST`; histórico e reversão permanecem acessíveis quando a criação é desligada.
+- Frontend implementado a partir da base `42c177f` da seção abaixo.
+- SQL aditivo em `migrations/150_live_unioes.sql`; as migrações 148 e 149 já pertencem aos fluxos APRESENTADORA e arquivamento existentes. Antes da publicação, o SQL foi exercitado em PGlite descartável.
+- A API verifica `LIVE_MERGE_TENANT_ALLOWLIST`; histórico e reversão permanecem acessíveis quando a criação é desligada. A imagem final configura ativação global conforme a escolha posterior do usuário.
 - Na união, as atribuições financeiras existentes são agregadas com centavos exatos, sem mudar taxas nem aprovar comissão. O motor continua apto a executar os recálculos mensais normais, preservando pedidos por apresentadora. A reversão bloqueia alterações financeiras posteriores.
 - Registros oficiais encerrados podem ser unidos se tiverem o mesmo estado de publicação, inclusive `revisado` gerado pela aprovação do portal; publicar novamente não é pré-requisito. Submissões pendentes não são registros oficiais elegíveis.
-- Usuário autorizou especificamente as duas edições locais: migração 150 registrada no runner e trava `ORDER BY id FOR UPDATE` na seleção de lives para faturamento, dentro da transação e antes do gateway. Nenhuma cobrança ou migração real foi executada.
-- Publicação e migração autorizadas pelo usuário. A criação permanece desligada durante a troca de versões; a ativação exige configurar os UUIDs das unidades escolhidas no Railway.
+- Usuário autorizou especificamente as duas edições locais: migração 150 registrada no runner e trava `ORDER BY id FOR UPDATE` na seleção de lives para faturamento, dentro da transação e antes do gateway. Posteriormente autorizou execução/publicação completas.
+- Backend compatível foi publicado primeiro com criação desligada; frontend foi promovido depois; a imagem de ativação global foi publicada por último.
 - Corrida de snapshot reproduzida por três testes com barreiras de transações simuladas (RED). Corrigida com trava transacional comum por tenant, adquirida por faturamento, união e reversão antes das consultas e travas de linhas (GREEN). PostgreSQL externo com duas conexões não está disponível neste ambiente; os testes de concorrência são simulados, enquanto os fluxos SQL e a migração são exercitados em PGlite isolado.
 - Backup/PITR de produção não foi verificado: não há acesso Railway/DB disponível. Migração 150 é aditiva e não une nem exclui lives existentes. Reverter o deploy não remove as estruturas adicionadas; antes de ativar uniões, o código anterior pode voltar sem dados absorvidos. Após haver uniões, manter leitores compatíveis e desligar a criação em vez de voltar a código que desconhece as origens absorvidas.
 
@@ -22,7 +33,7 @@ Status: implementação desenvolvida com subagentes Sol/Terra. Usuário autorizo
 - SQL real em PGlite descartável: prévia, união, idempotência, prévia obsoleta, três pontos de falha com rollback, conservação individual/global, origem APRESENTADORA, gestor original, proteção dos trechos, histórico, reversão exata e bloqueio por boleto direto passaram. Teste separado comprovou FKs por tenant e RLS do histórico.
 - Regressões SQL do portal existente e do recálculo mensal passaram; frontend e backend passaram em `git diff --check`.
 - A suíte backend sem `live_merge_finance.test.js` e `migrations_runner.test.js` passou, incluindo CLI com porta local permitida. Após autorização e aplicação dos dois ajustes locais, esses dois arquivos passaram: 8 testes, sem remover ou enfraquecer verificações. Os testes do runner usam cliente simulado, sem executar migrações em banco real.
-- Nova execução dos testes de núcleo, serviço, rotas, HTTP e leitores: 5 arquivos / 53 testes passaram. Nenhuma migração real, cobrança, configuração de produção, push ou deploy foi executado.
+- Execução intermediária dos testes de núcleo, serviço, rotas, HTTP e leitores: 5 arquivos / 53 testes passaram; os gates finais e a publicação estão registrados acima.
 
 ## Base e classificação
 
