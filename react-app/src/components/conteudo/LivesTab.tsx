@@ -20,6 +20,7 @@ import {
   Upload,
   Check,
   Copy,
+  GitMerge,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { BotBadge } from '../ui/BotBadge'
@@ -30,7 +31,7 @@ import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { officialLiveGmv } from '../../utils/live-gmv'
-import { getLivesResumoDia } from '../../services/domain'
+import { getLiveUnionCapabilities, getLivesResumoDia } from '../../services/domain'
 import { buildClientResumoDiaText } from './live-resumo-dia'
 import {
   calcDuration,
@@ -48,10 +49,11 @@ import {
 import { InlineApresentadoraCell, InlineGmvCell, InlinePedidosCell } from './LiveInlineCells'
 import { LiveDetailModal } from './LiveDetailModal'
 import { LivePendingPanel } from './LivePendingPanel'
+import { LiveMergeModal } from './LiveMergeModal'
 import type { DateRange } from './live-date-range'
 import './LivesTab.css'
 import type { JsonRecord } from '../../types/models'
-import type { UseMutationResult } from '@tanstack/react-query'
+import { useQuery, type UseMutationResult } from '@tanstack/react-query'
 
 // ─── colunas opcionais ─────────────────────────────────────────────────────
 // A tabela nasce enxuta (Horário, Live, Duração, GMV, GMV/h, Pedidos, Comissão, Apresentadora,
@@ -75,8 +77,8 @@ export const DEFAULT_LIVE_COLUMNS: ReadonlyArray<LiveColumnKey> = ['gmv_hora']
 const LIVE_COLUMNS_STORAGE_KEY = 'livelab.lives.colunas.v1'
 
 // Grid template shared between header + every row — segue exatamente a ordem das células.
-export function buildLivesGridTemplate(visiveis: ReadonlySet<LiveColumnKey>): string {
-  const cols = ['80px', 'minmax(180px,1.4fr)']
+export function buildLivesGridTemplate(visiveis: ReadonlySet<LiveColumnKey>, withSelection = false): string {
+  const cols = withSelection ? ['32px', '80px', 'minmax(180px,1.4fr)'] : ['80px', 'minmax(180px,1.4fr)']
   if (visiveis.has('cabine')) cols.push('90px')
   cols.push(visiveis.has('duracao_barra') ? '110px' : '72px')
   cols.push('115px') // GMV
@@ -371,6 +373,8 @@ export interface LivesTabProps {
   onReviewSubmission?: (live: JsonRecord, mode: 'review' | 'link' | 'return') => void
   /** false = papel read-only: lista visível, ações de escrita escondidas. */
   canWrite?: boolean
+  /** União altera métricas e comissões; somente papéis de gestão recebem a ação. */
+  canMerge?: boolean
   livesData: JsonRecord[]
   liveModalMode: 'detail' | null
   selectedLiveRecord: JsonRecord | null
@@ -380,6 +384,8 @@ export interface LivesTabProps {
   onOpenLiveDetail: (live: JsonRecord) => void
   onOpenEditLive: (live: JsonRecord) => void
   onSplitApresentadoras: (live: JsonRecord) => void
+  onMergeCompleted?: (liveId: string, unionId: string) => void
+  onUnionChanged?: () => void
   onDeleteLive: (live: JsonRecord) => void
   onCloseLiveModal: () => void
   onCopyLiveReport: (text: string) => void
@@ -441,6 +447,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 export function LivesTab({
   onReviewSubmission,
   canWrite = true,
+  canMerge = false,
   livesData,
   liveModalMode,
   selectedLiveRecord,
@@ -450,6 +457,8 @@ export function LivesTab({
   onOpenLiveDetail,
   onOpenEditLive,
   onSplitApresentadoras,
+  onMergeCompleted,
+  onUnionChanged,
   onDeleteLive,
   onCloseLiveModal,
   onCopyLiveReport,
@@ -502,7 +511,15 @@ export function LivesTab({
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [colunasOpen, setColunasOpen] = useState(false)
   const [colunas, setColunas] = useState<Set<LiveColumnKey>>(loadLiveColumns)
-  const gridCols = useMemo(() => buildLivesGridTemplate(colunas), [colunas])
+  const mergeCapability = useQuery({
+    queryKey: ['live-merge-capabilities'],
+    queryFn: getLiveUnionCapabilities,
+    enabled: canMerge,
+    retry: false,
+    staleTime: 5 * 60_000,
+  })
+  const mergeEnabled = canMerge && mergeCapability.data?.enabled === true
+  const gridCols = useMemo(() => buildLivesGridTemplate(colunas, mergeEnabled), [colunas, mergeEnabled])
   function toggleColuna(key: LiveColumnKey) {
     setColunas((atual) => {
       const proximo = new Set(atual)
@@ -528,6 +545,37 @@ export function LivesTab({
   const toast = useToast()
   const [copiedDayKey, setCopiedDayKey] = useState<string | null>(null)
   const [copyingDayKey, setCopyingDayKey] = useState<string | null>(null)
+  const [selectedLiveIds, setSelectedLiveIds] = useState<Set<string>>(new Set())
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const selectedLiveIdList = useMemo(() => [...selectedLiveIds], [selectedLiveIds])
+
+  const selectionContext = [mergeEnabled, dateRange, customDateFrom, customDateTo, marcaFilterId, apresentadoraFilterId, cabineFilterId, searchQuery, statusFilter, pendingFilter, contextSource, contextAgendaId].join('|')
+  useEffect(() => {
+    setSelectedLiveIds(new Set())
+    setMergeOpen(false)
+  }, [selectionContext])
+
+  function isUnionLocked(live: JsonRecord): boolean {
+    return Boolean((live.uniao_id || live.uniao_destino_id) && !live.uniao_desfeita_em)
+  }
+
+  function canSelectForMerge(live: JsonRecord): boolean {
+    return mergeEnabled
+      && live.registro_tipo !== 'submissao'
+      && asString(live.status, '').toLowerCase() !== 'em_andamento'
+      && Boolean(live.encerrado_em)
+      && !isUnionLocked(live)
+  }
+
+  function toggleMergeSelection(liveId: string) {
+    setSelectedLiveIds((current) => {
+      const next = new Set(current)
+      if (next.has(liveId)) next.delete(liveId)
+      else if (next.size < 20) next.add(liveId)
+      else toast.push('Selecione no máximo 20 lives por união.', 'error')
+      return next
+    })
+  }
 
   async function handleCopyDaySummary(dateKey: string, lives: JsonRecord[]) {
     try {
@@ -799,6 +847,19 @@ export function LivesTab({
             {isLoading ? '—' : total}
           </span>
         </span>
+
+        {mergeEnabled && selectedLiveIds.size > 0 ? (
+          <button
+            type="button"
+            style={{ ...tbtn, borderColor: 'var(--primary)', color: 'var(--primary)' }}
+            disabled={selectedLiveIds.size < 2}
+            title={selectedLiveIds.size < 2 ? 'Selecione pelo menos duas lives encerradas' : undefined}
+            onClick={() => setMergeOpen(true)}
+          >
+            <GitMerge style={{ width: 14, height: 14 }} />
+            Unir {selectedLiveIds.size} {selectedLiveIds.size === 1 ? 'live' : 'lives'}
+          </button>
+        ) : null}
 
         {/* search */}
         <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
@@ -1098,6 +1159,7 @@ export function LivesTab({
             backdropFilter: 'blur(8px)',
           }}
         >
+          {mergeEnabled ? <div aria-hidden="true" /> : null}
           <div>Horário</div>
           <div>Live</div>
           {colunas.has('cabine') ? <div>Cabine</div> : null}
@@ -1339,6 +1401,13 @@ export function LivesTab({
                       : null
                     const isKebabOpen = kebabOpenId === liveId
                     const isEvenRow = rowIdx % 2 === 1
+                    const unionLocked = isUnionLocked(live)
+                    const selectableForMerge = canSelectForMerge(live)
+                    const mergeUnavailableReason = unionLocked
+                      ? 'já pertence a uma união ativa'
+                      : asString(live.status, '').toLowerCase() === 'em_andamento' || !live.encerrado_em
+                        ? 'a live ainda não foi encerrada'
+                        : ''
 
                     return (
                       <div
@@ -1380,6 +1449,18 @@ export function LivesTab({
                           }
                         }}
                       >
+                        {mergeEnabled ? (
+                          <div>
+                            <input
+                              type="checkbox"
+                              checked={selectedLiveIds.has(liveId)}
+                              disabled={!selectableForMerge || (!selectedLiveIds.has(liveId) && selectedLiveIds.size >= 20)}
+                              aria-label={`Selecionar live de ${clientName || 'marca não informada'} às ${fmtTime(live.iniciado_em)}${mergeUnavailableReason ? ` (indisponível: ${mergeUnavailableReason})` : ''}`}
+                              title={mergeUnavailableReason ? `Indisponível: ${mergeUnavailableReason}.` : 'Selecionar para unir'}
+                              onChange={() => toggleMergeSelection(liveId)}
+                            />
+                          </div>
+                        ) : null}
                         {/* Horário */}
                         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
                           <span
@@ -1478,7 +1559,7 @@ export function LivesTab({
                                 className="lives-pending-row-action"
                                 onClick={(event) => {
                                   event.stopPropagation()
-                                  if (canWrite && pendingIssue.kind !== 'duplicata') onOpenEditLive(live)
+                                  if (canWrite && !unionLocked && pendingIssue.kind !== 'duplicata') onOpenEditLive(live)
                                   else onOpenLiveDetail(live)
                                 }}
                               >
@@ -1563,7 +1644,7 @@ export function LivesTab({
                         <InlineGmvCell
                           gmv={gmv}
                           hasValue={hasRecordedLiveGmv(live)}
-                          editable={Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
+                          editable={!unionLocked && Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
                           onSave={(payload) => onInlineSaveLive!(liveId, payload)}
                         />
 
@@ -1576,7 +1657,7 @@ export function LivesTab({
                         <InlinePedidosCell
                           pedidos={asNumber(ordersValue)}
                           hasValue={hasRecordedMetricValue(ordersValue)}
-                          editable={Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
+                          editable={!unionLocked && Boolean(onInlineSaveLive) && asString(live.status_publicacao, 'rascunho').toLowerCase() === 'rascunho'}
                           onSave={(payload) => onInlineSaveLive!(liveId, payload)}
                         />
 
@@ -1620,7 +1701,7 @@ export function LivesTab({
                         {/* Apresentadora — editável inline quando rascunho */}
                         <InlineApresentadoraCell
                           name={presenterCell.name}
-                          editable={presenterCell.editable}
+                          editable={!unionLocked && presenterCell.editable}
                           options={apresentadoraFilterOptions}
                           onSave={(payload) => onInlineSaveLive!(liveId, payload)}
                         />
@@ -1628,7 +1709,7 @@ export function LivesTab({
                         {/* Status */}
                         <div>
                           <StatusBadge status={live.status_publicacao} />
-                          {onPublishLive && ['rascunho', 'revisado'].includes(asString(live.status_publicacao, 'rascunho')) ? <button type="button" className="block min-h-11 text-xs font-semibold text-[var(--primary)]" onClick={() => onPublishLive(live)}>{live.status_publicacao === 'revisado' ? 'Publicar' : 'Marcar revisada'}</button> : null}
+                          {onPublishLive && !unionLocked && ['rascunho', 'revisado'].includes(asString(live.status_publicacao, 'rascunho')) ? <button type="button" className="block min-h-11 text-xs font-semibold text-[var(--primary)]" onClick={() => onPublishLive(live)}>{live.status_publicacao === 'revisado' ? 'Publicar' : 'Marcar revisada'}</button> : null}
                         </div>
 
                         {/* Tipo (origem) — opcional; o chip BOT ao lado do nome já cobre o caso comum */}
@@ -1671,7 +1752,7 @@ export function LivesTab({
                           </button>
 
                           {/* Kebab — só para quem pode editar/excluir */}
-                          {canWrite ? (
+                          {canWrite && !unionLocked ? (
                           <div
                             style={{ position: 'relative' }}
                             onClick={(e) => e.stopPropagation()}
@@ -1824,10 +1905,22 @@ export function LivesTab({
         document.body,
       ) : null}
 
+      <LiveMergeModal
+        open={mergeOpen}
+        liveIds={selectedLiveIdList}
+        onClose={() => setMergeOpen(false)}
+        onMerged={(liveId, unionId) => {
+          setMergeOpen(false)
+          setSelectedLiveIds(new Set())
+          onMergeCompleted?.(liveId, unionId)
+        }}
+      />
+
       <LiveDetailModal
         open={liveModalMode === 'detail'}
         live={selectedLiveRecord}
-        canWrite={canWrite}
+        canWrite={canWrite && !Boolean(selectedLiveRecord && isUnionLocked(selectedLiveRecord))}
+        canManageUnion={canMerge}
         reportCopied={reportCopied}
         onClose={onCloseLiveModal}
         onCopyReport={onCopyLiveReport}
@@ -1835,6 +1928,7 @@ export function LivesTab({
         onSplitApresentadoras={onSplitApresentadoras}
         onDelete={onDeleteLive}
         deleteLiveMutation={deleteLiveMutation}
+        onUnionChanged={onUnionChanged}
       />
     </section>
   )

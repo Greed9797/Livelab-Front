@@ -49,6 +49,12 @@ describe('LivesTab colunas configuráveis', () => {
     expect(buildLivesGridTemplate(new Set()).split(' ')).toHaveLength(FIXAS)
   })
 
+  it('reserva uma faixa para seleção apenas quando a gestão pode unir lives', () => {
+    const padrao = new Set(DEFAULT_LIVE_COLUMNS)
+    expect(buildLivesGridTemplate(padrao, true).split(' ')).toHaveLength(FIXAS + comCelula(padrao) + 1)
+    expect(buildLivesGridTemplate(padrao, true).startsWith('32px 80px')).toBe(true)
+  })
+
   it('GMV/h divide o GMV pelas horas registradas e não inventa valor sem duração', () => {
     expect(gmvPorHora(3847, 142)).toBeCloseTo(1625.49, 2)
     expect(gmvPorHora(0, 90)).toBeNull()

@@ -32,6 +32,19 @@ describe('invalidateOperational', () => {
       expect(client.getQueryState(QK.live('live-1'))?.isInvalidated).toBe(true)
     })
   })
+  it('invalidates union history, financial totals and customer reports after consolidation', () => {
+    const client = new QueryClient()
+    const keys = [
+      ['live-union', 'live-1'],
+      QK.financeiroResumo('2026-09'),
+      QK.comissoesDaLive('live-1'),
+      QK.clienteConteudoLives({ mes: 9, ano: 2026 }),
+      QK.masterConsolidated({ mes: 9, ano: 2026 }),
+    ]
+    keys.forEach((key) => client.setQueryData(key, { stale: false }))
+    invalidateOperational(client)
+    keys.forEach((key) => expect(client.getQueryState(key)?.isInvalidated).toBe(true))
+  })
 })
 
 describe('analytics daily query key', () => {

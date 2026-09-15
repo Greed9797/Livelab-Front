@@ -139,6 +139,7 @@ export function invalidateOperational(client: QueryClient): void {
     [...QK.agenda()],
     [...QK.lives],
     [...QK.live()],
+    ['live-union'],
     [...QK.livesDuplicatas],
     ['grade'],
     ['grade-acompanhamento'],
@@ -159,6 +160,34 @@ export function invalidateOperational(client: QueryClient): void {
     // comissões calculadas sobre GMV de live
     [...QK.comissoesApresentadoras],
     [...QK.comissoesMarcas],
+    [...QK.comissoesResumo],
+    [...QK.comissoesPendentes],
+    ['comissoes-da-live'],
+    ['comissoes-por-live'],
+    // financeiro e visões do cliente também consolidam lives
+    [...QK.financeiroResumo()],
+    [...QK.financeiroFaturamento()],
+    [...QK.financeiroFluxo()],
+    [...QK.financeiroOperacional()],
+    [...QK.financeiroFranqueadora()],
+    [...QK.financeiroClienteOperacional()],
+    ['cliente-dashboard'],
+    ['cliente-lives'],
+    ['cliente-home'],
+    ['cliente-conteudo-lives'],
+    ['cliente-analytics-diario'],
+    ['cliente-operacional-painel'],
+    ['cliente-sessoes'],
+    // consolidados multiunidade, metas e detalhes individuais
+    [...QK.masterDashboard()],
+    [...QK.masterUnits()],
+    [...QK.masterConsolidated()],
+    ['meta-unidade'],
+    ['analytics-unidade-mensal'],
+    ['metas-apresentadoras'],
+    ['metas-supervisor'],
+    ['metas-marcas-hora'],
+    ['apresentadora-detalhe'],
   ]
   keys.forEach((queryKey) => void client.invalidateQueries({ queryKey }))
 }

@@ -155,6 +155,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   const currentUser = useCurrentUser()
   const podeEscrever = canWrite(currentUser)
   const canReviewPresenterSubmissions = Boolean(currentUser && ['franqueador_master', 'franqueado', 'gerente', 'operacional', 'produtor_live'].includes(currentUser.papel))
+  const canMergeLives = Boolean(currentUser && ['franqueador_master', 'franqueado', 'gerente', 'operacional'].includes(currentUser.papel))
   const [params, setParams] = useSearchParams()
   const livesDeepLink = parseConteudoLivesDeepLink(params)
   const requestedTab = view
@@ -546,6 +547,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
         <LivesTab
           onReviewSubmission={canReviewPresenterSubmissions ? (item, mode) => setSubmissionReview({ item: { ...item, id: String(item.submissao_id), status: item.revisao_status } as PresenterReviewSubmission, mode }) : undefined}
           canWrite={podeEscrever}
+          canMerge={canMergeLives}
           livesData={livesItems}
           dateRange={livesDateRange}
           onDateRangeChange={(range) => {
@@ -614,6 +616,18 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
             publishLiveMutation.mutate({ id: asString(live.id, ''), status: current === 'revisado' ? 'publicado' : 'revisado' })
           } : undefined}
           onSplitApresentadoras={abrirRateio}
+          onMergeCompleted={(liveId, unionId) => {
+            invalidateOperational()
+            dismissedLiveIdRef.current = null
+            setSelectedLiveRecord({ id: liveId, uniao_id: unionId })
+            setLiveModalMode('detail')
+            setLivesParams({ live: liveId }, { resetPage: false })
+            toast.push('Lives unidas. Os totais e as comissões foram recalculados.', 'success')
+          }}
+          onUnionChanged={() => {
+            invalidateOperational()
+            toast.push('União desfeita. Os registros originais foram restaurados.', 'success')
+          }}
           duplicateLiveIds={duplicateLiveIds}
           duplicateClusterCount={dupClusters.length}
           isLoading={livesList.isLoading || livesList.isPlaceholderData || (livesPending === 'duplicata' && duplicatas.isLoading)}

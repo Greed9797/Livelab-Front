@@ -53,6 +53,8 @@ export type PresenterPortalLive = {
   horas: number
   pedidos: number
   pendente_aprovacao?: boolean
+  /** A API já devolve somente a parcela desta apresentadora para GMV, horas e pedidos. */
+  uniao_id?: string
 }
 
 export type PresenterSubmission = {

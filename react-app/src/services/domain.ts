@@ -463,6 +463,70 @@ export function getLivesDuplicatas() {
   return apiGet<JsonRecord>('/lives/duplicatas')
 }
 
+export interface LiveUnionOrigin {
+  live_id: string
+  iniciado_em: string | null
+  encerrado_em: string | null
+  marca_id?: string | null
+  marca_nome?: string | null
+  cabine_id?: string | null
+  cabine_numero?: number | null
+  apresentadoras: LiveUnionPresenter[]
+}
+
+export interface LiveUnionPresenter {
+  apresentadora_id: string
+  nome: string | null
+  gmv: number | null
+  segundos: number
+  pedidos?: number | null
+  user_id?: string | null
+}
+
+export interface LiveUnionPreview {
+  eligible: boolean
+  blockers: Array<{ code: string; message: string; live_id?: string }>
+  preview_token: string
+  origens: LiveUnionOrigin[]
+  totais: { gmv: number; pedidos: number; segundos: number; live_impressions?: number | null; manual_views?: number | null }
+  apresentadoras: LiveUnionPresenter[]
+  warnings: string[]
+}
+
+export interface LiveUnionHistory {
+  id: string
+  live_destino_id: string
+  ativo?: boolean
+  criado_em: string
+  criado_por?: string
+  motivo?: string
+  desfeito_em?: string | null
+  desfeito_por?: string | null
+  desfeito_motivo?: string | null
+  origens: Array<{ live: JsonRecord; apresentadoras: JsonRecord[]; vendas: JsonRecord[] }>
+  resultado?: JsonRecord
+}
+
+export function getLiveUnionCapabilities() {
+  return apiGet<{ enabled: boolean }>('/lives/uniao/capabilities')
+}
+
+export function previewLiveUnion(liveIds: string[]) {
+  return apiPost<LiveUnionPreview>('/lives/uniao/preview', { live_ids: liveIds })
+}
+
+export function createLiveUnion(payload: { live_ids: string[]; preview_token: string; request_id: string; motivo: string; metricas_por_trecho: true }) {
+  return apiPost<{ live_id: string; uniao_id: string }>('/lives/uniao', payload)
+}
+
+export function getLiveUnion(liveId: string) {
+  return apiGet<LiveUnionHistory | null>(`/lives/${liveId}/uniao`)
+}
+
+export function undoLiveUnion(unionId: string, payload: { request_id: string; motivo: string }) {
+  return apiPost<{ live_ids: string[] }>(`/lives/uniao/${unionId}/desfazer`, payload)
+}
+
 export interface LiveResumoDiaResponse {
   data: string
   data_formatada: string

@@ -1,5 +1,6 @@
-import { Copy, Edit2, Trash2, Users } from 'lucide-react'
-import type { UseMutationResult } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { Copy, Edit2, GitMerge, RotateCcw, Trash2, Users } from 'lucide-react'
+import { useMutation, useQuery, type UseMutationResult } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { ModalSection } from '../ui/ModalSection'
 import { Button } from '../ui/Button'
@@ -10,6 +11,7 @@ import { extractErrorMessage } from '../../services/api'
 import { calcDuration, fmtTime, livePresenterNames } from './live-helpers'
 import type { JsonRecord } from '../../types/models'
 import { BotBadge } from '../ui/BotBadge'
+import { getLiveUnion, undoLiveUnion } from '../../services/domain'
 
 const ORIGEM_LABEL: Record<string, string> = { manual: 'Manual', api: 'API TikTok', bot: 'BOT (automação)' }
 
@@ -43,6 +45,7 @@ interface LiveDetailModalProps {
   open: boolean
   live: JsonRecord | null
   canWrite: boolean
+  canManageUnion?: boolean
   reportCopied: boolean
   onClose: () => void
   onCopyReport: (report: string) => void
@@ -50,12 +53,14 @@ interface LiveDetailModalProps {
   onSplitApresentadoras: (live: JsonRecord) => void
   onDelete: (live: JsonRecord) => void
   deleteLiveMutation: UseMutationResult<unknown, Error, string>
+  onUnionChanged?: () => void
 }
 
 export function LiveDetailModal({
   open,
   live,
   canWrite,
+  canManageUnion = false,
   reportCopied,
   onClose,
   onCopyReport,
@@ -63,9 +68,38 @@ export function LiveDetailModal({
   onSplitApresentadoras,
   onDelete,
   deleteLiveMutation,
+  onUnionChanged,
 }: LiveDetailModalProps) {
   const presenterNames = live ? livePresenterNames(live) : []
   const report = live ? buildReport(live) : ''
+  const liveId = live ? asString(live.id, '') : ''
+  const [undoOpen, setUndoOpen] = useState(false)
+  const [undoReason, setUndoReason] = useState('')
+  const [undoSuccess, setUndoSuccess] = useState(false)
+  const undoRequestIdRef = useRef('')
+  useEffect(() => {
+    setUndoOpen(false)
+    setUndoReason('')
+    setUndoSuccess(false)
+  }, [liveId])
+  const union = useQuery({
+    queryKey: ['live-union', liveId],
+    queryFn: () => getLiveUnion(liveId),
+    enabled: open && canManageUnion && Boolean(liveId),
+    retry: false,
+  })
+  const unionActive = Boolean(union.data && union.data.ativo !== false && !union.data.desfeito_em)
+  const canEditLive = canWrite && !unionActive
+  const undo = useMutation({
+    mutationFn: () => undoLiveUnion(union.data!.id, { request_id: undoRequestIdRef.current, motivo: undoReason.trim() }),
+    onSuccess: () => {
+      setUndoOpen(false)
+      setUndoReason('')
+      setUndoSuccess(true)
+      void union.refetch()
+      onUnionChanged?.()
+    },
+  })
   return (
     <Modal
       open={open && !!live}
@@ -85,11 +119,11 @@ export function LiveDetailModal({
             </p>
           ) : null}
           {report ? (
-            <Button variant={canWrite ? 'secondary' : 'primary'} icon={Copy} onClick={() => onCopyReport(report)}>
+            <Button variant={canEditLive ? 'secondary' : 'primary'} icon={Copy} onClick={() => onCopyReport(report)}>
               {reportCopied ? 'Relatório copiado' : 'Copiar relatório'}
             </Button>
           ) : null}
-          {canWrite ? (
+          {canEditLive ? (
             <Button icon={Edit2} onClick={() => onEdit(live)}>Editar live</Button>
           ) : <Button variant="secondary" onClick={onClose}>Fechar</Button>}
         </>
@@ -97,6 +131,24 @@ export function LiveDetailModal({
     >
       {live ? (
         <div className="space-y-5">
+          {union.data ? (
+            <div className="rounded-xl border border-[var(--primary-soft)] bg-[var(--primary-softer)] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-semibold text-[var(--primary)]"><GitMerge aria-hidden="true" className="h-4 w-4" />{union.data.desfeito_em ? 'União desfeita' : `Unida de ${union.data.origens.length} registros`}</p>
+                  <p className="mt-1 text-xs text-ink-muted">{union.data.motivo ? `Motivo: ${union.data.motivo}` : 'Os trechos originais continuam disponíveis no histórico.'}</p>
+                </div>
+                {canManageUnion && unionActive ? <Button variant="secondary" icon={RotateCcw} onClick={() => { setUndoSuccess(false); undoRequestIdRef.current = crypto.randomUUID(); setUndoOpen(true) }}>Desfazer união</Button> : null}
+              </div>
+              <ol className="mt-3 space-y-1 border-t border-line pt-3 text-xs text-ink-muted">
+                {union.data.origens.map((origin, index) => {
+                  const source = origin.live
+                  return <li key={asString(source.id, String(index))}>{index + 1}. {fmtTime(source.iniciado_em)}–{fmtTime(source.encerrado_em)}{source.marca_nome ? ` · ${asString(source.marca_nome)}` : ''}</li>
+                })}
+              </ol>
+            </div>
+          ) : undoSuccess ? <p className="rounded-xl bg-[var(--success-soft)] px-4 py-3 text-sm font-semibold text-[var(--success)]">União desfeita</p> : null}
+          {union.isError ? <p role="alert" className="rounded-xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">Não foi possível carregar o histórico desta união.</p> : null}
           <dl className="grid gap-4 rounded-xl bg-surface-muted p-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             <div className="min-w-0">
               <dt className="text-xs font-medium text-ink-muted">GMV da live</dt>
@@ -160,7 +212,7 @@ export function LiveDetailModal({
             </ModalSection>
           ) : null}
 
-          {canWrite ? (
+          {canEditLive ? (
             <ModalSection title="Outras ações" collapsible>
               <div className="flex flex-wrap items-center gap-3">
                 <Button variant="secondary" icon={Users} onClick={() => onSplitApresentadoras(live)}>
@@ -180,6 +232,28 @@ export function LiveDetailModal({
           ) : null}
         </div>
       ) : null}
+
+      <Modal
+        open={undoOpen}
+        title="Desfazer união"
+        subtitle="Os registros originais voltarão aos relatórios e a consolidada será arquivada."
+        onClose={() => setUndoOpen(false)}
+        closeDisabled={undo.isPending}
+        size="sm"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setUndoOpen(false)} disabled={undo.isPending}>Cancelar</Button>
+            <Button variant="danger" onClick={() => undo.mutate()} disabled={undoReason.trim().length < 3} isLoading={undo.isPending}>Confirmar reversão</Button>
+          </>
+        )}
+      >
+        <div className="space-y-4">
+          <label className="block text-sm font-medium text-ink">Motivo para desfazer
+            <textarea aria-label="Motivo para desfazer" className="design-input mt-2 min-h-24 w-full resize-y p-3" value={undoReason} onChange={(event) => setUndoReason(event.target.value)} maxLength={500} />
+          </label>
+          {undo.isError ? <p role="alert" className="rounded-xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(undo.error)}</p> : null}
+        </div>
+      </Modal>
     </Modal>
   )
 }
