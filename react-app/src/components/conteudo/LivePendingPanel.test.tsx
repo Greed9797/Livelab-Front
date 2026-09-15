@@ -8,7 +8,7 @@ describe('LivePendingPanel', () => {
   it('mostra contagens como escopo carregado e deixa o bucket ativo explícito', () => {
     const html = renderToStaticMarkup(
       <LivePendingPanel
-        counts={{ rascunho: 2, cadastro: 1, metricas: 3, duplicata: 1 }}
+        counts={{ validacao: 1, rascunho: 2, cadastro: 1, metricas: 3, duplicata: 1 }}
         loadedCount={8}
         selected="metricas"
         onSelect={vi.fn()}
@@ -17,6 +17,7 @@ describe('LivePendingPanel', () => {
     expect(html).toContain('nos 8 resultados carregados')
     expect(html).toContain('aria-pressed="true"')
     expect(html).toContain('Possíveis duplicatas')
+    expect(html).toContain('Por validar')
   })
 
   it('renderiza zero registrado em GMV e pedidos em vez do marcador de ausência', () => {
@@ -34,7 +35,7 @@ describe('LivePendingPanel', () => {
   it('oculta contagens antigas durante troca de recorte e distingue duplicatas indisponíveis', () => {
     const loading = renderToStaticMarkup(
       <LivePendingPanel
-        counts={{ rascunho: 9, cadastro: 9, metricas: 9, duplicata: 9 }}
+        counts={{ validacao: 9, rascunho: 9, cadastro: 9, metricas: 9, duplicata: 9 }}
         loadedCount={9}
         selected=""
         onSelect={vi.fn()}
@@ -46,7 +47,7 @@ describe('LivePendingPanel', () => {
 
     const duplicateError = renderToStaticMarkup(
       <LivePendingPanel
-        counts={{ rascunho: 1, cadastro: 0, metricas: 0, duplicata: 0 }}
+        counts={{ validacao: 0, rascunho: 1, cadastro: 0, metricas: 0, duplicata: 0 }}
         loadedCount={1}
         selected=""
         onSelect={vi.fn()}

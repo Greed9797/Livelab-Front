@@ -112,8 +112,19 @@ describe('pendências operacionais de lives', () => {
       { id: 'b', status_publicacao: 'publicado', marca_id: 'm', cabine_id: 'c', apresentador_id: 'p' },
     ]
     const duplicateIds = new Set(['b'])
-    expect(summarizeLivePendings(lives, duplicateIds)).toEqual({ rascunho: 1, cadastro: 0, metricas: 0, duplicata: 1 })
+    expect(summarizeLivePendings(lives, duplicateIds)).toEqual({ validacao: 0, rascunho: 1, cadastro: 0, metricas: 0, duplicata: 1 })
     expect(filterLivesByPending(lives, 'duplicata', duplicateIds).map((live) => live.id)).toEqual(['b'])
+  })
+
+  it('separa os envios da apresentadora que aguardam validação dos demais rascunhos', () => {
+    const lives = [
+      { id: 'manual-pendente', registro_tipo: 'submissao', revisao_status: 'pendente', status_publicacao: 'rascunho', origem_dados: 'apresentadora' },
+      { id: 'manual-devolvida', registro_tipo: 'submissao', revisao_status: 'devolvida', status_publicacao: 'rascunho', origem_dados: 'apresentadora' },
+      { id: 'bot-rascunho', status_publicacao: 'rascunho', origem_dados: 'bot' },
+    ]
+
+    expect(filterLivesByPending(lives, 'validacao', new Set()).map((live) => live.id)).toEqual(['manual-pendente'])
+    expect(summarizeLivePendings(lives, new Set()).validacao).toBe(1)
   })
 
 

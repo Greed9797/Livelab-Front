@@ -3,7 +3,7 @@ import type { JsonRecord } from '../types/models'
 import type { BadgeTone } from '../components/ui/Badge'
 import type { LivePendingKind } from '../components/conteudo/live-helpers'
 
-const LIVE_PENDING_KINDS = new Set<LivePendingKind>(['rascunho', 'cadastro', 'metricas', 'duplicata'])
+const LIVE_PENDING_KINDS = new Set<LivePendingKind>(['validacao', 'rascunho', 'cadastro', 'metricas', 'duplicata'])
 
 export interface ConteudoLivesDeepLink {
   dateFrom: string

@@ -7,7 +7,7 @@ export interface LiveFilterOption {
   nome: string
 }
 
-export type LivePendingKind = 'rascunho' | 'cadastro' | 'metricas' | 'duplicata'
+export type LivePendingKind = 'validacao' | 'rascunho' | 'cadastro' | 'metricas' | 'duplicata'
 
 export interface LivePendingIssue {
   kind: LivePendingKind
@@ -90,6 +90,14 @@ function missingCoreMetrics(live: JsonRecord): string[] {
 export function classifyLivePendings(live: JsonRecord, duplicateIds: ReadonlySet<string>): LivePendingIssue[] {
   const issues: LivePendingIssue[] = []
   const isDraft = String(live.status_publicacao ?? '').toLowerCase() === 'rascunho'
+  if (live.registro_tipo === 'submissao' && live.revisao_status === 'pendente') {
+    issues.push({
+      kind: 'validacao',
+      label: 'Por validar',
+      reason: 'Envio da apresentadora aguardando validação da gestão.',
+      actionLabel: 'Validar live',
+    })
+  }
   if (isDraft) {
     issues.push({
       kind: 'rascunho',
@@ -143,7 +151,7 @@ export function filterLivesByPending(
 }
 
 export function summarizeLivePendings(lives: JsonRecord[], duplicateIds: ReadonlySet<string>): LivePendingCounts {
-  const counts: LivePendingCounts = { rascunho: 0, cadastro: 0, metricas: 0, duplicata: 0 }
+  const counts: LivePendingCounts = { validacao: 0, rascunho: 0, cadastro: 0, metricas: 0, duplicata: 0 }
   for (const live of lives) {
     for (const issue of classifyLivePendings(live, duplicateIds)) counts[issue.kind] += 1
   }

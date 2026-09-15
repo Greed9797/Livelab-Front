@@ -56,6 +56,10 @@ describe('deep links da lista de lives', () => {
     expect(parseConteudoLivesDeepLink(new URLSearchParams('pendencia=confirmada&cabine=cab-1')).pending).toBe('')
   })
 
+  it('aceita o atalho de lives por validar na URL', () => {
+    expect(parseConteudoLivesDeepLink(new URLSearchParams('pendencia=validacao')).pending).toBe('validacao')
+  })
+
   it('busca a reserva contextual no dia inteiro de São Paulo quando o recorte tem mais de um dia', () => {
     expect(agendaContextQueryParams({
       dateFrom: '2026-09-01', dateTo: '2026-09-05', cabineId: 'cab-1',

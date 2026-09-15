@@ -1,6 +1,7 @@
 import type { LivePendingCounts, LivePendingKind } from './live-helpers'
 
 const OPTIONS: Array<{ kind: LivePendingKind; label: string }> = [
+  { kind: 'validacao', label: 'Por validar' },
   { kind: 'rascunho', label: 'Rascunhos' },
   { kind: 'cadastro', label: 'Cadastro' },
   { kind: 'metricas', label: 'Métricas' },
