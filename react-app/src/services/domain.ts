@@ -308,6 +308,10 @@ export function getRankingApresentadoras(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/ranking/apresentadoras', params)
 }
 
+export function getRankingMarcas(params: Record<string, unknown> = {}) {
+  return apiGet<JsonRecord[]>('/ranking/marcas', params)
+}
+
 export function getComissoesMarcas(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/comissoes/marcas', params)
 }

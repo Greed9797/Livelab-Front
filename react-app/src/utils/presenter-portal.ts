@@ -1,9 +1,9 @@
 import type { BadgeTone } from '../components/ui/Badge'
 import type { PresenterSubmissionStatus } from '../services/presenter-portal'
+import { getSaoPauloDateInput } from './sao-paulo-date'
 
-export function currentMonth(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+export function currentMonth(now: Date = new Date()): string {
+  return getSaoPauloDateInput(now).slice(0, 7)
 }
 
 export function submissionStatusLabel(status: PresenterSubmissionStatus): string {
@@ -23,10 +23,14 @@ export function localDateTimeValue(value?: string): string {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+  const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date)
+  return `${getSaoPauloDateInput(date)}T${time}`
 }
 
 export function isoFromLocalDateTime(value: string): string {
-  return value ? new Date(value).toISOString() : ''
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return ''
+  // Portal registration uses current dates in São Paulo (UTC-03 since 2019).
+  const date = new Date(`${value}:00-03:00`)
+  if (!Number.isFinite(date.valueOf()) || localDateTimeValue(date.toISOString()) !== value) return ''
+  return date.toISOString()
 }

@@ -2,6 +2,7 @@ import { Trophy } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { formatMoney } from '../../utils/format'
 import type { PresenterPortalRankingRow } from '../../services/presenter-portal'
+import { PendingMetricsNotice } from '../dashboard/PendingMetricsNotice'
 
 function initials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean)
@@ -19,6 +20,7 @@ export function PortalRanking({ rows }: { rows: PresenterPortalRankingRow[] }) {
         </div>
       </CardHeader>
       <CardBody className="p-0">
+        <PendingMetricsNotice rows={rows} />
         {rows.length === 0 ? <p className="p-6 text-sm text-ink-muted">Ainda não há lives concluídas neste mês.</p> : rows.map((row) => {
           const progress = leader > 0 ? Math.round((row.gmv_total / leader) * 100) : 0
           return <div key={row.apresentadora_id} className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3.5 last:border-b-0">

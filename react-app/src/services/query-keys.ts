@@ -129,8 +129,6 @@ export const QK = {
  *
  * Fora daqui de propósito:
  *  - ['videos'] — só muda em escrita de vídeo; ConteudoPage invalida à parte.
- *  - ['funil-analytics'] / ['daily-pulse'] — podem vir de importação de
- *    analytics (ads); quem importa já invalida.
  *  - ['apresentadora-detalhe-*'] — escopadas por id em outra rota; staleTime +
  *    refetchOnWindowFocus cobrem.
  */
@@ -147,6 +145,12 @@ export function invalidateOperational(client: QueryClient): void {
     // dashboards com GMV/horas agregados
     [...QK.homeDashboard],
     ['daily-pulse'],
+    [...QK.analyticsDashboard()],
+    ['daily-analytics'],
+    ['funil-analytics'],
+    ['presenter-portal-home'],
+    ['presenter-portal-lives'],
+    ['presenter-review-queue'],
     // rankings derivados de GMV de live
     [...QK.rankingApresentadoras()],
     [...QK.rankingMarcas()],

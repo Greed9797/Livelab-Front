@@ -583,10 +583,11 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
             </label>
             <label className="block">
               <span className="text-sm font-semibold text-ink">Origem dos dados</span>
-              <select className="design-input mt-2 h-11 w-full px-3" value={form.origem_dados} onChange={(e) => setField('origem_dados', e.target.value)}>
+              <select className="design-input mt-2 h-11 w-full px-3" disabled={live.origem_dados === 'apresentadora'} value={form.origem_dados} onChange={(e) => setField('origem_dados', e.target.value)}>
                 <option value="manual">Manual</option>
                 <option value="api">API TikTok</option>
                 <option value="bot" disabled>BOT (automação)</option>
+                <option value="apresentadora" disabled>APRESENTADORA (portal)</option>
               </select>
             </label>
           </div>

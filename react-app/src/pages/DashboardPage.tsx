@@ -5,6 +5,7 @@ import { CalendarDays, Radio } from 'lucide-react'
 import { type GradeDia } from '../components/conteudo/gradeUtils'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { KpiStrip } from '../components/dashboard/KpiStrip'
+import { PendingMetricsNotice } from '../components/dashboard/PendingMetricsNotice'
 import { PageHeader } from '../components/ui/PageHeader'
 import { GmvHeroPanel } from '../components/dashboard/GmvHeroPanel'
 import { PresenterLeaderboard } from '../components/dashboard/PresenterLeaderboard'
@@ -184,6 +185,7 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHead />
+      <PendingMetricsNotice rows={[homeQuery.data ?? {}]} />
 
       <OperationsNow cabines={cabines as unknown as JsonRecord[]} />
 

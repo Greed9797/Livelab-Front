@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { submissionHasOfficialLiveTombstone, submissionStatusLabel, submissionStatusTone } from './presenter-portal'
+import { currentMonth, isoFromLocalDateTime, localDateTimeValue, submissionHasOfficialLiveTombstone, submissionStatusLabel, submissionStatusTone } from './presenter-portal'
+
+describe('São Paulo portal dates', () => {
+  it('uses the operational month at the UTC month boundary', () => {
+    expect(currentMonth(new Date('2026-10-01T02:30:00Z'))).toBe('2026-09')
+  })
+  it('round trips operational times independent of the browser timezone', () => {
+    expect(isoFromLocalDateTime('2026-09-14T09:00')).toBe('2026-09-14T12:00:00.000Z')
+    expect(localDateTimeValue('2026-09-14T12:00:00Z')).toBe('2026-09-14T09:00')
+    expect(isoFromLocalDateTime('2026-02-30T09:00')).toBe('')
+    expect(isoFromLocalDateTime('invalid')).toBe('')
+  })
+})
 
 describe('presenter portal submission status', () => {
   it('uses review wording without treating a pending submission as official', () => {

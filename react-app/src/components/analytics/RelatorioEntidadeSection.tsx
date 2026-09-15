@@ -67,6 +67,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
     .sort((a, b) => asString(a.dia).localeCompare(asString(b.dia)))
   const totals = sumDailyTotals(rows)
   const pendingLives = rows.reduce((total, row) => total + asNumber(row.total_lives_pendentes_aprovacao), 0)
+  const emConciliacao = rows.some(row => row.em_conciliacao)
 
   // % de franquia: prioriza o valor FRESCO da API pela marcaId; cai pro prop se
   // ainda não carregou. Comissão = GMV total × % (tempo real, qualquer mês).
@@ -74,14 +75,18 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
   const franquiaPctNum = asNumber(franquiaPctFromApi ?? franquiaPct)
   const semFranquiaPct = tipo === 'marca' && !marcaPctQuery.isLoading && franquiaPctNum <= 0
 
-  function buildMetrics(t: ReturnType<typeof sumDailyTotals>, row: JsonRecord | undefined = comissaoRow): Metric[] {
+  function buildMetrics(t: ReturnType<typeof sumDailyTotals>, row: JsonRecord | undefined = comissaoRow, dailyRows: JsonRecord[] = rows): Metric[] {
+    const hasPending = dailyRows.some(item => item.pendente_aprovacao)
+    const pendingOnly = hasPending && dailyRows.every(item => item.pendente_aprovacao && item.comissao_apresentadora == null)
     // Comissão de franquia: SEMPRE preferir o valor do endpoint /comissoes/marcas —
     // ele aplica MAX(piso, gmv×pct); o cálculo local (gmv×pct) é só fallback de loading.
-    const comissaoMetrics: Metric[] = tipo === 'marca'
-      ? [moneyMetric('Comissão franquia', row?.comissao_franquia ?? (pendingLives ? 0 : t.gmv_total * (franquiaPctNum / 100)), pendingLives ? 'Aguardando validação dos envios pendentes' : `${franquiaPctNum.toLocaleString('pt-BR')}% do GMV · respeita piso`, 'success')]
-      : [moneyMetric('Comissão', row?.comissao_apresentadora ?? 0, 'no período', 'success')]
+    const comissaoMetrics: Metric[] = pendingOnly
+      ? [metric(tipo === 'marca' ? 'Comissão franquia' : 'Comissão', 'Aguardando validação', 'Envios pendentes não geram comissão', 'neutral')]
+      : tipo === 'marca'
+        ? [moneyMetric('Comissão franquia', row?.comissao_franquia ?? dailyRows.reduce((sum, item) => sum + asNumber(item.gmv_validado ?? item.gmv_total), 0) * (franquiaPctNum / 100), hasPending ? 'Somente registros validados' : `${franquiaPctNum.toLocaleString('pt-BR')}% do GMV · respeita piso`, 'success')]
+        : [moneyMetric('Comissão', row?.comissao_apresentadora ?? 0, hasPending ? 'Somente registros validados' : 'no período', 'success')]
     return [
-      moneyMetric('GMV total (faturamento)', t.gmv_total, 'lives + vídeos', 'brand'),
+      moneyMetric(dailyRows.some(item => item.em_conciliacao) ? 'Subtotal em conciliação' : hasPending ? 'GMV provisório' : 'GMV total (faturamento)', t.gmv_total, 'lives + vídeos', 'brand'),
       moneyMetric('GMV lives', t.gmv_lives, 'vendas em live', 'info'),
       moneyMetric('GMV vídeos', t.gmv_videos, 'vendas em vídeo', 'info'),
       metric('Horas de live', t.horas_live.toFixed(1), 'lives encerradas', 'neutral'),
@@ -92,6 +97,10 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
       moneyMetric('GMV / hora', t.gmv_por_hora, 'GMV lives / horas de live', 'success'),
       moneyMetric('GMV / live', t.gmv_por_live, 'GMV total / live', 'info'),
       ...comissaoMetrics,
+      ...(hasPending ? [
+        metric('Impressões pendentes', dailyRows.reduce((sum, item) => sum + asNumber(item.impressoes_pendentes_aprovacao), 0).toLocaleString('pt-BR'), 'Declaradas; aguardam validação', 'neutral'),
+        metric('Visualizações pendentes', dailyRows.reduce((sum, item) => sum + asNumber(item.visualizacoes_pendentes_aprovacao), 0).toLocaleString('pt-BR'), 'Declaradas; aguardam validação', 'neutral'),
+      ] : []),
     ]
   }
 
@@ -132,19 +141,19 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
       const { buildRelatorioPdf } = await import('../../utils/pdfReport')
       buildRelatorioPdf({
         titulo: nomeEntidade || (tipo === 'marca' ? 'Marca' : 'Apresentadora'),
-        subtitulo: tipo === 'marca' ? 'Relatório por marca' : 'Relatório por apresentadora',
+        subtitulo: `${tipo === 'marca' ? 'Relatório por marca' : 'Relatório por apresentadora'}${pdfRows.some(r => r.em_conciliacao) ? ' · Em conciliação: total consolidado indisponível' : pdfRows.some(r => r.pendente_aprovacao) ? ' · Total provisório: inclui pendentes de aprovação' : ''}`,
         mes: mesToken,
-        metrics: buildMetrics(sumDailyTotals(pdfRows), freshComissao).map((m) => ({ label: m.label, value: m.value })),
+        metrics: buildMetrics(sumDailyTotals(pdfRows), freshComissao, pdfRows).map((m) => ({ label: m.label, value: m.value })),
         tables: [{
           title: 'Detalhamento diário',
           head: ['Dia', 'Marca', 'GMV lives', 'R$ comissão', '% comissão', 'Horas', 'Pedidos'],
           rightAlign: [2, 3, 4, 5, 6],
           body: pdfRows.map((r) => [
             diaCurto(r.dia),
-            asString(r.marca_nome, '—'),
+            `${asString(r.marca_nome, '—')}${r.pendente_aprovacao ? ` · Pendente aprovação: ${formatMoney(r.gmv_pendente_aprovacao)}${r.em_conciliacao ? ' · conferir vínculo (não somado)' : ' (incluído)'}` : ''}`,
             formatMoney(r.gmv_lives ?? r.gmv),
-            formatMoney(r.comissao_apresentadora),
-            `${asNumber(r.comissao_pct).toFixed(2)}%`,
+            r.pendente_aprovacao && r.comissao_apresentadora == null ? 'Aguardando validação' : `${formatMoney(r.comissao_apresentadora)}${r.pendente_aprovacao ? ' · somente validada' : ''}`,
+            r.pendente_aprovacao && r.comissao_apresentadora == null ? '—' : `${asNumber(r.comissao_pct).toFixed(2)}%`,
             asNumber(r.horas_live).toFixed(1),
             asNumber(r.pedidos ?? r.total_pedidos).toLocaleString('pt-BR'),
           ]),
@@ -194,7 +203,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
               </Link>
             </div>
           ) : null}
-          {pendingLives > 0 ? <div className="mb-4 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning-soft)] px-4 py-3 text-sm text-ink"><strong>{pendingLives} live{pendingLives > 1 ? 's' : ''} pendente{pendingLives > 1 ? 's' : ''} de aprovação</strong> já entra{pendingLives > 1 ? 'm' : ''} nas métricas operacionais. Comissão só é calculada após a validação da gestão.</div> : null}
+          {emConciliacao ? <p role="status" className="mb-3 text-sm text-[var(--warning)]">Em conciliação: o total consolidado está indisponível. Os subtotais exibidos excluem envios com possível vínculo; os valores declarados continuam discriminados abaixo.</p> : null}{pendingLives > 0 ? <div className="mb-4 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning-soft)] px-4 py-3 text-sm text-ink"><strong>{pendingLives} live{pendingLives > 1 ? 's' : ''} pendente{pendingLives > 1 ? 's' : ''} de aprovação</strong> nos relatórios operacionais; valores sujeitos à conciliação são discriminados separadamente. Comissão só é calculada após a validação da gestão.</div> : null}
           {query.isLoading ? (
             <p className="py-6 text-center text-sm text-ink-muted">Carregando relatório...</p>
           ) : query.isError ? (
@@ -215,9 +224,9 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
                   columns={[
                     { key: 'dia', header: 'Dia', render: (r) => diaCurto(r.dia) },
                     { key: 'marca_nome', header: 'Marca', render: (r) => asString(r.marca_nome, '—') },
-                    { key: 'gmv_lives', header: 'GMV lives', align: 'right', render: (r) => <span>{formatMoney(r.gmv_lives ?? r.gmv)}{asNumber(r.gmv_pendente_aprovacao) > 0 ? <small className="block text-[var(--warning)]">inclui {formatMoney(r.gmv_pendente_aprovacao)} pendente</small> : null}</span> },
-                    { key: 'comissao_apresentadora', header: 'R$ comissão', align: 'right', render: (r) => formatMoney(r.comissao_apresentadora) },
-                    { key: 'comissao_pct', header: '% comissão', align: 'right', render: (r) => `${asNumber(r.comissao_pct).toFixed(2)}%` },
+                    { key: 'gmv_lives', header: 'GMV lives', align: 'right', render: (r) => <span>{formatMoney(r.gmv_lives ?? r.gmv)}{asNumber(r.gmv_pendente_aprovacao) > 0 ? <small className="block text-[var(--warning)]">{r.em_conciliacao ? 'Declarado pendente (conferir vínculo): ' : 'Inclui pendente: '}{formatMoney(r.gmv_pendente_aprovacao)}</small> : null}</span> },
+                    { key: 'comissao_apresentadora', header: 'R$ comissão', align: 'right', render: (r) => r.pendente_aprovacao && r.comissao_apresentadora == null ? 'Aguardando validação' : formatMoney(r.comissao_apresentadora) },
+                    { key: 'comissao_pct', header: '% comissão', align: 'right', render: (r) => r.pendente_aprovacao && r.comissao_apresentadora == null ? '—' : `${asNumber(r.comissao_pct).toFixed(2)}%` },
                     { key: 'horas_live', header: 'Horas', align: 'right', render: (r) => asNumber(r.horas_live).toFixed(1) },
                     { key: 'pedidos', header: 'Pedidos', align: 'right', render: (r) => asNumber(r.pedidos ?? r.total_pedidos).toLocaleString('pt-BR') },
                   ]}

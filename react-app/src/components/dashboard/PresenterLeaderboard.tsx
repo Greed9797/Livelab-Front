@@ -76,6 +76,7 @@ function getPresenterCommission(row: JsonRecord): number {
 
 function buildBadges(row: JsonRecord, index: number): PresenterRow['badges'] {
   const badges: PresenterRow['badges'] = []
+  if (row.pendente_aprovacao) badges.push({ label: row.em_conciliacao ? 'Em conciliação' : 'Pendente aprovação', tone: 'blue' })
   const gmv = rankingGmv(row)
   const lives = rankingLives(row)
   const pctMeta = asNumber(row.pct_meta, -1)

@@ -5,6 +5,7 @@ import { extractErrorMessage } from '../../services/api'
 import { getFunilAnalytics } from '../../services/domain'
 import { getRecord } from '../../utils/format'
 import { buildAudienceMetrics } from '../../utils/audienceMetrics'
+import { PendingMetricsNotice } from '../dashboard/PendingMetricsNotice'
 
 interface Props {
   from: string
@@ -61,17 +62,18 @@ export function FunilAnalyticsSection({ from, to, marcaId, apresentadoraId }: Pr
         </div>
       </CardHeader>
       <CardBody>
+        <PendingMetricsNotice rows={[getRecord(query.data)]} />
         {query.isLoading ? (
           <LoadingState />
         ) : query.isError ? (
           <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
         ) : metrics.totalLives === 0 ? (
-          <p className="py-6 text-center text-sm text-ink-muted">Nenhuma live encerrada com pelo menos 5 minutos neste recorte.</p>
+          <p className="py-6 text-center text-sm text-ink-muted">Nenhuma live consolidável neste recorte.</p>
         ) : (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-muted/40 px-3 py-2.5 text-sm">
               <span className="font-semibold text-ink">{metrics.totalLives == null ? 'Lives do período' : `${count(metrics.totalLives)} lives analisadas`}</span>
-              <span className="text-xs text-ink-muted">Encerradas com pelo menos 5 min</span>
+              <span className="text-xs text-ink-muted">Encerradas com pelo menos 5 min e declarações pendentes</span>
             </div>
             <div className="grid gap-5 lg:grid-cols-3">
               {groups.map((group) => (

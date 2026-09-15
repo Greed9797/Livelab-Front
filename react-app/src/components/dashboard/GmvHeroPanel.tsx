@@ -926,7 +926,8 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
             {gmvExibido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
-        {delta !== null ? (
+        {raw.pendente_aprovacao ? <p className="mt-2 text-sm font-semibold text-[var(--warning)]">{raw.em_conciliacao ? 'Subtotal em conciliação — total consolidado indisponível' : 'GMV provisório — inclui pendentes de aprovação'}</p> : null}
+        {delta !== null && !raw.pendente_aprovacao ? (
           <>
             <DeltaPill v={delta} />
             <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>

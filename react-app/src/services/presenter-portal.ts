@@ -3,6 +3,9 @@ import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 export type PresenterSubmissionStatus = 'pendente' | 'devolvida' | 'aprovada' | 'cancelada'
 
 export type PresenterPortalPerformance = {
+  gmv_validado?: number
+  em_conciliacao?: boolean
+  total_provisorio?: number | null
   gmv_lives: number
   horas_live: number
   gmv_por_hora: number | null
@@ -13,6 +16,10 @@ export type PresenterPortalPerformance = {
 }
 
 export type PresenterPortalRankingRow = {
+  pendente_aprovacao?: boolean
+  em_conciliacao?: boolean
+  gmv_pendente_aprovacao?: number
+  total_provisorio?: number | null
   posicao: number
   apresentadora_id: string
   nome: string
@@ -36,6 +43,7 @@ export type PresenterPortalHome = {
 }
 
 export type PresenterPortalLive = {
+  em_conciliacao?: boolean
   id: string
   iniciado_em: string
   encerrado_em: string
@@ -141,11 +149,11 @@ export function getPresenterReviewQueue(status = 'pendente') {
   return apiGet<{ items: PresenterReviewSubmission[] }>('/lives/submissoes-apresentadoras', { status })
 }
 
-export function getPresenterLiveLinkCandidates(submissionId: string) {
-  return apiGet<{ items: PresenterLiveLinkCandidate[] }>(`/lives/submissoes-apresentadoras/${encodeURIComponent(submissionId)}/candidatas-vinculo`)
+export function getPresenterLiveLinkCandidates(submissionId: string, page = 0) {
+  return apiGet<{ items: PresenterLiveLinkCandidate[]; total: number; page: number; limit: number }>(`/lives/submissoes-apresentadoras/${encodeURIComponent(submissionId)}/candidatas-vinculo?page=${page}`)
 }
 
-export function approvePresenterSubmission(id: string, payload: { live_id: string } | { marca_id: string; cabine_id: string; iniciado_em: string; encerrado_em: string; gmv_oficial: number; pedidos_oficiais: number; live_impressions_oficiais?: number; manual_views_oficiais?: number }) {
+export function approvePresenterSubmission(id: string, payload: ({ live_id: string } | { marca_id: string; cabine_id: string; iniciado_em: string; encerrado_em: string; gmv_oficial: string; pedidos_oficiais: number; live_impressions_oficiais?: number; manual_views_oficiais?: number }) & { versao_esperada?: number; motivo_revisao?: string }) {
   return apiPost(`/lives/submissoes-apresentadoras/${encodeURIComponent(id)}/aprovar`, payload)
 }
 

@@ -7,7 +7,8 @@ import { ErrorState, LoadingState } from '../components/ui/States'
 import { RankingNavTabs } from '../components/dashboard/RankingNavTabs'
 import { RankingPodium } from '../components/dashboard/RankingPodium'
 import { RankingBars } from '../components/dashboard/RankingBars'
-import { getComissoesMarcas } from '../services/domain'
+import { getRankingMarcas } from '../services/domain'
+import { PendingMetricsNotice } from '../components/dashboard/PendingMetricsNotice'
 import { extractErrorMessage } from '../services/api'
 import { QK } from '../services/query-keys'
 
@@ -19,7 +20,7 @@ export function RankingMarcasPage() {
   const [mes, setMes] = useState(currentMonth())
   const query = useQuery({
     queryKey: QK.rankingMarcas(mes),
-    queryFn: () => getComissoesMarcas({ mes }),
+    queryFn: () => getRankingMarcas({ mes }),
   })
 
   if (query.isLoading) return <LoadingState />
@@ -43,6 +44,7 @@ export function RankingMarcasPage() {
         }
       />
 
+      <PendingMetricsNotice rows={rows} />
       <RankingPodium
         data={rows}
         subject="marca"

@@ -12,6 +12,7 @@ import {
 } from '../components/dashboard/PresenterLeaderboard'
 import { RankingNavTabs } from '../components/dashboard/RankingNavTabs'
 import { getRankingApresentadoras } from '../services/domain'
+import { PendingMetricsNotice } from '../components/dashboard/PendingMetricsNotice'
 import { extractErrorMessage } from '../services/api'
 import { formatMoney } from '../utils/format'
 import { rankingCommission, rankingGmv, rankingLives } from '../utils/ranking'
@@ -147,7 +148,7 @@ export function RankingApresentadorasPage() {
         />
         <SummaryCard
           icon={<TrendingUp className="h-5 w-5" />}
-          label="GMV total"
+          label={ranking.some(row => row.em_conciliacao) ? 'Subtotal em conciliação' : ranking.some(row => row.pendente_aprovacao) ? 'GMV provisório' : 'GMV total'}
           value={formatMoney(totalGmv, true)}
           hint={`${totalLives.toLocaleString('pt-BR')} live${totalLives !== 1 ? 's' : ''} com atribuição no mês`}
         />
@@ -155,10 +156,11 @@ export function RankingApresentadorasPage() {
           icon={<DollarSign className="h-5 w-5" />}
           label="Comissão total"
           value={formatMoney(totalCommission, true)}
-          hint="Soma consolidada dos registros retornados pelo ranking"
+          hint="Somente registros validados; pendências não geram comissão"
         />
       </section>
 
+      <PendingMetricsNotice rows={ranking} />
       <PresenterLeaderboard
         rows={ranking}
         title={`Ranking completo · ${mes}`}

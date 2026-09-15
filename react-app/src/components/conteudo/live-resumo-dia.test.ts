@@ -7,6 +7,18 @@ import {
 } from './live-resumo-dia'
 
 describe('live-resumo-dia', () => {
+  it('discriminates pending declarations without double counting collisions or returned entries', () => {
+    const text = buildClientResumoDiaText([
+      { gmv: 100 },
+      { registro_tipo: 'submissao', revisao_status: 'pendente', gmv: 20, marca_nome: 'Nova' },
+      { registro_tipo: 'submissao', revisao_status: 'pendente', em_conciliacao: true, gmv: 100, marca_nome: 'Conferir' },
+      { registro_tipo: 'submissao', revisao_status: 'devolvida', gmv: 900, marca_nome: 'Devolvida' },
+    ], '2026-09-11')
+    expect(text).toContain('*Subtotal (em conciliação):* R$ 120,00')
+    expect(text).toContain('Conferir · Apresentadora: R$ 100,00 — em conciliação; não somado')
+    expect(text).toContain('Sem comissão antes da validação')
+    expect(text).not.toContain('Devolvida')
+  })
   it('formats minutes to hours correctly', () => {
     expect(formatMinsToHours(0)).toBe('0h 00min')
     expect(formatMinsToHours(45)).toBe('0h 45min')

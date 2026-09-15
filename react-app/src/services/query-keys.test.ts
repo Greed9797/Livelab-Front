@@ -3,6 +3,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { invalidateOperational, QK } from './query-keys'
 
 describe('invalidateOperational', () => {
+  it('refreshes reports and portal summaries after a submission is reviewed', () => {
+    const client = new QueryClient()
+    const keys = [QK.analyticsDashboard(), QK.funilAnalytics('2026-09'), QK.dailyAnalytics('2026-09'), QK.presenterPortalHome('tenant', 'actor', '2026-09'), QK.presenterPortalLives('tenant', 'actor', '2026-09'), QK.presenterReviewQueue('tenant', 'actor', 'pendente')]
+    keys.forEach(key => client.setQueryData(key, { pending: true }))
+    invalidateOperational(client)
+    keys.forEach(key => expect(client.getQueryState(key)?.isInvalidated).toBe(true))
+  })
   it('invalidates the selected live detail together with the paginated list', async () => {
     const client = new QueryClient()
     client.setQueryData(QK.live('live-1'), { id: 'live-1', apresentadoras: [] })

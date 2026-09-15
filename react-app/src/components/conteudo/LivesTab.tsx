@@ -181,6 +181,9 @@ function doExportCSV(lives: JsonRecord[]) {
     'Tipo',
     'GMV (R$)',
     'GMV/h (R$)',
+    'Aprovação',
+    'Conciliação',
+    'Comissão',
   ]
   const groups = groupLivesBySaoPauloDay(lives)
   const rows: string[][] = [header]
@@ -203,6 +206,9 @@ function doExportCSV(lives: JsonRecord[]) {
           .toFixed(2)
           .replace('.', ','),
         gmvHora == null ? '' : gmvHora.toFixed(2).replace('.', ','),
+        l.registro_tipo === 'submissao' ? (l.revisao_status === 'pendente' ? 'Pendente aprovação' : 'Devolvida para correção') : 'Validada',
+        l.em_conciliacao ? 'Em conciliação; não somar ao total consolidado' : '',
+        l.registro_tipo === 'submissao' ? 'Não elegível antes da validação' : 'Conforme regras de comissão',
       ])
     }
   }
@@ -362,6 +368,7 @@ function MenuBtn({
 // ─── types ─────────────────────────────────────────────────────────────────
 
 export interface LivesTabProps {
+  onReviewSubmission?: (live: JsonRecord, mode: 'review' | 'link' | 'return') => void
   /** false = papel read-only: lista visível, ações de escrita escondidas. */
   canWrite?: boolean
   livesData: JsonRecord[]
@@ -432,6 +439,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 // ─── main component ────────────────────────────────────────────────────────
 
 export function LivesTab({
+  onReviewSubmission,
   canWrite = true,
   livesData,
   liveModalMode,
@@ -628,8 +636,9 @@ export function LivesTab({
   const dayGroupAggregates = useMemo(
     () =>
       dayGroups.map((group) => {
-        const totalMins = group.lives.reduce((s, l) => s + calcDuration(l).mins, 0)
-        const totalGmv = group.lives.reduce((s, l) => s + asNumber(officialLiveGmv(l)), 0)
+        const active = group.lives.filter(l => l.registro_tipo !== 'submissao' || (l.revisao_status === 'pendente' && !l.em_conciliacao))
+        const totalMins = active.reduce((s, l) => s + calcDuration(l).mins, 0)
+        const totalGmv = active.reduce((s, l) => s + asNumber(officialLiveGmv(l)), 0)
         const publicadas = group.lives.filter((l) => {
           const s = asString(l.status_publicacao, '').toLowerCase()
           return s === 'publicado' || s === 'publicada'
@@ -638,6 +647,8 @@ export function LivesTab({
           dateKey: group.dateKey,
           totalMins,
           totalGmv,
+          emConciliacao: group.lives.some(l => l.pendente_aprovacao && l.em_conciliacao),
+          pendentes: group.lives.some(l => l.pendente_aprovacao),
           publicadas,
           rascunhos: group.lives.length - publicadas,
         }
@@ -1124,7 +1135,7 @@ export function LivesTab({
         ) : (
           dayGroups.map((group, groupIdx) => {
             const collapsed = collapsedDays.has(group.dateKey)
-            const { totalMins, totalGmv, publicadas, rascunhos } = dayGroupAggregates[groupIdx]
+            const { totalMins, totalGmv, publicadas, rascunhos, emConciliacao, pendentes } = dayGroupAggregates[groupIdx]
             const h = Math.floor(totalMins / 60)
             const m = totalMins % 60
 
@@ -1251,7 +1262,7 @@ export function LivesTab({
                     </button>
 
                     {/* GMV pill */}
-                    {totalGmv > 0 && (
+                    {(totalGmv > 0 || pendentes) && (
                       <div
                         style={{
                           display: 'flex',
@@ -1275,7 +1286,7 @@ export function LivesTab({
                             fontWeight: 500,
                           }}
                         >
-                          GMV do dia
+                          {emConciliacao ? 'Subtotal · em conciliação' : pendentes ? 'GMV provisório' : 'GMV do dia'}
                         </span>
                         <b
                           style={{
@@ -1296,6 +1307,23 @@ export function LivesTab({
                 {/* Rows */}
                 {!collapsed &&
                   group.lives.map((live, rowIdx) => {
+                    if (live.registro_tipo === 'submissao') return (
+                      <article key={String(live.id)} className="border-b border-line p-4" data-testid="presenter-live-record">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <strong className="break-words">{asString(live.marca_nome, 'Marca')} · {asString(live.apresentadora_nome, 'Apresentadora')}</strong>
+                          <BotBadge origem={live.origem_dados} />
+                          <StatusBadge status="rascunho" />
+                          <span>{live.revisao_status === 'devolvida' ? 'Aguardando correção' : 'Aguardando validação · Pendente aprovação'}</span>
+                        </div>
+                        <p className="mt-2 text-sm text-ink-muted">{fmtTime(live.iniciado_em)}–{fmtTime(live.encerrado_em)} · GMV {formatMoney(live.gmv)} · {asNumber(live.final_orders_count)} pedidos · Comissão: aguardando validação</p>
+                        {live.em_conciliacao ? <p className="mt-2 text-sm text-[var(--warning)]">Em conciliação: conferir vínculo antes de consolidar o total.</p> : null}
+                        {live.motivo_devolucao ? <p className="mt-2 break-words text-sm">{asString(live.motivo_devolucao)}</p> : null}
+                        {onReviewSubmission ? <div className="mt-3 flex flex-wrap gap-2">
+                          <Button onClick={() => onReviewSubmission(live, 'review')}>Validar live</Button>
+                          {live.revisao_status === 'pendente' ? <><Button variant="secondary" onClick={() => onReviewSubmission(live, 'link')}>Vincular live existente</Button><Button variant="secondary" onClick={() => onReviewSubmission(live, 'return')}>Devolver</Button></> : null}
+                        </div> : null}
+                      </article>
+                    )
                     const liveId = asString(live.id)
                     const { text: durText, mins: durMins } = calcDuration(live)
                     const durPct = Math.min(100, (durMins / MAX_DUR_MINS) * 100)
@@ -1599,6 +1627,7 @@ export function LivesTab({
                         {/* Status */}
                         <div>
                           <StatusBadge status={live.status_publicacao} />
+                          {onPublishLive && ['rascunho', 'revisado'].includes(asString(live.status_publicacao, 'rascunho')) ? <button type="button" className="block min-h-11 text-xs font-semibold text-[var(--primary)]" onClick={() => onPublishLive(live)}>{live.status_publicacao === 'revisado' ? 'Publicar' : 'Marcar revisada'}</button> : null}
                         </div>
 
                         {/* Tipo (origem) — opcional; o chip BOT ao lado do nome já cobre o caso comum */}

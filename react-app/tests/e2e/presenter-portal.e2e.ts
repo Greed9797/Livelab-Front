@@ -7,9 +7,10 @@ const cabin = '44444444-4444-4444-8444-444444444444'
 const submission = '55555555-5555-4555-8555-555555555555'
 
 async function setup(page: Page, role = 'apresentadora', initialStatus = 'pendente', failCreateOnce = false, fixture: { submissionCount?: number; legacyBrand?: boolean; tombstone?: boolean } = {}) {
+  await page.clock.setFixedTime(new Date('2026-09-14T18:00:00Z'))
   page.on('pageerror', error => { throw error })
   const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = []
-  let items: Record<string, unknown>[] = initialStatus === 'empty' ? [] : Array.from({ length: fixture.submissionCount ?? 1 }, (_, index) => ({ id: index === 0 ? submission : `55555555-5555-4555-8555-${String(index).padStart(12, '0')}`, apresentadora_id: presenter, apresentadora_nome: 'Ana', status: initialStatus, iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', marca_id: brand, marca_nome: fixture.legacyBrand ? null : `Marca Aurora${index ? ` ${index + 1}` : ''}`, marca_descricao: fixture.legacyBrand ? 'Marca legada' : 'Marca Aurora', cabine_id: cabin, cabine_nome: 'Cabine Norte', gmv_declarado: 200, pedidos_declarados: 2, live_oficial_excluida_id: fixture.tombstone ? '99999999-9999-4999-8999-999999999999' : null, live_oficial_excluida_em: fixture.tombstone ? '2026-09-08T01:00:00Z' : null, motivo_devolucao: initialStatus === 'devolvida' ? 'Confira os pedidos' : null, versao: 1 }))
+  let items: Record<string, unknown>[] = initialStatus === 'empty' ? [] : Array.from({ length: fixture.submissionCount ?? 1 }, (_, index) => ({ id: index === 0 ? submission : `55555555-5555-4555-8555-${String(index).padStart(12, '0')}`, apresentadora_id: presenter, apresentadora_nome: 'Ana', status: initialStatus, iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', marca_id: brand, marca_nome: fixture.legacyBrand ? null : `Marca Aurora${index ? ` ${index + 1}` : ''}`, marca_descricao: fixture.legacyBrand ? 'Marca legada' : 'Marca Aurora', cabine_id: cabin, cabine_nome: 'Cabine Norte', gmv_declarado: 200, pedidos_declarados: 2, live_impressions_declaradas: 500, manual_views_declaradas: 100, live_oficial_excluida_id: fixture.tombstone ? '99999999-9999-4999-8999-999999999999' : null, live_oficial_excluida_em: fixture.tombstone ? '2026-09-08T01:00:00Z' : null, motivo_devolucao: initialStatus === 'devolvida' ? 'Confira os pedidos' : null, versao: 1 }))
   await page.addInitScript(({ role, tenant }) => {
     localStorage.setItem('livelab.react.remember', 'true')
     localStorage.setItem('livelab.react.access_token', 'synthetic-portal-token')
@@ -49,7 +50,11 @@ async function setup(page: Page, role = 'apresentadora', initialStatus = 'penden
     if (path === '/v1/marcas') return route.fulfill({ json: [{ id: brand, nome: 'Marca Aurora', status: 'ativa' }] })
     if (path === '/v1/cabines') return route.fulfill({ json: [{ id: cabin, nome: 'Cabine Norte', numero: 1, status: 'livre' }] })
     if (path === '/v1/apresentadoras') return route.fulfill({ json: [{ id: presenter, nome: 'Ana', ativo: true }] })
-    if (path === '/v1/lives') return route.fulfill({ json: url.searchParams.get('paginado') === '1' ? { items: [], total: 0, page: 1, limit: 50 } : [{ id: '88888888-8888-4888-8888-888888888888', apresentadora_id: presenter, marca_nome: 'Marca Aurora', cabine_nome: 'Cabine Norte', iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', status: 'encerrada' }] })
+    if (path.endsWith('/candidatas-vinculo')) return route.fulfill({ json: { items: [{ id: '88888888-8888-4888-8888-888888888888', marca_nome: 'Marca Aurora', cabine_nome: 'Cabine Norte', iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', gmv: 200 }], total: 1, page: 0, limit: 25 } })
+    if (path === '/v1/lives') {
+      const records = items.filter(item => ['pendente', 'devolvida'].includes(String(item.status))).map(item => ({ ...item, id: 'submissao:' + item.id, submissao_id: item.id, registro_tipo: 'submissao', revisao_status: item.status, status: 'encerrada', status_publicacao: 'rascunho', origem_dados: 'apresentadora', pendente_aprovacao: item.status === 'pendente', gmv: item.gmv_declarado }))
+      return route.fulfill({ json: { items: records, total: records.length, page: 0, limit: 50 } })
+    }
     return route.fulfill({ json: [] })
   })
   return calls
@@ -89,13 +94,36 @@ test('ranking exige sessão antes de consultar dados', async ({ page }) => {
   expect(rankingCalls).toBe(0)
 })
 
+test('home e cadastro cabem nas larguras móveis, com opcionais recolhidos e erro focado', async ({ page }, info) => {
+  await setup(page, 'apresentadora', 'empty')
+  for (const width of [320, 360, 390, 430, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/minha-home')
+    await expect(page.getByRole('heading', { name: 'Olá, Ana' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.goto('/minhas-lives')
+    await page.getByRole('button', { name: 'Registrar live', exact: true }).click()
+    const modal = page.getByRole('dialog')
+    await expect(modal).toBeVisible()
+    expect(await modal.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    const gmv = modal.getByLabel('GMV declarado', { exact: true })
+    expect(await gmv.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16)
+    await expect(modal.getByLabel('Observação', { exact: true })).not.toBeVisible()
+    await modal.getByRole('button', { name: 'Enviar para revisão' }).click()
+    await expect(modal.locator('[data-field="marcaId"]')).toBeFocused()
+    await expect(modal.locator('[data-field="gmv"]')).toHaveAttribute('aria-invalid', 'true')
+    await page.screenshot({ path: info.outputPath(`registration-${width}.png`), fullPage: true })
+    await modal.getByRole('button', { name: 'Cancelar', exact: true }).click()
+  }
+})
+
 test('cadastro envia só para revisão e reutiliza idempotência após falha', async ({ page }, info) => {
   const calls = await setup(page, 'apresentador', 'empty', true)
   await page.goto('/minhas-lives')
   await page.getByRole('button', { name: 'Registrar live', exact: true }).click()
   const modal = page.getByRole('dialog')
   await modal.getByRole('combobox', { name: 'Marca', exact: true }).selectOption(brand)
-  await modal.getByRole('combobox', { name: 'Cabine', exact: true }).selectOption(cabin)
+  await expect(modal.getByRole('combobox', { name: 'Cabine', exact: true })).not.toBeVisible()
   await modal.getByLabel('Dia da live', { exact: true }).fill('2026-09-05')
   await modal.getByLabel('Hora de início', { exact: true }).fill('09:00')
   await modal.getByLabel('Hora de fim', { exact: true }).fill('11:00')
@@ -103,7 +131,7 @@ test('cadastro envia só para revisão e reutiliza idempotência após falha', a
   await modal.getByLabel(/Pedidos declarados/).fill('2')
   await modal.getByLabel('Impressões da live', { exact: true }).fill('0')
   await modal.getByLabel('Visualizações', { exact: true }).fill('0')
-  await modal.getByLabel('Observação', { exact: true }).fill('Live concluída normalmente.')
+  await expect(modal.getByLabel('Observação', { exact: true })).not.toBeVisible()
   await page.screenshot({ path: info.outputPath('registration.png'), fullPage: true })
   await modal.getByRole('button', { name: 'Enviar para revisão' }).click()
   await expect(modal.getByRole('alert')).toContainText('Tente novamente')
@@ -121,6 +149,27 @@ test('cadastro envia só para revisão e reutiliza idempotência após falha', a
   expect(writes[0].body).not.toHaveProperty('tenant_id')
   expect(writes[0].body).not.toHaveProperty('status')
   expect(calls.some(call => call.method === 'POST' && call.path === '/v1/lives')).toBe(false)
+})
+
+test('tema escuro e ampliação de 200% mantêm home e formulário utilizáveis', async ({ page }, info) => {
+  await setup(page, 'apresentadora', 'empty')
+  await page.addInitScript(() => localStorage.setItem('livelab-theme', 'dark'))
+  await page.setViewportSize({ width: 1280, height: 960 })
+  await page.goto('/minha-home')
+  await expect(page.getByRole('heading', { name: 'Olá, Ana' })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.evaluate(() => { document.documentElement.style.zoom = '2' })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('home-dark-zoom.png'), fullPage: true })
+  await page.goto('/minhas-lives')
+  await page.evaluate(() => { document.documentElement.style.zoom = '2' })
+  await page.getByRole('button', { name: 'Registrar live', exact: true }).click()
+  const modal = page.getByRole('dialog')
+  await expect(modal.getByLabel('GMV declarado', { exact: true })).toBeVisible()
+  expect(await modal.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await modal.getByRole('button', { name: 'Enviar para revisão' }).click()
+  await expect(modal.locator('[data-field="marcaId"]')).toBeFocused()
+  await page.screenshot({ path: info.outputPath('form-dark-zoom.png'), fullPage: true })
 })
 
 test('mantém marca legada, não marca envio pendente como cancelado e volta à primeira página ao trocar mês', async ({ page }) => {
@@ -157,8 +206,8 @@ test('aceita zero nas métricas declaradas e bloqueia contagens fora do limite',
   await modal.getByLabel('GMV declarado', { exact: true }).fill('0')
   await modal.getByLabel('Pedidos declarados', { exact: true }).fill('0')
   await modal.getByLabel('Visualizações', { exact: true }).fill('0')
-  await modal.getByLabel('Observação', { exact: true }).fill('Live concluída normalmente.')
-  await modal.getByLabel('Impressões da live', { exact: true }).fill('2147483648')
+  await expect(modal.getByLabel('Observação', { exact: true })).not.toBeVisible()
+  await modal.getByLabel('Impressões da live', { exact: true }).fill('9007199254740992')
   await modal.getByRole('button', { name: 'Enviar para revisão' }).click()
   await expect(modal.getByRole('alert')).toContainText('Preencha os campos obrigatórios')
   expect(calls.filter(call => call.method === 'POST' && call.path === '/v1/portal/apresentadora/submissoes')).toHaveLength(0)
@@ -172,7 +221,7 @@ test('aceita zero nas métricas declaradas e bloqueia contagens fora do limite',
 test('gestor confirma valores oficiais antes de criar a live', async ({ page }, info) => {
   const calls = await setup(page, 'franqueado')
   await page.goto('/lives')
-  await page.getByRole('button', { name: 'Revisar e aprovar' }).click()
+  await page.getByRole('button', { name: 'Validar live' }).click()
   await page.screenshot({ path: info.outputPath('review-open.png'), fullPage: true })
   const modal = page.getByRole('dialog')
   await modal.getByRole('combobox', { name: 'Marca', exact: true }).selectOption(brand)
@@ -183,9 +232,23 @@ test('gestor confirma valores oficiais antes de criar a live', async ({ page }, 
   await modal.getByRole('button', { name: 'Criar live histórica' }).click()
   await expect(modal).not.toBeVisible()
   const approval = calls.find(call => call.path.endsWith('/aprovar'))
-  expect(approval?.body).toMatchObject({ marca_id: brand, cabine_id: cabin, gmv_oficial: 150, pedidos_oficiais: 1 })
+  expect(approval?.body).toMatchObject({ marca_id: brand, cabine_id: cabin, gmv_oficial: '150.00', pedidos_oficiais: 1 })
   expect(approval?.body).not.toHaveProperty('gmv_declarado')
   expect(approval?.body).not.toHaveProperty('apresentadora_id')
+})
+
+test('gestor revisa devolvida com motivo e versão sem exigir reenvio', async ({ page }) => {
+  const calls = await setup(page, 'gerente', 'devolvida')
+  await page.goto('/lives')
+  await page.getByRole('button', { name: 'Validar live', exact: true }).click()
+  const modal = page.getByRole('dialog')
+  const submit = modal.getByRole('button', { name: 'Criar live histórica' })
+  await expect(submit).toBeDisabled()
+  await modal.getByLabel('Motivo da revisão', { exact: true }).fill('Conferido no relatório original')
+  await submit.click()
+  await expect(modal).not.toBeVisible()
+  expect(calls.find(call => call.path.endsWith('/aprovar'))?.body).toMatchObject({ versao_esperada: 1, motivo_revisao: 'Conferido no relatório original', iniciado_em: '2026-09-05T12:00:00.000Z' })
+  expect(calls.some(call => call.path.endsWith('/reenviar'))).toBe(false)
 })
 
 test('corrige um envio devolvido e só o reenvia por ação explícita', async ({ page }) => {
@@ -225,5 +288,5 @@ test('gestor vincula um registro existente sem reenviar métricas', async ({ pag
   await modal.getByRole('combobox', { name: 'Live existente', exact: true }).selectOption('88888888-8888-4888-8888-888888888888')
   await modal.getByRole('button', { name: 'Vincular live selecionada' }).click()
   await expect(modal).not.toBeVisible()
-  expect(calls.find(call => call.path.endsWith('/aprovar'))?.body).toEqual({ live_id: '88888888-8888-4888-8888-888888888888' })
+  expect(calls.find(call => call.path.endsWith('/aprovar'))?.body).toEqual({ live_id: '88888888-8888-4888-8888-888888888888', versao_esperada: 1 })
 })

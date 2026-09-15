@@ -46,6 +46,7 @@ import { useCurrentUser } from '../stores/auth-store'
 import type { JsonRecord } from '../types/models'
 import type { AgendarLiveModalMode } from '../components/forms/AgendarLiveModal'
 import { PresenterSubmissionQueue } from '../components/conteudo/PresenterSubmissionQueue'
+import type { PresenterReviewSubmission } from '../services/presenter-portal'
 
 export function shouldOpenLiveDetail({
   selectedLiveId,
@@ -148,6 +149,7 @@ function mergeAgendaWithLiveFallbacks(
 }
 
 export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
+  const [submissionReview, setSubmissionReview] = useState<{ item: PresenterReviewSubmission; mode: 'review' | 'link' | 'return' } | null>(null)
   // Papéis read-only (auditor, suporte, marketing, comercial_readonly, …) chegam nesta
   // página para consultar; escondemos as ações de escrita em vez de deixar o backend 403.
   const currentUser = useCurrentUser()
@@ -269,6 +271,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   const livesList = useQuery({
     queryKey: ['lives', 'list', livesStatus, livesDateRange, livesCustomFrom, livesCustomTo, livesMarcaId, livesApresentadoraId, livesCabineId, livesQ, livesPage, livesLimit],
     queryFn: () => getLivesPaginado({
+      registro: canReviewPresenterSubmissions ? '1' : undefined,
       status: livesStatus === 'todas' ? undefined : livesStatus,
       page: livesPage,
       limit: livesLimit,
@@ -535,8 +538,9 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
 
       {tab === 'lives' ? (
         <Suspense fallback={<LoadingState />}>
-        {canReviewPresenterSubmissions ? <PresenterSubmissionQueue /> : null}
+        {submissionReview ? <PresenterSubmissionQueue key={`${submissionReview.item.id}:${submissionReview.mode}`} initialSubmission={submissionReview.item} initialMode={submissionReview.mode} onCloseReview={() => setSubmissionReview(null)} /> : null}
         <LivesTab
+          onReviewSubmission={canReviewPresenterSubmissions ? (item, mode) => setSubmissionReview({ item: { ...item, id: String(item.submissao_id), status: item.revisao_status } as PresenterReviewSubmission, mode }) : undefined}
           canWrite={podeEscrever}
           livesData={livesItems}
           dateRange={livesDateRange}
@@ -601,7 +605,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
           }}
           onCopyLiveReport={(text) => void navigator.clipboard.writeText(text).then(() => { setReportCopied(true); setTimeout(() => setReportCopied(false), 2000) })}
           onInlineSaveLive={podeEscrever ? (id, payload) => updateLiveMutation.mutateAsync({ id, payload }) : undefined}
-          onPublishLive={podeEscrever ? (live) => {
+          onPublishLive={currentUser && ['franqueador_master', 'franqueado', 'gerente', 'operacional'].includes(currentUser.papel) ? (live) => {
             const current = asString(live.status_publicacao, 'rascunho').toLowerCase()
             publishLiveMutation.mutate({ id: asString(live.id, ''), status: current === 'revisado' ? 'publicado' : 'revisado' })
           } : undefined}

@@ -76,6 +76,9 @@ export function buildClientResumoDiaText(
   dateKey: string,
   now: Date = new Date(),
 ): string {
+  const pendentes = lives.filter(live => live.registro_tipo === 'submissao' && live.revisao_status === 'pendente')
+  const emConciliacao = pendentes.some(live => live.em_conciliacao)
+  lives = lives.filter(live => live.registro_tipo !== 'submissao' || (live.revisao_status === 'pendente' && !live.em_conciliacao))
   const totalLives = lives.length
   let totalGmv = 0
   let totalPedidos = 0
@@ -222,7 +225,7 @@ export function buildClientResumoDiaText(
     lines.push('Nenhuma live registrada neste dia.')
     lines.push(separator)
   } else {
-    lines.push(`💰 *GMV Total:* ${formatMoney(totalGmv)}`)
+    lines.push(`💰 *${emConciliacao ? 'Subtotal (em conciliação)' : pendentes.length ? 'GMV provisório' : 'GMV Total'}:* ${formatMoney(totalGmv)}`)
     lines.push(`⚡ *GMV/h:* ${formatMoney(totalGmvPorHora)}/h`)
     lines.push(`🛒 *Vendas:* ${totalPedidos} ${totalPedidos === 1 ? 'pedido' : 'pedidos'}`)
     lines.push(`⏱️ *Tempo no Ar:* ${formatMinsToHours(totalMinutos)} (${totalLives} ${totalLives === 1 ? 'live' : 'lives'})`)
@@ -249,5 +252,10 @@ export function buildClientResumoDiaText(
     lines.push(separator)
   }
 
+  if (pendentes.length) {
+    lines.push('', '*APRESENTADORA · Pendente aprovação*', 'Sem comissão antes da validação pela gestão.')
+    for (const live of pendentes) lines.push(`${live.marca_nome ?? 'Marca'} · ${live.apresentadora_nome ?? 'Apresentadora'}: ${formatMoney(officialLiveGmv(live))}${live.em_conciliacao ? ' — em conciliação; não somado ao subtotal' : ' — incluído no provisório'}`)
+    if (emConciliacao) lines.push('Total consolidado indisponível até conferir os possíveis vínculos.')
+  }
   return lines.join('\n')
 }
