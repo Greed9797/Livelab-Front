@@ -74,6 +74,8 @@ export type PresenterSubmission = {
   live_oficial_excluida_id?: string | null
   live_oficial_excluida_em?: string | null
   motivo_devolucao?: string | null
+  arquivamento_status?: 'solicitado' | 'confirmado' | null
+  motivo_contestacao?: string | null
   versao?: number
 }
 
@@ -157,6 +159,10 @@ export function approvePresenterSubmission(id: string, payload: ({ live_id: stri
   return apiPost(`/lives/submissoes-apresentadoras/${encodeURIComponent(id)}/aprovar`, payload)
 }
 
-export function returnPresenterSubmission(id: string, motivo: string) {
-  return apiPost(`/lives/submissoes-apresentadoras/${encodeURIComponent(id)}/devolver`, { motivo })
+export function returnPresenterSubmission(id: string, motivo: string, arquivar = false, versao_esperada?: number) {
+  return apiPost(`/lives/submissoes-apresentadoras/${encodeURIComponent(id)}/devolver`, { motivo, arquivar, versao_esperada })
+}
+
+export function respondPresenterArchive(id: string, payload: { acao: 'confirmar' | 'contestar'; versao_esperada: number; motivo?: string }) {
+  return apiPost<PresenterSubmission>(`/portal/apresentadora/submissoes/${encodeURIComponent(id)}/arquivamento`, payload)
 }

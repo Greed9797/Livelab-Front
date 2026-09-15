@@ -282,6 +282,10 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
       cabine_id: livesCabineId || undefined,
     }),
     enabled: tab === 'lives' && (livesDateRange !== 'custom' || livesCustomRangeValid),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
     placeholderData: (prev) => prev,
   })
   const livesItems = livesList.data?.items ?? []

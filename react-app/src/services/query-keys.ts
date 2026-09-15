@@ -151,6 +151,7 @@ export function invalidateOperational(client: QueryClient): void {
     ['presenter-portal-home'],
     ['presenter-portal-lives'],
     ['presenter-review-queue'],
+    ['submission-candidates'],
     // rankings derivados de GMV de live
     [...QK.rankingApresentadoras()],
     [...QK.rankingMarcas()],

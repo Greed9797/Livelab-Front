@@ -6,11 +6,13 @@ const brand = '33333333-3333-4333-8333-333333333333'
 const cabin = '44444444-4444-4444-8444-444444444444'
 const submission = '55555555-5555-4555-8555-555555555555'
 
-async function setup(page: Page, role = 'apresentadora', initialStatus = 'pendente', failCreateOnce = false, fixture: { submissionCount?: number; legacyBrand?: boolean; tombstone?: boolean } = {}) {
+async function setup(page: Page, role = 'apresentadora', initialStatus = 'pendente', failCreateOnce = false, fixture: { submissionCount?: number; legacyBrand?: boolean; tombstone?: boolean; archive?: boolean; contest?: string } = {}) {
   await page.clock.setFixedTime(new Date('2026-09-14T18:00:00Z'))
   page.on('pageerror', error => { throw error })
   const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = []
   let items: Record<string, unknown>[] = initialStatus === 'empty' ? [] : Array.from({ length: fixture.submissionCount ?? 1 }, (_, index) => ({ id: index === 0 ? submission : `55555555-5555-4555-8555-${String(index).padStart(12, '0')}`, apresentadora_id: presenter, apresentadora_nome: 'Ana', status: initialStatus, iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', marca_id: brand, marca_nome: fixture.legacyBrand ? null : `Marca Aurora${index ? ` ${index + 1}` : ''}`, marca_descricao: fixture.legacyBrand ? 'Marca legada' : 'Marca Aurora', cabine_id: cabin, cabine_nome: 'Cabine Norte', gmv_declarado: 200, pedidos_declarados: 2, live_impressions_declaradas: 500, manual_views_declaradas: 100, live_oficial_excluida_id: fixture.tombstone ? '99999999-9999-4999-8999-999999999999' : null, live_oficial_excluida_em: fixture.tombstone ? '2026-09-08T01:00:00Z' : null, motivo_devolucao: initialStatus === 'devolvida' ? 'Confira os pedidos' : null, versao: 1 }))
+  if (fixture.archive) items = items.map(item => ({ ...item, arquivamento_status: 'solicitado' }))
+  if (fixture.contest) items = items.map(item => ({ ...item, motivo_contestacao: fixture.contest }))
   await page.addInitScript(({ role, tenant }) => {
     localStorage.setItem('livelab.react.remember', 'true')
     localStorage.setItem('livelab.react.access_token', 'synthetic-portal-token')
@@ -45,20 +47,140 @@ async function setup(page: Page, role = 'apresentadora', initialStatus = 'penden
       return route.fulfill({ json: { items: items.filter(item => item.status === 'pendente') } })
     }
     if (path.endsWith('/aprovar')) { items = [{ ...items[0], status: 'aprovada' }]; return route.fulfill({ json: { id: submission, status: 'aprovada', live_id: '88888888-8888-4888-8888-888888888888' } }) }
-    if (path.endsWith('/devolver')) { items = [{ ...items[0], status: 'devolvida', motivo_devolucao: call.body?.motivo }]; return route.fulfill({ json: items[0] }) }
+    if (path.endsWith('/devolver')) { items = [{ ...items[0], status: 'devolvida', motivo_devolucao: call.body?.motivo, arquivamento_status: call.body?.arquivar ? 'solicitado' : null }]; return route.fulfill({ json: items[0] }) }
+    if (path.endsWith('/arquivamento')) { items = [{ ...items[0], status: call.body?.acao === 'confirmar' ? 'cancelada' : 'pendente', arquivamento_status: call.body?.acao === 'confirmar' ? 'confirmado' : null, motivo_contestacao: call.body?.motivo }]; return route.fulfill({ json: items[0] }) }
     if (req.method() !== 'GET') return route.fulfill({ status: 405, json: { error: 'Unexpected fixture write' } })
     if (path === '/v1/marcas') return route.fulfill({ json: [{ id: brand, nome: 'Marca Aurora', status: 'ativa' }] })
     if (path === '/v1/cabines') return route.fulfill({ json: [{ id: cabin, nome: 'Cabine Norte', numero: 1, status: 'livre' }] })
     if (path === '/v1/apresentadoras') return route.fulfill({ json: [{ id: presenter, nome: 'Ana', ativo: true }] })
     if (path.endsWith('/candidatas-vinculo')) return route.fulfill({ json: { items: [{ id: '88888888-8888-4888-8888-888888888888', marca_nome: 'Marca Aurora', cabine_nome: 'Cabine Norte', iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', gmv: 200 }], total: 1, page: 0, limit: 25 } })
     if (path === '/v1/lives') {
-      const records = items.filter(item => ['pendente', 'devolvida'].includes(String(item.status))).map(item => ({ ...item, id: 'submissao:' + item.id, submissao_id: item.id, registro_tipo: 'submissao', revisao_status: item.status, status: 'encerrada', status_publicacao: 'rascunho', origem_dados: 'apresentadora', pendente_aprovacao: item.status === 'pendente', gmv: item.gmv_declarado }))
+      const records = items.filter(item => !item.arquivamento_status && ['pendente', 'devolvida'].includes(String(item.status))).map(item => ({ ...item, id: 'submissao:' + item.id, submissao_id: item.id, registro_tipo: 'submissao', revisao_status: item.status, status: 'encerrada', status_publicacao: 'rascunho', origem_dados: 'apresentadora', pendente_aprovacao: item.status === 'pendente', gmv: item.gmv_declarado }))
       return route.fulfill({ json: { items: records, total: records.length, page: 0, limit: 50 } })
     }
     return route.fulfill({ json: [] })
   })
   return calls
 }
+
+test('vínculo reaberto consulta novamente uma lista antes vazia', async ({ page }) => {
+  await setup(page, 'franqueado')
+  let available = false
+  await page.route('**/candidatas-vinculo?*', route => route.fulfill({ json: {
+    items: available ? [{ id: '88888888-8888-4888-8888-888888888888', marca_nome: 'Marca Aurora', iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', gmv: 200 }] : [],
+    total: available ? 1 : 0, page: 0, limit: 25,
+  } }))
+  await page.goto('/conteudo?tab=lives')
+  await page.getByRole('button', { name: 'Vincular live existente', exact: true }).click()
+  const modal = page.getByRole('dialog', { name: 'Vincular live existente' })
+  await expect(modal.getByLabel('Live existente')).toContainText('Nenhuma live')
+  await modal.getByRole('button', { name: 'Fechar', exact: true }).click()
+  available = true
+  await page.getByRole('button', { name: 'Vincular live existente', exact: true }).click()
+  await expect(modal.getByLabel('Live existente')).toContainText('Marca Aurora')
+})
+
+test('vínculo não depende da fila oculta e permite atualizar opções sem fechar', async ({ page }) => {
+  await setup(page, 'franqueado')
+  let queueCalls = 0
+  let available = false
+  await page.route('**/submissoes-apresentadoras?*', route => {
+    queueCalls++
+    return route.fulfill({ status: 503, json: { error: 'Fila indisponível' } })
+  })
+  await page.route('**/candidatas-vinculo?*', route => route.fulfill({ json: {
+    items: available ? [{ id: '88888888-8888-4888-8888-888888888888', marca_nome: 'Marca Aurora', iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', gmv: 200 }] : [],
+    total: available ? 1 : 0, page: 0, limit: 25,
+  } }))
+  await page.goto('/conteudo?tab=lives')
+  await page.getByRole('button', { name: 'Vincular live existente', exact: true }).click()
+  const modal = page.getByRole('dialog', { name: 'Vincular live existente' })
+  await expect(modal).toBeVisible()
+  await expect(modal.getByLabel('Live existente')).toContainText('Nenhuma live')
+  available = true
+  await modal.getByRole('button', { name: 'Atualizar opções' }).click()
+  await expect(modal.getByLabel('Live existente')).toContainText('Marca Aurora')
+  expect(queueCalls).toBe(0)
+})
+
+test('lista visível atualiza envios de outra sessão sem recarregar a página', async ({ page }) => {
+  await setup(page, 'franqueado')
+  await page.clock.install({ time: new Date('2026-09-14T18:00:00Z') })
+  let updated = false
+  await page.route('**/v1/lives?*', route => {
+    if (!updated) return route.fallback()
+    return route.fulfill({ json: { items: [], total: 0, page: 0, limit: 25 } })
+  })
+  await page.goto('/conteudo?tab=lives')
+  await expect(page.getByRole('button', { name: 'Vincular live existente', exact: true })).toBeVisible()
+  updated = true
+  await page.clock.fastForward(31_000)
+  await expect(page.getByRole('button', { name: 'Vincular live existente', exact: true })).toHaveCount(0)
+})
+
+test('portal aberto recebe devolução da gestão sem recarregar a página', async ({ page }) => {
+  await setup(page)
+  await page.clock.install({ time: new Date('2026-09-14T18:00:00Z') })
+  let returned = false
+  await page.route('**/portal/apresentadora/lives?*', route => {
+    if (!returned) return route.fallback()
+    return route.fulfill({ json: { items: [], submissoes: [{ id: submission, status: 'devolvida', arquivamento_status: 'solicitado', motivo_devolucao: 'Duplicidade conferida', iniciado_em: '2026-09-05T12:00:00Z', encerrado_em: '2026-09-05T14:00:00Z', marca_nome: 'Marca Aurora', versao: 2 }] } })
+  })
+  await page.goto('/minhas-lives')
+  await expect(page.getByText('Marca Aurora', { exact: true })).toBeVisible()
+  returned = true
+  await page.clock.fastForward(31_000)
+  await expect(page.getByRole('button', { name: 'Contestar devolução', exact: true })).toBeVisible()
+})
+
+test('gestão vê o motivo da contestação na lista e na revisão', async ({ page }) => {
+  await setup(page, 'franqueado', 'pendente', false, { contest: 'São duas transmissões diferentes' })
+  await page.goto('/conteudo?tab=lives')
+  await expect(page.getByTestId('presenter-live-record')).toContainText('Contestação: São duas transmissões diferentes')
+  await page.getByRole('button', { name: 'Validar live', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Aprovar envio' })).toContainText('São duas transmissões diferentes')
+})
+
+test('gestão devolve e solicita arquivamento com motivo e versão', async ({ page }) => {
+  const calls = await setup(page, 'franqueado')
+  await page.goto('/conteudo?tab=lives')
+  await page.getByRole('button', { name: 'Devolver', exact: true }).click()
+  const modal = page.getByRole('dialog', { name: 'Devolver envio' })
+  await expect(modal.getByRole('button', { name: 'Devolver e arquivar' })).toBeDisabled()
+  await modal.getByLabel('Motivo', { exact: true }).fill('Registro duplicado, já consta no BOT')
+  await modal.getByRole('button', { name: 'Devolver e arquivar' }).click()
+  await expect(modal).not.toBeVisible()
+  await expect(page.getByRole('button', { name: 'Devolver', exact: true })).toHaveCount(0)
+  expect(calls.find(call => call.path.endsWith('/devolver'))?.body).toEqual({ motivo: 'Registro duplicado, já consta no BOT', arquivar: true, versao_esperada: 1 })
+})
+
+test('apresentadora confirma arquivamento e pode consultar o histórico recolhido', async ({ page }) => {
+  const calls = await setup(page, 'apresentadora', 'devolvida', false, { archive: true })
+  await page.goto('/minhas-lives')
+  await expect(page.getByText('Confira os pedidos', { exact: false })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Corrigir', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Confirmar arquivamento', exact: true }).click()
+  const modal = page.getByRole('dialog', { name: 'Confirmar arquivamento' })
+  await modal.getByRole('button', { name: 'Confirmar arquivamento', exact: true }).click()
+  await expect(modal).not.toBeVisible()
+  await expect(page.getByText('Marca Aurora', { exact: true })).toHaveCount(0)
+  await page.getByLabel('Mostrar arquivados').check()
+  await expect(page.getByText('Arquivado', { exact: true })).toBeVisible()
+  expect(calls.find(call => call.path.endsWith('/arquivamento'))?.body).toEqual({ acao: 'confirmar', versao_esperada: 1 })
+})
+
+test('apresentadora contesta com motivo sem cadastrar outra live', async ({ page }) => {
+  const calls = await setup(page, 'apresentadora', 'devolvida', false, { archive: true })
+  await page.goto('/minhas-lives')
+  await page.getByRole('button', { name: 'Contestar devolução', exact: true }).click()
+  const modal = page.getByRole('dialog', { name: 'Contestar devolução' })
+  await expect(modal.getByRole('button', { name: 'Enviar contestação' })).toBeDisabled()
+  await modal.getByLabel('Motivo da contestação').fill('A transmissão foi outra')
+  await modal.getByRole('button', { name: 'Enviar contestação' }).click()
+  await expect(modal).not.toBeVisible()
+  expect(calls.find(call => call.path.endsWith('/arquivamento'))?.body).toEqual({ acao: 'contestar', motivo: 'A transmissão foi outra', versao_esperada: 1 })
+  expect(calls.filter(call => call.method === 'POST' && call.path === '/v1/portal/apresentadora/submissoes')).toHaveLength(0)
+})
 
 test('home mostra fixo próprio e ranking, sem abrir as telas operacionais', async ({ page }, info) => {
   const calls = await setup(page)

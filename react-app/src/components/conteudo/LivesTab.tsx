@@ -1318,6 +1318,7 @@ export function LivesTab({
                         <p className="mt-2 text-sm text-ink-muted">{fmtTime(live.iniciado_em)}–{fmtTime(live.encerrado_em)} · GMV {formatMoney(live.gmv)} · {asNumber(live.final_orders_count)} pedidos · Comissão: aguardando validação</p>
                         {live.em_conciliacao ? <p className="mt-2 text-sm text-[var(--warning)]">Em conciliação: conferir vínculo antes de consolidar o total.</p> : null}
                         {live.motivo_devolucao ? <p className="mt-2 break-words text-sm">{asString(live.motivo_devolucao)}</p> : null}
+                        {live.motivo_contestacao ? <p className="mt-2 break-words text-sm">Contestação: {asString(live.motivo_contestacao)}</p> : null}
                         {onReviewSubmission ? <div className="mt-3 flex flex-wrap gap-2">
                           <Button onClick={() => onReviewSubmission(live, 'review')}>Validar live</Button>
                           {live.revisao_status === 'pendente' ? <><Button variant="secondary" onClick={() => onReviewSubmission(live, 'link')}>Vincular live existente</Button><Button variant="secondary" onClick={() => onReviewSubmission(live, 'return')}>Devolver</Button></> : null}

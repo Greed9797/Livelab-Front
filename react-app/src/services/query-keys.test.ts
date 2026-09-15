@@ -3,6 +3,17 @@ import { describe, expect, it, vi } from 'vitest'
 import { invalidateOperational, QK } from './query-keys'
 
 describe('invalidateOperational', () => {
+  it('discards empty link candidates after an operational change', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime: 300_000 } } })
+    const key = ['submission-candidates', 'tenant', 'actor', 'submission', 0]
+    let available: string[] = []
+    const query = { queryKey: key, queryFn: async () => available }
+    expect(await client.fetchQuery(query)).toEqual([])
+    available = ['new-live']
+    invalidateOperational(client)
+    expect(await client.fetchQuery(query)).toEqual(['new-live'])
+    client.clear()
+  })
   it('refreshes reports and portal summaries after a submission is reviewed', () => {
     const client = new QueryClient()
     const keys = [QK.analyticsDashboard(), QK.funilAnalytics('2026-09'), QK.dailyAnalytics('2026-09'), QK.presenterPortalHome('tenant', 'actor', '2026-09'), QK.presenterPortalLives('tenant', 'actor', '2026-09'), QK.presenterReviewQueue('tenant', 'actor', 'pendente')]
