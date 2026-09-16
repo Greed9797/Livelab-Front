@@ -6,10 +6,10 @@ A área financeira apresenta uma margem comercial que desconta apenas custos man
 
 ## Goals
 
-- [ ] Tornar o resultado operacional completo a visão financeira principal, incluindo toda remuneração conhecida.
-- [ ] Organizar receitas e despesas como DRE resumido, com detalhes expansíveis por marca, apresentadora e custo.
-- [ ] Preservar regras de comissão, edição, fechamento, CSV e PDF existentes.
-- [ ] Remover apenas superfícies e variáveis comprovadamente sem função vigente.
+- [x] Tornar o resultado operacional completo a visão financeira principal, incluindo toda remuneração conhecida.
+- [x] Organizar receitas e despesas como DRE resumido, com detalhes expansíveis por marca, apresentadora e custo.
+- [x] Preservar regras de comissão, edição, fechamento, CSV e PDF existentes.
+- [x] Remover apenas superfícies e variáveis comprovadamente sem função vigente.
 
 ## Out of Scope
 
@@ -147,19 +147,19 @@ A área financeira apresenta uma margem comercial que desconta apenas custos man
 | FIN-15 | Comissões claras e preservadas | T3 | Preserved |
 | FIN-16 | Limpeza comprovadamente segura | T3 | Implemented |
 | FIN-17 | Limpeza comprovadamente segura | T3 | Preserved |
-| FIN-18 | Limpeza comprovadamente segura | Design | Pending |
+| FIN-18 | Limpeza comprovadamente segura | T5 | Preserved |
 | FIN-19 | Edge cases | T1 | Implemented |
 | FIN-20 | Edge cases | T3 | Implemented |
 | FIN-21 | Edge cases | T1 | Implemented |
 | FIN-22 | Edge cases | T1 | Implemented |
 | FIN-23 | Edge cases | T3 | Preserved |
 
-**Coverage:** 23 total, 0 mapped to tasks, 23 pending.
+**Coverage:** 23 total, 23 mapped to T1–T5, 0 pending.
 
 ## Success Criteria
 
-- [ ] O único resultado destacado da aba Operacional inclui toda remuneração conhecida e pode ser negativo.
-- [ ] Totais do DRE reconciliam em centavos com todos os detalhes retornados.
-- [ ] PDFs, CSVs, fechamento, regras, edição e permissões mantêm comportamento e valores.
-- [ ] Nenhum campo com consumidor vigente é removido.
-- [ ] Typecheck, testes, build, testes backend e validação SQL financeira passam.
+- [x] O único resultado destacado da aba Operacional inclui toda remuneração conhecida e pode ser negativo.
+- [x] Totais do DRE reconciliam em centavos com todos os detalhes retornados.
+- [x] PDFs, CSVs, fechamento, regras, edição e permissões mantêm comportamento e valores.
+- [x] Nenhum campo com consumidor vigente é removido.
+- [x] Typecheck, testes, build, testes backend e validação SQL financeira passam.

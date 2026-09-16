@@ -180,10 +180,12 @@ T4 → T5
 
 **Done when**:
 
-- [ ] `FinanceiroHeroPanel.tsx` and `ReceitaWaterfall.tsx` are deleted.
-- [ ] Repository search finds no import or render reference to either component.
-- [ ] Frontend typecheck, complete unit suite and build pass.
-- [ ] Backend complete test suite passes unchanged.
+- [x] `FinanceiroHeroPanel.tsx` and `ReceitaWaterfall.tsx` are deleted.
+- [x] Repository search finds no import or render reference to either component.
+- [x] Frontend typecheck, complete unit suite and build pass.
+- [x] Backend complete test suite passes unchanged.
+
+**Status:** Done. Frontend build passed; backend: 145 files/1082 tests passed, 1 file/7 tests skipped.
 
 **Tests**: none
 **Gate**: build
