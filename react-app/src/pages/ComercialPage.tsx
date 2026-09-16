@@ -1,4 +1,4 @@
-import { Download, Eye, Plus, Search, Trash2 } from 'lucide-react'
+import { Download, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -94,6 +94,35 @@ const emptyAfiliadoForm = {
   comissao_franquia_pct: '',
   cor: '', // '' = automática (extraída do logo ao salvar, senão hash)
   observacoes: '',
+}
+
+/**
+ * Monta o PATCH do modal de edição. Cadastro de cliente e condições comerciais têm ciclos de
+ * vida diferentes: até a API temporal existir, salvar o primeiro não pode sobrescrever a segunda.
+ */
+export function buildAtivoUpdatePayload(kind: 'cliente' | 'marca', form: JsonRecord, cor?: string | null): JsonRecord {
+  if (kind === 'cliente') {
+    return {
+      nome: asString(form.nome, ''),
+      status: asString(form.status, 'ativo'),
+      email: asString(form.email, '') || undefined,
+      celular: asString(form.celular, '') || undefined,
+      logo_url: asString(form.logo_url, '') || null,
+    }
+  }
+
+  return {
+    nome: asString(form.nome, ''),
+    status: asString(form.status, 'ativa') === 'ativo' ? 'ativa' : asString(form.status, 'ativa'),
+    comissao_franquia_pct: Number(asString(form.comissao_franquia_pct, '0') || 0),
+    comissao_franqueadora_pct: Number(asString(form.comissao_franqueadora_pct, '0') || 0),
+    valor_fixo_minimo: parseBRMoneyToDecimal(asString(form.valor_fixo_minimo, '0')),
+    tipo_cobranca: asString(form.tipo_cobranca, 'fixo_mais_comissao'),
+    data_inicio: asString(form.data_inicio, '') || null,
+    data_fim: asString(form.data_fim, '') || null,
+    logo_url: asString(form.logo_url, '') || null,
+    ...(cor !== undefined ? { cor } : {}),
+  }
 }
 
 // GMV operacional = verdade das lives (gmv_mes vem de /clientes e /marcas, derivado de
@@ -325,18 +354,6 @@ export function ComercialPage() {
   const ativosVisiveis = mostrarTodos ? ativosFiltrados : ativosFiltrados.slice(0, LIMITE_LINHAS)
   const temFiltros = Boolean(busca) || filtroStatus !== 'todos'
 
-  // Atualiza % de comissão na marca principal (usado quando o item é cliente_ecommerce).
-  const updateMarcaPctMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateMarca(id, payload),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: QK.marcas() })
-      void queryClient.invalidateQueries({ queryKey: QK.marcas('ativas') })
-      void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
-      void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
-      void queryClient.invalidateQueries({ queryKey: QK.ativoOperacional() })
-    },
-  })
-
   // Carrega o % da marca (própria) ou da marca principal vinculada ao cliente.
   useEffect(() => {
     const data = ativoDetailQuery.data as JsonRecord | undefined
@@ -403,7 +420,7 @@ export function ComercialPage() {
 
   const clienteBusy = clienteMutation.isPending || uploadClienteImage.isPending
   const afiliadoBusy = afiliadoMutation.isPending || uploadAfiliadoImage.isPending
-  const ativoBusy = ativoSubmitting || ativoUpdateMutation.isPending || updateMarcaPctMutation.isPending || uploadAtivoImage.isPending
+  const ativoBusy = ativoSubmitting || ativoUpdateMutation.isPending || uploadAtivoImage.isPending
   const clienteClose = useUnsavedChanges({ open: showClienteForm, dirty: JSON.stringify(clienteForm) !== JSON.stringify(emptyClienteForm), busy: clienteBusy, onClose: () => { setShowClienteForm(false); setClienteForm(emptyClienteForm) } })
   const afiliadoClose = useUnsavedChanges({ open: showAfiliadoForm, dirty: JSON.stringify(afiliadoForm) !== JSON.stringify(emptyAfiliadoForm), busy: afiliadoBusy, onClose: () => { setShowAfiliadoForm(false); setAfiliadoForm(emptyAfiliadoForm) } })
   const ativoClose = useUnsavedChanges({ open: Boolean(selectedAtivo), dirty: JSON.stringify(ativoForm) !== JSON.stringify(ativoInitialRef.current) || ativoCorTouch !== null, busy: ativoBusy, onClose: () => setSelectedAtivo(null) })
@@ -445,7 +462,6 @@ export function ComercialPage() {
   function openAtivo(item: JsonRecord) {
     const isCliente = asString(item.tipo_operacional) === 'cliente_ecommerce'
     ativoUpdateMutation.reset()
-    updateMarcaPctMutation.reset()
     ativoDeleteMutation.reset()
     uploadAtivoImage.reset()
     setMarcaPctId(null) // evita salvar % na marca do item anterior antes do effect repopular
@@ -530,65 +546,23 @@ export function ComercialPage() {
     try {
       const id = asString(selectedAtivo.id, '')
       const kind = selectedAtivoKind
-      let payload: JsonRecord
       // Cor: manual = hex escolhido; "Automática" = null (limpa); intocada e sem cor
-      // salva = tenta extrair do logo (falha = segue sem cor, hash cobre). A cor vive na
-      // MARCA — para cliente_ecommerce ela vai na marca principal (marcaPct), não no cliente.
+      // salva = tenta extrair do logo (falha = segue sem cor, hash cobre). A cor vive na marca.
       let cor: string | null | undefined
-      if (ativoCorTouch === 'manual') cor = ativoForm.cor || null
-      else if (ativoCorTouch === 'clear') cor = null
-      else if (!ativoForm.cor && ativoForm.logo_url) cor = (await extractBrandColor(ativoForm.logo_url)) ?? undefined
+      if (kind === 'marca') {
+        if (ativoCorTouch === 'manual') cor = ativoForm.cor || null
+        else if (ativoCorTouch === 'clear') cor = null
+        else if (!ativoForm.cor && ativoForm.logo_url) cor = (await extractBrandColor(ativoForm.logo_url)) ?? undefined
+      }
       // Extração veio automática: reflete no form sem marcar como escolha manual.
       if (typeof cor === 'string' && ativoCorTouch === null) setAtivoForm((current) => ({ ...current, cor }))
-      if (kind === 'cliente') {
-        payload = {
-          nome: ativoForm.nome,
-          status: ativoForm.status,
-          email: ativoForm.email || undefined,
-          celular: ativoForm.celular || undefined,
-          logo_url: ativoForm.logo_url || null,
-        }
-      } else {
-        payload = {
-          nome: ativoForm.nome,
-          status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
-          comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
-          comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
-          valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
-          tipo_cobranca: ativoForm.tipo_cobranca,
-          data_inicio: ativoForm.data_inicio || null,
-          data_fim: ativoForm.data_fim || null,
-          logo_url: ativoForm.logo_url || null,
-          ...(cor !== undefined ? { cor } : {}),
-        }
-      }
+      const payload = buildAtivoUpdatePayload(kind, ativoForm, cor)
       await ativoUpdateMutation.mutateAsync({ id, kind, payload })
-      // cliente_ecommerce: o % vive na marca principal — só salva após o cliente ok.
-      if (kind === 'cliente' && marcaPctId) {
-        await updateMarcaPctMutation.mutateAsync({
-          id: marcaPctId,
-          payload: {
-            comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
-            comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
-            valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
-            tipo_cobranca: ativoForm.tipo_cobranca,
-            data_inicio: ativoForm.data_inicio || null,
-            data_fim: ativoForm.data_fim || null,
-            ...(cor !== undefined ? { cor } : {}),
-          },
-        })
-      }
-      if (kind === 'cliente' && !marcaPctId) {
-        // Comissão/fixo/tipo/cor vivem na marca principal; sem ela nada disso persiste.
-        // Não fingir sucesso: avisar honestamente o que foi (e não foi) salvo.
-        toast.push('Cliente salvo. Comissão, fixo e cor precisam de uma marca principal vinculada.', 'info')
-      } else {
-        toast.push('Alterações salvas com sucesso.', 'success')
-      }
+      toast.push(kind === 'cliente' ? 'Cadastro do cliente salvo. Condições comerciais permanecem inalteradas.' : 'Alterações salvas com sucesso.', kind === 'cliente' ? 'info' : 'success')
       ativoInitialRef.current = { ...ativoForm, ...(typeof cor === 'string' ? { cor } : {}) }
       setAtivoCorTouch(null)
     } catch (error) {
-      if (!ativoUpdateMutation.isError && !updateMarcaPctMutation.isError) toast.push(extractErrorMessage(error), 'error')
+      if (!ativoUpdateMutation.isError) toast.push(extractErrorMessage(error), 'error')
     } finally {
       setAtivoSubmitting(false)
     }
@@ -799,6 +773,17 @@ export function ComercialPage() {
                     render: (item) => (
                       <div className="flex justify-end gap-2">
                         <Button
+                          type="button"
+                          size="icon"
+                          variant="secondary"
+                          icon={Pencil}
+                          aria-label={`Editar ${asString(item.nome, 'cadastro')}`}
+                          title={`Editar ${asString(item.nome, 'cadastro')}`}
+                          onClick={(event) => { event.stopPropagation(); abrirAtivo(item) }}
+                        >
+                          <span className="sr-only">Editar</span>
+                        </Button>
+                        <Button
                           variant="secondary"
                           icon={Eye}
                           onClick={(event) => { event.stopPropagation(); abrirAtivo(item) }}
@@ -952,7 +937,6 @@ export function ComercialPage() {
           <>
             <UnsavedChangesNotice guard={ativoClose} />
             {ativoUpdateMutation.isError ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
-            {updateMarcaPctMutation.isError ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">Cadastro salvo; as condições comerciais da marca não foram salvas: {extractErrorMessage(updateMarcaPctMutation.error)}</p> : null}
             <Button type="button" variant="secondary" disabled={ativoBusy} onClick={ativoClose.requestClose}>Cancelar</Button>
             <Button type="submit" form={ativoFormId} disabled={!ativoDetailQuery.data || ativoDetailQuery.isLoading} isLoading={ativoBusy}>Salvar alterações</Button>
           </>
@@ -1031,19 +1015,20 @@ export function ComercialPage() {
                 <ModalSection title="Condições comerciais" description="Valores aplicados à marca operacional nas lives e vídeos." collapsible>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="col-span-full"><p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Comissão da marca</p></div>
+                    {selectedAtivoKind === 'cliente' ? <p className="col-span-full rounded-xl bg-[var(--warning-soft)] px-3 py-2 text-xs text-ink-muted">Condições comerciais são mantidas separadas do cadastro e serão alteradas pela programação de vigência.</p> : null}
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">Comissão Franquia (%)</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
+                      <input disabled={selectedAtivoKind === 'cliente'} className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
                       <span className="mt-1 text-[11px] text-ink-muted">% sobre GMV mensal da marca destinado à franquia.</span>
                     </label>
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">Comissão Franqueadora (%)</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franqueadora_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franqueadora_pct: event.target.value }))} />
+                      <input disabled={selectedAtivoKind === 'cliente'} className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franqueadora_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franqueadora_pct: event.target.value }))} />
                       <span className="mt-1 text-[11px] text-ink-muted">% destinado à Livelab/franqueadora.</span>
                     </label>
                     <label className="block">
                       <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
-                      <MoneyInput className="design-input mt-2 h-11 w-full px-4" placeholder="0,00" value={ativoForm.valor_fixo_minimo} onChange={(raw) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: raw }))} />
+                      <MoneyInput disabled={selectedAtivoKind === 'cliente'} className="design-input mt-2 h-11 w-full px-4" placeholder="0,00" value={ativoForm.valor_fixo_minimo} onChange={(raw) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: raw }))} />
                       <span className="mt-1 text-[11px] text-ink-muted">≈ {formatMoney(parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo))} / mês quando a marca tiver atividade (em franquia e franqueadora).</span>
                     </label>
                     <div className="col-span-full">
@@ -1056,6 +1041,7 @@ export function ComercialPage() {
                           <button
                             key={opt.v}
                             type="button"
+                            disabled={selectedAtivoKind === 'cliente'}
                             onClick={() => setAtivoForm((current) => ({ ...current, tipo_cobranca: opt.v }))}
                             className={`rounded-xl border px-4 py-3 text-left transition ${ativoForm.tipo_cobranca === opt.v ? 'border-brand bg-brand-soft text-ink' : 'border-border text-ink-muted hover:border-border-strong'}`}
                             aria-pressed={ativoForm.tipo_cobranca === opt.v}
@@ -1069,11 +1055,11 @@ export function ComercialPage() {
                     <div className="col-span-full grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <label className="block">
                         <span className="text-sm font-semibold text-ink">Início do contrato</span>
-                        <input type="date" className="design-input mt-2 h-11 w-full px-4" value={ativoForm.data_inicio} onChange={(e) => setAtivoForm((current) => ({ ...current, data_inicio: e.target.value }))} />
+                        <input disabled={selectedAtivoKind === 'cliente'} type="date" className="design-input mt-2 h-11 w-full px-4" value={ativoForm.data_inicio} onChange={(e) => setAtivoForm((current) => ({ ...current, data_inicio: e.target.value }))} />
                       </label>
                       <label className="block">
                         <span className="text-sm font-semibold text-ink">Fim do contrato</span>
-                        <input type="date" className="design-input mt-2 h-11 w-full px-4" value={ativoForm.data_fim} onChange={(e) => setAtivoForm((current) => ({ ...current, data_fim: e.target.value }))} />
+                        <input disabled={selectedAtivoKind === 'cliente'} type="date" className="design-input mt-2 h-11 w-full px-4" value={ativoForm.data_fim} onChange={(e) => setAtivoForm((current) => ({ ...current, data_fim: e.target.value }))} />
                         <span className="mt-1 text-[11px] text-ink-muted">Rateia o fixo por dias no mês de entrada/saída. Vazio = sem recorte.</span>
                       </label>
                     </div>
