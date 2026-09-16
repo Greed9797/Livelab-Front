@@ -15,7 +15,7 @@ import { Badge, statusTone } from '../ui/Badge'
 import { DataTable } from '../ui/DataTable'
 import { FaixaBadge } from '../comissao/FaixaBadge'
 import { extractErrorMessage } from '../../services/api'
-import { asNumber, asArray, asString, formatMoney } from '../../utils/format'
+import { asArray, asString, formatMoney } from '../../utils/format'
 import { isPresenterRole } from '../../utils/presenters'
 import type { JsonRecord } from '../../types/models'
 
@@ -192,9 +192,6 @@ export function UsuariosList({ data, actions, mutations, faixasPorApresentadora 
               return (
                 <div className="space-y-1 text-right">
                   <p className="num font-bold text-ink">{formatMoney(item.fixo_mensal ?? item.fixo)}</p>
-                  <p className="text-xs text-ink-muted">
-                    base {asNumber(item.comissao_pct).toLocaleString('pt-BR')}%
-                  </p>
                   {faixas.length > 0 ? (
                     <div className="flex justify-end">
                       <FaixaBadge gmvMes={gmvMes} faixas={faixas} />

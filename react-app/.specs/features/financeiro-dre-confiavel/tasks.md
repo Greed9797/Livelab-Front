@@ -154,10 +154,12 @@ T4 → T5
 
 **Done when**:
 
-- [ ] Presenter remuneration still shows fixed compensation and active tier badge.
-- [ ] The flat “base X%” line is absent.
-- [ ] No API payload, PDF field or database column is changed.
-- [ ] Gate passes with a source contract assertion.
+- [x] Presenter remuneration still shows fixed compensation and active tier badge.
+- [x] The flat “base X%” line is absent.
+- [x] No API payload, PDF field or database column is changed.
+- [x] Gate passes with a source contract assertion.
+
+**Status:** Done. Source contract and frontend gate: 72 files/530 tests passed.
 
 **Tests**: unit
 **Gate**: quick

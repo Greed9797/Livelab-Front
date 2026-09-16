@@ -143,7 +143,7 @@ A área financeira apresenta uma margem comercial que desconta apenas custos man
 | FIN-11 | Composição em formato DRE | T1 | Implemented |
 | FIN-12 | Comissões claras e preservadas | T3 | Preserved |
 | FIN-13 | Comissões claras e preservadas | T3 | Preserved |
-| FIN-14 | Comissões claras e preservadas | Design | Pending |
+| FIN-14 | Comissões claras e preservadas | T4 | Implemented |
 | FIN-15 | Comissões claras e preservadas | T3 | Preserved |
 | FIN-16 | Limpeza comprovadamente segura | T3 | Implemented |
 | FIN-17 | Limpeza comprovadamente segura | T3 | Preserved |

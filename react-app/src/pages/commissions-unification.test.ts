@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const financeiroSource = readFileSync(new URL('./FinanceiroPage.tsx', import.meta.url), 'utf8')
 const regrasSource = readFileSync(new URL('./ComissoesConfigPage.tsx', import.meta.url), 'utf8')
+const usuariosSource = readFileSync(new URL('../components/configuracoes/UsuariosList.tsx', import.meta.url), 'utf8')
 
 describe('comissões: apuração e regras', () => {
   it('keeps commission results in Financeiro and sends only franchisees to the rules route', () => {
@@ -20,5 +21,11 @@ describe('comissões: apuração e regras', () => {
     expect(regrasSource).not.toContain('getFinanceiroResumo')
     expect(regrasSource).not.toContain('getComissoesApresentadoras')
     expect(regrasSource).not.toContain('getComissoesMarcas')
+  })
+
+  it('does not present the legacy flat commission as an active presenter base', () => {
+    expect(usuariosSource).toContain('FaixaBadge')
+    expect(usuariosSource).toContain('formatMoney(item.fixo_mensal ?? item.fixo)')
+    expect(usuariosSource).not.toContain('base {asNumber(item.comissao_pct)')
   })
 })
