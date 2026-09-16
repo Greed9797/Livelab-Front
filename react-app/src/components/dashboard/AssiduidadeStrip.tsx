@@ -5,7 +5,7 @@ import { Card, CardBody, CardHeader } from '../ui/Card'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
 import { getAssiduidade } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
-import { asArray, asNumber, asString } from '../../utils/format'
+import { asArray, asNumber, asString, getRecord } from '../../utils/format'
 import { formatHoras } from '../../utils/dailyPulse'
 import { getSaoPauloDateInput, somarDias } from '../../utils/sao-paulo-date'
 import type { JsonRecord } from '../../types/models'
@@ -140,9 +140,21 @@ export interface LinhaAssiduidade {
   id: string
   nome: string
   dias: DiaAssiduidade[]
+  /** Total reportado pelo backend para o período, sem inferir zero quando o resumo não veio. */
+  horasTotal: number | null
   faltas: number
   /** Datas dos dias vermelhos, para a tela mostrar QUAIS foram sem depender de hover. */
   diasDeFalta: string[]
+}
+
+/** Lê somente um total válido do resumo por apresentadora; ausência não significa zero. */
+export function lerHorasTotal(value: unknown): number | null {
+  const texto = typeof value === 'string' ? value.trim() : ''
+  // parseBRMoneyToDecimal intentionally falls back to zero for malformed input; validate the
+  // shape first so a missing/invalid API total cannot be presented as 0h00.
+  if (typeof value === 'string' && !/^[+-]?\d+(?:[.,]\d+)?$/.test(texto)) return null
+  const horas = typeof value === 'string' && texto ? asNumber(texto, Number.NaN) : value
+  return typeof horas === 'number' && Number.isFinite(horas) && horas >= 0 ? horas : null
 }
 
 /**
@@ -270,6 +282,7 @@ export function buildAssiduidade(
       id: asString(a.id, ''),
       nome: asString(a.nome, 'Sem nome'),
       dias,
+      horasTotal: lerHorasTotal(getRecord(a.resumo).horas_total),
       faltas: diasDeFalta.length,
       diasDeFalta,
     }
@@ -577,6 +590,9 @@ export function AssiduidadeStrip({
                       >
                         <span className="truncate text-xs font-bold text-ink" title={linha.nome}>
                           {linha.nome}
+                        </span>
+                        <span className="text-[10px] font-semibold text-ink-muted">
+                          {linha.horasTotal === null ? 'Horas indisponíveis' : `${formatHoras(linha.horasTotal)} registradas no período`}
                         </span>
                         {linha.faltas > 0 ? (
                           // <details> nativo: em toque e no teclado o gestor abre e vê QUAIS dias

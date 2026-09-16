@@ -12,6 +12,7 @@ import {
   descreverDia,
   diaDaSemana,
   lerMetas,
+  lerHorasTotal,
   somarDias,
   type AssiduidadeStatus,
   type DiaAssiduidade,
@@ -230,6 +231,29 @@ describe('limiares vêm do servidor', () => {
   })
 })
 
+describe('total de horas por apresentadora', () => {
+  it('lê resumo.horas_total, preservando zero e rejeitando ausência ou valor inválido', () => {
+    expect(lerHorasTotal(32.5)).toBe(32.5)
+    expect(lerHorasTotal('32,5')).toBe(32.5)
+    expect(lerHorasTotal(0)).toBe(0)
+    expect(lerHorasTotal(undefined)).toBeNull()
+    expect(lerHorasTotal('não informado')).toBeNull()
+    expect(lerHorasTotal(-1)).toBeNull()
+  })
+
+  it('anexa o total do resumo à linha sem calcular horas por GMV', () => {
+    const { linhas } = buildAssiduidade({
+      dias: [{ data: '2026-09-01', tipo: 'util', feriado: null }],
+      apresentadoras: [{
+        id: 'ana', nome: 'Ana', resumo: { horas_total: 32.5 },
+        dias: [{ data: '2026-09-01', horas: 0, status: 'cinza' }],
+      }],
+    }, '2026-09-02')
+
+    expect(linhas[0].horasTotal).toBe(32.5)
+  })
+})
+
 /**
  * A regra combinada com o backend: o dia que AINDA ESTÁ ACONTECENDO é neutro. Não pinta vermelho
  * e não entra no contador de faltas — às 9h da manhã de uma terça ninguém faltou ainda, e a live
@@ -345,7 +369,7 @@ describe('dias fora do vínculo — tipo desconhecido cai em neutro, nunca em fa
 
 /** Janela de zero dias não é "sem faltas": é período não medido. */
 describe('janelaSemDias', () => {
-  const linha = (dias: DiaAssiduidade[]) => ({ id: 'ana', nome: 'Ana', dias, faltas: 0, diasDeFalta: [] })
+  const linha = (dias: DiaAssiduidade[]) => ({ id: 'ana', nome: 'Ana', dias, horasTotal: null, faltas: 0, diasDeFalta: [] })
 
   it('acusa janela invertida (fim antes do início)', () => {
     expect(janelaSemDias({ inicio: '2026-09-04', fim: '2026-09-03', linhas: [linha([])] })).toBe(true)

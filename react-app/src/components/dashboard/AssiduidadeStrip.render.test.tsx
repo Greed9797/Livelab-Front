@@ -75,6 +75,40 @@ describe('o motivo de cada dia existe fora do hover', () => {
   })
 })
 
+describe('horas acumuladas no período aparecem por apresentadora', () => {
+  it('formata o total reportado pelo resumo em horas e minutos', () => {
+    const html = render({
+      inicio: INICIO,
+      fim: FIM,
+      dias: [{ data: '2026-08-05', tipo: 'util', feriado: null }],
+      apresentadoras: [{
+        id: 'ana',
+        nome: 'Ana',
+        resumo: { horas_total: 32.5 },
+        dias: [{ data: '2026-08-05', horas: 6, status: 'verde' }],
+      }],
+    })
+
+    expect(html).toContain('32h30 registradas no período')
+  })
+
+  it('informa indisponibilidade quando o resumo não traz um total válido', () => {
+    const html = render({
+      inicio: INICIO,
+      fim: FIM,
+      dias: [{ data: '2026-08-05', tipo: 'util', feriado: null }],
+      apresentadoras: [{
+        id: 'ana',
+        nome: 'Ana',
+        resumo: { horas_total: '—' },
+        dias: [{ data: '2026-08-05', horas: 6, status: 'verde' }],
+      }],
+    })
+
+    expect(html).toContain('Horas indisponíveis')
+  })
+})
+
 /**
  * Janela de zero dias: a fileira ficava vazia e o texto dizia "sem faltas" — uma afirmação
  * tranquilizadora sobre um período que ninguém mediu.
