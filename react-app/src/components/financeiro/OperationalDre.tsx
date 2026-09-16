@@ -12,6 +12,7 @@ function countLabel(count: number, singular: string, plural = `${singular}s`): s
 }
 
 function choiceCriterion(value: string): string {
+  if (value === 'parcelas_por_competencia') return 'Critérios por competência'
   if (value.endsWith('venceu_fixo')) return 'Critério vencedor: fixo'
   if (value.endsWith('venceu_comissao')) return 'Critério vencedor: comissão'
   return value === 'mes_com_atividade' ? 'Critério: mês com atividade' : 'Critério: fixo + comissão'
@@ -115,6 +116,19 @@ export function OperationalDre({ data }: { data: JsonRecord }) {
                         ? `Comissão comparada: ${formatMoney(brand.comissaoCalculada, true)}`
                         : `Fixo comparado: ${formatMoney(brand.fixoCalculado, true)}`}
                     </p>
+                  ) : null}
+                  {brand.parcelas.length > 1 ? (
+                    <details className="mt-3 rounded-lg border border-line bg-surface-muted/60 px-3 py-2">
+                      <summary className="cursor-pointer text-xs font-semibold text-ink">Ver parcelas por competência</summary>
+                      <div className="mt-2 space-y-2 text-xs text-ink-muted">
+                        {brand.parcelas.map((parcel) => (
+                          <div key={parcel.competencia} className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2 first:border-t-0 first:pt-0">
+                            <span>{parcel.competencia.slice(0, 7)} · {choiceCriterion(parcel.criterio)}</span>
+                            <span className="num font-semibold text-ink">{formatMoney(parcel.receitaReconhecida, true)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
                   ) : null}
                   <p className="mt-3 text-xs text-ink-muted">{choiceCriterion(brand.criterio)}{brand.gmv > 0 ? ` · GMV ${formatMoney(brand.gmv, true)} · ${brand.lives} lives` : ''}</p>
                 </div>

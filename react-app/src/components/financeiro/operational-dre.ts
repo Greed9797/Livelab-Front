@@ -4,7 +4,18 @@ import { asNumber, asString, getRecord } from '../../utils/format'
 export interface OperationalDreBrand {
   id: string
   nome: string
-  tipoCobranca: 'fixo_mais_comissao' | 'fixo_ou_comissao'
+  tipoCobranca: 'fixo_mais_comissao' | 'fixo_ou_comissao' | 'historico'
+  fixoCalculado: number
+  comissaoCalculada: number
+  receitaReconhecida: number
+  criterio: string
+  gmv: number
+  lives: number
+  parcelas: OperationalDreBrandParcel[]
+}
+
+export interface OperationalDreBrandParcel {
+  competencia: string
   fixoCalculado: number
   comissaoCalculada: number
   receitaReconhecida: number
@@ -95,13 +106,14 @@ function roundedPercent(result: number, revenue: number): number | null {
 interface BrandAccumulator {
   id: string
   nome: string
-  tipoCobranca: 'fixo_mais_comissao' | 'fixo_ou_comissao'
+  tipoCobranca: 'fixo_mais_comissao' | 'fixo_ou_comissao' | 'historico'
   fixo: number
   comissao: number
   reconhecida: number
   criterio: string
   gmv: number
   lives: number
+  parcelas: Map<string, OperationalDreBrandParcel>
 }
 
 /**
@@ -138,7 +150,7 @@ export function buildOperationalDre(data: JsonRecord | null | undefined): Operat
 
     let brand = brandMap.get(id)
     if (!brand) {
-      brand = { id, nome: name, tipoCobranca: 'fixo_mais_comissao', fixo: 0, comissao: 0, reconhecida: 0, criterio: 'fixo_mais_comissao', gmv: 0, lives: 0 }
+      brand = { id, nome: name, tipoCobranca: 'fixo_mais_comissao', fixo: 0, comissao: 0, reconhecida: 0, criterio: 'fixo_mais_comissao', gmv: 0, lives: 0, parcelas: new Map() }
       brandMap.set(id, brand)
     } else if (brand.nome !== name) {
       return null
@@ -149,37 +161,60 @@ export function buildOperationalDre(data: JsonRecord | null | undefined): Operat
     const isChoice = Boolean(criterio?.startsWith('fixo_ou_comissao_venceu_'))
     const gmv = reportedNumber(memory.gmv)
     const lives = reportedNumber(memory.lives)
+    const competencia = requiredText(memory.competencia, getRecord(data.periodo).inicio) ?? 'período'
+    const parcel = brand.parcelas.get(competencia) ?? {
+      competencia,
+      fixoCalculado: 0,
+      comissaoCalculada: 0,
+      receitaReconhecida: 0,
+      criterio: 'fixo_mais_comissao',
+      gmv: 0,
+      lives: 0,
+    }
     if (gmv !== null) brand.gmv = fromCents(cents(brand.gmv) + cents(gmv))
     if (lives !== null) brand.lives += Math.max(0, Math.round(lives))
+    if (gmv !== null) parcel.gmv = fromCents(cents(parcel.gmv) + cents(gmv))
+    if (lives !== null) parcel.lives += Math.max(0, Math.round(lives))
 
     if (isChoice) {
-      if (brand.tipoCobranca === 'fixo_ou_comissao' && brand.criterio !== criterio) return null
+      if (parcel.criterio.startsWith('fixo_ou_comissao_venceu_') && parcel.criterio !== criterio) return null
       brand.tipoCobranca = 'fixo_ou_comissao'
       brand.criterio = criterio as string
+      parcel.criterio = criterio as string
       if (criterio === 'fixo_ou_comissao_venceu_fixo') {
         if (categoria !== 'fixo_marca') return null
         const compared = reportedNumber(memory.comissao_comparada)
         if (compared === null) return null
         brand.fixo = fromCents(cents(brand.fixo) + cents(value))
         brand.comissao = fromCents(cents(brand.comissao) + cents(compared))
+        parcel.fixoCalculado = fromCents(cents(parcel.fixoCalculado) + cents(value))
+        parcel.comissaoCalculada = fromCents(cents(parcel.comissaoCalculada) + cents(compared))
       } else if (criterio === 'fixo_ou_comissao_venceu_comissao') {
         if (categoria !== 'comissao_franquia') return null
         const compared = reportedNumber(memory.fixo_comparado)
         if (compared === null) return null
         brand.fixo = fromCents(cents(brand.fixo) + cents(compared))
         brand.comissao = fromCents(cents(brand.comissao) + cents(value))
+        parcel.fixoCalculado = fromCents(cents(parcel.fixoCalculado) + cents(compared))
+        parcel.comissaoCalculada = fromCents(cents(parcel.comissaoCalculada) + cents(value))
       } else {
         return null
       }
     } else if (categoria === 'fixo_marca') {
-      if (brand.tipoCobranca === 'fixo_ou_comissao') return null
+      if (parcel.criterio.startsWith('fixo_ou_comissao_venceu_')) return null
       brand.fixo = fromCents(cents(brand.fixo) + cents(value))
       brand.criterio = criterio ?? brand.criterio
+      parcel.fixoCalculado = fromCents(cents(parcel.fixoCalculado) + cents(value))
+      parcel.criterio = criterio ?? parcel.criterio
     } else {
-      if (brand.tipoCobranca === 'fixo_ou_comissao') return null
+      if (parcel.criterio.startsWith('fixo_ou_comissao_venceu_')) return null
       brand.comissao = fromCents(cents(brand.comissao) + cents(value))
+      parcel.comissaoCalculada = fromCents(cents(parcel.comissaoCalculada) + cents(value))
+      parcel.criterio = criterio ?? parcel.criterio
     }
     brand.reconhecida = fromCents(cents(brand.reconhecida) + cents(value))
+    parcel.receitaReconhecida = fromCents(cents(parcel.receitaReconhecida) + cents(value))
+    brand.parcelas.set(competencia, parcel)
     revenueCents += cents(value)
   }
 
@@ -230,19 +265,33 @@ export function buildOperationalDre(data: JsonRecord | null | undefined): Operat
     || variableExpensesCents !== cents(reportedTotals[2] as number)
     || resultCents !== cents(reportedTotals[3] as number)) return null
 
+  if (Object.prototype.hasOwnProperty.call(data, 'parcelas_competencia')) {
+    if (!Array.isArray(data.parcelas_competencia)) return null
+    let parcelRevenueCents = 0
+    for (const rawParcel of data.parcelas_competencia) {
+      const parcel = getRecord(rawParcel)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(asString(parcel.competencia, ''))) return null
+      const parcelRevenue = reportedNumber(parcel.receita)
+      if (parcelRevenue === null || reportedNumber(parcel.fixo) === null || reportedNumber(parcel.comissao) === null) return null
+      parcelRevenueCents += cents(parcelRevenue)
+    }
+    if (parcelRevenueCents !== revenueCents) return null
+  }
+
   const revenue = fromCents(revenueCents)
   const result = fromCents(resultCents)
   return {
     receita: { total: revenue, marcas: [...brandMap.values()].map((brand) => ({
       id: brand.id,
       nome: brand.nome,
-      tipoCobranca: brand.tipoCobranca,
       fixoCalculado: brand.fixo,
       comissaoCalculada: brand.comissao,
       receitaReconhecida: brand.reconhecida,
-      criterio: brand.criterio,
+      criterio: new Set([...brand.parcelas.values()].map((parcel) => parcel.criterio)).size > 1 ? 'parcelas_por_competencia' : brand.criterio,
       gmv: brand.gmv,
       lives: brand.lives,
+      tipoCobranca: new Set([...brand.parcelas.values()].map((parcel) => parcel.criterio)).size > 1 ? 'historico' : brand.tipoCobranca,
+      parcelas: [...brand.parcelas.values()].map((parcel) => ({ ...parcel })),
     })) },
     apresentadoras: {
       total: fromCents(presenterFixedCents + presenterCommissionCents + presenterAdditionalCents),

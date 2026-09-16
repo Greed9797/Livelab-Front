@@ -114,6 +114,42 @@ describe('buildOperationalDre', () => {
     ]))
   })
 
+  it('keeps different fixed-or-commission winners in separate monthly parcels', () => {
+    const dre = buildOperationalDre({
+      entradas: [
+        { categoria: 'fixo_marca', descricao: 'Fixo — Marca temporal', valor: 1000, memoria: { marca_id: 'mt', marca_nome: 'Marca temporal', competencia: '2026-08-01', criterio: 'fixo_ou_comissao_venceu_fixo', comissao_comparada: 500 } },
+        { categoria: 'comissao_franquia', descricao: 'Comissão — Marca temporal', valor: 1200, memoria: { marca_id: 'mt', marca_nome: 'Marca temporal', competencia: '2026-09-01', criterio: 'fixo_ou_comissao_venceu_comissao', fixo_comparado: 900, gmv: 15000, lives: 2 } },
+      ],
+      saidas: [],
+      parcelas_competencia: [
+        { competencia: '2026-08-01', fixo: 1000, comissao: 500, receita: 1000 },
+        { competencia: '2026-09-01', fixo: 900, comissao: 1200, receita: 1200 },
+      ],
+      totais: { entradas: 2200, despesas_fixas: 0, despesas_variaveis: 0, resultado: 2200 },
+    })
+
+    expect(dre?.receita.marcas).toEqual([expect.objectContaining({
+      tipoCobranca: 'historico',
+      criterio: 'parcelas_por_competencia',
+      fixoCalculado: 1900,
+      comissaoCalculada: 1700,
+      receitaReconhecida: 2200,
+      parcelas: [
+        expect.objectContaining({ competencia: '2026-08-01', receitaReconhecida: 1000, criterio: 'fixo_ou_comissao_venceu_fixo' }),
+        expect.objectContaining({ competencia: '2026-09-01', receitaReconhecida: 1200, criterio: 'fixo_ou_comissao_venceu_comissao' }),
+      ],
+    })])
+  })
+
+  it('rejects an explicitly reported competency total that diverges from the DRE', () => {
+    expect(buildOperationalDre({
+      entradas: [{ categoria: 'fixo_marca', descricao: 'Fixo — A', valor: 100, memoria: { marca_id: 'm1', marca_nome: 'A', competencia: '2026-08-01' } }],
+      saidas: [],
+      parcelas_competencia: [{ competencia: '2026-08-01', fixo: 100, comissao: 0, receita: 99.99 }],
+      totais: { entradas: 100, despesas_fixas: 0, despesas_variaveis: 0, resultado: 100 },
+    })).toBeNull()
+  })
+
   it('returns null margin when revenue is zero without inventing a percentage', () => {
     const dre = buildOperationalDre({ entradas: [], saidas: [], totais: { entradas: 0, despesas_fixas: 0, despesas_variaveis: 0, resultado: 0 } })
 
