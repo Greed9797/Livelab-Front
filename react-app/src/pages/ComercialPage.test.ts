@@ -70,4 +70,12 @@ describe('ComercialPage — busca e status', () => {
     expect(source).toContain("event.stopPropagation(); abrirAtivo(item)")
   })
 
+  it('usa o editor temporal e não deixa o modal cadastral gravar condições legadas', async () => {
+    const source = await import('node:fs').then(({ readFileSync }) => readFileSync(new URL('./ComercialPage.tsx', import.meta.url), 'utf8'))
+    expect(source).toContain("import { CondicoesComerciais } from '../components/comercial/CondicoesComerciais'")
+    expect(source).toContain('const payload = kind === \'marca\'')
+    expect(source).toContain('<CondicoesComerciais')
+    expect(source).not.toContain('Valores aplicados à marca operacional nas lives e vídeos.')
+  })
+
 })

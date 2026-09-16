@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getVideos, iniciarLive, publishLive, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
+import { confirmMarcaCondicao, createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getMarcaCondicoes, getVideos, iniciarLive, previewMarcaCondicao, publishLive, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -39,6 +39,21 @@ describe('domain live operations', () => {
     await createCliente({ nome: 'Marca A', celular: '47999999999' })
 
     expect(apiPost).toHaveBeenCalledWith('/clientes', { nome: 'Marca A', celular: '47999999999' })
+  })
+
+  it('loads temporal commercial conditions for a brand', async () => {
+    vi.mocked(apiGet).mockResolvedValue([])
+    await getMarcaCondicoes('marca-1')
+    expect(apiGet).toHaveBeenCalledWith('/marcas/marca-1/condicoes')
+  })
+
+  it('previews and confirms a condition with expected revision and idempotency key', async () => {
+    vi.mocked(apiPost).mockResolvedValue({ ok: true })
+    const payload = { inicio_vigencia: '2026-09', fixo_mensal: 1200, comissao_franquia_pct: 8 }
+    await previewMarcaCondicao('marca-1', payload)
+    await confirmMarcaCondicao('marca-1', { ...payload, expected_revision: 2 }, 'request-1')
+    expect(apiPost).toHaveBeenNthCalledWith(1, '/marcas/marca-1/condicoes/preview', payload)
+    expect(apiPost).toHaveBeenNthCalledWith(2, '/marcas/marca-1/condicoes', { ...payload, expected_revision: 2 }, { headers: { 'Idempotency-Key': 'request-1' } })
   })
 
   it('sends explicit CABINE confirmation when deleting a cabine with history', async () => {

@@ -45,12 +45,57 @@ async function setup(page: Page, onWrite?: (route: Route) => Promise<void>, them
     if (url.pathname === '/v1/clientes') return json(url.searchParams.get('status') === 'arquivado' ? [] : [cliente])
     if (url.pathname === '/v1/apresentadoras') return json([{ id: presenterId, nome: 'Ana', status: 'ativa' }])
     if (url.pathname === `/v1/clientes/${clienteId}/operacional`) return json({ cliente, marcas: [marca], metrics: {}, lives: [], videos: [] })
+    if (url.pathname === `/v1/marcas/${marcaId}/condicoes`) return json([{
+      id: 'baseline-condition', inicio_vigencia: '1900-01-01', fixo_mensal: 0,
+      comissao_franquia_pct: 0, comissao_franqueadora_pct: 0,
+      tipo_cobranca: 'fixo_mais_comissao', fixo_confirmado: false,
+      comissao_confirmada: false, origem: 'legado_nao_verificado', revision: 1,
+    }])
     if (url.pathname === '/v1/crm/summary') return json({ summary: {}, totals: {} })
     if (['/v1/leads', '/v1/agenda'].includes(url.pathname)) return json([])
     return route.fulfill({ status: 501, json: { error: `Sem fixture local para ${url.pathname}` } })
   })
   return unexpectedWrites
 }
+
+test('programa condição comercial por competência com prévia e idempotência', async ({ page }) => {
+  let previewPayload: Record<string, unknown> | undefined
+  let confirmPayload: Record<string, unknown> | undefined
+  let idempotencyKey = ''
+  await setup(page, async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname === `/v1/marcas/${marcaId}/condicoes/preview`) {
+      previewPayload = route.request().postDataJSON()
+      return route.fulfill({ status: 200, json: {
+        proposta: { ...previewPayload, inicio_vigencia: '2026-10-01' },
+        condicao_anterior: { inicio_vigencia: '1900-01-01', fixo_mensal: 0, comissao_franquia_pct: 0 },
+        impacto: { movimentos_abertos: 0, movimentos_fechados: 0, gmv_aberto: 0 },
+      } })
+    }
+    if (url.pathname === `/v1/marcas/${marcaId}/condicoes`) {
+      confirmPayload = route.request().postDataJSON()
+      idempotencyKey = route.request().headers()['idempotency-key'] ?? ''
+      return route.fulfill({ status: 201, json: { condition: { id: 'condition-2' } } })
+    }
+    return route.fulfill({ status: 405, json: { error: 'Escrita não prevista no teste local' } })
+  })
+
+  await page.goto('/comercial')
+  await page.getByRole('button', { name: 'Editar Marca Aurora', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Cliente e marca', exact: true })
+  await expect(dialog.getByText('Condição legada a revisar antes do próximo fechamento.', { exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Nova competência', exact: true }).click()
+  await dialog.getByLabel('Competência da condição').fill('2026-10')
+  await dialog.getByLabel('Fixo mensal').fill('1.200,00')
+  await dialog.getByLabel('Comissão da franquia').fill('8')
+  await dialog.getByRole('button', { name: 'Revisar impacto', exact: true }).click()
+  await expect(dialog.getByText('Prévia antes de confirmar', { exact: true })).toBeVisible()
+  expect(previewPayload).toMatchObject({ inicio_vigencia: '2026-10', fixo_mensal: 1200, comissao_franquia_pct: 8 })
+  await dialog.getByRole('button', { name: 'Confirmar condição', exact: true }).click()
+  await expect.poll(() => confirmPayload).toBeTruthy()
+  expect(confirmPayload).toMatchObject({ inicio_vigencia: '2026-10', expected_revision: 1 })
+  expect(idempotencyKey).toBeTruthy()
+})
 
 async function openEdit(page: Page, navigate = true) {
   if (navigate) await page.goto('/conteudo?tab=lives&periodo=custom&data_inicio=2026-09-04&data_fim=2026-09-04')
