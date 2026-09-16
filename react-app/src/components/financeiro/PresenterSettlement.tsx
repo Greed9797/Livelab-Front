@@ -258,7 +258,6 @@ export function PresenterSettlement({ mes, apresentadoraId, embedded = false }: 
     await Promise.all([
       client.invalidateQueries({ queryKey: settlementKey(user?.tenant_id ?? 'anonymous', selectedMes) }),
       client.invalidateQueries({ queryKey: ['financeiro-operacional'] }),
-      client.invalidateQueries({ queryKey: ['financeiro-resumo'] }),
     ])
   }
 

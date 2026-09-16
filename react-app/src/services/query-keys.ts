@@ -56,11 +56,7 @@ export const QK = {
   crmSummary: ['crm-summary'] as const,
   financeiroCustos: (mes?: string) =>
     mes ? ['financeiro-custos', mes] as const : ['financeiro-custos'] as const,
-  // Period-aware: a query passa periodKey(periodRange); a invalidação chama sem
-  // argumento e casa por prefixo (['financeiro-resumo'] cobre ['financeiro-resumo', key]).
-  financeiroResumo: (key?: string) => (key ? ['financeiro-resumo', key] as const : ['financeiro-resumo'] as const),
   financeiroFaturamento: (key?: string) => (key ? ['financeiro-faturamento', key] as const : ['financeiro-faturamento'] as const),
-  financeiroFluxo: (key?: string) => (key ? ['financeiro-fluxo', key] as const : ['financeiro-fluxo'] as const),
   financeiroOperacional: (key?: string) => (key ? ['financeiro-operacional', key] as const : ['financeiro-operacional'] as const),
   financeiroFranqueadora: (key?: string) => (key ? ['financeiro-franqueadora', key] as const : ['financeiro-franqueadora'] as const),
   financeiroClienteOperacional: (params?: { clienteKind?: string; clienteId?: string; periodo?: string }) =>
@@ -165,9 +161,7 @@ export function invalidateOperational(client: QueryClient): void {
     ['comissoes-da-live'],
     ['comissoes-por-live'],
     // financeiro e visões do cliente também consolidam lives
-    [...QK.financeiroResumo()],
     [...QK.financeiroFaturamento()],
-    [...QK.financeiroFluxo()],
     [...QK.financeiroOperacional()],
     [...QK.financeiroFranqueadora()],
     [...QK.financeiroClienteOperacional()],
