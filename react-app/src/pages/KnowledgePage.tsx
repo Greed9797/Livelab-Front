@@ -26,13 +26,14 @@ function MaterialIcon({ type }: { type: string }) {
   if (type === 'document') return <FilePlus2 aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
   return <FileText aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
 }
-function AttachmentLink({ materialId, attachment }: { materialId: string; attachment: { id: string; filename: string } }) {
+function AttachmentLink({ materialId, attachment }: { materialId: string; attachment: { id: string; filename?: string; original_name?: string } }) {
   const [loading, setLoading] = useState(false); const [error, setError] = useState('')
   async function open() {
     setLoading(true); setError('')
     try { const result = await getKnowledgeUnitAttachment(materialId, attachment.id); if (!safeExternalUrl(result.url)) throw new Error('Link do PDF indisponível'); window.open(result.url, '_blank', 'noopener,noreferrer') } catch (downloadError) { setError(extractErrorMessage(downloadError)) } finally { setLoading(false) }
   }
-  return <div><Button type="button" variant="secondary" size="icon" aria-label={`Abrir PDF ${attachment.filename}`} title="Abrir PDF" onClick={() => void open()} disabled={loading}>{loading ? <span className="text-xs">…</span> : <FileText className="h-4 w-4" />}</Button>{error ? <span className="ml-2 text-xs text-[var(--danger)]">{error}</span> : null}</div>
+  const filename = attachment.filename || attachment.original_name || 'PDF do material'
+  return <div><Button type="button" variant="secondary" size="icon" aria-label={`Abrir PDF ${filename}`} title={filename} onClick={() => void open()} disabled={loading}>{loading ? <span className="text-xs">…</span> : <FileText className="h-4 w-4" />}</Button>{error ? <span className="ml-2 text-xs text-[var(--danger)]">{error}</span> : null}</div>
 }
 
 export function KnowledgePage() {

@@ -117,7 +117,7 @@ export function extractErrorMessage(error: unknown): string {
     // 4xx: repassa a mensagem de validação do backend (útil ao usuário).
     const data = error.response?.data
     if (data && typeof data === 'object') {
-      const maybe = (data as Record<string, unknown>).error ?? (data as Record<string, unknown>).message
+      const maybe = (data as Record<string, unknown>).error ?? (data as Record<string, unknown>).message ?? (data as Record<string, unknown>).detail
       if (typeof maybe === 'string' && maybe.trim()) return maybe
     }
   }

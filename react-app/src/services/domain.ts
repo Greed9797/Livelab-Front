@@ -788,6 +788,10 @@ export function getKnowledgeArticles(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/knowledge/articles', params)
 }
 
+export function getKnowledgeArticle(slugOrId: string) {
+  return apiGet<JsonRecord>(`/knowledge/articles/${encodeURIComponent(slugOrId)}`)
+}
+
 export async function exportarComissoesCSV(params: Record<string, unknown> = {}): Promise<Blob> {
   const response = await api.get<Blob>('/comissoes/export-csv', { params, responseType: 'blob' })
   return response.data

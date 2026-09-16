@@ -4,7 +4,7 @@ import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { UnsavedChangesNotice } from '../ui/UnsavedChangesNotice'
 import { extractErrorMessage } from '../../services/api'
-import { sanitizeKnowledgeMarkdown, type KnowledgeCategory, type KnowledgeMaterial, type KnowledgeMaterialInput, type KnowledgeMaterialStatus, type KnowledgeMaterialType } from '../../services/knowledge'
+import { sanitizeKnowledgeMarkdown, videoUrlFromKnowledgeMaterial, type KnowledgeCategory, type KnowledgeMaterial, type KnowledgeMaterialInput, type KnowledgeMaterialStatus, type KnowledgeMaterialType } from '../../services/knowledge'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 
 const TYPES: Array<[KnowledgeMaterialType, string]> = [
@@ -37,7 +37,9 @@ function formFromMaterial(material?: KnowledgeMaterial | null): KnowledgeMateria
     material_type: material.material_type ?? 'playbook',
     external_url: material.external_url ?? null,
     video_provider: material.video_provider ?? 'none',
-    video_url: material.video_url ?? null,
+    // O backend persiste video_id/provedor e pode omitir a URL original no
+    // detalhe. Reconstituímos uma URL canônica para não apagar o vídeo ao salvar.
+    video_url: videoUrlFromKnowledgeMaterial(material),
     tags: Array.isArray(material.tags) ? material.tags : [],
     status: material.status ?? 'draft',
   }

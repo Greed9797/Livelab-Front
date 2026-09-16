@@ -32,7 +32,7 @@ const MetasPage = lazy(() => import('../pages/MetasPage').then(m => ({ default: 
 const RankingApresentadorasPage = lazy(() => import('../pages/RankingApresentadorasPage').then(m => ({ default: m.RankingApresentadorasPage })))
 const RankingMarcasPage = lazy(() => import('../pages/RankingMarcasPage').then(m => ({ default: m.RankingMarcasPage })))
 const ConfiguracoesPage = lazy(() => import('../pages/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
-const KnowledgePage = lazy(() => import('../pages/KnowledgePage').then(m => ({ default: m.KnowledgePage })))
+const KnowledgePage = lazy(() => import('../pages/KnowledgeLibraryPage').then(m => ({ default: m.KnowledgeLibraryPage })))
 const OnboardingPage = lazy(() => import('../pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 const PresenterPortalHomePage = lazy(() => import('../pages/PresenterPortalHomePage'))
 const PresenterPortalLivesPage = lazy(() => import('../pages/PresenterPortalLivesPage'))

@@ -13,11 +13,13 @@ export interface KnowledgeCategory extends JsonRecord {
   description?: string | null
   icon?: string | null
   sort_order?: number
+  is_active?: boolean
 }
 
 export interface KnowledgeAttachment extends JsonRecord {
   id: string
-  filename: string
+  filename?: string
+  original_name?: string
   mime_type: 'application/pdf'
   byte_size: number
   url?: string
@@ -74,6 +76,10 @@ export function getKnowledgeUnitCategories() {
   return apiGet<KnowledgeCategory[]>('/knowledge/unit/categories')
 }
 
+export function getKnowledgeUnitCategoriesForManagement() {
+  return apiGet<KnowledgeCategory[]>('/knowledge/unit/categories', { include_inactive: 'true' })
+}
+
 export function getKnowledgeUnitMaterials(params: Record<string, unknown> = {}) {
   return apiGet<KnowledgeMaterialList>('/knowledge/unit/materials', params)
 }
@@ -86,8 +92,12 @@ export function createKnowledgeUnitCategory(payload: { name: string; description
   return apiPost<KnowledgeCategory>('/knowledge/unit/categories', payload)
 }
 
-export function updateKnowledgeUnitCategory(id: string, payload: Partial<{ name: string; description: string | null; icon: string | null; sort_order: number }>) {
+export function updateKnowledgeUnitCategory(id: string, payload: Partial<{ name: string; description: string | null; icon: string | null; sort_order: number; is_active: boolean }>) {
   return apiPatch<KnowledgeCategory>(`/knowledge/unit/categories/${encodeURIComponent(id)}`, payload)
+}
+
+export function reorderKnowledgeUnitCategories(ids: string[]) {
+  return apiPost<void>('/knowledge/unit/categories/reorder', { ids })
 }
 
 export function deleteKnowledgeUnitCategory(id: string) {
@@ -122,7 +132,7 @@ export function videoUrlFromKnowledgeMaterial(material: Pick<KnowledgeMaterial, 
   if (safeExternalUrl(material.video_url)) return safeExternalUrl(material.video_url)
   if (!material.video_id || material.video_provider === 'none') return null
   if (material.video_provider === 'youtube') return `https://www.youtube.com/watch?v=${encodeURIComponent(material.video_id)}`
-  if (material.video_provider === 'panda') return `https://player-vz-${encodeURIComponent(material.video_id)}.tv.pandavideo.com.br/embed/`
+  if (material.video_provider === 'panda') return `https://panda.video/${encodeURIComponent(material.video_id)}`
   return null
 }
 
