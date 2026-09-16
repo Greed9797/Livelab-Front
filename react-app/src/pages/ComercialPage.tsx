@@ -981,17 +981,22 @@ export function ComercialPage() {
                     helper={selectedAtivoKind === 'cliente' ? 'Aparece nas agendas e rankings de marca quando este cliente for usado.' : 'Aparece nos rankings de marca, agendas e telas operacionais.'}
                   />
                 </div>
-                {(selectedAtivoKind === 'marca' || (selectedAtivoKind === 'cliente' && Boolean(marcaPctId))) ? (
+                {selectedAtivoKind === 'marca' ? (
                   <div className="md:col-span-2">
                     <CorMarcaField
                       cor={ativoForm.cor}
                       // Sem cor salva, a cor vem de um hash do seed — e a agenda usa o
                       // marca_id. Semear com o id do CLIENTE dava uma cor aqui e outra lá
                       // (Posthaus aparecia azul no comercial e laranja na agenda).
-                      seed={selectedAtivoKind === 'cliente' ? (marcaPctId || selectedAtivoId) : selectedAtivoId}
+                      seed={selectedAtivoId}
                       onManual={(hex) => { setAtivoCorTouch('manual'); setAtivoForm((current) => ({ ...current, cor: hex })) }}
                       onAuto={() => { setAtivoCorTouch('clear'); setAtivoForm((current) => ({ ...current, cor: '' })) }}
                     />
+                  </div>
+                ) : selectedAtivoKind === 'cliente' && marcaPctId ? (
+                  <div className="md:col-span-2 rounded-xl bg-surface-muted px-3 py-2 text-xs text-ink-muted" aria-disabled="true">
+                    <span className="font-semibold text-ink">Cor da marca operacional</span>
+                    <span className="mt-1 block">A cor da marca vinculada é informativa neste cadastro e será alterada na edição da marca. Salvar o cliente não altera cor nem condições comerciais.</span>
                   </div>
                 ) : null}
                 {selectedAtivoKind === 'cliente' ? (
