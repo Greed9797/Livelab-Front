@@ -99,17 +99,40 @@ for (const theme of ['dark', 'light']) {
     await assertNumberFits()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     expect(await page.evaluate(() => document.getAnimations().filter(a => a.playState === 'running' && a.effect?.getTiming().iterations === Infinity).length)).toBe(0)
+
+    const expectedWordmark = new RegExp(`/images/logo-wordmark-${theme}\\.png$`)
+    const expectedIcon = new RegExp(`/images/logo-icon-${theme}\\.png$`)
+    if (info.project.name === 'chromium') {
+      const desktopLogo = page.locator('aside:visible img[alt="Livelab"]')
+      await expect(desktopLogo).toHaveAttribute('src', expectedWordmark)
+      await page.getByRole('button', { name: 'Recolher menu', exact: true }).click()
+      await expect(page.locator('aside:visible img[alt="Livelab"]')).toHaveAttribute('src', expectedIcon)
+      await page.getByRole('button', { name: 'Expandir menu', exact: true }).click()
+    }
+
     await page.evaluate(() => window.scrollTo(0, 0))
     await page.screenshot({ path: info.outputPath(`home-${theme}.png`), fullPage: true })
     if (info.project.name === 'chromium') {
       // Zoom real altera o viewport em pixels CSS; style.zoom não altera breakpoints.
       // 720×480 reproduz a área disponível de 1440×960 com ampliação de 200%.
       await page.setViewportSize({ width: 720, height: 480 })
-      await expect(page.getByRole('button', { name: 'Abrir menu', exact: true })).toBeVisible()
+      const menuTrigger = page.getByRole('button', { name: 'Abrir menu', exact: true })
+      await expect(menuTrigger).toBeVisible()
+      await menuTrigger.click()
+      const mobileMenu = page.getByRole('dialog', { name: 'Menu', exact: true })
+      await expect(mobileMenu.locator('img[alt="Livelab"]')).toHaveAttribute('src', expectedWordmark)
+      await page.keyboard.press('Escape')
+      await expect(mobileMenu).not.toBeVisible()
       await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
       await assertNumberFits()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       await page.screenshot({ path: info.outputPath(`home-${theme}-viewport200.png`), fullPage: true })
+    } else {
+      const menuTrigger = page.getByRole('button', { name: 'Abrir menu', exact: true })
+      await menuTrigger.click()
+      const mobileMenu = page.getByRole('dialog', { name: 'Menu', exact: true })
+      await expect(mobileMenu.locator('img[alt="Livelab"]')).toHaveAttribute('src', expectedWordmark)
+      await page.keyboard.press('Escape')
     }
     expect(writes).toEqual([])
   })
