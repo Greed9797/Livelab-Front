@@ -126,12 +126,14 @@ T4 → T5
 
 **Done when**:
 
-- [ ] Operational tab has one highlighted result basis and no “margem após custos manuais”.
-- [ ] Previous-period and cash-flow queries used only by the removed presentation are gone.
-- [ ] Cost CRUD and read-only permissions remain unchanged.
-- [ ] Commission, client and franchisor tabs remain available with current behavior.
-- [ ] Browser test expands DRE details, observes negative result and performs no writes.
-- [ ] Full gate passes with at least 1 end-to-end scenario containing multiple brands, presenters and costs.
+- [x] Operational tab has one highlighted result basis and no “margem após custos manuais”.
+- [x] Previous-period and cash-flow queries used only by the removed presentation are gone.
+- [x] Cost CRUD and read-only permissions remain unchanged.
+- [x] Commission, client and franchisor tabs remain available with current behavior.
+- [x] Browser test expands DRE details, observes negative result and performs no writes.
+- [x] Full gate passes with at least 1 end-to-end scenario containing multiple brands, presenters and costs.
+
+**Status:** Done. Chromium E2E: 1 passed; full frontend gate: 72 files/529 tests passed.
 
 **Tests**: e2e
 **Gate**: full

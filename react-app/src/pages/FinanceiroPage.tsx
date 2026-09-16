@@ -1,13 +1,10 @@
-import { AlertTriangle, Building2, CircleDollarSign, Crown, Download, MapPin, Percent, Receipt, TrendingUp, Users, Zap } from 'lucide-react'
+import { Building2, CircleDollarSign, Crown, Download, MapPin, Percent, Receipt, TrendingUp, Users, Zap } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { MetricCard } from '../components/ui/MetricCard'
-import { MetricInfo } from '../components/ui/MetricInfo'
-import { LinePanel } from '../components/charts/Charts'
-import { ReceitaWaterfall } from '../components/charts/ReceitaWaterfall'
-import { FinanceiroHeroPanel } from '../components/dashboard/FinanceiroHeroPanel'
+import { OperationalDre } from '../components/financeiro/OperationalDre'
 import { PeriodRangeControl } from '../components/forms/PeriodRangeControl'
 import { CadastroQuickEdit } from '../components/forms/CadastroQuickEdit'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
@@ -17,11 +14,11 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { createFinanceiroCusto, deleteFinanceiroCusto, exportarComissoesCSV, getClienteOperacional, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroOperacional, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
+import { createFinanceiroCusto, deleteFinanceiroCusto, exportarComissoesCSV, getClienteOperacional, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroOperacional, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import { canWrite } from '../utils/access'
-import { asArray, asNumber, asString, formatDate, formatMoney, formatPercent, getRecord } from '../utils/format'
+import { asArray, asNumber, asString, formatDate, formatMoney, getRecord } from '../utils/format'
 import { parseBRMoneyToDecimal } from '../utils/money'
 import { downloadCsv } from '../utils/exportCsv'
 import {
@@ -34,15 +31,13 @@ import {
   periodKey,
   periodRangeFromParams,
   periodRangeLabel,
-  previousPeriodRange,
   writePeriodRangeToParams,
 } from '../utils/period'
-import { historyPoints, metric, moneyMetric } from './page-helpers'
+import { metric, moneyMetric } from './page-helpers'
 import { BoletosPanel } from './BoletosPage'
 import { QK } from '../services/query-keys'
-import { financeiroClienteRef, hasReportedNumber, hasReportedNumbers } from '../components/financeiro/financeiro-presentation'
+import { financeiroClienteRef } from '../components/financeiro/financeiro-presentation'
 import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
-import type { MetricKey } from '../utils/metricGlossary'
 import type { JsonRecord } from '../types/models'
 
 type FinanceiroTab = 'operacional' | 'cliente' | 'comissoes' | 'franqueadora'
@@ -50,12 +45,6 @@ type FinanceiroTab = 'operacional' | 'cliente' | 'comissoes' | 'franqueadora'
 const num = (value: unknown) => asNumber(value).toLocaleString('pt-BR')
 const sumBy = (rows: JsonRecord[], ...keys: string[]) =>
   rows.reduce((total, row) => total + asNumber(keys.map((k) => row[k]).find((v) => v !== undefined)), 0)
-
-// 'YYYY-MM-DD' → 'DD/MM' para o eixo X do fluxo de caixa (premium > ISO cru).
-function dmLabel(value: string): string {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  return match ? `${match[3]}/${match[2]}` : value
-}
 
 const TIPO_LABEL: Record<string, string> = {
   cliente_ecommerce: 'cliente',
@@ -69,106 +58,6 @@ function tipoTone(tipo: string): 'brand' | 'info' | 'warning' | 'neutral' {
   if (tipo === 'afiliada') return 'info'
   if (tipo === 'marca') return 'warning'
   return 'neutral'
-}
-
-// ── Resultado operacional (GET /financeiro/operacional) ─────────────────────
-
-const OPERACIONAL_CATEGORIA_LABEL: Record<string, string> = {
-  comissao_franquia: 'Comissão de franquia',
-  fixo_marca: 'Fixo de marca',
-  comissao_apresentadora: 'Comissão apresentadora',
-  adicional_apresentadora: 'Adicional de apresentadora',
-  fixo_apresentadora: 'Fixo apresentadora',
-  custo_manual: 'Custo manual',
-}
-
-/** Memória de cálculo do lançamento em texto legível. */
-function memoriaText(categoria: string, memoria: JsonRecord): string {
-  switch (categoria) {
-    case 'comissao_franquia':
-      return `GMV ${formatMoney(memoria.gmv)} × ${formatPercent(memoria.pct_medio)} médio · ${num(memoria.lives)} lives`
-    case 'fixo_marca': {
-      const meses = asNumber(memoria.meses_ativos) || 1
-      return `Fixo mensal da marca, somado 1× por mês com atividade${meses > 1 ? ` · ${meses} meses ativos` : ''}`
-    }
-    case 'comissao_apresentadora':
-      return `GMV atribuído ${formatMoney(memoria.gmv_atribuido)} × ${formatPercent(memoria.pct_medio)} médio`
-    case 'fixo_apresentadora':
-      return 'Fixo mensal de apresentadora ativa (valor cadastrado, com teto padrão)'
-    case 'adicional_apresentadora':
-      return `${asString(memoria.tipo, 'adicional')} confirmado${memoria.data_referencia ? ` · ${formatDate(asString(memoria.data_referencia))}` : ''}`
-    case 'custo_manual':
-      return `Custo lançado manualmente · tipo ${asString(memoria.tipo, 'outros')}`
-    default:
-      return ''
-  }
-}
-
-function ResultadoOperacional({ data }: { data: JsonRecord }) {
-  const totais = getRecord(data.totais)
-  const hasTotais = hasReportedNumbers(totais, ['entradas', 'despesas_fixas', 'despesas_variaveis', 'resultado'])
-  const hasLancamentos = Array.isArray(data.entradas) && Array.isArray(data.saidas)
-  if (!hasTotais || !hasLancamentos) {
-    return (
-      <Card>
-        <CardBody>
-          <EmptyState
-            title="Detalhamento operacional indisponível"
-            description="A resposta não trouxe todos os lançamentos ou totais do período. Nenhum valor foi assumido como zero."
-          />
-        </CardBody>
-      </Card>
-    )
-  }
-  const resultado = asNumber(totais.resultado)
-  const lancamentos: (JsonRecord & { _entrada: boolean })[] = [
-    ...asArray<JsonRecord>(data.entradas).map((l) => ({ ...l, _entrada: true })),
-    ...asArray<JsonRecord>(data.saidas).map((l) => ({ ...l, _entrada: false })),
-  ]
-  lancamentos.sort((a, b) => asNumber(b.valor) - asNumber(a.valor))
-
-  return (
-    <section className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard metric={moneyMetric('Receita de marcas', totais.entradas, 'comissão de franquia + fixos de marca', 'success')} icon={TrendingUp} />
-        <MetricCard metric={moneyMetric('Despesas fixas', totais.despesas_fixas, 'fixos de apresentadoras + custos fixos', 'warning')} icon={Building2} />
-        <MetricCard metric={moneyMetric('Remuneração e custos variáveis', totais.despesas_variaveis, 'comissões de apresentadoras + custos variáveis', 'warning')} icon={Percent} />
-        <MetricCard metric={moneyMetric('Resultado operacional', totais.resultado, 'receita de marcas − todas as despesas', resultado >= 0 ? 'success' : 'danger')} icon={CircleDollarSign} />
-      </div>
-      <Card>
-        <CardHeader>
-          <p className="text-base font-bold text-ink">Composição operacional</p>
-          <p className="mt-1 text-xs text-ink-muted">Receitas de marcas menos remuneração de apresentadoras e custos manuais. Abra um lançamento para ver sua memória de cálculo.</p>
-        </CardHeader>
-        {lancamentos.length === 0 ? (
-          <CardBody>
-            <EmptyState title="Sem lançamentos" description="Nenhuma comissão, fixo ou custo no período selecionado." />
-          </CardBody>
-        ) : (
-          <div>
-            {lancamentos.map((l, index) => (
-              <details key={`${asString(l.categoria)}-${index}`} className="border-b border-line last:border-b-0">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-2.5 hover:bg-surface-muted md:px-6">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Badge tone={l._entrada ? 'success' : 'danger'}>{l._entrada ? 'Entrada' : 'Saída'}</Badge>
-                    <span className="truncate text-sm font-semibold text-ink">{asString(l.descricao)}</span>
-                    <span className="hidden shrink-0 text-xs text-ink-muted sm:inline">{OPERACIONAL_CATEGORIA_LABEL[asString(l.categoria)] ?? asString(l.categoria)}</span>
-                  </div>
-                  <span className={`num shrink-0 text-sm font-bold ${l._entrada ? 'text-[var(--success)]' : 'text-ink'}`}>
-                    {l._entrada ? '+' : '−'} {formatMoney(l.valor, true)}
-                  </span>
-                </summary>
-                <p className="bg-surface-muted px-5 py-2 text-xs text-ink-muted md:px-6">{memoriaText(asString(l.categoria), getRecord(l.memoria))}</p>
-              </details>
-            ))}
-          </div>
-        )}
-        <p className="border-t border-line px-5 py-3 text-xs text-ink-muted md:px-6">
-          Supervisor e demais integrantes da equipe ainda não têm remuneração cadastrada no sistema — lance esses salários como custo manual (tipo salário).
-        </p>
-      </Card>
-    </section>
-  )
 }
 
 function TotalsBar({ items }: { items: { label: string; value: string }[] }) {
@@ -199,7 +88,6 @@ export function FinanceiroPage() {
   const lastValid = useRef<PeriodRange>(isValidPeriodRange(periodRange) ? periodRange : defaultPeriodRange())
   if (isValidPeriodRange(periodRange)) lastValid.current = periodRange
   const committed = lastValid.current
-  const prevPeriod = previousPeriodRange(committed)
   const pk = periodKey(committed)
   const fp = financeiroParams(committed)
   const cp = comissoesParams(committed)
@@ -220,9 +108,6 @@ export function FinanceiroPage() {
   const [comissoesExportError, setComissoesExportError] = useState('')
   const client = useQueryClient()
 
-  const resumo = useQuery({ queryKey: QK.financeiroResumo(pk), queryFn: () => getFinanceiroResumo(fp), enabled: !isCliente, placeholderData: keepPreviousData })
-  const resumoPrev = useQuery({ queryKey: QK.financeiroResumo(`${periodKey(prevPeriod)}:prev`), queryFn: () => getFinanceiroResumo(financeiroParams(prevPeriod)), enabled: !isCliente && tab === 'operacional', placeholderData: keepPreviousData })
-  const fluxo = useQuery({ queryKey: QK.financeiroFluxo(pk), queryFn: () => getFinanceiroFluxo(fp), enabled: !isCliente, placeholderData: keepPreviousData })
   const operacional = useQuery({ queryKey: QK.financeiroOperacional(pk), queryFn: () => getFinanceiroOperacional(fp), enabled: !isCliente && tab === 'operacional', placeholderData: keepPreviousData })
   const faturamento = useQuery({ queryKey: QK.financeiroFaturamento(pk), queryFn: () => getFinanceiroFaturamento(fp), enabled: !isCliente, placeholderData: keepPreviousData })
   const custos = useQuery({ queryKey: QK.financeiroCustos(custo.competencia), queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
@@ -244,8 +129,6 @@ export function FinanceiroPage() {
     onSuccess: () => {
       setCusto((current) => ({ ...current, descricao: '', valor: '' }))
       void client.invalidateQueries({ queryKey: QK.financeiroCustos() })
-      void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
-      void client.invalidateQueries({ queryKey: QK.financeiroFluxo() })
       void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
     },
   })
@@ -253,8 +136,6 @@ export function FinanceiroPage() {
     mutationFn: deleteFinanceiroCusto,
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: QK.financeiroCustos() })
-      void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
-      void client.invalidateQueries({ queryKey: QK.financeiroFluxo() })
       void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
     },
   })
@@ -263,7 +144,6 @@ export function FinanceiroPage() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
       void client.invalidateQueries({ queryKey: QK.comissoesApresentadoras })
-      void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
       void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
     },
   })
@@ -275,12 +155,6 @@ export function FinanceiroPage() {
   // financeiro_readonly e auditor alcançam /financeiro só para consultar — sem form de custos.
   const podeEscrever = canWrite(user)
 
-  const raw = resumo.data ?? {}
-  const resumoCompleto = hasReportedNumbers(raw, [
-    'receita_liquida', 'fixo_mensal', 'total_custos', 'fat_liquido', 'gmv_lives', 'gmv_videos',
-    'total_lives', 'total_videos', 'pedidos',
-  ]) && (hasReportedNumber(raw, 'gmv_total') || hasReportedNumber(raw, 'fat_bruto'))
-    && (hasReportedNumber(raw, 'comissao_faltante_count') || hasReportedNumber(raw, 'comissoes_sem_config'))
   const clientesRaw = asArray<JsonRecord>(faturamento.data?.clientes ?? faturamento.data?.por_cliente ?? faturamento.data?.items ?? faturamento.data)
   const clientes = useMemo(
     () => [...clientesRaw].sort((a, b) => asNumber(b.gmv_mes ?? b.total) - asNumber(a.gmv_mes ?? a.total)),
@@ -296,42 +170,6 @@ export function FinanceiroPage() {
     () => [...asArray<JsonRecord>(franqueadora.data?.franqueados)].sort((a, b) => asNumber(b.gmv_total ?? b.gmv) - asNumber(a.gmv_total ?? a.gmv)),
     [franqueadora.data],
   )
-  const comissaoFaltante = asNumber(raw.comissao_faltante_count ?? raw.comissoes_sem_config)
-
-  const comissaoFixo = asNumber(raw.fixo_mensal)
-  const comissaoHint = comissaoFixo > 0
-    ? `condições comerciais · ${formatMoney(raw.fixo_mensal)} em fixos configurados`
-    : 'condições comerciais, antes dos custos'
-  const metrics = [
-    moneyMetric('GMV total', raw.gmv_total ?? raw.fat_bruto, 'lives + vídeos do período', 'brand'),
-    moneyMetric('Receita de marcas', raw.receita_liquida, comissaoHint, 'success'),
-    moneyMetric('Custos reais', raw.total_custos ?? 0, 'lançados na competência', 'warning'),
-    metric('Comissão ausente', comissaoFaltante, 'lives com GMV sem comissão', comissaoFaltante > 0 ? 'danger' : 'neutral'),
-  ]
-  const metricIcons = [CircleDollarSign, Percent, Receipt, AlertTriangle]
-  const metricKeys: MetricKey[] = [
-    'financeiro.gmv_total',
-    'financeiro.receita_liquida',
-    'financeiro.total_custos',
-    'financeiro.comissao_faltante',
-  ]
-  // "Neste período": reaproveita a memória de cálculo que /financeiro/resumo já
-  // devolve (gmv_lives, gmv_videos, fixo_mensal). Mostrar o número real que o
-  // backend usou vale mais que repetir a fórmula genérica. Custos e comissão
-  // ausente não têm decomposição no payload → só o glossário.
-  const metricDetails: (string | undefined)[] = [
-    `${formatMoney(raw.gmv_total ?? raw.fat_bruto)} = lives ${formatMoney(raw.gmv_lives)} (${num(raw.total_lives)}) + vídeos ${formatMoney(raw.gmv_videos)} (${num(raw.total_videos)})`,
-    comissaoFixo > 0
-      ? `${formatMoney(raw.receita_liquida)} · condições comerciais aplicadas; ${formatMoney(comissaoFixo)} em fixos configurados`
-      : `${formatMoney(raw.receita_liquida)} · condições comerciais aplicadas sem fixo mensal configurado`,
-    undefined,
-    undefined,
-  ]
-
-  const fluxoItems = historyPoints(fluxo.data?.items ?? fluxo.data?.fluxo ?? fluxo.data?.history)
-    .map((point) => ({ ...point, label: dmLabel(point.label) }))
-  const hasFluxo = fluxoItems.some((item) => asNumber(item.value) !== 0 || asNumber(item.secondary) !== 0)
-
   function setCustoField(key: keyof typeof custo, value: string) {
     setCusto((current) => ({ ...current, [key]: value }))
   }
@@ -390,16 +228,13 @@ export function FinanceiroPage() {
 
   if (isCliente) return <BoletosPanel />
 
-  if (resumo.isError) return <ErrorState message={extractErrorMessage(resumo.error)} onRetry={() => void resumo.refetch()} />
-  if (resumo.isLoading && !resumo.data) return <LoadingState />
-
   const royaltiesConfigurados = asNumber(franqueadora.data?.total_royalties) > 0
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Resumo da unidade"
-        subtitle={`Período: ${periodRangeLabel(committed)} · Receita, fluxo de caixa e pendências.`}
+        subtitle={`Período: ${periodRangeLabel(committed)} · Receita, despesas e pendências.`}
         actions={<PeriodRangeControl value={periodRange} onChange={setPeriodRange} />}
       />
 
@@ -425,108 +260,21 @@ export function FinanceiroPage() {
 
       {tab === 'operacional' ? (
         <>
-          <section className="space-y-4" aria-labelledby="margem-resumo-title">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Visão comercial</p>
-                <h2 id="margem-resumo-title" className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">Margem após custos manuais</h2>
-                <p className="mt-1 max-w-3xl text-sm text-ink-muted">Receita de marcas conforme as condições comerciais, menos custos lançados. Não desconta a remuneração automática das apresentadoras; se os custos excederem a receita, este resumo exibe R$ 0,00.</p>
-              </div>
-              <a href="#resultado-operacional-title" className="inline-flex min-h-10 items-center rounded-[var(--radius-pill)] border border-line px-3 text-sm font-semibold text-ink hover:bg-surface-muted">Ver resultado operacional completo</a>
-            </div>
-            {resumoCompleto ? (
-              <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-                <FinanceiroHeroPanel raw={raw} prev={resumoPrev.data} />
-                <ReceitaWaterfall
-                  gmvTotal={raw.gmv_total ?? raw.fat_bruto}
-                  comissao={raw.receita_liquida}
-                  custos={raw.total_custos}
-                  resultado={raw.fat_liquido}
-                />
-              </div>
-            ) : (
-              <ErrorState message="O resumo financeiro veio incompleto. Nenhum valor foi assumido como zero." onRetry={() => void resumo.refetch()} />
-            )}
-          </section>
-
           <section className="space-y-4" aria-labelledby="resultado-operacional-title">
             <div className="rounded-2xl border border-line bg-surface-muted/50 p-4 sm:p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Visão de operação</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">DRE financeiro</p>
               <h2 id="resultado-operacional-title" className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">Resultado operacional completo</h2>
-              <p className="mt-1 max-w-3xl text-sm text-ink-muted">Das receitas de marcas, desconta fixos e comissões de apresentadoras, além dos custos manuais. Pode ser negativo e não deve ser comparado como se tivesse a mesma base do resumo acima.</p>
-              <p className="mt-2 text-xs text-ink-muted">Uma live recente pode já constar no resumo e ainda não aparecer nos lançamentos operacionais.</p>
+              <p className="mt-1 max-w-3xl text-sm text-ink-muted">Receitas de marcas menos toda a remuneração conhecida e os custos manuais do período. O resultado pode ser negativo.</p>
             </div>
             {operacional.data ? (
-              <ResultadoOperacional data={operacional.data} />
+              <OperationalDre data={operacional.data} />
             ) : operacional.isLoading ? (
               <LoadingState label="Calculando resultado operacional" />
             ) : operacional.isError ? (
               <ErrorState message={extractErrorMessage(operacional.error)} onRetry={() => void operacional.refetch()} />
             ) : null}
           </section>
-
-          {resumoCompleto ? <>
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {metrics.map((item, index) => (
-              // MetricCard é compartilhado por várias telas e não expõe slot de
-              // ajuda; o ícone é ancorado no canto inferior direito do card (o
-              // superior direito já é do ícone da métrica). Absoluto = não empurra.
-              <div key={item.label} className="relative">
-                <MetricCard metric={item} icon={metricIcons[index]} />
-                <span className="absolute bottom-5 right-5">
-                  <MetricInfo metric={metricKeys[index]} detail={metricDetails[index]} align="right" />
-                </span>
-              </div>
-              ))}
-            </section>
-
-            {/* Memória de cálculo — transparência: de onde vem cada número (fonte: lives + vídeos) */}
-            <details className="group rounded-2xl border border-line bg-surface">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
-              <span>Memória de cálculo — de onde vêm os números</span>
-              <span className="text-xs font-normal text-ink-muted">expandir</span>
-            </summary>
-            <div className="space-y-2 border-t border-line px-4 py-3 text-sm text-ink-muted">
-              <p>
-                <span className="font-semibold text-ink">GMV bruto {formatMoney(raw.gmv_total)}</span>
-                {' = '}Lives {formatMoney(raw.gmv_lives)} ({num(raw.total_lives)} lives) + Vídeos {formatMoney(raw.gmv_videos)} ({num(raw.total_videos)} vídeos)
-              </p>
-              <p>
-                <span className="font-semibold text-[var(--success)]">Receita de marcas {formatMoney(raw.receita_liquida)}</span>
-                {' = '}condições comerciais aplicadas às marcas, <span className="font-semibold">antes</span> dos custos manuais
-              </p>
-              <p>
-                <span className="font-semibold text-ink">Margem após custos manuais {formatMoney(raw.fat_liquido)}</span>
-                {asNumber(raw.total_custos) > asNumber(raw.receita_liquida)
-                  ? <> · custos manuais {formatMoney(raw.total_custos)} superam a receita de marcas; mínimo exibido R$ 0,00</>
-                  : <> {' = '}receita de marcas {formatMoney(raw.receita_liquida)} − custos manuais {formatMoney(raw.total_custos)}</>}
-              </p>
-              <p className="text-xs">
-                A taxa variável incide somente sobre o GMV das lives. A receita de marcas também pode considerar um valor fixo, conforme a condição de cada marca; por isso “receita / GMV” não é a taxa contratada.
-                O GMV reúne as lives e os vídeos registrados no período.
-              </p>
-              {comissaoFaltante > 0 ? (
-                <p className="rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-[var(--danger)]">
-                  ⚠ {comissaoFaltante} live(s) com GMV mas sem comissão calculada — marca/apresentadora não resolvida. Financeiro × Comissões não batem até ajustar o cadastro.
-                </p>
-              ) : null}
-            </div>
-            </details>
-          </> : null}
-
-          <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-            {hasFluxo ? (
-              <LinePanel title="Fluxo de caixa" subtitle="Entradas (GMV) vs. saídas (custos) por dia" data={fluxoItems} secondary />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <p className="text-base font-bold text-ink">Fluxo de caixa</p>
-                </CardHeader>
-                <CardBody>
-                  <EmptyState title="Sem dados de fluxo" description="Nenhuma entrada ou custo real lançado no período." />
-                </CardBody>
-              </Card>
-            )}
+          <section>
             <Card>
               <CardHeader>
                 <p className="text-base font-bold text-ink">Custos da competência</p>
@@ -834,7 +582,6 @@ export function FinanceiroPage() {
                 onSaved={() => {
                   void client.invalidateQueries({ queryKey: QK.financeiroClienteOperacional({ clienteKind: selectedClienteKind, clienteId: selectedClienteId }) })
                   void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
-                  void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
                   void client.invalidateQueries({ queryKey: QK.financeiroFaturamento() })
                 }}
               />
