@@ -68,6 +68,9 @@ export function OperationalDre({ data }: { data: JsonRecord }) {
   }
 
   const pendencias = asArray<unknown>(data.pendencias)
+  const isEmptyPeriod = dre.receita.marcas.length === 0
+    && dre.apresentadoras.pessoas.length === 0
+    && dre.custos.grupos.length === 0
   return (
     <section className="space-y-4" aria-label="DRE operacional">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -82,6 +85,12 @@ export function OperationalDre({ data }: { data: JsonRecord }) {
           <p className="text-base font-bold text-ink">DRE operacional</p>
           <p className="mt-1 text-xs text-ink-muted">Valores reconciliados com as entradas, saídas e totais reportados pelo período.</p>
         </CardHeader>
+        {isEmptyPeriod ? (
+          <div className="border-b border-line px-5 py-4 md:px-6" role="status">
+            <p className="font-semibold text-ink">DRE vazio no período</p>
+            <p className="mt-1 text-sm text-ink-muted">Nenhuma receita, remuneração ou custo foi lançado no período. Os subtotais zerados foram reportados pelo servidor.</p>
+          </div>
+        ) : null}
         <div>
           <details className="border-b border-line">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 hover:bg-surface-muted md:px-6">

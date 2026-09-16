@@ -77,4 +77,13 @@ describe('OperationalDre', () => {
     expect(html).not.toContain('Receita total')
     expect(html).not.toContain('R$ 0,00')
   })
+
+  it('explains a valid period with no financial movement', () => {
+    const html = renderToStaticMarkup(
+      <OperationalDre data={{ entradas: [], saidas: [], totais: { entradas: 0, despesas_fixas: 0, despesas_variaveis: 0, resultado: 0 } }} />,
+    )
+    expect(html).toContain('DRE vazio no período')
+    expect(html).toContain('Nenhuma receita, remuneração ou custo foi lançado no período.')
+    expect(html).toContain('Os subtotais zerados foram reportados pelo servidor.')
+  })
 })
