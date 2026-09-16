@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { menuForUser, needsClientOnboarding, roleLabel, routeForRole } from './access'
+import { canWriteMarcas, menuForUser, needsClientOnboarding, roleLabel, routeForRole } from './access'
 import type { User } from '../types/models'
 
 const baseUser: User = {
@@ -26,6 +26,16 @@ describe('routeForRole', () => {
   it('routes both presenter aliases to their private home', () => {
     expect(routeForRole('apresentadora')).toBe('/minha-home')
     expect(routeForRole('apresentador')).toBe('/minha-home')
+  })
+})
+
+describe('canWriteMarcas', () => {
+  it('matches WRITE_MARCAS roles exactly', () => {
+    expect(canWriteMarcas({ ...baseUser, papel: 'franqueado' })).toBe(true)
+    expect(canWriteMarcas({ ...baseUser, papel: 'gerente_comercial' })).toBe(true)
+    expect(canWriteMarcas({ ...baseUser, papel: 'operacional' })).toBe(false)
+    expect(canWriteMarcas({ ...baseUser, papel: 'apresentadora' })).toBe(false)
+    expect(canWriteMarcas({ ...baseUser, papel: 'financeiro' })).toBe(false)
   })
 })
 

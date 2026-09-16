@@ -13,6 +13,17 @@ export function chaveAgrupamentoCarteira(registro: { tipo_operacional?: unknown;
   return `${String(registro.tipo_operacional ?? '')}:${String(registro.nome ?? '').trim().toLowerCase()}:${String(registro.status ?? '')}`
 }
 
+/** Marca usada para a edição/indicador financeiro de um cliente.
+ * A marca operacional canônica é explicitamente tipo=cliente; o nome só
+ * serve como fallback para dados antigos ou incompletos.
+ */
+export function resolverMarcaPrincipal(marcas: JsonRecord[], nomeCliente?: unknown): JsonRecord | null {
+  return marcas.find((marca) => String(marca.tipo ?? '') === 'cliente')
+    ?? marcas.find((marca) => String(marca.nome ?? '') === String(nomeCliente ?? ''))
+    ?? marcas[0]
+    ?? null
+}
+
 /** Decide se um deep link pode abrir a lista atual ou precisa carregar o catálogo completo. */
 export function resolverLinkCarteira(registros: JsonRecord[], catalogoCompleto: boolean): ResolucaoLinkCarteira {
   // Um nome ativo também pode ter homônimo arquivado. Só resolva após conhecer ambos.

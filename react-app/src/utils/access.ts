@@ -129,6 +129,21 @@ export function canWrite(user: User | null): boolean {
   return Boolean(user && writeRoles.includes(user.papel))
 }
 
+// Deve acompanhar WRITE_MARCAS no backend. Operação e apresentadoras podem
+// escrever em seus próprios domínios, mas não possuem permissão para editar a
+// carteira ou programar condições comerciais de marcas.
+export const marcasWriteRoles: Role[] = [
+  'franqueador_master',
+  'franqueado',
+  'gerente',
+  'gerente_comercial',
+  'automacao',
+]
+
+export function canWriteMarcas(user: User | null): boolean {
+  return Boolean(user && marcasWriteRoles.includes(user.papel))
+}
+
 // Configurações unificada (ex-"Minha conta"): todos os papéis internos/ops/cabine
 // + master + apresentador. Admins veem o painel completo; os demais só conta/segurança.
 // Cliente parceiro fica de fora — usa o atalho próprio '/cliente/configuracoes'.

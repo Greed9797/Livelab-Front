@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chaveAgrupamentoCarteira, isCarteiraAtiva, resolverLinkCarteira, selecionarCarteiraPorVisibilidade } from './carteira'
+import { chaveAgrupamentoCarteira, isCarteiraAtiva, resolverLinkCarteira, resolverMarcaPrincipal, selecionarCarteiraPorVisibilidade } from './carteira'
 
 describe('carteira — visibilidade operacional', () => {
   const registros = [
@@ -22,6 +22,14 @@ describe('carteira — visibilidade operacional', () => {
     const base = { tipo_operacional: 'cliente_ecommerce', nome: 'Marca Exemplo' }
     expect(chaveAgrupamentoCarteira({ ...base, status: 'ativo' }))
       .not.toBe(chaveAgrupamentoCarteira({ ...base, status: 'cancelado' }))
+  })
+
+  it('resolve a marca do cliente pelo tipo antes do nome ou da ordem recebida', () => {
+    const principal = { id: 'principal', tipo: 'cliente', nome: 'Outra negociação' }
+    expect(resolverMarcaPrincipal([
+      { id: 'affiliate', tipo: 'afiliada', nome: 'Cliente' },
+      principal,
+    ], 'Cliente')).toEqual(principal)
   })
 
   it('consulta o catálogo completo antes de resolver um nome, inclusive ativo com possível homônimo arquivado', () => {

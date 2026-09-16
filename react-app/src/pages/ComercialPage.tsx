@@ -25,10 +25,10 @@ import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
 import { getBrandImage } from '../utils/favicon'
 import { downloadCsv } from '../utils/exportCsv'
-import { chaveAgrupamentoCarteira, isCarteiraAtiva, resolverLinkCarteira, selecionarCarteiraPorVisibilidade, type CarteiraVisibilidade } from '../utils/carteira'
+import { chaveAgrupamentoCarteira, isCarteiraAtiva, resolverLinkCarteira, resolverMarcaPrincipal, selecionarCarteiraPorVisibilidade, type CarteiraVisibilidade } from '../utils/carteira'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
-import { canWrite } from '../utils/access'
+import { canWriteMarcas } from '../utils/access'
 import { useCurrentUser } from '../stores/auth-store'
 
 // Vocabulário de status alinhado aos CHECKs do banco:
@@ -275,19 +275,24 @@ export function ComercialPage() {
       marcasPorCliente.set(clienteId, [...(marcasPorCliente.get(clienteId) ?? []), marca])
     })
 
-    const clientesRows = clientes.map((cliente) => ({
-      ...cliente,
-      tipo_entidade: 'cliente',
-      tipo_operacional: 'cliente_ecommerce',
-      marca_principal: asString(marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.nome, asString(cliente.nome)),
-      apresentadoras: marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.apresentadoras,
-      // cor vive na marca principal do cliente (getMarcas traz cor), não no /clientes.
-      // Sem isto o avatar da lista do cliente cai no hash em vez da cor salva.
-      cor: asString(marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.cor, ''),
-      // Seed do fallback por hash: precisa ser o id da MARCA, que é o que a agenda usa.
-      // Com o id do cliente, a mesma marca ganhava cores diferentes nas duas telas.
-      cor_seed_id: asString(marcasPorCliente.get(asString(cliente.id, ''))?.[0]?.id, asString(cliente.id, '')),
-    }))
+    const clientesRows = clientes.map((cliente) => {
+      const marcasDoCliente = marcasPorCliente.get(asString(cliente.id, '')) ?? []
+      const principal = resolverMarcaPrincipal(marcasDoCliente, cliente.nome)
+      return ({
+        ...cliente,
+        tipo_entidade: 'cliente',
+        tipo_operacional: 'cliente_ecommerce',
+        marca_principal: asString(principal?.nome, asString(cliente.nome)),
+        apresentadoras: principal?.apresentadoras,
+        // cor vive na marca principal do cliente (getMarcas traz cor), não no /clientes.
+        // Sem isto o avatar da lista do cliente cai no hash em vez da cor salva.
+        cor: asString(principal?.cor, ''),
+        // Seed do fallback por hash: precisa ser o id da MARCA, que é o que a agenda usa.
+        // Com o id do cliente, a mesma marca ganhava cores diferentes nas duas telas.
+        cor_seed_id: asString(principal?.id, asString(cliente.id, '')),
+        marcas_operacionais: marcasDoCliente,
+      })
+    })
     const marcasSemCliente = marcas
       .filter((marca) => !marca.cliente_id)
       .map((marca) => ({
@@ -368,9 +373,8 @@ export function ComercialPage() {
     }
     const marcas = asArray<JsonRecord>(data.marcas)
     if (marcas.length === 0) { setMarcaPctId(null); return }
-    const principal = marcas.find((m) => asString(m.nome) === asString(selectedAtivo?.nome))
-      ?? marcas.find((m) => asString(m.tipo) === 'cliente')
-      ?? marcas[0]
+    const principal = resolverMarcaPrincipal(marcas, selectedAtivo?.nome)
+    if (!principal) { setMarcaPctId(null); return }
     setMarcaPctId(asString(principal.id) || null)
     const hydrated = {
       ...ativoInitialRef.current,
@@ -424,7 +428,7 @@ export function ComercialPage() {
   const clienteBusy = clienteMutation.isPending || uploadClienteImage.isPending
   const afiliadoBusy = afiliadoMutation.isPending || uploadAfiliadoImage.isPending
   const ativoBusy = ativoSubmitting || ativoUpdateMutation.isPending || uploadAtivoImage.isPending
-  const podeEditarCondicoes = canWrite(currentUser)
+  const podeEditarCondicoes = canWriteMarcas(currentUser)
   const clienteClose = useUnsavedChanges({ open: showClienteForm, dirty: JSON.stringify(clienteForm) !== JSON.stringify(emptyClienteForm), busy: clienteBusy, onClose: () => { setShowClienteForm(false); setClienteForm(emptyClienteForm) } })
   const afiliadoClose = useUnsavedChanges({ open: showAfiliadoForm, dirty: JSON.stringify(afiliadoForm) !== JSON.stringify(emptyAfiliadoForm), busy: afiliadoBusy, onClose: () => { setShowAfiliadoForm(false); setAfiliadoForm(emptyAfiliadoForm) } })
   const ativoClose = useUnsavedChanges({ open: Boolean(selectedAtivo), dirty: JSON.stringify(ativoForm) !== JSON.stringify(ativoInitialRef.current) || ativoCorTouch !== null, busy: ativoBusy, onClose: () => setSelectedAtivo(null) })
@@ -619,7 +623,7 @@ export function ComercialPage() {
     : marcaPctId
   const condicoesMarca = selectedAtivoKind === 'marca'
     ? selectedAtivo
-    : asArray<JsonRecord>(ativoDetailQuery.data?.marcas).find((marca) => asString(marca.id) === marcaPctId) ?? null
+    : resolverMarcaPrincipal(asArray<JsonRecord>(ativoDetailQuery.data?.marcas), selectedAtivo?.nome)
 
   return (
     <div className="space-y-6">
