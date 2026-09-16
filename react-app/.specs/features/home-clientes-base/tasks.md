@@ -50,15 +50,15 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 
 ### T1: Top 5 e agenda ao final
 
-**What**: Alterar limite e legenda para cinco; mover Agenda de hoje para último bloco no DOM, preservando data/links.
-**Where**: `front src/pages/DashboardPage.tsx`
+**What**: Alterar limite e legenda para cinco; mover Agenda de hoje para último bloco no DOM; restaurar wordmark/ícone da sidebar por tema e estado.
+**Where**: `front src/pages` e `front src/components/layout`
 **Depends on**: None
 **Reuses**: componentes, resolução de identidade e infraestrutura documentados em design.md.
-**Requirement**: HOME-01, HOME-02, HOME-06
+**Requirement**: HOME-01, HOME-02, HOME-06, NAV-01, NAV-02
 **Done when**:
 
-- [ ] E2E com 2/5/8 pessoas, ordem do ranking, último bloco, mês passado sem mudar data da agenda e mobile.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] E2E com 2/5/8 pessoas, ordem do ranking, último bloco, mês passado sem mudar data da agenda, mobile e logos por tema/estado.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commits atômicos registrados (`4cef9d6`, `2def2d4`, `64ba48a`).
 
 **Tests**: e2e
 **Gate**: full
@@ -72,8 +72,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: HOME-05
 **Done when**:
 
-- [ ] Fixture PostgreSQL/PGlite com união e reversão conserva horas; revezamento e zero GMV não perdem presença; teste prova query real.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Fixture PostgreSQL/PGlite com união e reversão conserva horas; revezamento e zero GMV não perdem presença; teste prova query real.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado (`c73af12`).
 
 **Tests**: integration
 **Gate**: full
@@ -87,8 +87,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: HOME-03, HOME-04, HOME-05
 **Done when**:
 
-- [ ] Render e navegador com zero, ausente, 32.5h = 32h30, mês encerrado e dia corrente sem criar faltas.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Render e navegador com zero, ausente, 32.5h = 32h30, mês encerrado e dia corrente sem criar faltas.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commits atômicos registrados (`bf245c0`, `64ba48a`).
 
 **Tests**: unit + e2e
 **Gate**: full
@@ -102,8 +102,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-01, CLI-02, CLI-03
 **Done when**:
 
-- [ ] Teste de clique no lápis, linha duplicada exige ID, leitor sem botão; PATCH de contato não contém condições financeiras.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Teste de clique no lápis, linha duplicada exige ID, leitor sem botão; PATCH de contato não contém condições financeiras.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commits atômicos registrados (`874b267`, `8baeb98`).
 
 **Tests**: e2e
 **Gate**: full

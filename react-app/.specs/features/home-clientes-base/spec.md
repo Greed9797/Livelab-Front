@@ -67,6 +67,8 @@ Planejamento pela agente principal; nenhum código de aplicação alterado nesta
 - **HOME-04** IF o total de horas estiver ausente ou inválido THEN a tela SHALL mostrar indisponibilidade para o total, sem converter ausência em zero.
 - **HOME-05** The system SHALL contabilizar presença física sem rateio por GMV e sem duplicar origens absorvidas por união de lives.
 - **HOME-06** WHEN a Home renderizar a agenda THEN o bloco Agenda de hoje SHALL ser o último bloco de conteúdo, preservando links, atualização e data de hoje independentemente do mês dos indicadores.
+- **NAV-01** WHEN o menu lateral estiver aberto THEN ele SHALL mostrar a imagem horizontal da Livelab adequada ao tema, mantendo o nome da unidade legível.
+- **NAV-02** WHEN o menu lateral estiver recolhido THEN ele SHALL mostrar a imagem compacta da Livelab adequada ao tema, sem substituir a marca por texto.
 
 **Independent Test:** executar a matriz correspondente em tasks.md com fixtures controladas, sem escrever dados financeiros de teste em produção.
 
@@ -139,14 +141,16 @@ Planejamento pela agente principal; nenhum código de aplicação alterado nesta
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| HOME-01 | Home | T1 | In Tasks |
-| HOME-02 | Home | T1 | In Tasks |
-| HOME-03 | Home | T3 | In Tasks |
-| HOME-04 | Home | T3 | In Tasks |
-| HOME-05 | Home | T2 | In Tasks |
-| HOME-06 | Home | T1 | In Tasks |
-| CLI-01 | Clientes e contratos | T4 | In Tasks |
-| CLI-02 | Clientes e contratos | T4 | In Tasks |
+| HOME-01 | Home | T1 | Implemented |
+| HOME-02 | Home | T1 | Implemented |
+| HOME-03 | Home | T3 | Implemented |
+| HOME-04 | Home | T3 | Implemented |
+| HOME-05 | Home | T2 | Implemented |
+| HOME-06 | Home | T1 | Implemented |
+| NAV-01 | Navegação | T1 | Implemented |
+| NAV-02 | Navegação | T1 | Implemented |
+| CLI-01 | Clientes e contratos | T4 | Implemented |
+| CLI-02 | Clientes e contratos | T4 | Implemented |
 | CLI-03 | Clientes e contratos | T4, T13 | In Tasks |
 | CLI-04 | Clientes e contratos | T5–T8, T14 | In Tasks |
 | CLI-05 | Clientes e contratos | T7, T9–T12 | In Tasks |
