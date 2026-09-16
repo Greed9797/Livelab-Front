@@ -61,10 +61,10 @@ test('exibe DRE reconciliado, expande detalhes e permanece somente leitura', asy
   await dre.getByText('Receita de marcas', { exact: true }).click()
   await expect(dre.getByText('Marca A', { exact: true })).toBeVisible()
   await expect(dre.getByText('Marca B', { exact: true })).toBeVisible()
-  await dre.getByText('Remuneração de apresentadoras', { exact: true }).click()
+  await dre.locator('summary').filter({ hasText: 'Remuneração de apresentadoras' }).click({ position: { x: 8, y: 8 } })
   await expect(dre.getByText('Ana', { exact: true })).toBeVisible()
   await expect(dre.getByText('Bia', { exact: true })).toBeVisible()
-  await dre.getByText('Custos operacionais', { exact: true }).click()
+  await dre.locator('summary').filter({ hasText: 'Custos operacionais' }).click({ position: { x: 8, y: 8 } })
   await expect(dre.getByText('Aluguel', { exact: true })).toBeVisible()
   await expect(dre.getByText('Material', { exact: true })).toBeVisible()
 
