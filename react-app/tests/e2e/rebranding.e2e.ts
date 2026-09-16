@@ -31,7 +31,7 @@ async function setup(page: Page, theme = 'dark', scenario = 'live') {
       gmv_por_live: 2166.67, gmv_por_live_prev: 2000, gmv_por_hora: 1058.14, gmv_por_hora_prev: 950,
       cabines: scenario === 'live' ? [{ id: 'cabine-1', numero: 1, status: 'ao_vivo', live_atual_id: 'live-1', apresentador_nome: 'Ana', cliente_nome: 'Aurora', duracao_min: 42, gmv_atual: 1230 }, { id: 'cabine-2', numero: 2, status: 'disponivel' }] : [],
       ranking_apresentadoras_mes: [
-        ...(scenario === 'unassigned' ? [] : names.map((nome, i) => ({ id: `presenter-${i}`, apresentadora_id: `presenter-${i}`, nome, gmv_total: 52000 - i * 6500, total_lives: 12, comissao_total: 850 - i * 80 }))),
+        ...(scenario === 'unassigned' ? [] : names.map((nome, i) => ({ id: `presenter-${i}`, apresentadora_id: `presenter-${i}`, nome, gmv_total: 52000 - i * 6500, total_lives: 12, comissao_total: 850 - i * 80, resumo: { horas_total: 32.5 + i } }))),
         { nome: 'Sem apresentadora', gmv_total: 2000, total_lives: 2 },
       ],
       ranking_marcas_mes: brands.map((nome, i) => ({ marca_id: `brand-${i}`, nome, gmv_por_hora: 1800 - i * 230, faturamento: 80000 - i * 14000, horas_live: 50, lives: 22, pct_meta_hora: i === 4 ? null : 112 - i * 15 })),
@@ -41,7 +41,7 @@ async function setup(page: Page, theme = 'dark', scenario = 'live') {
     if (url.pathname === '/v1/analytics/assiduidade') return route.fulfill({ json: {
       inicio: dates[0], fim: dates.at(-1), metas: { dia_util_horas: 5.5, folga_horas: 4 },
       dias: dates.map(data => ({ data, tipo: data === dates.at(-1) ? 'fim_de_semana' : 'util' })),
-      apresentadoras: names.map((nome, i) => ({ id: `presenter-${i}`, nome, dias: dates.map((data, d) => ({ data, horas: d === 2 ? 0 : 6, status: d === 2 ? 'vermelho' : 'verde' })) })),
+      apresentadoras: names.map((nome, i) => ({ id: `presenter-${i}`, nome, resumo: { horas_total: 32.5 + i }, dias: dates.map((data, d) => ({ data, horas: d === 2 ? 0 : 6, status: d === 2 ? 'vermelho' : 'verde' })) })),
     } })
     return route.fulfill({ json: [] })
   })
@@ -63,7 +63,8 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByRole('link', { name: /atribuir/i })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Agenda de hoje', exact: true })).toBeVisible()
     const agenda = await page.getByRole('heading', { name: 'Agenda de hoje', exact: true }).boundingBox()
-    expect(agenda!.y).toBeLessThan((await kpis.boundingBox())!.y)
+    const attendance = page.getByRole('region', { name: /Assiduidade/ })
+    expect(agenda!.y).toBeGreaterThan((await attendance.boundingBox())!.y)
     await expect(page.getByRole('region', { name: 'Agenda de hoje', exact: true }).getByRole('button')).toHaveCount(1)
     await expect(page.getByRole('region', { name: 'Agenda de hoje', exact: true })).toContainText('2 horários')
     const fonts = await page.evaluate(async () => {
@@ -73,8 +74,8 @@ for (const theme of ['dark', 'light']) {
     })
     expect(fonts.loaded).toBe(true)
     expect(fonts.family).toContain('Manrope')
-    const attendance = page.getByRole('region', { name: /Assiduidade/ })
     await expect(attendance).toBeVisible()
+    await expect(attendance).toContainText('32h30 registradas no período')
     await expect(attendance.getByText('Elisa', { exact: true })).toHaveCount(0)
     const cell = attendance.locator('button[aria-label]').first()
     await cell.focus()
