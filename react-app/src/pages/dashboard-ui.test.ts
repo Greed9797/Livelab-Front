@@ -40,6 +40,17 @@ describe('Dashboard presenter ranking UI helpers', () => {
     expect(source).not.toContain('getComissoesApresentadoras')
   })
 
+  it('shows the top five presenters and keeps today agenda as the final content block', () => {
+    const source = readFileSync(new URL('./DashboardPage.tsx', import.meta.url), 'utf8')
+
+    expect(source).toContain('subtitle="Top 5 do mês · GMV e comissão"')
+    expect(source).toContain('limit={5}')
+
+    const agendaIndex = source.indexOf('aria-label="Agenda de hoje"')
+    const assiduidadeIndex = source.indexOf('<AssiduidadeStrip')
+    expect(agendaIndex).toBeGreaterThan(assiduidadeIndex)
+  })
+
   it('uses total GMV in home KPI surfaces, never falling back to live-only GMV', () => {
     const kpiSource = readFileSync(new URL('../components/dashboard/KpiStrip.tsx', import.meta.url), 'utf8')
     const heroSource = readFileSync(new URL('../components/dashboard/GmvHeroPanel.tsx', import.meta.url), 'utf8')

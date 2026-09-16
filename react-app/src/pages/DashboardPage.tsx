@@ -202,28 +202,6 @@ export function DashboardPage() {
         </div>
       ) : null}
 
-      {/* A Home mostra somente cabines ocupadas. Falha de consulta nunca é lida como dia vazio. */}
-      {gradeTemProgramacao ? <div role="region" aria-label="Agenda de hoje" className="grid min-w-0 grid-cols-1 gap-4">
-        <div className="flex min-w-0 flex-col gap-3 rounded-[var(--radius-panel)] p-6" style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h2 className="text-lg font-bold tracking-[-0.015em]" style={{ color: 'var(--text-primary)' }}>Agenda de hoje</h2><p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>Cabines ocupadas em {today.split('-').reverse().slice(0, 2).join('/')}.</p></div>
-          </div>
-          <div className="divide-y divide-[var(--divider)]">
-            {Array.from(cabinesHoje, ([cabineId, horarios]) => {
-              const marcas = Array.from(new Set(horarios.map(celula => celula.marca_nome)))
-              const apresentadoras = Array.from(new Set(horarios.map(celula => celula.apresentadora_nome ?? 'Apresentadora a definir')))
-              const detalhe = horarios.map(celula => `${celula.hora_inicio}–${celula.hora_fim} · ${celula.marca_nome}`).join(' / ')
-              return <button key={cabineId} type="button" title={detalhe} onClick={() => navigate(`/agenda?${new URLSearchParams({ data: today, ...(marcas.length === 1 ? { marca: horarios[0].marca_id } : {}) })}`)} className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 py-3 text-left hover:bg-surface-muted sm:grid-cols-[100px_minmax(0,1fr)_minmax(0,1fr)_auto]">
-                <span className="text-sm font-semibold text-ink">Cabine {horarios[0].cabine_numero ?? '—'}</span>
-                <span className="truncate text-sm font-semibold text-ink" title={marcas.join(' · ')}>{marcas.join(' · ')}</span>
-                <span className="truncate text-[13px] text-ink-muted" title={apresentadoras.join(' · ')}>{apresentadoras.join(' · ')}</span>
-                <span className="text-xs font-semibold text-ink-muted">{horarios.length === 1 ? `${horarios[0].hora_inicio}–${horarios[0].hora_fim}` : `${horarios.length} horários`}</span>
-              </button>
-            })}
-          </div>
-        </div>
-      </div> : null}
-
       {/* KPI strip */}
       <KpiStrip
         raw={raw}
@@ -245,8 +223,8 @@ export function DashboardPage() {
         <PresenterLeaderboard
           rows={rankingApresentadoras}
           title="Pódio de apresentadoras"
-          subtitle="Top 3 do mês · GMV e comissão"
-          limit={3}
+          subtitle="Top 5 do mês · GMV e comissão"
+          limit={5}
           action={
             <Link className="text-xs font-semibold text-[var(--primary-text)] hover:underline" to="/ranking/apresentadoras">
               Ver ranking →
@@ -278,6 +256,28 @@ export function DashboardPage() {
         limit={4}
         subtitulo={`${monthLabel(mesExibido)} · presença física, sem recorte por marca`}
       />
+
+      {/* A Home mostra somente cabines ocupadas. Falha de consulta nunca é lida como dia vazio. */}
+      {gradeTemProgramacao ? <div role="region" aria-label="Agenda de hoje" className="grid min-w-0 grid-cols-1 gap-4">
+        <div className="flex min-w-0 flex-col gap-3 rounded-[var(--radius-panel)] p-6" style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><h2 className="text-lg font-bold tracking-[-0.015em]" style={{ color: 'var(--text-primary)' }}>Agenda de hoje</h2><p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>Cabines ocupadas em {today.split('-').reverse().slice(0, 2).join('/')}.</p></div>
+          </div>
+          <div className="divide-y divide-[var(--divider)]">
+            {Array.from(cabinesHoje, ([cabineId, horarios]) => {
+              const marcas = Array.from(new Set(horarios.map(celula => celula.marca_nome)))
+              const apresentadoras = Array.from(new Set(horarios.map(celula => celula.apresentadora_nome ?? 'Apresentadora a definir')))
+              const detalhe = horarios.map(celula => `${celula.hora_inicio}–${celula.hora_fim} · ${celula.marca_nome}`).join(' / ')
+              return <button key={cabineId} type="button" title={detalhe} onClick={() => navigate(`/agenda?${new URLSearchParams({ data: today, ...(marcas.length === 1 ? { marca: horarios[0].marca_id } : {}) })}`)} className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 py-3 text-left hover:bg-surface-muted sm:grid-cols-[100px_minmax(0,1fr)_minmax(0,1fr)_auto]">
+                <span className="text-sm font-semibold text-ink">Cabine {horarios[0].cabine_numero ?? '—'}</span>
+                <span className="truncate text-sm font-semibold text-ink" title={marcas.join(' · ')}>{marcas.join(' · ')}</span>
+                <span className="truncate text-[13px] text-ink-muted" title={apresentadoras.join(' · ')}>{apresentadoras.join(' · ')}</span>
+                <span className="text-xs font-semibold text-ink-muted">{horarios.length === 1 ? `${horarios[0].hora_inicio}–${horarios[0].hora_fim}` : `${horarios.length} horários`}</span>
+              </button>
+            })}
+          </div>
+        </div>
+      </div> : null}
     </div>
   )
 }
