@@ -6,13 +6,10 @@
  * "pelo nome da métrica" — se a fórmula não pôde ser comprovada no código, a
  * métrica NÃO entra neste mapa.
  *
- * Por que as chaves são prefixadas por tela (`home.*` / `financeiro.*`):
- * métricas homônimas têm definições DIFERENTES por endpoint. O caso mais
- * perigoso é o GMV de vídeos —
- *   • Home  lê `vendas_atribuidas.gmv` com `origem = 'video'`
- *   • Financeiro lê `video_registros.gmv_atribuido`
- * — duas tabelas distintas. Unificar as chaves esconderia exatamente a
- * divergência que este glossário existe para tornar visível.
+ * As chaves são prefixadas por tela para manter a origem de cada definição
+ * explícita. A visão financeira antiga foi removida quando o DRE operacional
+ * passou a ser a fonte única desta página; suas métricas não têm consumidor
+ * de runtime e não permanecem no glossário.
  */
 
 export interface MetricDefinition {
@@ -127,111 +124,6 @@ export const METRIC_GLOSSARY = {
     fonte: 'GET /v1/home/dashboard → periodo.dia_util (routes/home.js:876)',
   },
 
-  /* ──────────────── Financeiro — GET /v1/financeiro/resumo ───────────────── */
-
-  'financeiro.gmv_total': {
-    rotulo: 'GMV total',
-    definicao: 'Volume bruto de vendas do período, somando lives encerradas e vídeos.',
-    formula: 'GMV de lives + GMV de vídeos. Diferente da Home: aqui o GMV de vídeos vem de video_registros.gmv_atribuido, não de vendas_atribuidas.',
-    periodo: 'Intervalo selecionado no filtro de período (não é fixo no mês).',
-    fonte: 'GET /v1/financeiro/resumo → gmv_total / fat_bruto (routes/financeiro.js:149)',
-  },
-
-  'financeiro.gmv_lives': {
-    rotulo: 'GMV de lives',
-    definicao: 'Parcela do GMV do período gerada por lives.',
-    formula: 'Σ do primeiro valor preenchido entre ads_gmv, manual_gmv e fat_gerado de cada live com status "encerrada".',
-    periodo: 'Lives com iniciado_em dentro do intervalo selecionado (America/Sao_Paulo).',
-    fonte: 'GET /v1/financeiro/resumo → gmv_lives (routes/financeiro.js:84; lib/metric-sql.js:2)',
-  },
-
-  'financeiro.gmv_videos': {
-    rotulo: 'GMV de vídeos',
-    definicao: 'Parcela do GMV do período atribuída a vídeos gravados.',
-    formula: 'Σ video_registros.gmv_atribuido.',
-    periodo: 'Registros com data dentro do intervalo selecionado.',
-    fonte: 'GET /v1/financeiro/resumo → gmv_videos (routes/financeiro.js:104)',
-  },
-
-  'financeiro.receita_liquida': {
-    rotulo: 'Comissão de franquia',
-    definicao: 'Receita da unidade sobre o GMV do período, antes de descontar custos.',
-    formula: 'Σ (GMV da live × % de comissão da marca resolvida) + fixo mensal das marcas. Calculada na hora a partir do cadastro da marca — não depende da coluna pré-processada lives.comissao_calculada.',
-    periodo: 'Lives encerradas dentro do intervalo selecionado.',
-    fonte: 'GET /v1/financeiro/resumo → receita_liquida (routes/financeiro.js:151 e 88)',
-  },
-
-  'financeiro.fixo_mensal': {
-    rotulo: 'Fixo mensal',
-    definicao: 'Parcela fixa da comissão, cobrada por marca contratada como cliente.',
-    formula: 'Σ marcas.valor_fixo_minimo × nº de meses com atividade da marca (GMV ou pedidos > 0). Marcas com tipo diferente de "cliente" não entram.',
-    periodo: 'Somado uma vez por mês com atividade dentro do intervalo selecionado.',
-    fonte: 'GET /v1/financeiro/resumo → fixo_mensal (routes/financeiro.js:120)',
-  },
-
-  'financeiro.total_custos': {
-    rotulo: 'Custos reais',
-    definicao: 'Custos operacionais lançados manualmente para o período.',
-    formula: 'Σ custos.valor. Inclui aluguel, salário, energia, internet e outros — só o que foi efetivamente lançado.',
-    periodo: 'Lançamentos cuja competência cai dentro do intervalo selecionado.',
-    fonte: 'GET /v1/financeiro/resumo → total_custos (routes/financeiro.js:110)',
-  },
-
-  'financeiro.fat_liquido': {
-    rotulo: 'Resultado líquido',
-    definicao: 'O que sobra para a unidade depois dos custos do período.',
-    formula: 'Comissão de franquia − custos reais, com piso em zero: prejuízo aparece como R$ 0,00, nunca negativo.',
-    periodo: 'Intervalo selecionado no filtro de período.',
-    fonte: 'GET /v1/financeiro/resumo → fat_liquido (routes/financeiro.js:152)',
-  },
-
-  'financeiro.pedidos': {
-    rotulo: 'Pedidos',
-    definicao: 'Total de pedidos gerados no período.',
-    formula: 'Pedidos de lives + pedidos de vídeos. Live usa manual_orders e, na falta dele, final_orders_count; vídeo usa video_registros.pedidos_atribuidos.',
-    periodo: 'Intervalo selecionado no filtro de período.',
-    fonte: 'GET /v1/financeiro/resumo → pedidos (routes/financeiro.js:159; lib/metric-sql.js:6)',
-  },
-
-  'financeiro.lives': {
-    rotulo: 'Lives',
-    definicao: 'Quantidade de lives concluídas no período.',
-    formula: 'COUNT de lives com status "encerrada".',
-    periodo: 'Lives com iniciado_em dentro do intervalo selecionado (America/Sao_Paulo).',
-    fonte: 'GET /v1/financeiro/resumo → total_lives (routes/financeiro.js:86)',
-  },
-
-  'financeiro.videos': {
-    rotulo: 'Vídeos',
-    definicao: 'Quantidade de vídeos registrados no período.',
-    formula: 'COUNT de linhas em video_registros.',
-    periodo: 'Registros com data dentro do intervalo selecionado.',
-    fonte: 'GET /v1/financeiro/resumo → total_videos (routes/financeiro.js:106)',
-  },
-
-  'financeiro.take_rate': {
-    rotulo: 'Take rate',
-    definicao: 'Percentual do GMV que vira comissão de franquia.',
-    formula: 'Comissão de franquia ÷ GMV total × 100. Calculada no frontend a partir dos dois campos do resumo — não vem pronta do backend.',
-    periodo: 'Intervalo selecionado no filtro de período.',
-    fonte: 'Derivada em components/dashboard/FinanceiroHeroPanel.tsx:80',
-  },
-
-  'financeiro.ticket_medio': {
-    rotulo: 'Ticket médio',
-    definicao: 'Valor médio por pedido no período.',
-    formula: 'GMV total ÷ pedidos totais. Calculada no frontend a partir dos campos do resumo.',
-    periodo: 'Intervalo selecionado no filtro de período.',
-    fonte: 'Derivada em components/dashboard/FinanceiroHeroPanel.tsx:48',
-  },
-
-  'financeiro.comissao_faltante': {
-    rotulo: 'Comissão ausente',
-    definicao: 'Lives que geraram GMV mas ficaram sem comissão por falha de cadastro.',
-    formula: 'COUNT de lives com GMV > 0 cuja marca não foi resolvida ou está com % de comissão de franquia igual a zero. Enquanto for > 0, Financeiro e Comissões não fecham.',
-    periodo: 'Lives encerradas dentro do intervalo selecionado.',
-    fonte: 'GET /v1/financeiro/resumo → comissao_faltante_count (routes/financeiro.js:92)',
-  },
 } as const satisfies Record<string, MetricDefinition>
 
 export type MetricKey = keyof typeof METRIC_GLOSSARY

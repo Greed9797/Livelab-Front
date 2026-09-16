@@ -147,9 +147,8 @@
 #### Financeiro
 | Função | Método | Path | Usado em |
 |---|---|---|---|
-| `getFinanceiroResumo(filters)` | GET | `/financeiro/resumo` | FinanceiroPage |
-| `getFinanceiroFluxo(filters)` | GET | `/financeiro/fluxo-caixa` | FinanceiroPage |
 | `getFinanceiroFaturamento(filters)` | GET | `/financeiro/faturamento` | FinanceiroPage |
+| `getFinanceiroOperacional(filters)` | GET | `/financeiro/operacional` | FinanceiroPage |
 | `getFinanceiroCustos(filters)` | GET | `/financeiro/custos` | FinanceiroPage |
 | `createFinanceiroCusto(payload)` | POST | `/financeiro/custos` | FinanceiroPage |
 | `deleteFinanceiroCusto(id)` | DELETE | `/financeiro/custos/:id` | FinanceiroPage |

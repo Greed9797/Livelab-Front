@@ -714,14 +714,6 @@ export function applyAnalyticsImport(batchId: string) {
   })
 }
 
-export function getFinanceiroResumo(filters: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord>('/financeiro/resumo', filters)
-}
-
-export function getFinanceiroFluxo(filters: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord>('/financeiro/fluxo-caixa', filters)
-}
-
 export function getFinanceiroFaturamento(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/financeiro/faturamento', filters)
 }
