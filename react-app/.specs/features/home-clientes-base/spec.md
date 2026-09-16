@@ -151,28 +151,28 @@ Planejamento pela agente principal; nenhum código de aplicação alterado nesta
 | NAV-02 | Navegação | T1 | Implemented |
 | CLI-01 | Clientes e contratos | T4 | Implemented |
 | CLI-02 | Clientes e contratos | T4 | Implemented |
-| CLI-03 | Clientes e contratos | T4, T13 | In Tasks |
-| CLI-04 | Clientes e contratos | T5–T8, T14 | In Tasks |
-| CLI-05 | Clientes e contratos | T7, T9–T12 | In Tasks |
-| CLI-06 | Clientes e contratos | T10, T11 | In Tasks |
-| CLI-07 | Clientes e contratos | T8, T9, T12 | In Tasks |
-| CLI-08 | Clientes e contratos | T6, T8 | In Tasks |
-| CLI-09 | Clientes e contratos | T8, T14 | In Tasks |
-| CLI-10 | Clientes e contratos | T5, T6 | In Tasks |
-| CLI-11 | Clientes e contratos | T15 | In Tasks |
-| CLI-12 | Clientes e contratos | T6, T15 | In Tasks |
-| CLI-13 | Clientes e contratos | T8, T13 | In Tasks |
-| BASE-01 | Biblioteca Base | T17, T21 | In Tasks |
-| BASE-02 | Biblioteca Base | T18, T20, T21 | In Tasks |
-| BASE-03 | Biblioteca Base | T19–T21 | In Tasks |
-| BASE-04 | Biblioteca Base | T16–T18, T22 | In Tasks |
-| BASE-05 | Biblioteca Base | T17, T18, T22 | In Tasks |
-| BASE-06 | Biblioteca Base | T19, T20 | In Tasks |
-| BASE-07 | Biblioteca Base | T18, T20 | In Tasks |
-| BASE-08 | Biblioteca Base | T19, T20 | In Tasks |
-| BASE-09 | Biblioteca Base | T19 | In Tasks |
-| BASE-10 | Biblioteca Base | T20 | In Tasks |
-| BASE-11 | Biblioteca Base | T21 | In Tasks |
+| CLI-03 | Clientes e contratos | T4, T13 | Implemented |
+| CLI-04 | Clientes e contratos | T5–T8, T14 | Implemented |
+| CLI-05 | Clientes e contratos | T7, T9–T12 | Implemented |
+| CLI-06 | Clientes e contratos | T10, T11 | Implemented |
+| CLI-07 | Clientes e contratos | T8, T9, T12 | Implemented |
+| CLI-08 | Clientes e contratos | T6, T8 | Implemented |
+| CLI-09 | Clientes e contratos | T8, T14 | Implemented |
+| CLI-10 | Clientes e contratos | T5, T6 | Implemented |
+| CLI-11 | Clientes e contratos | T15 | Implemented |
+| CLI-12 | Clientes e contratos | T6, T15 | Implemented |
+| CLI-13 | Clientes e contratos | T8, T13 | Implemented |
+| BASE-01 | Biblioteca Base | T17, T21 | Implemented |
+| BASE-02 | Biblioteca Base | T18, T20, T21 | Implemented |
+| BASE-03 | Biblioteca Base | T19–T21 | Implemented |
+| BASE-04 | Biblioteca Base | T16–T18, T22 | Implemented |
+| BASE-05 | Biblioteca Base | T17, T18, T22 | Implemented |
+| BASE-06 | Biblioteca Base | T19, T20 | Implemented |
+| BASE-07 | Biblioteca Base | T18, T20 | Implemented |
+| BASE-08 | Biblioteca Base | T19, T20 | Implemented |
+| BASE-09 | Biblioteca Base | T19 | Implemented |
+| BASE-10 | Biblioteca Base | T20 | Implemented |
+| BASE-11 | Biblioteca Base | T21 | Implemented |
 
 **Coverage:** 30 requisitos mapeados; implementação pendente.
 

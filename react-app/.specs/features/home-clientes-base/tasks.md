@@ -117,8 +117,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-05, CLI-07, CLI-10
 **Done when**:
 
-- [ ] Revisão do inventário contra rotas e jobs, com testes já existentes mapeados; nenhum consumidor financeiro fica sem destino.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Revisão do inventário contra rotas e jobs, com testes já existentes mapeados; nenhum consumidor financeiro fica sem destino.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: review
 **Gate**: quick
@@ -132,8 +132,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-04, CLI-08, CLI-10, CLI-12
 **Done when**:
 
-- [ ] SQL real para unique, FK composta, RLS com papel não privilegiado, backfill idempotente sem recalcular valores; confirmar número livre.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] SQL real para unique, FK composta, RLS com papel não privilegiado, backfill idempotente sem recalcular valores; confirmar número livre.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
@@ -147,8 +147,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-04, CLI-05, CLI-06
 **Done when**:
 
-- [ ] Fixture 31/08 vs 01/09, virada de ano, baseline desconhecido, data futura, soma em centavos e paridade SQL/JS.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Fixture 31/08 vs 01/09, virada de ano, baseline desconhecido, data futura, soma em centavos e paridade SQL/JS.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: unit + integration
 **Gate**: full
@@ -162,8 +162,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-04, CLI-07, CLI-08, CLI-09, CLI-13
 **Done when**:
 
-- [ ] Concorrência real de duas alterações e corrida com faturamento/união; falha intermediária reverte tudo; preview não escreve.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Concorrência real de duas alterações e corrida com faturamento/união; falha intermediária reverte tudo; preview não escreve.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
@@ -177,8 +177,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-05, CLI-07, CLI-09
 **Done when**:
 
-- [ ] Agosto imutável depois de setembro; recálculo em data atual usa versão histórica; atribuições/pedidos/uniões preservados.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Agosto imutável depois de setembro; recálculo em data atual usa versão histórica; atribuições/pedidos/uniões preservados.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: unit + integration
 **Gate**: full
@@ -192,8 +192,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-05, CLI-06, CLI-07
 **Done when**:
 
-- [ ] SQL real: fixture 1500+2000=3500 e OU 1000+1200=2200; mês parcial, sem movimento, negativo e fechamento preservado.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] SQL real: fixture 1500+2000=3500 e OU 1000+1200=2200; mês parcial, sem movimento, negativo e fechamento preservado.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
@@ -207,8 +207,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-05, CLI-06
 **Done when**:
 
-- [ ] SQL real e testes de consumidores de home/analytics/rankings; intervalo equivale à soma mensal e não multiplica GMV.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] SQL real e testes de consumidores de home/analytics/rankings; intervalo equivale à soma mensal e não multiplica GMV.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
@@ -222,8 +222,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-05, CLI-07, CLI-09
 **Done when**:
 
-- [ ] Vídeo de agosto reprocessado em setembro usa agosto; aprovado/fechado bloqueado; PDF/CSV continuam com snapshots.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Vídeo de agosto reprocessado em setembro usa agosto; aprovado/fechado bloqueado; PDF/CSV continuam com snapshots.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
@@ -237,8 +237,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-03, CLI-08, CLI-09, CLI-13
 **Done when**:
 
-- [ ] API cobre autenticação, 403/404 cross-tenant, 409 conflito/fechado, dupla confirmação idempotente e cadastro sem efeito financeiro.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] API cobre autenticação, 403/404 cross-tenant, 409 conflito/fechado, dupla confirmação idempotente e cadastro sem efeito financeiro.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
@@ -252,8 +252,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-04, CLI-07, CLI-08, CLI-09
 **Done when**:
 
-- [ ] E2E Haag sintética agosto/setembro, cancelar sem gravar, preview obsoleto, erro preserva formulário, futuro não muda vigente.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] E2E Haag sintética agosto/setembro, cancelar sem gravar, preview obsoleto, erro preserva formulário, futuro não muda vigente.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: e2e
 **Gate**: full
@@ -267,8 +267,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-11, CLI-12, CLI-03
 **Done when**:
 
-- [ ] Render/E2E fixo ausente, taxa ausente, zero explícito, sem marca e campo não aplicável; alerta não depende só de cor.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Render/E2E fixo ausente, taxa ausente, zero explícito, sem marca e campo não aplicável; alerta não depende só de cor.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: e2e
 **Gate**: full
@@ -282,8 +282,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: BASE-04, BASE-05, BASE-07, BASE-09
 **Done when**:
 
-- [ ] SQL real com dois tenants/global, FK de categoria inválida, RLS, migração repetível e compatibilidade com leitura legada.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] SQL real com dois tenants/global, FK de categoria inválida, RLS, migração repetível e compatibilidade com leitura legada.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
@@ -297,8 +297,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: BASE-01, BASE-04, BASE-05
 **Done when**:
 
-- [ ] API tenta ID/slug de outro tenant, rascunho, arquivado, master restrito; paginação/filtros não expõem corpos nem vazam categorias.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] API tenta ID/slug de outro tenant, rascunho, arquivado, master restrito; paginação/filtros não expõem corpos nem vazam categorias.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
@@ -312,8 +312,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: BASE-02, BASE-05, BASE-07
 **Done when**:
 
-- [ ] Gestor A não muda material B/global; leitor não escreve; conflito 409 preserva revisão; publish exige conteúdo válido.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Gestor A não muda material B/global; leitor não escreve; conflito 409 preserva revisão; publish exige conteúdo válido.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
@@ -327,8 +327,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: BASE-03, BASE-06, BASE-08, BASE-09
 **Done when**:
 
-- [ ] MIME falso, tamanho excedido, interrupção, arquivo de outro tenant/rascunho, URL javascript, SSRF e órfão recuperável.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] MIME falso, tamanho excedido, interrupção, arquivo de outro tenant/rascunho, URL javascript, SSRF e órfão recuperável.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
@@ -342,8 +342,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: BASE-02, BASE-03, BASE-06, BASE-07, BASE-08, BASE-10
 **Done when**:
 
-- [ ] React 19, mobile/teclado, XSS na prévia, falha de upload/save preserva texto, conflito não sobrescreve; editor ausente do chunk inicial.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] React 19, mobile/teclado, XSS na prévia, falha de upload/save preserva texto, conflito não sobrescreve; editor ausente do chunk inicial.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: unit + e2e
 **Gate**: full
@@ -357,8 +357,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: BASE-01, BASE-02, BASE-03, BASE-11
 **Done when**:
 
-- [ ] CRUD completo e leitura após reload; leitor comum só publicados; vazio tem ação correta; lazy editor só para gestão.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] CRUD completo e leitura após reload; leitor comum só publicados; vazio tem ação correta; lazy editor só para gestão.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: e2e
 **Gate**: full
@@ -372,8 +372,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: BASE-04, BASE-05
 **Done when**:
 
-- [ ] E2E/API de perfis leitores/editores, dois tenants e troca de contexto; clientes/parceiros bloqueados inclusive por URL direta; nenhum bypass por rota antiga, download ou cache.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] E2E/API de perfis leitores/editores, dois tenants e troca de contexto; clientes/parceiros bloqueados inclusive por URL direta; nenhum bypass por rota antiga, download ou cache.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration + e2e
 **Gate**: full
@@ -387,8 +387,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-05, CLI-06, CLI-07
 **Done when**:
 
-- [ ] Agosto/setembro com vencedores distintos em OU, total das parcelas igual aos cards, legado renderiza e divergência bloqueia.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] Agosto/setembro com vencedores distintos em OU, total das parcelas igual aos cards, legado renderiza e divergência bloqueia.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: unit + e2e
 **Gate**: full
@@ -402,8 +402,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -
 **Requirement**: CLI-05, CLI-07, CLI-10, CLI-13
 **Done when**:
 
-- [ ] PDF/CSV/cliente/contrato formal/import/portal/billing/live-merge testados; sem campos correntes em cálculos históricos; sem ativação parcial.
-- [ ] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
+- [x] PDF/CSV/cliente/contrato formal/import/portal/billing/live-merge testados; sem campos correntes em cálculos históricos; sem ativação parcial.
+- [x] Requisitos mapeados, diff revisado, testes da tarefa passando e commit atômico registrado.
 
 **Tests**: integration
 **Gate**: full
