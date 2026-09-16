@@ -54,6 +54,9 @@ test('exibe DRE reconciliado, expande detalhes e permanece somente leitura', asy
   await expect(page.getByText('-R$ 2.925,00', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('Margem após custos manuais', { exact: false })).toHaveCount(0)
   await expect(page.getByText('Fluxo de caixa', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Adicionar custo', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Excluir', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('textbox', { name: 'Descrição do custo', exact: true })).toHaveCount(0)
 
   await dre.getByText('Receita de marcas', { exact: true }).click()
   await expect(dre.getByText('Marca A', { exact: true })).toBeVisible()

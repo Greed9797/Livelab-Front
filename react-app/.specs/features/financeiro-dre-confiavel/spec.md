@@ -145,16 +145,16 @@ A área financeira apresenta uma margem comercial que desconta apenas custos man
 | FIN-13 | Comissões claras e preservadas | T3 | Preserved |
 | FIN-14 | Comissões claras e preservadas | T4 | Implemented |
 | FIN-15 | Comissões claras e preservadas | T3 | Preserved |
-| FIN-16 | Limpeza comprovadamente segura | T3 | Implemented |
+| FIN-16 | Limpeza comprovadamente segura | T3 + T5 | Implemented |
 | FIN-17 | Limpeza comprovadamente segura | T3 | Preserved |
 | FIN-18 | Limpeza comprovadamente segura | T5 | Preserved |
-| FIN-19 | Edge cases | T1 | Implemented |
+| FIN-19 | Edge cases | T1 + T2 | Implemented |
 | FIN-20 | Edge cases | T3 | Implemented |
 | FIN-21 | Edge cases | T1 | Implemented |
 | FIN-22 | Edge cases | T1 | Implemented |
 | FIN-23 | Edge cases | T3 | Preserved |
 
-**Coverage:** 23 total, 23 mapped to T1–T5, 0 pending.
+**Coverage:** 23 total, 23 mapped to T1–T5, 0 pending. Runtime evidence includes the zero-movement render case and read-only cost-control assertions; the existing backend and remuneration suites cover preserved rules, vigencies and PDF/CSV contracts.
 
 ## Success Criteria
 

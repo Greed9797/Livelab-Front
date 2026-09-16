@@ -103,9 +103,10 @@ T4 → T5
 - [x] Shows compared values and winning rule for `fixo_ou_comissao`.
 - [x] Uses existing theme tokens, keyboard focus and semantic HTML.
 - [x] Displays no invented zero when the model is unavailable.
+- [x] Explains a valid period with zero brands, presenters and costs while preserving server-reported zero subtotals.
 - [x] Gate passes with at least 5 render tests.
 
-**Status:** Done. Render tests: 6 passed; quick gate: 529 tests passed.
+**Status:** Done. Render tests: 7 passed; quick gate: 530 tests passed.
 
 **Tests**: unit
 **Gate**: quick
@@ -129,11 +130,12 @@ T4 → T5
 - [x] Operational tab has one highlighted result basis and no “margem após custos manuais”.
 - [x] Previous-period and cash-flow queries used only by the removed presentation are gone.
 - [x] Cost CRUD and read-only permissions remain unchanged.
+- [x] Read-only browser coverage asserts that create and delete cost controls are absent.
 - [x] Commission, client and franchisor tabs remain available with current behavior.
 - [x] Browser test expands DRE details, observes negative result and performs no writes.
 - [x] Full gate passes with at least 1 end-to-end scenario containing multiple brands, presenters and costs.
 
-**Status:** Done. Chromium E2E: 1 passed; full frontend gate: 72 files/529 tests passed.
+**Status:** Done. Chromium E2E: 1 passed; full frontend gate: 72 files/530 tests passed.
 
 **Tests**: e2e
 **Gate**: full
@@ -182,10 +184,11 @@ T4 → T5
 
 - [x] `FinanceiroHeroPanel.tsx` and `ReceitaWaterfall.tsx` are deleted.
 - [x] Repository search finds no import or render reference to either component.
+- [x] Obsolete summary metrics and their unused domain helpers are removed; the API inventory points to the operational endpoint.
 - [x] Frontend typecheck, complete unit suite and build pass.
 - [x] Backend complete test suite passes unchanged.
 
-**Status:** Done. Frontend build passed; backend: 145 files/1082 tests passed, 1 file/7 tests skipped.
+**Status:** Done. Frontend build passed; backend: 145 files/1082 tests passed, 1 file/7 tests skipped. Cleanup gate confirms no runtime consumer remains for the removed summary/flow helpers.
 
 **Tests**: none
 **Gate**: build
