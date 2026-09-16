@@ -42,6 +42,10 @@ function Sidebar({
   const logout = useAuthStore((state) => state.logout)
   const location = useLocation()
   const items = menuForUser(user)
+  const theme = useThemeStore((state) => state.resolvedTheme)
+  const logoSrc = expanded
+    ? `/images/logo-wordmark-${theme}.png`
+    : `/images/logo-icon-${theme}.png`
 
   async function handleLogout() {
     await logout()
@@ -59,9 +63,7 @@ function Sidebar({
         {expanded ? (
           <>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[30px] font-bold leading-none tracking-[-0.035em] text-ink">
-                Live<span className="font-normal italic">lab</span><span className="text-brand">.</span>
-              </p>
+              <img src={logoSrc} alt="Livelab" className="h-7 w-auto max-w-full object-contain object-left" />
               <p className="mt-1 truncate text-xs text-ink-muted">{user?.tenant_nome ?? 'LiveShop SaaS'}</p>
             </div>
             {onToggle ? (
@@ -78,9 +80,7 @@ function Sidebar({
           </>
         ) : null}
         {!expanded ? (
-          <span aria-label="Livelab" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--bg-elev-3)] text-sm font-extrabold tracking-[-0.04em] text-ink">
-            LL
-          </span>
+          <img src={logoSrc} alt="Livelab" className="h-10 w-10 shrink-0 object-contain" />
         ) : null}
         {!expanded && onToggle ? (
           <button
