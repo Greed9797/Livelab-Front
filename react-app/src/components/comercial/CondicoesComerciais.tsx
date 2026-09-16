@@ -11,6 +11,7 @@ import { confirmMarcaCondicao, getMarcaCondicoes, previewMarcaCondicao } from '.
 import { QK } from '../../services/query-keys'
 import { formatMoney } from '../../utils/format'
 import { parseBRMoneyToDecimal } from '../../utils/money'
+import { commercialConfigCodes, commercialConfigLabel } from '../../utils/comercial-config'
 import type { JsonRecord } from '../../types/models'
 
 type CondicaoForm = {
@@ -28,6 +29,8 @@ export interface CondicoesComerciaisProps {
   marcaId: string | null
   marcaNome?: string
   canEdit?: boolean
+  configuracaoComercial?: JsonRecord | null
+  hasMarca?: boolean
 }
 
 function currentMonth() {
@@ -73,6 +76,15 @@ function conditionTitle(condition: JsonRecord) {
   return condition.inicio_vigencia ? monthLabel(condition.inicio_vigencia) : 'Condição comercial'
 }
 
+function conditionPeriodLabel(condition: JsonRecord) {
+  const month = dateForCondition(condition.inicio_vigencia)
+  const current = currentMonth()
+  if (month === '1900-01') return 'Histórico'
+  if (month > current) return 'Futura'
+  if (month === current) return 'Vigente'
+  return 'Histórico'
+}
+
 function conditionValue(condition: JsonRecord | null | undefined, key: string) {
   return numberValue(condition?.[key])
 }
@@ -91,40 +103,24 @@ export function buildMarcaCondicaoProposal(form: CondicaoForm): JsonRecord {
   }
 }
 
-export function getCondicaoAlertas(conditions: JsonRecord[], marcaId: string | null, referenceMonth = currentMonth()): string[] {
-  if (!marcaId) return ['sem_marca']
-  const current = conditions
-    .filter((condition) => !condition.cancelled_at && dateForCondition(condition.inicio_vigencia) <= referenceMonth)
-    .sort((a, b) => dateForCondition(b.inicio_vigencia).localeCompare(dateForCondition(a.inicio_vigencia)))[0]
-  if (!current) return ['fixo_ausente', 'comissao_ausente']
-  const result: string[] = []
-  if (current.origem === 'legado_nao_verificado') result.push('legado')
-  const fixed = conditionValue(current, 'fixo_mensal')
-  const commission = conditionValue(current, 'comissao_franquia_pct') + conditionValue(current, 'comissao_franqueadora_pct')
-  if (fixed === 0) result.push(boolValue(current.fixo_confirmado) ? 'fixo_zero_confirmado' : 'fixo_zero')
-  else if (!boolValue(current.fixo_confirmado)) result.push('fixo_revisar')
-  if (commission === 0) result.push(boolValue(current.comissao_confirmada) ? 'comissao_zero_confirmada' : 'comissao_zero')
-  else if (!boolValue(current.comissao_confirmada)) result.push('comissao_revisar')
-  return result
-}
-
 function conditionSummary(condition: JsonRecord | null | undefined) {
   if (!condition) return 'Nenhuma condição cadastrada'
   const fixed = conditionValue(condition, 'fixo_mensal')
-  const commission = conditionValue(condition, 'comissao_franquia_pct')
-  return `${formatMoney(fixed)} fixo · ${commission.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% comissão`
+  const franchise = conditionValue(condition, 'comissao_franquia_pct')
+  const franchisor = conditionValue(condition, 'comissao_franqueadora_pct')
+  return `${formatMoney(fixed)} fixo · ${franchise.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% franquia · ${franchisor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% franqueadora`
 }
 
-function AlertItem({ children, onCorrect, tone = 'warning' }: { children: string; onCorrect: () => void; tone?: 'warning' | 'danger' | 'info' }) {
+function AlertItem({ children, onCorrect, canCorrect, tone = 'warning' }: { children: string; onCorrect: () => void; canCorrect: boolean; tone?: 'warning' | 'danger' | 'info' }) {
   return (
     <li className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm ${tone === 'danger' ? 'border-[var(--danger)]/30 bg-[var(--danger-soft)] text-[var(--danger)]' : tone === 'info' ? 'border-brand/25 bg-brand-soft text-ink' : 'border-[var(--warning)]/30 bg-[var(--warning-soft)] text-ink'}`}>
       <span className="flex min-w-0 items-center gap-2"><AlertTriangle aria-hidden="true" className="h-4 w-4 shrink-0" />{children}</span>
-      <button type="button" className="font-semibold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-brand" onClick={onCorrect}>Corrigir</button>
+      {canCorrect ? <button type="button" className="font-semibold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-brand" onClick={onCorrect}>Corrigir</button> : null}
     </li>
   )
 }
 
-export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true }: CondicoesComerciaisProps) {
+export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, configuracaoComercial = null, hasMarca = Boolean(marcaId) }: CondicoesComerciaisProps) {
   const queryClient = useQueryClient()
   const [form, setForm] = useState<CondicaoForm>(() => initialForm())
   const [editorOpen, setEditorOpen] = useState(false)
@@ -137,19 +133,11 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true }: Cond
     enabled: Boolean(marcaId),
   })
   const conditions = conditionsQuery.data ?? []
-  const current = useMemo(() => {
-    const month = currentMonth()
-    return conditions
-      .filter((condition) => !condition.cancelled_at && dateForCondition(condition.inicio_vigencia) <= month)
-      .sort((a, b) => dateForCondition(b.inicio_vigencia).localeCompare(dateForCondition(a.inicio_vigencia)))[0] ?? null
-  }, [conditions])
   const expectedRevision = useMemo(
     () => Math.max(1, ...conditions.map((condition) => Math.max(1, Math.trunc(numberValue(condition.revision))))),
     [conditions],
   )
-  const alerts = useMemo<string[]>(() => {
-    return getCondicaoAlertas(conditions, marcaId)
-  }, [conditions, current, marcaId])
+  const alerts = useMemo(() => commercialConfigCodes(configuracaoComercial, hasMarca), [configuracaoComercial, hasMarca])
 
   const previewMutation = useMutation({
     mutationFn: () => previewMarcaCondicao(marcaId as string, buildMarcaCondicaoProposal(form)),
@@ -172,7 +160,11 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true }: Cond
       void queryClient.invalidateQueries({ queryKey: QK.marcas() })
       void queryClient.invalidateQueries({ queryKey: QK.financeiroOperacional() })
     },
-    onError: (cause) => setError(extractErrorMessage(cause)),
+    onError: (cause) => {
+      setPreviewData(null)
+      setError(extractErrorMessage(cause))
+      void queryClient.invalidateQueries({ queryKey: QK.marcaCondicoes(marcaId ?? undefined) })
+    },
   })
 
   function setField<K extends keyof CondicaoForm>(key: K, value: CondicaoForm[K]) {
@@ -210,28 +202,19 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true }: Cond
       </div>
 
       {!marcaId ? (
-        <Card className="border-[var(--warning)]/30"><CardBody><ul className="space-y-2"><AlertItem onCorrect={openEditor}>Sem marca operacional vinculada. Cadastre a marca antes de informar fixo e comissão.</AlertItem></ul></CardBody></Card>
+        <Card className="border-[var(--warning)]/30"><CardBody><ul className="space-y-2"><AlertItem canCorrect={canEdit} onCorrect={openEditor}>Sem marca operacional vinculada. Cadastre a marca antes de informar fixo e comissão.</AlertItem></ul></CardBody></Card>
       ) : conditionsQuery.isLoading ? <LoadingState label="Carregando histórico comercial…" /> : conditionsQuery.isError ? <p role="alert" className="rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{extractErrorMessage(conditionsQuery.error)}</p> : (
         <>
           {alerts.length > 0 ? (
             <Card className="border-[var(--warning)]/30"><CardBody><div className="flex items-center gap-2 text-sm font-semibold text-ink"><AlertTriangle aria-hidden="true" className="h-4 w-4 text-[var(--warning)]" />Pendências do cadastro</div><ul className="mt-3 space-y-2">
-              {alerts.includes('sem_marca') ? <AlertItem onCorrect={openEditor}>Sem marca operacional vinculada.</AlertItem> : null}
-              {alerts.includes('legado') ? <AlertItem onCorrect={openEditor}>Condição legada a revisar antes do próximo fechamento.</AlertItem> : null}
-              {alerts.includes('fixo_ausente') ? <AlertItem onCorrect={openEditor}>Fixo ausente para a competência vigente.</AlertItem> : null}
-              {alerts.includes('comissao_ausente') ? <AlertItem onCorrect={openEditor}>Comissão ausente para a competência vigente.</AlertItem> : null}
-              {alerts.includes('fixo_revisar') ? <AlertItem onCorrect={openEditor}>Fixo informado, mas ainda não confirmado.</AlertItem> : null}
-              {alerts.includes('comissao_revisar') ? <AlertItem onCorrect={openEditor}>Comissão informada, mas ainda não confirmada.</AlertItem> : null}
-              {alerts.includes('fixo_zero') ? <AlertItem tone="info" onCorrect={openEditor}>Fixo zerado sem confirmação explícita.</AlertItem> : null}
-              {alerts.includes('comissao_zero') ? <AlertItem tone="info" onCorrect={openEditor}>Comissão zerada sem confirmação explícita.</AlertItem> : null}
-              {alerts.includes('fixo_zero_confirmado') ? <AlertItem tone="info" onCorrect={openEditor}>Fixo zerado confirmado para a competência vigente.</AlertItem> : null}
-              {alerts.includes('comissao_zero_confirmada') ? <AlertItem tone="info" onCorrect={openEditor}>Comissão zerada confirmada para a competência vigente.</AlertItem> : null}
+              {alerts.map((code) => <AlertItem key={code} canCorrect={canEdit && Boolean(marcaId)} onCorrect={openEditor}>{commercialConfigLabel(code)}</AlertItem>)}
             </ul></CardBody></Card>
           ) : <p className="flex items-center gap-2 text-sm text-[var(--success)]"><CheckCircle2 aria-hidden="true" className="h-4 w-4" />Fixo e comissão vigentes confirmados.</p>}
           <div className="space-y-2">
             {conditions.map((condition) => (
               <details key={String(condition.id ?? condition.inicio_vigencia)} className="group rounded-2xl border border-line bg-surface-muted">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 focus-visible:outline-2 focus-visible:outline-brand">
-                  <span className="min-w-0"><span className="block truncate text-sm font-semibold text-ink">{conditionTitle(condition)}{condition.origem === 'legado_nao_verificado' ? <Badge className="ml-2" tone="warning">A revisar</Badge> : null}</span><span className="mt-1 block text-xs text-ink-muted">{conditionSummary(condition)} · revisão {numberValue(condition.revision)}</span></span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-ink-muted transition-transform group-open:rotate-180" />
+                  <span className="min-w-0"><span className="block truncate text-sm font-semibold text-ink"><Badge className="mr-2" tone={conditionPeriodLabel(condition) === 'Vigente' ? 'success' : conditionPeriodLabel(condition) === 'Futura' ? 'info' : 'neutral'}>{conditionPeriodLabel(condition)}</Badge>{conditionTitle(condition)}{condition.origem === 'legado_nao_verificado' ? <Badge className="ml-2" tone="warning">A revisar</Badge> : null}</span><span className="mt-1 block text-xs text-ink-muted">{conditionSummary(condition)} · revisão {numberValue(condition.revision)}</span></span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-ink-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="grid gap-3 border-t border-line p-4 text-sm sm:grid-cols-3"><div><span className="block text-xs text-ink-muted">Vigência</span><span className="font-medium text-ink">{monthLabel(condition.inicio_vigencia)}</span></div><div><span className="block text-xs text-ink-muted">Fixo mensal</span><span className="font-medium text-ink">{formatMoney(conditionValue(condition, 'fixo_mensal'))} {boolValue(condition.fixo_confirmado) ? '· confirmado' : '· a revisar'}</span></div><div><span className="block text-xs text-ink-muted">Comissões</span><span className="font-medium text-ink">{conditionValue(condition, 'comissao_franquia_pct').toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% franquia · {conditionValue(condition, 'comissao_franqueadora_pct').toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% franqueadora</span></div></div>
               </details>

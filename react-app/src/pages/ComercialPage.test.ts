@@ -76,6 +76,8 @@ describe('ComercialPage — busca e status', () => {
     expect(source).toContain('const payload = kind === \'marca\'')
     expect(source).toContain('<CondicoesComerciais')
     expect(source).not.toContain('Valores aplicados à marca operacional nas lives e vídeos.')
+    expect(source).toContain('configuracao_comercial')
+    expect(source).toContain('commercialConfigCodes')
   })
 
 })

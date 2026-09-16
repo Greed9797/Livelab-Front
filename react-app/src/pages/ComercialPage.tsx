@@ -30,6 +30,7 @@ import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 import { canWriteMarcas } from '../utils/access'
 import { useCurrentUser } from '../stores/auth-store'
+import { commercialConfigCodes, commercialConfigSummary } from '../utils/comercial-config'
 
 // Vocabulário de status alinhado aos CHECKs do banco:
 // clientes (migrations 016/042) e marcas (migrations 080/121).
@@ -291,6 +292,7 @@ export function ComercialPage() {
         // Com o id do cliente, a mesma marca ganhava cores diferentes nas duas telas.
         cor_seed_id: asString(principal?.id, asString(cliente.id, '')),
         marcas_operacionais: marcasDoCliente,
+        configuracao_comercial: principal?.configuracao_comercial ?? null,
       })
     })
     const marcasSemCliente = marcas
@@ -746,6 +748,8 @@ export function ComercialPage() {
                       const mostraMarcaOperacional = Boolean(marcaPrincipal) && normalizarBusca(marcaPrincipal) !== normalizarBusca(nome)
                       const initials = nome.slice(0, 2).toUpperCase()
                       const ativo = isCarteiraAtiva(asString(item.status))
+                      const temMarcaOperacional = asString(item.tipo_operacional) !== 'cliente_ecommerce' || asArray<JsonRecord>(item.marcas_operacionais).length > 0
+                      const comercialAlertas = commercialConfigCodes(getRecord(item.configuracao_comercial), temMarcaOperacional)
                       return (
                         <div className="flex min-w-48 max-w-64 items-center gap-3">
                           <div
@@ -762,6 +766,7 @@ export function ComercialPage() {
                             <p className="mt-0.5 text-xs text-ink-muted">{perfilOperacionalLabel(asString(item.tipo_operacional ?? item.tipo))}</p>
                             {mostraMarcaOperacional ? <p className="mt-0.5 truncate text-xs text-ink-muted">Marca operacional: {marcaPrincipal}</p> : null}
                             {asNumber(item.duplicado_count) > 1 ? <Badge className="mt-1" tone="warning">{asNumber(item.duplicado_count)} cadastros</Badge> : null}
+                            {comercialAlertas.length > 0 ? <span className="mt-1 block truncate text-[11px] font-semibold text-[var(--warning)]" title={commercialConfigSummary(getRecord(item.configuracao_comercial), temMarcaOperacional)}>{commercialConfigSummary(getRecord(item.configuracao_comercial), temMarcaOperacional)}</span> : null}
                           </div>
                         </div>
                       )
@@ -1045,6 +1050,8 @@ export function ComercialPage() {
                   marcaId={condicoesMarcaId}
                   marcaNome={asString(condicoesMarca?.nome ?? selectedAtivo?.marca_principal, '')}
                   canEdit={podeEditarCondicoes}
+                  configuracaoComercial={getRecord(condicoesMarca?.configuracao_comercial ?? selectedAtivo?.configuracao_comercial)}
+                  hasMarca={Boolean(condicoesMarcaId)}
                 />
                 <ModalSection title="Ações administrativas" description="Desative, reative ou exclua este cadastro. O histórico é preservado." collapsible>
                   <div className="flex flex-wrap items-end gap-2">

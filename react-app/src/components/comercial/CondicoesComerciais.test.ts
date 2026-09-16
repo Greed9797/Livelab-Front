@@ -1,25 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { buildMarcaCondicaoProposal, getCondicaoAlertas } from './CondicoesComerciais'
+import { buildMarcaCondicaoProposal } from './CondicoesComerciais'
+import { commercialConfigCodes, commercialConfigSummary } from '../../utils/comercial-config'
 
 describe('condições comerciais temporais', () => {
-  it('classifica baseline legado com zeros sem tratá-los como confirmados', () => {
-    expect(getCondicaoAlertas([{
-      inicio_vigencia: '1900-01-01', fixo_mensal: 0, comissao_franquia_pct: 0,
-      comissao_franqueadora_pct: 0, fixo_confirmado: false, comissao_confirmada: false,
-      origem: 'legado_nao_verificado',
-    }], 'marca-1', '2026-09')).toEqual(['legado', 'fixo_zero', 'comissao_zero'])
+  it('renderiza somente os códigos canônicos de pendência recebidos do backend', () => {
+    expect(commercialConfigCodes({ status: 'a_revisar', codigos: ['a_revisar'] }, true)).toEqual(['a_revisar'])
+    expect(commercialConfigSummary({ status: 'a_revisar', codigos: ['a_revisar'] }, true)).toBe('Condição legada a revisar')
   })
 
-  it('separa marca ausente e campos ainda não cadastrados', () => {
-    expect(getCondicaoAlertas([], null, '2026-09')).toEqual(['sem_marca'])
-    expect(getCondicaoAlertas([], 'marca-1', '2026-09')).toEqual(['fixo_ausente', 'comissao_ausente'])
+  it('mantém a ausência de marca como indicador estrutural separado', () => {
+    expect(commercialConfigCodes(null, false)).toEqual(['sem_marca'])
+    expect(commercialConfigCodes({ status: 'incompleto', codigos: ['fixo_nao_informado', 'comissao_nao_informada'] }, true)).toEqual(['fixo_nao_informado', 'comissao_nao_informada'])
   })
 
-  it('mantém visível a confirmação explícita de valores zerados', () => {
-    expect(getCondicaoAlertas([{
-      inicio_vigencia: '2026-09-01', fixo_mensal: 0, comissao_franquia_pct: 0,
-      comissao_franqueadora_pct: 0, fixo_confirmado: true, comissao_confirmada: true,
-    }], 'marca-1', '2026-09')).toEqual(['fixo_zero_confirmado', 'comissao_zero_confirmada'])
+  it('não cria alerta local para zeros confirmados ou entidade não aplicável', () => {
+    expect(commercialConfigCodes({ status: 'configurado', codigos: [] }, true)).toEqual([])
+    expect(commercialConfigCodes({ status: 'nao_aplicavel', codigos: ['nao_aplicavel'] }, true)).toEqual([])
   })
 
   it('monta proposta em competência mensal sem transportar os campos legados', () => {

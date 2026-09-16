@@ -17,17 +17,26 @@ const live = {
   apresentadoras: [{ apresentadora_id: presenterId, nome: 'Ana', segundos: 7200, percentual: 100, gmv: 800 }],
 }
 const cliente = { id: clienteId, nome: 'Marca Aurora', status: 'ativo', celular: '47999999999' }
-const marca = { id: marcaId, cliente_id: clienteId, nome: 'Marca Aurora', tipo: 'cliente', status: 'ativa', comissao_franquia_pct: 10, valor_fixo_minimo: 3000 }
+const marca = {
+  id: marcaId, cliente_id: clienteId, nome: 'Marca Aurora', tipo: 'cliente', status: 'ativa',
+  comissao_franquia_pct: 10, valor_fixo_minimo: 3000,
+  configuracao_comercial: {
+    status: 'a_revisar', codigos: ['a_revisar'],
+    fixo: { status: 'a_revisar', valor: 3000 },
+    comissao: { status: 'a_revisar', percentual: 10 },
+    resumo: 'Revise a condição comercial legada',
+  },
+}
 
-async function setup(page: Page, onWrite?: (route: Route) => Promise<void>, theme = 'light') {
+async function setup(page: Page, onWrite?: (route: Route) => Promise<void>, theme = 'light', papel = 'franqueado') {
   const unexpectedWrites: string[] = []
-  await page.addInitScript(({ tenantId, selectedTheme }) => {
+  await page.addInitScript(({ tenantId, selectedTheme, userRole }) => {
     localStorage.setItem('livelab.react.remember', 'true')
     localStorage.setItem('livelab.react.access_token', 'local-test-token')
     localStorage.setItem('livelab.react.refresh_token', 'local-test-refresh')
     localStorage.setItem('livelab-theme', selectedTheme)
-    localStorage.setItem('livelab.react.user', JSON.stringify({ id: 'test-user', nome: 'Operadora local', papel: 'franqueado', tenant_id: tenantId, onboarding_completed: true }))
-  }, { tenantId: tenant, selectedTheme: theme })
+    localStorage.setItem('livelab.react.user', JSON.stringify({ id: 'test-user', nome: 'Operadora local', papel: userRole, tenant_id: tenantId, onboarding_completed: true }))
+  }, { tenantId: tenant, selectedTheme: theme, userRole: papel })
   await page.route('**/v1/**', async (route) => {
     const url = new URL(route.request().url())
     const json = (body: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
@@ -50,6 +59,11 @@ async function setup(page: Page, onWrite?: (route: Route) => Promise<void>, them
       comissao_franquia_pct: 0, comissao_franqueadora_pct: 0,
       tipo_cobranca: 'fixo_mais_comissao', fixo_confirmado: false,
       comissao_confirmada: false, origem: 'legado_nao_verificado', revision: 1,
+    }, {
+      id: 'future-condition', inicio_vigencia: '2026-10-01', fixo_mensal: 1500,
+      comissao_franquia_pct: 8, comissao_franqueadora_pct: 2,
+      tipo_cobranca: 'fixo_mais_comissao', fixo_confirmado: true,
+      comissao_confirmada: true, origem: 'gestao', revision: 2,
     }])
     if (url.pathname === '/v1/crm/summary') return json({ summary: {}, totals: {} })
     if (['/v1/leads', '/v1/agenda'].includes(url.pathname)) return json([])
@@ -83,7 +97,7 @@ test('programa condição comercial por competência com prévia e idempotência
   await page.goto('/comercial')
   await page.getByRole('button', { name: 'Editar Marca Aurora', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Cliente e marca', exact: true })
-  await expect(dialog.getByText('Condição legada a revisar antes do próximo fechamento.', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('Condição legada a revisar', { exact: true })).toBeVisible()
   await dialog.getByRole('button', { name: 'Nova competência', exact: true }).click()
   await dialog.getByLabel('Competência da condição').fill('2026-10')
   await dialog.getByLabel('Fixo mensal').fill('1.200,00')
@@ -93,8 +107,71 @@ test('programa condição comercial por competência com prévia e idempotência
   expect(previewPayload).toMatchObject({ inicio_vigencia: '2026-10', fixo_mensal: 1200, comissao_franquia_pct: 8 })
   await dialog.getByRole('button', { name: 'Confirmar condição', exact: true }).click()
   await expect.poll(() => confirmPayload).toBeTruthy()
-  expect(confirmPayload).toMatchObject({ inicio_vigencia: '2026-10', expected_revision: 1 })
+  expect(confirmPayload).toMatchObject({ inicio_vigencia: '2026-10', expected_revision: 2 })
   expect(idempotencyKey).toBeTruthy()
+})
+
+test('cancelar a programação não grava e mantém vigente separada da futura', async ({ page }) => {
+  const writes = await setup(page)
+  await page.goto('/comercial')
+  await expect(page.getByText('Condição legada a revisar', { exact: true }).first()).toBeVisible()
+  await page.getByRole('button', { name: 'Editar Marca Aurora', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Cliente e marca', exact: true })
+  await expect(dialog.getByText('Condição legada a revisar', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('Futura', { exact: true })).toBeVisible()
+  await expect(dialog.getByText('Histórico', { exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Nova competência', exact: true }).click()
+  await dialog.getByLabel('Fixo mensal').fill('1.500,00')
+  const cancelCondition = dialog.getByRole('button', { name: 'Cancelar edição da condição', exact: true })
+  await cancelCondition.focus()
+  await page.keyboard.press('Enter')
+  await expect(dialog.getByRole('button', { name: 'Revisar impacto', exact: true })).not.toBeVisible()
+  expect(writes).toEqual([])
+})
+
+test('409 de revisão exige nova prévia e preserva os valores digitados', async ({ page }) => {
+  let previewCount = 0
+  let confirmCount = 0
+  await setup(page, async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/condicoes/preview')) {
+      previewCount += 1
+      return route.fulfill({ status: 200, json: {
+        proposta: { inicio_vigencia: '2026-10-01', fixo_mensal: 1500, comissao_franquia_pct: 8, comissao_franqueadora_pct: 2 },
+        condicao_anterior: { inicio_vigencia: '2026-09-01', fixo_mensal: 0, comissao_franquia_pct: 0, comissao_franqueadora_pct: 0 },
+        impacto: { movimentos_abertos: 0, movimentos_fechados: 0, gmv_aberto: 0 },
+      } })
+    }
+    if (url.pathname.endsWith('/condicoes')) {
+      confirmCount += 1
+      return route.fulfill({ status: 409, json: { code: 'STALE_REVISION', error: 'A revisão da marca mudou; atualize a prévia antes de confirmar' } })
+    }
+    return route.fulfill({ status: 405, json: { error: 'Escrita não prevista no teste local' } })
+  })
+  await page.goto('/comercial')
+  await page.getByRole('button', { name: 'Editar Marca Aurora', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Cliente e marca', exact: true })
+  await dialog.getByRole('button', { name: 'Nova competência', exact: true }).click()
+  const fixed = dialog.getByLabel('Fixo mensal')
+  await fixed.fill('1.500,00')
+  await dialog.getByRole('button', { name: 'Revisar impacto', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Confirmar condição', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toContainText('A revisão da marca mudou')
+  await expect(fixed).toHaveValue('1.500,00')
+  await expect(dialog.getByRole('button', { name: 'Revisar impacto', exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Revisar impacto', exact: true }).click()
+  await expect.poll(() => previewCount).toBe(2)
+  expect(confirmCount).toBe(1)
+})
+
+test('papel operacional vê pendência, mas não vê controles de correção', async ({ page }) => {
+  await setup(page, undefined, 'light', 'comercial_readonly')
+  await page.goto('/comercial')
+  await page.getByRole('button', { name: 'Editar Marca Aurora', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Cliente e marca', exact: true })
+  await expect(dialog.getByText('Condição legada a revisar', { exact: true })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Nova competência', exact: true })).not.toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Corrigir', exact: true })).not.toBeVisible()
 })
 
 async function openEdit(page: Page, navigate = true) {
