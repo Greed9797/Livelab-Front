@@ -60,3 +60,11 @@ describe('analytics daily query key', () => {
       .not.toEqual(QK.analyticsDailyRange('2026-09-01', '2026-09-07', 'marca-1'))
   })
 })
+
+describe('knowledge unit query keys', () => {
+  it('does not reuse one unit library cache for another tenant', () => {
+    expect(QK.knowledgeUnitCategories('tenant-a')).not.toEqual(QK.knowledgeUnitCategories('tenant-b'))
+    expect(QK.knowledgeUnitMaterials('tenant-a', { status: 'published' })).not.toEqual(QK.knowledgeUnitMaterials('tenant-b', { status: 'published' }))
+    expect(QK.knowledgeUnitMaterial('tenant-a', 'material-1')).not.toEqual(QK.knowledgeUnitMaterial('tenant-b', 'material-1'))
+  })
+})

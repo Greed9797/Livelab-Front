@@ -78,6 +78,9 @@ export const QK = {
   usuarios: ['usuarios'] as const,
   knowledgeCategories: ['knowledge-categories'] as const,
   knowledgeArticles: ['knowledge-articles'] as const,
+  knowledgeUnitCategories: (tenantId?: string) => ['knowledge-unit', tenantId ?? '', 'categories'] as const,
+  knowledgeUnitMaterials: (tenantId?: string, filters?: { q?: string; category_slug?: string; material_type?: string; status?: string; page?: number }) => ['knowledge-unit', tenantId ?? '', 'materials', filters ?? {}] as const,
+  knowledgeUnitMaterial: (tenantId: string | undefined, idOrSlug: string) => ['knowledge-unit', tenantId ?? '', 'material', idOrSlug] as const,
   ativoOperacional: (params?: { kind?: string; id?: string }) =>
     params ? ['ativo-operacional', params] as const : ['ativo-operacional'] as const,
   marcaCondicoes: (marcaId?: string) => marcaId ? ['marca-condicoes', marcaId] as const : ['marca-condicoes'] as const,

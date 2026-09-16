@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { safeExternalUrl, sanitizeKnowledgeMarkdown } from './knowledge'
+import { safeExternalUrl, sanitizeKnowledgeMarkdown, videoUrlFromKnowledgeMaterial } from './knowledge'
 
 describe('knowledge external URLs', () => {
   it('allows only absolute HTTP(S) links', () => {
@@ -11,5 +11,11 @@ describe('knowledge external URLs', () => {
 
   it('fails closed when no browser DOM is available', () => {
     expect(sanitizeKnowledgeMarkdown('<script>alert(1)</script><p>Seguro</p>')).toBe('')
+  })
+
+  it('builds only supported provider links from stored video ids', () => {
+    expect(videoUrlFromKnowledgeMaterial({ video_provider: 'youtube', video_id: 'abc123', video_url: null })).toBe('https://www.youtube.com/watch?v=abc123')
+    expect(videoUrlFromKnowledgeMaterial({ video_provider: 'panda', video_id: 'panda123', video_url: null })).toContain('panda123')
+    expect(videoUrlFromKnowledgeMaterial({ video_provider: 'none', video_id: 'abc123', video_url: null })).toBeNull()
   })
 })

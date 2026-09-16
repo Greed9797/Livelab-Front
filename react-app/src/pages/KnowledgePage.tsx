@@ -1,292 +1,83 @@
-import {
-  ChevronLeft,
-  ExternalLink,
-  FileText,
-  Play,
-  Search,
-} from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
-import { PageHeader } from "../components/ui/PageHeader";
-import { Card, CardBody, CardHeader } from "../components/ui/Card";
-import { ErrorState, LoadingState, EmptyState } from "../components/ui/States";
-import { Button } from "../components/ui/Button";
-import {
-  getKnowledgeArticles,
-  getKnowledgeCategories,
-} from "../services/domain";
-import {
-  getKnowledgeArticle,
-  safeExternalUrl,
-  sanitizeKnowledgeMarkdown,
-} from "../services/knowledge";
-import { extractErrorMessage } from "../services/api";
-import { asString } from "../utils/format";
-import { QK } from "../services/query-keys";
+import { Archive, BookOpen, ChevronLeft, Edit3, ExternalLink, FilePlus2, FileText, FolderPlus, Link2, Play, Plus, Search } from 'lucide-react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
+import { PageHeader } from '../components/ui/PageHeader'
+import { Card, CardBody, CardHeader } from '../components/ui/Card'
+import { ErrorState, LoadingState, EmptyState } from '../components/ui/States'
+import { Button } from '../components/ui/Button'
+import { Modal } from '../components/ui/Modal'
+import { Badge } from '../components/ui/Badge'
+import { getKnowledgeUnitCategories, getKnowledgeUnitMaterial, getKnowledgeUnitMaterials, createKnowledgeUnitCategory, createKnowledgeUnitMaterial, updateKnowledgeUnitMaterial, publishKnowledgeUnitMaterial, archiveKnowledgeUnitMaterial, uploadKnowledgeUnitAttachment, getKnowledgeUnitAttachment, safeExternalUrl, sanitizeKnowledgeMarkdown, videoUrlFromKnowledgeMaterial, type KnowledgeMaterial, type KnowledgeMaterialInput } from '../services/knowledge'
+import { extractErrorMessage } from '../services/api'
+import { asString } from '../utils/format'
+import { QK } from '../services/query-keys'
+import { useCurrentUser } from '../stores/auth-store'
 
-const statusLabel = (status: unknown) =>
-  ({ published: "Publicado", draft: "Rascunho", archived: "Arquivado" })[
-    asString(status).toLowerCase()
-  ] ?? "Disponível";
+const KnowledgeEditor = lazy(() => import('../components/knowledge/KnowledgeEditor').then((module) => ({ default: module.KnowledgeEditor })))
+const MANAGERS = new Set(['franqueador_master', 'franqueado', 'gerente', 'gerente_comercial'])
+const TYPE_LABEL: Record<string, string> = { playbook: 'Playbook', study: 'Estudo', video: 'Vídeo', document: 'Documento', link: 'Link' }
+const STATUS_LABEL: Record<string, string> = { published: 'Publicado', draft: 'Rascunho', archived: 'Arquivado' }
+function isManager(role?: string) { return Boolean(role && MANAGERS.has(role)) }
+function materialRef(material: KnowledgeMaterial) { return asString(material.slug) || asString(material.id) }
+function MaterialIcon({ type }: { type: string }) {
+  if (type === 'video') return <Play aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+  if (type === 'link') return <Link2 aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+  if (type === 'document') return <FilePlus2 aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+  return <FileText aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
+}
+function AttachmentLink({ materialId, attachment }: { materialId: string; attachment: { id: string; filename: string } }) {
+  const [loading, setLoading] = useState(false); const [error, setError] = useState('')
+  async function open() {
+    setLoading(true); setError('')
+    try { const result = await getKnowledgeUnitAttachment(materialId, attachment.id); if (!safeExternalUrl(result.url)) throw new Error('Link do PDF indisponível'); window.open(result.url, '_blank', 'noopener,noreferrer') } catch (downloadError) { setError(extractErrorMessage(downloadError)) } finally { setLoading(false) }
+  }
+  return <div><Button type="button" variant="secondary" size="icon" aria-label={`Abrir PDF ${attachment.filename}`} title="Abrir PDF" onClick={() => void open()} disabled={loading}>{loading ? <span className="text-xs">…</span> : <FileText className="h-4 w-4" />}</Button>{error ? <span className="ml-2 text-xs text-[var(--danger)]">{error}</span> : null}</div>
+}
 
 export function KnowledgePage() {
-  const [params, setParams] = useSearchParams();
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
-  const articleHeading = useRef<HTMLHeadingElement>(null);
-  const articleRef = params.get("artigo") ?? "";
-  const categories = useQuery({
-    queryKey: QK.knowledgeCategories,
-    queryFn: getKnowledgeCategories,
-  });
-  const articles = useQuery({
-    queryKey: QK.knowledgeArticles,
-    queryFn: () => getKnowledgeArticles(),
-  });
-  const detail = useQuery({
-    queryKey: ["knowledge-article", articleRef],
-    queryFn: () => getKnowledgeArticle(articleRef),
-    enabled: Boolean(articleRef),
-  });
-  const categoryRows = categories.data ?? [];
-  const rows = articles.data ?? [];
-  const filtered = useMemo(() => {
-    const term = search.trim().toLocaleLowerCase("pt-BR");
-    return rows.filter(
-      (a) =>
-        (!category ||
-          asString(a.category_id) === category ||
-          asString(a.category_slug) === category) &&
-        (!term ||
-          `${asString(a.titulo ?? a.title)} ${asString(a.excerpt ?? a.resumo)} ${Array.isArray(a.tags) ? a.tags.join(" ") : ""}`
-            .toLocaleLowerCase("pt-BR")
-            .includes(term)),
-    );
-  }, [rows, category, search]);
-  const open = (ref: string) =>
-    setParams((p) => {
-      const next = new URLSearchParams(p);
-      next.set("artigo", ref);
-      return next;
-    });
-  const back = () =>
-    setParams((p) => {
-      const next = new URLSearchParams(p);
-      next.delete("artigo");
-      return next;
-    });
-  useEffect(() => {
-    if (articleRef && detail.isSuccess) articleHeading.current?.focus();
-  }, [articleRef, detail.isSuccess]);
+  const user = useCurrentUser(); const tenantId = user?.tenant_id; const manager = isManager(user?.papel)
+  const [params, setParams] = useSearchParams(); const [search, setSearch] = useState(''); const [category, setCategory] = useState(''); const [type, setType] = useState(''); const [status, setStatus] = useState<'published' | 'draft' | 'archived'>('published'); const [editorOpen, setEditorOpen] = useState(false); const [editingId, setEditingId] = useState(''); const [categoryModalOpen, setCategoryModalOpen] = useState(false); const [categoryName, setCategoryName] = useState('')
+  const articleHeading = useRef<HTMLHeadingElement>(null); const client = useQueryClient(); const articleRef = params.get('material') ?? ''
+  const filters = useMemo(() => ({ q: search.trim() || undefined, category_slug: category || undefined, material_type: type || undefined, status: manager ? status : 'published', page: 1, page_size: 48 }), [category, manager, search, status, type])
+  const categories = useQuery({ queryKey: QK.knowledgeUnitCategories(tenantId), queryFn: getKnowledgeUnitCategories, enabled: Boolean(tenantId) })
+  const materials = useQuery({ queryKey: QK.knowledgeUnitMaterials(tenantId, filters), queryFn: () => getKnowledgeUnitMaterials(filters), enabled: Boolean(tenantId) })
+  const detail = useQuery({ queryKey: QK.knowledgeUnitMaterial(tenantId, articleRef), queryFn: () => getKnowledgeUnitMaterial(articleRef), enabled: Boolean(tenantId && articleRef) })
+  const editDetail = useQuery({ queryKey: QK.knowledgeUnitMaterial(tenantId, editingId), queryFn: () => getKnowledgeUnitMaterial(editingId), enabled: Boolean(tenantId && editingId && editorOpen) })
+  const createCategory = useMutation({ mutationFn: () => createKnowledgeUnitCategory({ name: categoryName.trim() }), onSuccess: () => { setCategoryName(''); setCategoryModalOpen(false); void client.invalidateQueries({ queryKey: QK.knowledgeUnitCategories(tenantId) }) } })
+  const saveMaterial = useMutation({
+    mutationFn: async ({ payload, attachment }: { payload: KnowledgeMaterialInput; attachment: File | null }) => {
+      const saved = editingId
+        ? await updateKnowledgeUnitMaterial(editingId, { ...payload, expected_revision: editDetail.data?.revision ?? 1 })
+        : await createKnowledgeUnitMaterial(payload, crypto.randomUUID())
+      let attachmentError: string | undefined
+      if (attachment) {
+        try { await uploadKnowledgeUnitAttachment(saved.id, attachment) } catch (error) { attachmentError = extractErrorMessage(error) }
+      }
+      return { material: { ...saved, video_url: payload.video_url }, attachmentError }
+    },
+    onSuccess: ({ material }) => {
+      void client.invalidateQueries({ queryKey: QK.knowledgeUnitMaterials(tenantId) })
+      void client.invalidateQueries({ queryKey: QK.knowledgeUnitMaterial(tenantId, materialRef(material)) })
+    },
+  })
+  const statusAction = useMutation({ mutationFn: ({ id, action, revision }: { id: string; action: 'publish' | 'archive'; revision: number }) => action === 'publish' ? publishKnowledgeUnitMaterial(id, revision) : archiveKnowledgeUnitMaterial(id, revision), onSuccess: () => { void client.invalidateQueries({ queryKey: QK.knowledgeUnitMaterials(tenantId) }); void client.invalidateQueries({ queryKey: QK.knowledgeUnitMaterial(tenantId, articleRef) }) } })
+  const rows = materials.data?.items ?? []; const categoryRows = categories.data ?? []
+  function openArticle(material: KnowledgeMaterial) { setParams((current) => { const next = new URLSearchParams(current); next.set('material', materialRef(material)); return next }) }
+  function closeArticle() { setParams((current) => { const next = new URLSearchParams(current); next.delete('material'); return next }) }
+  function openNew() { setEditingId(''); setEditorOpen(true) }
+  function openEdit(material: KnowledgeMaterial) { setEditingId(materialRef(material)); setEditorOpen(true) }
+  function closeEditor() { setEditorOpen(false); setEditingId('') }
+  useEffect(() => { if (articleRef && detail.isSuccess) articleHeading.current?.focus() }, [articleRef, detail.isSuccess])
+  if (!tenantId) return <ErrorState message="Não foi possível identificar a unidade desta sessão." />
   if (articleRef) {
-    if (detail.isLoading)
-      return (
-        <div className="space-y-5">
-          <Button
-            type="button"
-            variant="ghost"
-            icon={ChevronLeft}
-            onClick={back}
-          >
-            Voltar aos artigos
-          </Button>
-          <LoadingState label="Abrindo artigo" />
-        </div>
-      );
-    if (detail.isError)
-      return (
-        <div className="space-y-5">
-          <Button
-            type="button"
-            variant="ghost"
-            icon={ChevronLeft}
-            onClick={back}
-          >
-            Voltar aos artigos
-          </Button>
-          <ErrorState
-            message={extractErrorMessage(detail.error)}
-            onRetry={() => void detail.refetch()}
-          />
-        </div>
-      );
-    const a = detail.data!;
-    const source = safeExternalUrl(a.url);
-    const video = safeExternalUrl(a.video_url);
-    const html = sanitizeKnowledgeMarkdown(a.content_markdown);
-    return (
-      <div className="space-y-5">
-        <Button type="button" variant="ghost" icon={ChevronLeft} onClick={back}>
-          Voltar aos artigos
-        </Button>
-        <Card className="max-w-4xl">
-          <CardHeader>
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              {asString(a.category_name, "Base de conhecimento")} ·{" "}
-              {statusLabel(a.status)}
-            </p>
-            <h1
-              ref={articleHeading}
-              tabIndex={-1}
-              className="mt-1 text-2xl font-bold text-ink"
-            >
-              {asString(a.titulo ?? a.title, "Artigo")}
-            </h1>
-            <p className="mt-2 text-sm text-ink-muted">
-              {asString(a.excerpt ?? a.resumo, "")}
-            </p>
-          </CardHeader>
-          <CardBody>
-            <div className="flex flex-wrap gap-2">
-              {source ? (
-                <a
-                  className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted"
-                  href={source}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Documentação original
-                </a>
-              ) : null}
-              {video ? (
-                <a
-                  className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted"
-                  href={video}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Play className="h-4 w-4" />
-                  Abrir vídeo
-                </a>
-              ) : null}
-            </div>
-            {html ? (
-              <article
-                className="mt-6 break-words text-sm leading-7 text-ink [&_a]:text-brand [&_a]:underline [&_h1]:mt-6 [&_h1]:text-2xl [&_h2]:mt-6 [&_h2]:text-xl [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-xl [&_pre]:bg-surface-muted [&_pre]:p-3 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_ul]:list-disc [&_ul]:pl-6"
-                dangerouslySetInnerHTML={{ __html: html }}
-              />
-            ) : (
-              <EmptyState
-                title={
-                  source
-                    ? "Acesse o material pelo link acima"
-                    : "Conteúdo ainda não disponível"
-                }
-              />
-            )}
-          </CardBody>
-        </Card>
-      </div>
-    );
+    if (detail.isLoading) return <div className="space-y-5"><Button type="button" variant="ghost" icon={ChevronLeft} onClick={closeArticle}>Voltar à Base</Button><LoadingState label="Abrindo material" /></div>
+    if (detail.isError || !detail.data) return <div className="space-y-5"><Button type="button" variant="ghost" icon={ChevronLeft} onClick={closeArticle}>Voltar à Base</Button><ErrorState message={extractErrorMessage(detail.error)} onRetry={() => void detail.refetch()} /></div>
+    const material = detail.data; const source = safeExternalUrl(material.external_url); const video = videoUrlFromKnowledgeMaterial(material); const html = sanitizeKnowledgeMarkdown(material.content_markdown); const attachments = Array.isArray(material.attachments) ? material.attachments : []
+    return <div className="space-y-5"><Button type="button" variant="ghost" icon={ChevronLeft} onClick={closeArticle}>Voltar à Base</Button><Card className="max-w-4xl"><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{material.category_name || 'Sem categoria'} · {TYPE_LABEL[material.material_type] || 'Material'}</p><h1 ref={articleHeading} tabIndex={-1} className="mt-1 text-2xl font-bold text-ink">{material.titulo}</h1><p className="mt-2 text-sm text-ink-muted">{material.excerpt || ''}</p></div>{manager ? <Button type="button" variant="secondary" icon={Edit3} onClick={() => openEdit(material)}>Editar</Button> : null}</div></CardHeader><CardBody><div className="flex flex-wrap gap-2">{source ? <a className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted" href={source} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />Abrir material</a> : null}{video ? <a className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted" href={video} target="_blank" rel="noopener noreferrer"><Play className="h-4 w-4" />Abrir vídeo</a> : null}{attachments.map((attachment) => <AttachmentLink key={attachment.id} materialId={material.id} attachment={attachment} />)}</div>{html ? <article className="mt-6 break-words text-sm leading-7 text-ink [&_a]:text-brand [&_a]:underline [&_h1]:mt-6 [&_h1]:text-2xl [&_h2]:mt-6 [&_h2]:text-xl [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-xl [&_pre]:bg-surface-muted [&_pre]:p-3 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} /> : <EmptyState title={source || video ? 'Acesse o material pelos links acima' : 'Conteúdo ainda não disponível'} />}</CardBody></Card></div>
   }
-  if (categories.isLoading || articles.isLoading) return <LoadingState />;
-  if (categories.isError)
-    return (
-      <ErrorState
-        message={extractErrorMessage(categories.error)}
-        onRetry={() => void categories.refetch()}
-      />
-    );
-  if (articles.isError)
-    return (
-      <ErrorState
-        message={extractErrorMessage(articles.error)}
-        onRetry={() => void articles.refetch()}
-      />
-    );
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Conhecimento Livelab"
-        subtitle="Encontre orientações operacionais e materiais publicados."
-      />
-      <Card>
-        <CardBody className="space-y-4">
-          <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-            <input
-              aria-label="Buscar artigos"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por título, resumo ou tag"
-              className="design-input h-11 w-full pl-10 pr-4"
-            />
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              aria-pressed={!category}
-              variant={category ? "secondary" : "primary"}
-              onClick={() => setCategory("")}
-            >
-              Todas
-            </Button>
-            {categoryRows.map((c, i) => {
-              const id = asString(c.id) || asString(c.slug);
-              return (
-                <Button
-                  key={id || String(i)}
-                  type="button"
-                  aria-pressed={category === id}
-                  variant={category === id ? "primary" : "secondary"}
-                  onClick={() => setCategory(id)}
-                >
-                  {asString(c.nome ?? c.name, "Categoria")}
-                </Button>
-              );
-            })}
-          </div>
-        </CardBody>
-      </Card>
-      <Card>
-        <CardHeader>
-          <p className="text-sm font-bold text-ink">Artigos</p>
-          <p className="mt-1 text-sm text-ink-muted">
-            {filtered.length} encontrado(s)
-          </p>
-        </CardHeader>
-        <CardBody className="space-y-3">
-          {filtered.length ? (
-            filtered.map((a, i) => {
-              const ref = asString(a.slug, "") || asString(a.id, "");
-              return ref ? (
-                <button
-                  key={asString(a.id, String(i))}
-                  type="button"
-                  onClick={() => open(ref)}
-                  className="flex w-full items-start gap-3 rounded-2xl border border-line bg-surface-muted/50 p-4 text-left transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
-                >
-                  <FileText className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
-                  <span>
-                    <span className="block font-bold text-ink">
-                      {asString(a.titulo ?? a.title, "Artigo")}
-                    </span>
-                    {asString(a.excerpt ?? a.resumo) ? (
-                      <span className="mt-1 block text-sm text-ink-muted">
-                        {asString(a.excerpt ?? a.resumo)}
-                      </span>
-                    ) : null}
-                    <span className="mt-2 block text-xs text-ink-muted">
-                      {asString(a.category_name, "Sem categoria")} ·{" "}
-                      {statusLabel(a.status)}
-                      {a.estimated_read_minutes
-                        ? ` · ${a.estimated_read_minutes} min de leitura`
-                        : ""}
-                    </span>
-                  </span>
-                </button>
-              ) : null;
-            })
-          ) : (
-            <EmptyState
-              title="Nenhum artigo encontrado"
-              description="Ajuste a busca ou escolha outra categoria."
-            />
-          )}
-        </CardBody>
-      </Card>
-    </div>
-  );
+  if (categories.isLoading || materials.isLoading) return <LoadingState label="Carregando a Base da unidade" />
+  if (categories.isError) return <ErrorState message={extractErrorMessage(categories.error)} onRetry={() => void categories.refetch()} />
+  if (materials.isError) return <ErrorState message={extractErrorMessage(materials.error)} onRetry={() => void materials.refetch()} />
+  return <div className="space-y-6"><PageHeader title="Base da unidade" subtitle="Uma biblioteca compacta de playbooks, estudos e materiais para a equipe e as apresentadoras." actions={manager ? <Button type="button" icon={Plus} onClick={openNew}>Novo material</Button> : undefined} /><Card><CardBody className="space-y-4"><div className="flex flex-col gap-3 sm:flex-row"><label className="relative block min-w-0 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" /><input aria-label="Buscar materiais" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por título, resumo ou tag" className="design-input h-11 w-full pl-10 pr-4" /></label><select aria-label="Filtrar por tipo" className="design-input h-11 px-3 sm:w-44" value={type} onChange={(event) => setType(event.target.value)}><option value="">Todos os tipos</option>{Object.entries(TYPE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{manager ? <select aria-label="Filtrar por status" className="design-input h-11 px-3 sm:w-40" value={status} onChange={(event) => setStatus(event.target.value as typeof status)}><option value="published">Publicados</option><option value="draft">Rascunhos</option><option value="archived">Arquivados</option></select> : null}</div><div className="flex flex-wrap items-center gap-2"><Button type="button" aria-pressed={!category} variant={category ? 'secondary' : 'primary'} onClick={() => setCategory('')}>Todas</Button>{categoryRows.map((item) => <Button key={item.id} type="button" aria-pressed={category === item.slug} variant={category === item.slug ? 'primary' : 'secondary'} onClick={() => setCategory(item.slug)}>{item.name}</Button>)}{manager ? <Button type="button" variant="ghost" icon={FolderPlus} onClick={() => setCategoryModalOpen(true)}>Nova categoria</Button> : null}</div></CardBody></Card><Card><CardHeader><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink">Materiais</p><p className="mt-1 text-sm text-ink-muted">{rows.length} encontrado(s){materials.data?.has_more ? ' · há mais resultados' : ''}</p></div>{manager ? <Badge tone="info">Gestão: edição e publicação</Badge> : <Badge tone="neutral">Somente publicados</Badge>}</div></CardHeader><CardBody className="space-y-3">{rows.length ? rows.map((material) => <div key={material.id} className="flex items-start gap-3 rounded-2xl border border-line bg-surface-muted/50 p-4 transition hover:bg-surface-muted"><button type="button" onClick={() => openArticle(material)} className="flex min-w-0 flex-1 items-start gap-3 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"><MaterialIcon type={material.material_type} /><span className="min-w-0"><span className="block font-bold text-ink">{material.titulo}</span>{material.excerpt ? <span className="mt-1 block text-sm text-ink-muted">{material.excerpt}</span> : null}<span className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-muted"><span>{material.category_name || 'Sem categoria'}</span><span aria-hidden="true">·</span><span>{TYPE_LABEL[material.material_type] || 'Material'}</span>{manager && material.status !== 'published' ? <><span aria-hidden="true">·</span><span>{STATUS_LABEL[material.status] || material.status}</span></> : null}</span></span></button>{manager ? <div className="flex shrink-0 gap-1"><Button type="button" variant="ghost" size="icon" aria-label={`Editar ${material.titulo}`} title="Editar" onClick={() => openEdit(material)}><Edit3 className="h-4 w-4" /></Button>{material.status === 'published' ? <Button type="button" variant="ghost" size="icon" aria-label={`Arquivar ${material.titulo}`} title="Arquivar" onClick={() => void statusAction.mutateAsync({ id: material.id, action: 'archive', revision: material.revision })}><Archive className="h-4 w-4" /></Button> : <Button type="button" variant="ghost" size="icon" aria-label={`Publicar ${material.titulo}`} title="Publicar" onClick={() => void statusAction.mutateAsync({ id: material.id, action: 'publish', revision: material.revision })}><BookOpen className="h-4 w-4" /></Button>}</div> : null}</div>) : <EmptyState title={manager ? 'Nenhum material neste filtro' : 'A Base ainda está vazia'} description={manager ? 'Crie um material para organizar o conhecimento da unidade.' : 'Quando a gestão publicar materiais, eles aparecerão aqui.'} />}</CardBody></Card>{manager && editorOpen && (editingId ? editDetail.isLoading ? <LoadingState label="Abrindo editor" /> : editDetail.data ? <Suspense fallback={<LoadingState label="Carregando editor" />}><KnowledgeEditor open material={editDetail.data} categories={categoryRows} onClose={closeEditor} onSave={(payload, attachment) => saveMaterial.mutateAsync({ payload, attachment })} /></Suspense> : null : <Suspense fallback={<LoadingState label="Carregando editor" />}><KnowledgeEditor open categories={categoryRows} onClose={closeEditor} onSave={(payload, attachment) => saveMaterial.mutateAsync({ payload, attachment })} /></Suspense>)}{manager ? <Modal open={categoryModalOpen} title="Nova categoria" onClose={() => setCategoryModalOpen(false)} footer={<div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setCategoryModalOpen(false)}>Cancelar</Button><Button type="submit" form="knowledge-category-form" isLoading={createCategory.isPending}>Criar categoria</Button></div>}><form id="knowledge-category-form" className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (categoryName.trim()) createCategory.mutate() }}><label className="grid gap-2 text-sm font-semibold text-ink">Nome<input className="design-input h-11 px-3" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} minLength={2} maxLength={120} required /></label>{createCategory.isError ? <p role="alert" className="text-sm text-[var(--danger)]">{extractErrorMessage(createCategory.error)}</p> : null}</form></Modal> : null}</div>
 }
