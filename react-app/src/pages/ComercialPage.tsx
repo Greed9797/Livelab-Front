@@ -16,7 +16,7 @@ import { ModalSection } from '../components/ui/ModalSection'
 import { ImagePicker } from '../components/ui/ImagePicker'
 import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
 import { BriefingSection } from '../components/comercial/BriefingSection'
-import { MoneyInput } from '../components/ui/MoneyInput'
+import { CondicoesComerciais } from '../components/comercial/CondicoesComerciais'
 import { useToast } from '../components/ui/Toast'
 import { normalizeMoneyInputText, parseBRMoneyToDecimal } from '../utils/money'
 import { extractBrandColor, resolveMarcaCor } from '../utils/brandColor'
@@ -28,6 +28,8 @@ import { downloadCsv } from '../utils/exportCsv'
 import { chaveAgrupamentoCarteira, isCarteiraAtiva, resolverLinkCarteira, selecionarCarteiraPorVisibilidade, type CarteiraVisibilidade } from '../utils/carteira'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
+import { canWrite } from '../utils/access'
+import { useCurrentUser } from '../stores/auth-store'
 
 // Vocabulário de status alinhado aos CHECKs do banco:
 // clientes (migrations 016/042) e marcas (migrations 080/121).
@@ -133,6 +135,7 @@ function officialOperationalGmv(item: JsonRecord) {
 }
 
 export function ComercialPage() {
+  const currentUser = useCurrentUser()
   const ativoFormId = useId()
   const [showClienteForm, setShowClienteForm] = useState(false)
   const [showAfiliadoForm, setShowAfiliadoForm] = useState(false)
@@ -421,6 +424,7 @@ export function ComercialPage() {
   const clienteBusy = clienteMutation.isPending || uploadClienteImage.isPending
   const afiliadoBusy = afiliadoMutation.isPending || uploadAfiliadoImage.isPending
   const ativoBusy = ativoSubmitting || ativoUpdateMutation.isPending || uploadAtivoImage.isPending
+  const podeEditarCondicoes = canWrite(currentUser)
   const clienteClose = useUnsavedChanges({ open: showClienteForm, dirty: JSON.stringify(clienteForm) !== JSON.stringify(emptyClienteForm), busy: clienteBusy, onClose: () => { setShowClienteForm(false); setClienteForm(emptyClienteForm) } })
   const afiliadoClose = useUnsavedChanges({ open: showAfiliadoForm, dirty: JSON.stringify(afiliadoForm) !== JSON.stringify(emptyAfiliadoForm), busy: afiliadoBusy, onClose: () => { setShowAfiliadoForm(false); setAfiliadoForm(emptyAfiliadoForm) } })
   const ativoClose = useUnsavedChanges({ open: Boolean(selectedAtivo), dirty: JSON.stringify(ativoForm) !== JSON.stringify(ativoInitialRef.current) || ativoCorTouch !== null, busy: ativoBusy, onClose: () => setSelectedAtivo(null) })
@@ -556,7 +560,16 @@ export function ComercialPage() {
       }
       // Extração veio automática: reflete no form sem marcar como escolha manual.
       if (typeof cor === 'string' && ativoCorTouch === null) setAtivoForm((current) => ({ ...current, cor }))
-      const payload = buildAtivoUpdatePayload(kind, ativoForm, cor)
+      // Condições comerciais têm vigência própria. O modal cadastral só grava identidade;
+      // qualquer alteração financeira passa pelo editor temporal abaixo.
+      const payload = kind === 'marca'
+        ? {
+            nome: asString(ativoForm.nome, ''),
+            status: asString(ativoForm.status, 'ativa'),
+            logo_url: asString(ativoForm.logo_url, '') || null,
+            ...(cor !== undefined ? { cor } : {}),
+          }
+        : buildAtivoUpdatePayload(kind, ativoForm, cor)
       await ativoUpdateMutation.mutateAsync({ id, kind, payload })
       toast.push(kind === 'cliente' ? 'Cadastro do cliente salvo. Condições comerciais permanecem inalteradas.' : 'Alterações salvas com sucesso.', kind === 'cliente' ? 'info' : 'success')
       ativoInitialRef.current = { ...ativoForm, ...(typeof cor === 'string' ? { cor } : {}) }
@@ -600,6 +613,13 @@ export function ComercialPage() {
     if (!ok) return
     ativoDeleteMutation.mutate({ id, kind })
   }
+
+  const condicoesMarcaId = selectedAtivoKind === 'marca'
+    ? selectedAtivoId || null
+    : marcaPctId
+  const condicoesMarca = selectedAtivoKind === 'marca'
+    ? selectedAtivo
+    : asArray<JsonRecord>(ativoDetailQuery.data?.marcas).find((marca) => asString(marca.id) === marcaPctId) ?? null
 
   return (
     <div className="space-y-6">
@@ -1017,59 +1037,11 @@ export function ComercialPage() {
                   </div>
                 </ModalSection>
 
-                <ModalSection title="Condições comerciais" description="Valores aplicados à marca operacional nas lives e vídeos." collapsible>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="col-span-full"><p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Comissão da marca</p></div>
-                    {selectedAtivoKind === 'cliente' ? <p className="col-span-full rounded-xl bg-[var(--warning-soft)] px-3 py-2 text-xs text-ink-muted">Condições comerciais são mantidas separadas do cadastro e serão alteradas pela programação de vigência.</p> : null}
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Comissão Franquia (%)</span>
-                      <input disabled={selectedAtivoKind === 'cliente'} className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
-                      <span className="mt-1 text-[11px] text-ink-muted">% sobre GMV mensal da marca destinado à franquia.</span>
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Comissão Franqueadora (%)</span>
-                      <input disabled={selectedAtivoKind === 'cliente'} className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franqueadora_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franqueadora_pct: event.target.value }))} />
-                      <span className="mt-1 text-[11px] text-ink-muted">% destinado à Livelab/franqueadora.</span>
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
-                      <MoneyInput disabled={selectedAtivoKind === 'cliente'} className="design-input mt-2 h-11 w-full px-4" placeholder="0,00" value={ativoForm.valor_fixo_minimo} onChange={(raw) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: raw }))} />
-                      <span className="mt-1 text-[11px] text-ink-muted">≈ {formatMoney(parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo))} / mês quando a marca tiver atividade (em franquia e franqueadora).</span>
-                    </label>
-                    <div className="col-span-full">
-                      <span className="text-sm font-semibold text-ink">Tipo de cobrança</span>
-                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        {([
-                          { v: 'fixo_mais_comissao', label: 'Fixo + comissão', hint: 'Soma o fixo mensal e a comissão sobre GMV.' },
-                          { v: 'fixo_ou_comissao', label: 'Fixo OU comissão', hint: 'Entra só o maior: o fixo ou a comissão.' },
-                        ] as const).map((opt) => (
-                          <button
-                            key={opt.v}
-                            type="button"
-                            disabled={selectedAtivoKind === 'cliente'}
-                            onClick={() => setAtivoForm((current) => ({ ...current, tipo_cobranca: opt.v }))}
-                            className={`rounded-xl border px-4 py-3 text-left transition ${ativoForm.tipo_cobranca === opt.v ? 'border-brand bg-brand-soft text-ink' : 'border-border text-ink-muted hover:border-border-strong'}`}
-                            aria-pressed={ativoForm.tipo_cobranca === opt.v}
-                          >
-                            <span className="block text-sm font-semibold">{opt.label}</span>
-                            <span className="mt-0.5 block text-[11px] text-ink-muted">{opt.hint}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="col-span-full grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <label className="block">
-                        <span className="text-sm font-semibold text-ink">Início do contrato</span>
-                        <input disabled={selectedAtivoKind === 'cliente'} type="date" className="design-input mt-2 h-11 w-full px-4" value={ativoForm.data_inicio} onChange={(e) => setAtivoForm((current) => ({ ...current, data_inicio: e.target.value }))} />
-                      </label>
-                      <label className="block">
-                        <span className="text-sm font-semibold text-ink">Fim do contrato</span>
-                        <input disabled={selectedAtivoKind === 'cliente'} type="date" className="design-input mt-2 h-11 w-full px-4" value={ativoForm.data_fim} onChange={(e) => setAtivoForm((current) => ({ ...current, data_fim: e.target.value }))} />
-                        <span className="mt-1 text-[11px] text-ink-muted">Rateia o fixo por dias no mês de entrada/saída. Vazio = sem recorte.</span>
-                      </label>
-                    </div>
-                  </div>
-                </ModalSection>
+                <CondicoesComerciais
+                  marcaId={condicoesMarcaId}
+                  marcaNome={asString(condicoesMarca?.nome ?? selectedAtivo?.marca_principal, '')}
+                  canEdit={podeEditarCondicoes}
+                />
                 <ModalSection title="Ações administrativas" description="Desative, reative ou exclua este cadastro. O histórico é preservado." collapsible>
                   <div className="flex flex-wrap items-end gap-2">
                   <Button type="button" variant="secondary" onClick={() => toggleAtivoStatus()} disabled={ativoUpdateMutation.isPending}>

@@ -80,6 +80,7 @@ export const QK = {
   knowledgeArticles: ['knowledge-articles'] as const,
   ativoOperacional: (params?: { kind?: string; id?: string }) =>
     params ? ['ativo-operacional', params] as const : ['ativo-operacional'] as const,
+  marcaCondicoes: (marcaId?: string) => marcaId ? ['marca-condicoes', marcaId] as const : ['marca-condicoes'] as const,
   historicoGmv: (liveId: string) => ['historico-gmv', liveId] as const,
   metaUnidade: (anoMes?: string) =>
     anoMes ? ['meta-unidade', anoMes] as const : ['meta-unidade'] as const,

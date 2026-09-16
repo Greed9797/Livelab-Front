@@ -181,6 +181,20 @@ export function getMarcaOperacional(id: string, params: Record<string, unknown> 
   return apiGet<JsonRecord>(`/marcas/${id}/operacional`, params)
 }
 
+export function getMarcaCondicoes(marcaId: string) {
+  return apiGet<JsonRecord[]>(`/marcas/${marcaId}/condicoes`)
+}
+
+export function previewMarcaCondicao(marcaId: string, payload: JsonRecord) {
+  return apiPost<JsonRecord>(`/marcas/${marcaId}/condicoes/preview`, payload)
+}
+
+export function confirmMarcaCondicao(marcaId: string, payload: JsonRecord, idempotencyKey: string) {
+  return apiPost<JsonRecord>(`/marcas/${marcaId}/condicoes`, payload, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  })
+}
+
 export function deleteMarca(id: string) {
   return apiDelete(`/marcas/${id}`)
 }
