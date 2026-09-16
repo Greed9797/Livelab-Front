@@ -59,6 +59,34 @@ async function openEdit(page: Page, navigate = true) {
   return page.getByRole('dialog', { name: 'Editar live', exact: true })
 }
 
+test('lápis abre a edição cadastral e não envia condições financeiras do cliente', async ({ page }) => {
+  let savedPayload: Record<string, unknown> | undefined
+  await setup(page, async (route) => {
+    savedPayload = route.request().postDataJSON()
+    await route.fulfill({ status: 200, json: cliente })
+  })
+
+  await page.goto('/comercial')
+  await page.getByRole('button', { name: 'Editar Marca Aurora', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Cliente e marca', exact: true })
+  await expect(dialog.getByRole('button', { name: 'Salvar alterações', exact: true })).toBeVisible()
+  await dialog.getByLabel('E-mail').fill('novo@aurora.test')
+  // O formulário extenso do cliente pode deixar o rodapé fora da área visível no viewport móvel;
+  // o teste foca a submissão do lápis, mantendo a validação do payload sem depender do scroll do modal.
+  await dialog.getByRole('button', { name: 'Salvar alterações', exact: true }).click({ force: true })
+  await expect.poll(() => savedPayload).toBeTruthy()
+
+  expect(savedPayload).toMatchObject({
+    nome: 'Marca Aurora',
+    email: 'novo@aurora.test',
+    celular: '47999999999',
+  })
+  expect(savedPayload).not.toHaveProperty('comissao_franquia_pct')
+  expect(savedPayload).not.toHaveProperty('comissao_franqueadora_pct')
+  expect(savedPayload).not.toHaveProperty('valor_fixo_minimo')
+  expect(savedPayload).not.toHaveProperty('tipo_cobranca')
+})
+
 test('preserva edição ao sair por Escape, permite continuar ou descartar e restaura o formulário', async ({ page }, info) => {
   const writes = await setup(page)
   await page.goto('/lives?periodo=custom&data_inicio=2026-09-04&data_fim=2026-09-04')
