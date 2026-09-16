@@ -97,13 +97,15 @@ T4 → T5
 
 **Done when**:
 
-- [ ] Displays revenue, total expenses, operational result and margin from one reconciled model.
-- [ ] Shows ordered collapsible sections for brands, presenters and operating costs.
-- [ ] Shows totals and counts while sections are collapsed.
-- [ ] Shows compared values and winning rule for `fixo_ou_comissao`.
-- [ ] Uses existing theme tokens, keyboard focus and semantic HTML.
-- [ ] Displays no invented zero when the model is unavailable.
-- [ ] Gate passes with at least 5 render tests.
+- [x] Displays revenue, total expenses, operational result and margin from one reconciled model.
+- [x] Shows ordered collapsible sections for brands, presenters and operating costs.
+- [x] Shows totals and counts while sections are collapsed.
+- [x] Shows compared values and winning rule for `fixo_ou_comissao`.
+- [x] Uses existing theme tokens, keyboard focus and semantic HTML.
+- [x] Displays no invented zero when the model is unavailable.
+- [x] Gate passes with at least 5 render tests.
+
+**Status:** Done. Render tests: 6 passed; quick gate: 529 tests passed.
 
 **Tests**: unit
 **Gate**: quick

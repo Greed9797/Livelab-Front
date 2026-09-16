@@ -130,15 +130,15 @@ A área financeira apresenta uma margem comercial que desconta apenas custos man
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| FIN-01 | Resultado operacional verdadeiro | Design | Pending |
+| FIN-01 | Resultado operacional verdadeiro | T2 | Implemented |
 | FIN-02 | Resultado operacional verdadeiro | T1 | Implemented |
 | FIN-03 | Resultado operacional verdadeiro | T1 | Implemented |
 | FIN-04 | Resultado operacional verdadeiro | T1 | Implemented |
-| FIN-05 | Composição em formato DRE | Design | Pending |
+| FIN-05 | Composição em formato DRE | T2 | Implemented |
 | FIN-06 | Composição em formato DRE | T1 | Implemented |
 | FIN-07 | Composição em formato DRE | T1 | Implemented |
 | FIN-08 | Composição em formato DRE | T1 | Implemented |
-| FIN-09 | Composição em formato DRE | Design | Pending |
+| FIN-09 | Composição em formato DRE | T2 | Implemented |
 | FIN-10 | Composição em formato DRE | T1 | Implemented |
 | FIN-11 | Composição em formato DRE | T1 | Implemented |
 | FIN-12 | Comissões claras e preservadas | Design | Pending |
