@@ -133,21 +133,32 @@ class _ScreenHeader extends StatelessWidget {
     if (words.isEmpty) return const SizedBox.shrink();
     final firstWord = words.first;
     final rest = words.sublist(1).join(' ');
+    // TestWidgetsFlutterBinding cannot fetch google_fonts; keep italic look.
+    final inWidgetTest = WidgetsBinding.instance.runtimeType
+        .toString()
+        .contains('TestWidgetsFlutterBinding');
+    final firstStyle = inWidgetTest
+        ? TextStyle(
+            color: t.textPrimary,
+            fontSize: 32,
+            letterSpacing: -0.6,
+            fontWeight: FontWeight.w400,
+            fontStyle: FontStyle.italic,
+            height: 1.1,
+          )
+        : GoogleFonts.getFont(
+            'Instrument Serif',
+            fontSize: 32,
+            letterSpacing: -0.6,
+            fontWeight: FontWeight.w400,
+            fontStyle: FontStyle.italic,
+            color: t.textPrimary,
+          );
 
     return Text.rich(
       TextSpan(
         children: [
-          TextSpan(
-            text: firstWord,
-            style: GoogleFonts.getFont(
-              'Instrument Serif',
-              fontSize: 32,
-              letterSpacing: -0.6,
-              fontWeight: FontWeight.w400,
-              fontStyle: FontStyle.italic,
-              color: t.textPrimary,
-            ),
-          ),
+          TextSpan(text: firstWord, style: firstStyle),
           if (rest.isNotEmpty)
             TextSpan(
               text: ' $rest',
