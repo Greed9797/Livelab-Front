@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../design_system/design_system.dart';
+import '../../livelab/theme/livelab_theme.dart';
 import '../../models/knowledge_category.dart';
 import '../../providers/knowledge_provider.dart';
 import '../../routes/app_routes.dart';
@@ -120,24 +121,32 @@ class AdminKnowledgeCategoriesScreen extends ConsumerWidget {
   ) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Arquivar categoria'),
-        content: Text(
-          'Categoria "${cat.name}" será desativada (soft delete). '
-          'Artigos dela continuam acessíveis via link direto. '
-          'Pode reativar editando depois.',
-        ),
-        actions: [
-          AppSecondaryButton(
-            label: 'Cancelar',
-            onPressed: () => Navigator.pop(ctx, false),
+      builder: (ctx) {
+        final t = ctx.llTokens;
+        return AlertDialog(
+          backgroundColor: t.bgElev1,
+          title: Text(
+            'Arquivar categoria',
+            style: TextStyle(color: t.textPrimary),
           ),
-          AppDangerButton(
-            label: 'Arquivar',
-            onPressed: () => Navigator.pop(ctx, true),
+          content: Text(
+            'Categoria "${cat.name}" será desativada (soft delete). '
+            'Artigos dela continuam acessíveis via link direto. '
+            'Pode reativar editando depois.',
+            style: TextStyle(color: t.textSecondary),
           ),
-        ],
-      ),
+          actions: [
+            AppSecondaryButton(
+              label: 'Cancelar',
+              onPressed: () => Navigator.pop(ctx, false),
+            ),
+            AppDangerButton(
+              label: 'Arquivar',
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ],
+        );
+      },
     );
     if (ok != true) return;
     try {
@@ -172,6 +181,7 @@ class _CategoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.x4),
       child: Row(
@@ -184,7 +194,7 @@ class _CategoryRow extends StatelessWidget {
                 padding: const EdgeInsets.only(right: AppSpacing.x3),
                 child: Icon(
                   PhosphorIcons.dotsSixVertical(),
-                  color: AppColors.textMuted,
+                  color: t.textMuted,
                   size: 20,
                 ),
               ),
@@ -194,7 +204,7 @@ class _CategoryRow extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.bgMuted,
+              color: t.primarySoft,
               borderRadius: AppRadius.lgR,
             ),
             child: Icon(PhosphorIcons.folder(), color: AppColors.primary),
@@ -208,8 +218,10 @@ class _CategoryRow extends StatelessWidget {
                 Row(
                   children: [
                     Text(category.name,
-                        style: AppTypography.bodyLarge
-                            .copyWith(fontWeight: FontWeight.w600)),
+                        style: AppTypography.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: t.textPrimary,
+                        )),
                     const SizedBox(width: AppSpacing.x2),
                     if (!category.isActive)
                       const AppBadge(
@@ -221,25 +233,26 @@ class _CategoryRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text('/${category.slug}',
                     style: AppTypography.caption
-                        .copyWith(color: AppColors.textMuted)),
+                        .copyWith(color: t.textMuted)),
                 if (category.description != null &&
                     category.description!.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(category.description!,
                       style: AppTypography.bodySmall
-                          .copyWith(color: AppColors.textSecondary)),
+                          .copyWith(color: t.textSecondary)),
                 ],
               ],
             ),
           ),
           IconButton(
-            icon: Icon(PhosphorIcons.pencilSimple(), size: 18),
+            icon: Icon(PhosphorIcons.pencilSimple(),
+                size: 18, color: t.textSecondary),
             onPressed: onEdit,
             tooltip: 'Editar',
           ),
           IconButton(
             icon: Icon(PhosphorIcons.archive(),
-                size: 18, color: AppColors.danger),
+                size: 18, color: t.danger),
             onPressed: onDelete,
             tooltip: 'Arquivar',
           ),
@@ -291,11 +304,39 @@ class _CategoryEditorDialogState
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.category != null;
+    final t = context.llTokens;
+    final fieldBorder = OutlineInputBorder(
+      borderSide: BorderSide(color: t.border),
+    );
+    final fieldTheme = Theme.of(context).copyWith(
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: t.bgElev2,
+        labelStyle: TextStyle(color: t.textSecondary),
+        hintStyle: TextStyle(color: t.textMuted),
+        floatingLabelStyle: TextStyle(color: t.textSecondary),
+        border: fieldBorder,
+        enabledBorder: fieldBorder,
+        focusedBorder: fieldBorder.copyWith(
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+      ),
+      textTheme: Theme.of(context).textTheme.apply(
+            bodyColor: t.textPrimary,
+            displayColor: t.textPrimary,
+          ),
+    );
     return AlertDialog(
-      title: Text(isEdit ? 'Editar categoria' : 'Nova categoria'),
+      backgroundColor: t.bgElev1,
+      title: Text(
+        isEdit ? 'Editar categoria' : 'Nova categoria',
+        style: TextStyle(color: t.textPrimary),
+      ),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
-        child: Form(
+        child: Theme(
+          data: fieldTheme,
+          child: Form(
           key: _formKey,
           child: SingleChildScrollView(
             child: Column(
@@ -347,15 +388,19 @@ class _CategoryEditorDialogState
                 const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Ativa'),
-                  subtitle: const Text(
-                      'Inativa fica oculta da listagem pra usuários finais.'),
+                  title: Text('Ativa', style: TextStyle(color: t.textPrimary)),
+                  subtitle: Text(
+                    'Inativa fica oculta da listagem pra usuários finais.',
+                    style: TextStyle(color: t.textMuted),
+                  ),
                   value: _isActive,
                   onChanged: (v) => setState(() => _isActive = v),
+                  activeThumbColor: AppColors.primary,
                 ),
               ],
             ),
           ),
+        ),
         ),
       ),
       actions: [

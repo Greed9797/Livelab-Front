@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../design_system/design_system.dart';
+import '../../livelab/theme/livelab_theme.dart';
 import '../../models/knowledge_article.dart';
 import '../../models/knowledge_category.dart';
 import '../../providers/auth_provider.dart';
@@ -107,6 +108,7 @@ class _SearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     return AppCard(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.x4,
@@ -115,15 +117,17 @@ class _SearchBar extends StatelessWidget {
       child: Row(
         children: [
           Icon(PhosphorIcons.magnifyingGlass(),
-              size: 18, color: AppColors.textSecondary),
+              size: 18, color: t.textSecondary),
           const SizedBox(width: AppSpacing.x3),
           Expanded(
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              style: AppTypography.bodyMedium,
-              decoration: const InputDecoration(
+              style: AppTypography.bodyMedium.copyWith(color: t.textPrimary),
+              decoration: InputDecoration(
                 hintText: 'Busque por título, tag ou conteúdo…',
+                hintStyle:
+                    AppTypography.bodyMedium.copyWith(color: t.textMuted),
                 isDense: true,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -134,7 +138,7 @@ class _SearchBar extends StatelessWidget {
           if (controller.text.isNotEmpty)
             IconButton(
               icon: Icon(PhosphorIcons.x(), size: 16),
-              color: AppColors.textSecondary,
+              color: t.textSecondary,
               tooltip: 'Limpar',
               onPressed: onClear,
             ),
@@ -157,7 +161,7 @@ class _BrowseContent extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Categorias',
-            style: AppTypography.h2.copyWith(color: AppColors.textPrimary)),
+            style: AppTypography.h2.copyWith(color: context.llTokens.textPrimary)),
         const SizedBox(height: AppSpacing.x4),
         categoriesAsync.when(
           loading: () => const _CategoriesSkeleton(),
@@ -207,7 +211,7 @@ class _BrowseContent extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.x8),
         Text('Destaques',
-            style: AppTypography.h2.copyWith(color: AppColors.textPrimary)),
+            style: AppTypography.h2.copyWith(color: context.llTokens.textPrimary)),
         const SizedBox(height: AppSpacing.x4),
         articlesAsync.when(
           loading: () => const _ArticlesSkeleton(),
@@ -334,7 +338,7 @@ class _SearchResults extends ConsumerWidget {
       children: [
         Text(
           'Resultados para "$query"',
-          style: AppTypography.h3.copyWith(color: AppColors.textPrimary),
+          style: AppTypography.h3.copyWith(color: context.llTokens.textPrimary),
         ),
         const SizedBox(height: AppSpacing.x4),
         asyncValue.when(

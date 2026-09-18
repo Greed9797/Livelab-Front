@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../design_system/design_system.dart';
+import '../../livelab/theme/livelab_theme.dart';
 import '../../models/knowledge_article.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/knowledge_provider.dart';
@@ -182,7 +183,7 @@ class _ArticleBody extends ConsumerWidget {
                 article.coverImageUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
-                  color: AppColors.bgMuted,
+                  color: context.llTokens.bgElev2,
                 ),
               ),
             ),
@@ -195,13 +196,13 @@ class _ArticleBody extends ConsumerWidget {
           Text(
             article.excerpt!,
             style: AppTypography.bodyLarge.copyWith(
-              color: AppColors.textSecondary,
+              color: context.llTokens.textSecondary,
               fontSize: 18,
               height: 1.6,
             ),
           ),
           const SizedBox(height: AppSpacing.x4),
-          const Divider(color: AppColors.borderLight, height: 1),
+          Divider(color: context.llTokens.border, height: 1),
           const SizedBox(height: AppSpacing.x4),
         ],
 
@@ -219,26 +220,26 @@ class _ArticleBody extends ConsumerWidget {
 
         // Tags
         if (article.tags.isNotEmpty) ...[
-          const Divider(color: AppColors.borderLight, height: 1),
+          Divider(color: context.llTokens.border, height: 1),
           const SizedBox(height: AppSpacing.x4),
           Wrap(
             spacing: AppSpacing.x2,
             runSpacing: AppSpacing.x2,
             children: article.tags
                 .map(
-                  (t) => Container(
+                  (tag) => Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.x3,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.bgMuted,
+                      color: context.llTokens.bgElev2,
                       borderRadius: AppRadius.fullR,
                     ),
                     child: Text(
-                      '#$t',
+                      '#$tag',
                       style: AppTypography.caption
-                          .copyWith(color: AppColors.textSecondary),
+                          .copyWith(color: context.llTokens.textSecondary),
                     ),
                   ),
                 )
@@ -249,7 +250,7 @@ class _ArticleBody extends ConsumerWidget {
 
         // Navegação anterior/próximo (mesma categoria)
         if (prev != null || next != null) ...[
-          const Divider(color: AppColors.borderLight, height: 1),
+          Divider(color: context.llTokens.border, height: 1),
           const SizedBox(height: AppSpacing.x4),
           Row(
             children: [
@@ -320,6 +321,7 @@ class _NavCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     return AppCard(
       onTap: () => Navigator.of(context).pushReplacementNamed(
         '${AppRoutes.knowledgeArticle}/${article.slug}',
@@ -333,17 +335,17 @@ class _NavCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (alignment == CrossAxisAlignment.start) ...[
-                Icon(icon, size: 14, color: AppColors.textMuted),
+                Icon(icon, size: 14, color: t.textMuted),
                 const SizedBox(width: 4),
               ],
               Text(label.toUpperCase(),
                   style: AppTypography.caption.copyWith(
-                      color: AppColors.textMuted,
+                      color: t.textMuted,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5)),
               if (alignment == CrossAxisAlignment.end) ...[
                 const SizedBox(width: 4),
-                Icon(icon, size: 14, color: AppColors.textMuted),
+                Icon(icon, size: 14, color: t.textMuted),
               ],
             ],
           ),
@@ -355,7 +357,7 @@ class _NavCard extends StatelessWidget {
                   ? TextAlign.right
                   : TextAlign.left,
               style: AppTypography.bodyMedium
-                  .copyWith(fontWeight: FontWeight.w600)),
+                  .copyWith(fontWeight: FontWeight.w600, color: t.textPrimary)),
         ],
       ),
     );
@@ -370,14 +372,15 @@ class _MetaItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: AppColors.textMuted),
+        Icon(icon, size: 14, color: t.textMuted),
         const SizedBox(width: 6),
         Text(label,
             style: AppTypography.caption
-                .copyWith(color: AppColors.textMuted)),
+                .copyWith(color: t.textMuted)),
       ],
     );
   }

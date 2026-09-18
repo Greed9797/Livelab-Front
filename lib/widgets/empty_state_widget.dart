@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../design_system/design_system.dart';
+import '../livelab/theme/livelab_theme.dart';
 
 class EmptyStateWidget extends StatelessWidget {
   final String message;
@@ -22,9 +23,10 @@ class EmptyStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     final iconData = icon ?? PhosphorIcons.tray();
-    final muted = context.colors.textMuted;
-    final secondary = context.colors.textSecondary;
+    final muted = t.textMuted;
+    final secondary = t.textSecondary;
     final hasAction = actionLabel != null && onAction != null;
 
     return Center(
@@ -41,7 +43,7 @@ class EmptyStateWidget extends StatelessWidget {
                 title!,
                 style: AppTypography.bodyLarge.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: context.colors.textPrimary,
+                  color: t.textPrimary,
                 ),
                 textAlign: TextAlign.center,
               ),

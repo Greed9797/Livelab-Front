@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../design_system/design_system.dart';
+import '../../livelab/theme/livelab_theme.dart';
 import '../../models/knowledge_article.dart';
 
 /// Card de artigo da Knowledge Base.
@@ -17,6 +18,7 @@ class ArticleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     final coverUrl = article.coverImageUrl;
     final hasCover = coverUrl != null && coverUrl.trim().isNotEmpty;
 
@@ -71,12 +73,12 @@ class ArticleCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(PhosphorIcons.clock(),
-                              size: 12, color: AppColors.textMuted),
+                              size: 12, color: t.textMuted),
                           const SizedBox(width: 4),
                           Text(
                             '${article.estimatedReadMinutes} min',
                             style: AppTypography.caption
-                                .copyWith(color: AppColors.textMuted),
+                                .copyWith(color: t.textMuted),
                           ),
                         ],
                       ),
@@ -84,7 +86,7 @@ class ArticleCard extends StatelessWidget {
                     if (article.destaque) ...[
                       const SizedBox(width: AppSpacing.x2),
                       Icon(PhosphorIcons.star(PhosphorIconsStyle.fill),
-                          size: 12, color: AppColors.warning),
+                          size: 12, color: t.warning),
                     ],
                   ],
                 ),
@@ -92,7 +94,7 @@ class ArticleCard extends StatelessWidget {
                 Text(
                   article.titulo,
                   style: AppTypography.h3
-                      .copyWith(color: AppColors.textPrimary),
+                      .copyWith(color: t.textPrimary),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -102,7 +104,7 @@ class ArticleCard extends StatelessWidget {
                   Text(
                     article.excerpt!,
                     style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.textMuted,
+                      color: t.textSecondary,
                       height: 1.5,
                     ),
                     maxLines: 2,
@@ -117,19 +119,19 @@ class ArticleCard extends StatelessWidget {
                     children: article.tags
                         .take(3)
                         .map(
-                          (t) => Container(
+                          (tag) => Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.x2,
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.bgMuted,
+                              color: t.bgElev2,
                               borderRadius: AppRadius.smR,
                             ),
                             child: Text(
-                              '#$t',
+                              '#$tag',
                               style: AppTypography.caption.copyWith(
-                                color: AppColors.textSecondary,
+                                color: t.textSecondary,
                               ),
                             ),
                           ),
@@ -160,6 +162,7 @@ class _CoverFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: Container(
@@ -168,8 +171,8 @@ class _CoverFallback extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppColors.primary.withValues(alpha: 0.10),
-              AppColors.bgMuted,
+              t.primarySoft,
+              t.bgElev2,
             ],
           ),
           borderRadius: borderRadius,

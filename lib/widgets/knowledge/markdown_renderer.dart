@@ -4,6 +4,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../design_system/design_system.dart';
+import '../../livelab/theme/livelab_theme.dart';
 
 /// Renderiza Markdown com tipografia do Design System Livelab.
 ///
@@ -25,38 +26,39 @@ class MarkdownRenderer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = context.llTokens;
 
     final styleSheet = MarkdownStyleSheet(
-      h1: AppTypography.h1.copyWith(color: AppColors.textPrimary),
-      h2: AppTypography.h2.copyWith(color: AppColors.textPrimary),
-      h3: AppTypography.h3.copyWith(color: AppColors.textPrimary),
-      h4: AppTypography.h4.copyWith(color: AppColors.textPrimary),
-      h5: AppTypography.h4.copyWith(color: AppColors.textPrimary),
-      h6: AppTypography.label.copyWith(color: AppColors.textPrimary),
+      h1: AppTypography.h1.copyWith(color: t.textPrimary),
+      h2: AppTypography.h2.copyWith(color: t.textPrimary),
+      h3: AppTypography.h3.copyWith(color: t.textPrimary),
+      h4: AppTypography.h4.copyWith(color: t.textPrimary),
+      h5: AppTypography.h4.copyWith(color: t.textPrimary),
+      h6: AppTypography.label.copyWith(color: t.textPrimary),
       h1Padding: const EdgeInsets.only(top: AppSpacing.x6, bottom: AppSpacing.x3),
       h2Padding: const EdgeInsets.only(top: AppSpacing.x6, bottom: AppSpacing.x3),
       h3Padding: const EdgeInsets.only(top: AppSpacing.x5, bottom: AppSpacing.x2),
       h4Padding: const EdgeInsets.only(top: AppSpacing.x4, bottom: AppSpacing.x2),
       p: AppTypography.bodyLarge.copyWith(
-        color: AppColors.textPrimary,
+        color: t.textSecondary,
         height: 1.7,
       ),
       pPadding: const EdgeInsets.only(bottom: AppSpacing.x3),
       listBullet: AppTypography.bodyLarge.copyWith(
-        color: AppColors.textPrimary,
+        color: t.textSecondary,
         height: 1.7,
       ),
       listBulletPadding: const EdgeInsets.only(right: AppSpacing.x2),
       blockSpacing: AppSpacing.x3,
       blockquote: AppTypography.bodyLarge.copyWith(
-        color: AppColors.textSecondary,
+        color: t.textSecondary,
         fontStyle: FontStyle.italic,
         height: 1.6,
       ),
       blockquoteDecoration: BoxDecoration(
-        color: AppColors.bgMuted,
+        color: t.bgElev2,
         borderRadius: AppRadius.smR,
-        border: const Border(
+        border: Border(
           left: BorderSide(color: AppColors.primary, width: 3),
         ),
       ),
@@ -73,24 +75,24 @@ class MarkdownRenderer extends StatelessWidget {
       ),
       code: AppTypography.bodySmall.copyWith(
         fontFamily: 'monospace',
-        backgroundColor: AppColors.bgMuted,
-        color: AppColors.textPrimary,
+        backgroundColor: t.bgElev2,
+        color: t.textPrimary,
       ),
       codeblockDecoration: BoxDecoration(
-        color: AppColors.bgMuted,
+        color: t.bgElev2,
         borderRadius: AppRadius.mdR,
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: t.border),
       ),
       codeblockPadding: const EdgeInsets.all(AppSpacing.x4),
       tableHead: AppTypography.label.copyWith(
-        color: AppColors.textPrimary,
+        color: t.textPrimary,
         fontWeight: FontWeight.w600,
       ),
       tableBody: AppTypography.bodyMedium.copyWith(
-        color: AppColors.textPrimary,
+        color: t.textSecondary,
       ),
       tableBorder: TableBorder.all(
-        color: AppColors.borderLight,
+        color: t.border,
         width: 1,
       ),
       tableHeadAlign: TextAlign.left,
@@ -98,20 +100,20 @@ class MarkdownRenderer extends StatelessWidget {
         horizontal: AppSpacing.x3,
         vertical: AppSpacing.x2,
       ),
-      horizontalRuleDecoration: const BoxDecoration(
+      horizontalRuleDecoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: AppColors.borderLight, width: 1),
+          top: BorderSide(color: t.border, width: 1),
         ),
       ),
       img: AppTypography.bodyMedium,
       checkbox: AppTypography.bodyMedium,
       strong: AppTypography.bodyLarge.copyWith(
-        color: AppColors.textPrimary,
+        color: t.textPrimary,
         fontWeight: FontWeight.w700,
         height: 1.7,
       ),
       em: AppTypography.bodyLarge.copyWith(
-        color: AppColors.textPrimary,
+        color: t.textSecondary,
         fontStyle: FontStyle.italic,
         height: 1.7,
       ),
@@ -144,12 +146,12 @@ class MarkdownRenderer extends StatelessWidget {
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(
                 height: 120,
-                color: AppColors.bgMuted,
+                color: t.bgElev2,
                 alignment: Alignment.center,
                 child: Text(
                   alt ?? 'Imagem indisponível',
                   style: AppTypography.bodySmall
-                      .copyWith(color: AppColors.textMuted),
+                      .copyWith(color: t.textMuted),
                 ),
               ),
             ),
@@ -164,7 +166,7 @@ class MarkdownRenderer extends StatelessWidget {
 
     // Theme override to keep DefaultTextStyle within MarkdownBody compatible.
     return DefaultTextStyle.merge(
-      style: AppTypography.bodyLarge.copyWith(color: AppColors.textPrimary),
+      style: AppTypography.bodyLarge.copyWith(color: t.textSecondary),
       child: Theme(
         data: theme,
         child: wrapped,

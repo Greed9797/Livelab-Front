@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../design_system/design_system.dart';
+import '../../livelab/theme/livelab_theme.dart';
 import '../../models/knowledge_article.dart';
 import '../../models/knowledge_category.dart';
 import '../../providers/knowledge_provider.dart';
@@ -193,7 +194,7 @@ class _AdminArticleEditorScreenState
           content: Text(
             'Erro ao fazer upload: ${ApiService.extractErrorMessage(e)}',
           ),
-          backgroundColor: AppColors.danger,
+          backgroundColor: context.llTokens.danger,
         ),
       );
     } finally {
@@ -320,12 +321,12 @@ class _AdminArticleEditorScreenState
               child: Column(
                 children: [
                   Container(
-                    color: AppColors.bgCard,
-                    child: const TabBar(
-                      labelColor: AppColors.textPrimary,
-                      unselectedLabelColor: AppColors.textMuted,
+                    color: context.llTokens.bgElev1,
+                    child: TabBar(
+                      labelColor: context.llTokens.textPrimary,
+                      unselectedLabelColor: context.llTokens.textMuted,
                       indicatorColor: AppColors.primary,
-                      tabs: [
+                      tabs: const [
                         Tab(text: 'Editor'),
                         Tab(text: 'Pré-visualização'),
                       ],
@@ -360,12 +361,12 @@ class _AdminArticleEditorScreenState
                   child: formCol,
                 ),
               ),
-              const VerticalDivider(
-                  color: AppColors.borderLight, width: 1),
+              VerticalDivider(
+                  color: context.llTokens.border, width: 1),
               Expanded(
                 flex: 5,
                 child: Container(
-                  color: AppColors.bgBase,
+                  color: context.llTokens.bgBase,
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(AppSpacing.x6),
                     child: preview,
@@ -423,17 +424,21 @@ class _FormColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
+    final fieldStyle = AppTypography.bodyMedium.copyWith(color: t.textPrimary);
+    final hintStyle = AppTypography.bodyMedium.copyWith(color: t.textMuted);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Label('Título'),
         TextFormField(
           controller: tituloCtrl,
-          style: AppTypography.h3,
+          style: AppTypography.h3.copyWith(color: t.textPrimary),
           validator: (v) =>
               (v == null || v.trim().isEmpty) ? 'Obrigatório' : null,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'Como organizar uma live de sucesso',
+            hintStyle: hintStyle,
           ),
         ),
         const SizedBox(height: AppSpacing.x5),
@@ -443,7 +448,7 @@ class _FormColumn extends StatelessWidget {
           loading: () => const LinearProgressIndicator(),
           error: (e, _) => Text('Erro: $e',
               style: AppTypography.bodySmall
-                  .copyWith(color: AppColors.danger)),
+                  .copyWith(color: t.danger)),
           data: (categories) {
             final items = categories
                 .map((c) => DropdownMenuItem<String>(
@@ -521,13 +526,14 @@ class _FormColumn extends StatelessWidget {
           const SizedBox(height: AppSpacing.x3),
           TextFormField(
             controller: videoUrlCtrl,
-            style: AppTypography.bodyMedium,
+            style: fieldStyle,
             decoration: InputDecoration(
               hintText: videoProvider == KbVideoProvider.youtube
                   ? 'https://youtube.com/watch?v=…'
                   : 'https://player-vz-… (Panda)',
+              hintStyle: hintStyle,
               prefixIcon:
-                  Icon(PhosphorIcons.link(), size: 18, color: AppColors.textMuted),
+                  Icon(PhosphorIcons.link(), size: 18, color: t.textMuted),
             ),
             autovalidateMode: AutovalidateMode.onUserInteraction,
             validator: (v) {
@@ -572,16 +578,16 @@ class _FormColumn extends StatelessWidget {
                   errorBuilder: (_, __, ___) => Container(
                     height: 60,
                     decoration: BoxDecoration(
-                      color: AppColors.bgMuted,
+                      color: t.bgElev2,
                       borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(PhosphorIcons.warning(), size: 16, color: AppColors.textMuted),
+                        Icon(PhosphorIcons.warning(), size: 16, color: t.warning),
                         const SizedBox(width: AppSpacing.x2),
                         Text('URL inválida ou imagem indisponível',
-                            style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted)),
+                            style: AppTypography.bodySmall.copyWith(color: t.textSecondary)),
                       ],
                     ),
                   ),
@@ -592,7 +598,7 @@ class _FormColumn extends StatelessWidget {
         ),
         // Botão de upload
         Material(
-          color: AppColors.bgCard,
+          color: t.bgElev1,
           borderRadius: BorderRadius.circular(AppRadius.md),
           child: InkWell(
             onTap: uploadingCover ? null : onPickCover,
@@ -604,7 +610,7 @@ class _FormColumn extends StatelessWidget {
                 vertical: AppSpacing.x4,
               ),
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.borderLight),
+                border: Border.all(color: t.border),
                 borderRadius: BorderRadius.circular(AppRadius.md),
               ),
               child: Row(
@@ -627,7 +633,7 @@ class _FormColumn extends StatelessWidget {
                     uploadingCover ? 'Enviando...' : 'Selecionar imagem',
                     style: AppTypography.bodyMedium.copyWith(
                       color: uploadingCover
-                          ? AppColors.textMuted
+                          ? t.textMuted
                           : AppColors.primary,
                       fontWeight: FontWeight.w600,
                     ),
@@ -641,11 +647,12 @@ class _FormColumn extends StatelessWidget {
         // Fallback: campo URL manual
         TextFormField(
           controller: coverUrlCtrl,
-          style: AppTypography.bodyMedium,
+          style: fieldStyle,
           decoration: InputDecoration(
             hintText: 'Ou cole uma URL diretamente (opcional)',
+            hintStyle: hintStyle,
             prefixIcon:
-                Icon(PhosphorIcons.link(), size: 18, color: AppColors.textMuted),
+                Icon(PhosphorIcons.link(), size: 18, color: t.textMuted),
           ),
         ),
         const SizedBox(height: AppSpacing.x5),
@@ -699,7 +706,7 @@ class _FormColumn extends StatelessWidget {
                               ? 'Aparece em destaques'
                               : 'Sem destaque',
                           style: AppTypography.bodySmall
-                              .copyWith(color: AppColors.textMuted),
+                              .copyWith(color: t.textSecondary),
                         ),
                       ],
                     ),
@@ -716,13 +723,15 @@ class _FormColumn extends StatelessWidget {
           controller: contentCtrl,
           maxLines: null,
           minLines: 20,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 13,
             height: 1.55,
+            color: t.textPrimary,
           ),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: '# Título\n\nEscreva aqui usando Markdown…',
+            hintStyle: hintStyle,
             alignLabelWithHint: true,
           ),
         ),
@@ -812,6 +821,7 @@ class _PreviewColumnState extends State<_PreviewColumn> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -822,7 +832,7 @@ class _PreviewColumnState extends State<_PreviewColumn> {
             Text(
               'PRÉ-VISUALIZAÇÃO',
               style: AppTypography.caption.copyWith(
-                color: AppColors.textMuted,
+                color: t.textMuted,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 1.4,
               ),
@@ -832,7 +842,7 @@ class _PreviewColumnState extends State<_PreviewColumn> {
         const SizedBox(height: AppSpacing.x4),
         Text(
           _debouncedTitulo.trim().isEmpty ? 'Título do artigo' : _debouncedTitulo,
-          style: AppTypography.h1.copyWith(color: AppColors.textPrimary),
+          style: AppTypography.h1.copyWith(color: t.textPrimary),
         ),
         const SizedBox(height: AppSpacing.x4),
         // VideoBlock acima do markdown (debounce 500ms evita rebuild de iframe a cada keystroke).
@@ -843,20 +853,20 @@ class _PreviewColumnState extends State<_PreviewColumn> {
           Text(
             _debouncedExcerpt,
             style: AppTypography.bodyLarge.copyWith(
-              color: AppColors.textSecondary,
+              color: t.textSecondary,
               fontSize: 18,
               height: 1.6,
             ),
           ),
           const SizedBox(height: AppSpacing.x4),
-          const Divider(color: AppColors.borderLight, height: 1),
+          Divider(color: t.border, height: 1),
           const SizedBox(height: AppSpacing.x4),
         ],
         if (_debouncedContent.trim().isEmpty)
           Text(
             'A pré-visualização do conteúdo aparece aqui.',
             style: AppTypography.bodyMedium
-                .copyWith(color: AppColors.textMuted),
+                .copyWith(color: t.textMuted),
           )
         else
           MarkdownRenderer(data: _debouncedContent),
@@ -871,12 +881,13 @@ class _Label extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.x2),
       child: Text(
         text,
         style: AppTypography.label.copyWith(
-          color: AppColors.textSecondary,
+          color: t.textSecondary,
           fontWeight: FontWeight.w600,
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../design_system/design_system.dart';
+import '../../livelab/theme/livelab_theme.dart';
 import '../../models/knowledge_category.dart';
 
 /// Card de categoria da Knowledge Base.
@@ -19,6 +20,7 @@ class CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     return AppCard(
       onTap: onTap,
       child: Column(
@@ -28,7 +30,7 @@ class CategoryCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.10),
+              color: t.primarySoft,
               borderRadius: AppRadius.mdR,
             ),
             alignment: Alignment.center,
@@ -42,7 +44,7 @@ class CategoryCard extends StatelessWidget {
           Text(
             category.name,
             style:
-                AppTypography.h3.copyWith(color: AppColors.textPrimary),
+                AppTypography.h3.copyWith(color: t.textPrimary),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -53,7 +55,7 @@ class CategoryCard extends StatelessWidget {
                 ? category.description!
                 : 'Artigos sobre ${category.name.toLowerCase()}.',
             style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.textMuted,
+              color: t.textSecondary,
               height: 1.5,
             ),
             maxLines: 2,
@@ -63,12 +65,12 @@ class CategoryCard extends StatelessWidget {
           Row(
             children: [
               Icon(PhosphorIcons.fileText(),
-                  size: 14, color: AppColors.textMuted),
+                  size: 14, color: t.textMuted),
               const SizedBox(width: 6),
               Text(
                 _articleCountLabel(articleCount),
                 style: AppTypography.caption
-                    .copyWith(color: AppColors.textMuted),
+                    .copyWith(color: t.textMuted),
               ),
               const Spacer(),
               Icon(PhosphorIcons.arrowRight(),

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../../design_system/design_system.dart';
+import '../../livelab/theme/livelab_theme.dart';
 import '../../models/knowledge_article.dart';
 import 'panda_iframe.dart';
 
@@ -111,13 +112,14 @@ class _PandaFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     // No Flutter Web, embedamos via HtmlElementView (iframe nativo).
     // Em mobile/desktop, mostramos fallback "Abrir no Panda".
     if (kIsWeb) {
       return PandaIframeView(url: url);
     }
     return Container(
-      color: AppColors.bgMuted,
+      color: t.bgElev2,
       alignment: Alignment.center,
       padding: const EdgeInsets.all(AppSpacing.x6),
       child: Column(
@@ -128,7 +130,7 @@ class _PandaFallback extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: AppColors.bgCard,
+              color: t.bgElev1,
               borderRadius: AppRadius.fullR,
               boxShadow: AppShadows.sm,
             ),
@@ -141,12 +143,12 @@ class _PandaFallback extends StatelessWidget {
           const SizedBox(height: AppSpacing.x3),
           Text(
             'Vídeo hospedado no Panda',
-            style: AppTypography.h4.copyWith(color: AppColors.textPrimary),
+            style: AppTypography.h4.copyWith(color: t.textPrimary),
           ),
           const SizedBox(height: AppSpacing.x2),
           Text(
             'Toque para abrir o vídeo no Panda.',
-            style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted),
+            style: AppTypography.bodySmall.copyWith(color: t.textMuted),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.x4),
@@ -174,8 +176,9 @@ class _UnavailableEmbed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.llTokens;
     return Container(
-      color: AppColors.bgMuted,
+      color: t.bgElev2,
       alignment: Alignment.center,
       padding: const EdgeInsets.all(AppSpacing.x4),
       child: Column(
@@ -183,12 +186,12 @@ class _UnavailableEmbed extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(PhosphorIcons.warningCircle(),
-              color: AppColors.warning, size: 28),
+              color: t.warning, size: 28),
           const SizedBox(height: AppSpacing.x2),
           Text(
             message,
             style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
+              color: t.textSecondary,
             ),
             textAlign: TextAlign.center,
           ),
