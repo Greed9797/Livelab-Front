@@ -58,7 +58,7 @@ class _KnowledgeHomeScreenState extends ConsumerState<KnowledgeHomeScreen> {
       actions: [
         if (isMaster) ...[
           AppGhostButton(
-            label: 'Categorias',
+            label: 'Gerenciar categorias',
             icon: PhosphorIcons.folders(),
             onPressed: () => Navigator.of(context)
                 .pushNamed(AppRoutes.adminKnowledgeCategories),
@@ -178,6 +178,11 @@ class _BrowseContent extends ConsumerWidget {
                 message: isMaster
                     ? 'Crie a primeira categoria para começar a organizar artigos.'
                     : 'Em breve você verá aqui materiais organizados por tema.',
+                actionLabel: isMaster ? 'Nova categoria' : null,
+                onAction: isMaster
+                    ? () => Navigator.of(context)
+                        .pushNamed(AppRoutes.adminKnowledgeCategories)
+                    : null,
               );
             }
             final articles = articlesAsync.valueOrNull ?? const [];
@@ -187,6 +192,12 @@ class _BrowseContent extends ConsumerWidget {
               final slug = a.categorySlug;
               if (slug == null) continue;
               countBySlug[slug] = (countBySlug[slug] ?? 0) + 1;
+            }
+            // Prefer API article_count when present (Back #15); else client tally.
+            for (final cat in categories) {
+              if (cat.articleCount != null) {
+                countBySlug[cat.slug] = cat.articleCount!;
+              }
             }
             return _CategoryGrid(
               categories: categories,

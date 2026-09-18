@@ -69,6 +69,8 @@ class AppColors {
   static const Color lilac = Color(0xFFD8B4FE);
   static const Color primarySoft = Color(0xFFFFE8DC);   // matches bgGradientStart
   static const Color primarySofter = Color(0xFFFFF3EC); // --primary-softer from HTML
+  /// Alias used by older screens that expected theme token naming.
+  static const Color primarySoftBg = primarySofter;
   static const Color hairline = Color(0x0F1A1A1A);      // rgba(26,26,26,0.06)
 
   // ═══════════════════════════════════════════

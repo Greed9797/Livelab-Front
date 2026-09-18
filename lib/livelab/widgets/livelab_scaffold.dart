@@ -266,7 +266,9 @@ class LivelabScaffold extends ConsumerWidget {
           LivelabNavItem(label: 'Franqueados', icon: PhosphorIcons.users(), route: AppRoutes.masterFranqueados),
           LivelabNavItem(label: 'Gerentes regionais', icon: PhosphorIcons.usersThree(), route: AppRoutes.masterRegionalManagers),
           LivelabNavItem(label: 'TikTok Apps', icon: PhosphorIcons.tiktokLogo(), route: AppRoutes.masterTiktokApps),
-          LivelabNavItem(label: 'Conhecimento', icon: PhosphorIcons.book(), route: AppRoutes.adminKnowledgeCategories),
+          // Master lands on the KB home (discoverable CTAs), not straight into
+          // the categories admin — category CRUD is reached via "Gerenciar categorias".
+          LivelabNavItem(label: 'Conhecimento', icon: PhosphorIcons.book(), route: AppRoutes.knowledgeBase),
           LivelabNavItem(label: 'Configurações', icon: PhosphorIcons.gear(), route: AppRoutes.configuracoes),
         ]),
       ];

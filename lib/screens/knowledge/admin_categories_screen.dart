@@ -20,7 +20,7 @@ class AdminKnowledgeCategoriesScreen extends ConsumerWidget {
     return AppScreenScaffold(
       currentRoute: AppRoutes.knowledgeBase,
       eyebrow: 'CONHECIMENTO',
-      title: 'Categorias',
+      title: 'Gerenciar categorias',
       subtitle: 'Organize os artigos por área. Arraste pelo punho para reordenar.',
       actions: [
         AppGhostButton(

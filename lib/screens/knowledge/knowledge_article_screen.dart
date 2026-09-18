@@ -126,10 +126,19 @@ class _ArticleBody extends ConsumerWidget {
           children: [
             if (article.categoryName != null &&
                 article.categoryName!.trim().isNotEmpty)
-              AppBadge(
-                label: article.categoryName!.toUpperCase(),
-                type: AppBadgeType.neutral,
-                showDot: false,
+              InkWell(
+                onTap: article.categorySlug == null ||
+                        article.categorySlug!.trim().isEmpty
+                    ? null
+                    : () => Navigator.of(context).pushNamed(
+                          '${AppRoutes.knowledgeCategory}/${article.categorySlug}',
+                        ),
+                borderRadius: AppRadius.smR,
+                child: AppBadge(
+                  label: article.categoryName!.toUpperCase(),
+                  type: AppBadgeType.neutral,
+                  showDot: false,
+                ),
               ),
             if (article.estimatedReadMinutes != null)
               _MetaItem(
