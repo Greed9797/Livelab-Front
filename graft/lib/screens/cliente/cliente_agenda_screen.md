@@ -1,0 +1,63 @@
+# lib/screens/cliente/cliente_agenda_screen.dart
+
+- _kTimeStart · constant · L21-L21 — const _kTimeStart = 8 * 60; // 08:00 in minutes from midnight
+- _kTimeEnd · constant · L22-L22 — const _kTimeEnd = 22 * 60; // 22:00
+- _kStep · constant · L23-L23 — const _kStep = 30; // 30-min slots
+- _kCellW · constant · L24-L24 — const _kCellW = 88.0;
+- _kCellH · constant · L25-L25 — const _kCellH = 48.0;
+- _kTimeColW · constant · L26-L26 — const _kTimeColW = 56.0;
+- _fmt2 · function · L28-L28 — String _fmt2(int n) => n.toString().padLeft(2, '0');
+- _cellTimeLabel · function · L30-L31 — String _cellTimeLabel(int minuteOfDay) =>
+- _slotCoversCell · function · L34-L42 — bool _slotCoversCell(AgendaSlot slot, String data, int cellMinute)
+- _fmtDate · function · L44-L47 — String _fmtDate(DateTime d) =>
+- _dateLabel · function · L49-L52 — String _dateLabel(DateTime d)
+- _dateLabelFull · function · L54-L57 — String _dateLabelFull(DateTime d)
+- _weekdayShort · function · L59-L62 — String _weekdayShort(DateTime d)
+- _addMinutes · function · L64-L70 — String _addMinutes(String hhmm, int minutes)
+- ClienteAgendaScreen · class · L76-L98 — class ClienteAgendaScreen extends ConsumerWidget
+- build · method · L80-L97 — Widget build(BuildContext context, WidgetRef ref)
+- ClienteAgendaBody · class · L101-L106 — class ClienteAgendaBody extends ConsumerStatefulWidget
+- createState · method · L105-L105 — ConsumerState<ClienteAgendaBody> createState() => _ClienteAgendaBodyState();
+- _ClienteAgendaBodyState · class · L108-L271 — class _ClienteAgendaBodyState extends ConsumerState<ClienteAgendaBody>
+- initState · method · L112-L115 — void initState()
+- _prevWeek · method · L117-L126 — void _prevWeek()
+- _nextWeek · method · L128-L137 — void _nextWeek()
+- build · method · L140-L217 — Widget build(BuildContext context)
+- _openBottomSheet · method · L219-L270 — void _openBottomSheet(
+- _mondayOf · function · L277-L280 — DateTime _mondayOf(DateTime date)
+- _WeekNavigator · class · L286-L339 — class _WeekNavigator extends StatelessWidget
+- build · method · L298-L338 — Widget build(BuildContext context)
+- _DayTabs · class · L345-L433 — class _DayTabs extends StatelessWidget
+- build · method · L357-L432 — Widget build(BuildContext context)
+- _AgendaGrid · class · L439-L521 — class _AgendaGrid extends StatelessWidget
+- build · method · L457-L520 — Widget build(BuildContext context)
+- _GridHeader · class · L523-L565 — class _GridHeader extends StatelessWidget
+- build · method · L529-L564 — Widget build(BuildContext context)
+- _GridRow · class · L567-L644 — class _GridRow extends StatelessWidget
+- build · method · L585-L643 — Widget build(BuildContext context)
+- _GridCell · class · L646-L730 — class _GridCell extends StatelessWidget
+- build · method · L658-L729 — Widget build(BuildContext context)
+- _ErrorView · class · L736-L774 — class _ErrorView extends StatelessWidget
+- build · method · L743-L773 — Widget build(BuildContext context)
+- _NovaLiveBottomSheet · class · L780-L802 — class _NovaLiveBottomSheet extends ConsumerStatefulWidget
+- createState · method · L800-L801 — ConsumerState<_NovaLiveBottomSheet> createState() =>
+- _NovaLiveBottomSheetState · class · L804-L950 — class _NovaLiveBottomSheetState extends ConsumerState<_NovaLiveBottomSheet>
+- _duracoes · constant · L813-L813 — static const _duracoes = ['1h30', '2h', '2h30', '3h', '4h', '6h'];
+- _duracoesMin · constant · L814-L814 — static const _duracoesMin = [90, 120, 150, 180, 240, 360];
+- dispose · method · L821-L824 — void dispose()
+- _selectDuracao · method · L826-L832 — void _selectDuracao(int index)
+- _submit · method · L834-L863 — Future<void> _submit() async
+- _extractStatusCode · method · L865-L873 — int? _extractStatusCode(Object e)
+- build · method · L876-L949 — Widget build(BuildContext context)
+- _StepTipo · class · L956-L1065 — class _StepTipo extends StatelessWidget
+- _tipos · constant · L964-L970 — static const _tipos = [
+- _formatDataDisplay · method · L982-L989 — String _formatDataDisplay(String iso)
+- build · method · L992-L1064 — Widget build(BuildContext context)
+- _StepDuracao · class · L1071-L1179 — class _StepDuracao extends StatelessWidget
+- _duracoes · constant · L1079-L1079 — static const _duracoes = ['1h30', '2h', '2h30', '3h', '4h', '6h'];
+- build · method · L1092-L1178 — Widget build(BuildContext context)
+- _StepConfirmacao · class · L1185-L1298 — class _StepConfirmacao extends StatelessWidget
+- _formatDataDisplay · method · L1211-L1218 — String _formatDataDisplay(String iso)
+- build · method · L1221-L1297 — Widget build(BuildContext context)
+- _SummaryRow · class · L1300-L1334 — class _SummaryRow extends StatelessWidget
+- build · method · L1307-L1333 — Widget build(BuildContext context)

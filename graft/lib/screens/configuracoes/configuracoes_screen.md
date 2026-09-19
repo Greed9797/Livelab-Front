@@ -1,0 +1,46 @@
+# lib/screens/configuracoes/configuracoes_screen.dart
+
+- ConfiguracoesScreen · class · L21-L27 — class ConfiguracoesScreen extends ConsumerStatefulWidget
+- createState · method · L25-L26 — ConsumerState<ConfiguracoesScreen> createState() =>
+- _ConfiguracoesScreenState · class · L29-L1599 — class _ConfiguracoesScreenState extends ConsumerState<ConfiguracoesScreen>
+- _maskSecret · method · L52-L55 — String _maskSecret(String value)
+- _ensureSensitiveAuth · method · L57-L164 — Future<bool> _ensureSensitiveAuth({required String operationLabel}) async
+- _salvarFinanceiroSensivel · method · L166-L184 — Future<void> _salvarFinanceiroSensivel() async
+- _passwordStrength · method · L186-L197 — PasswordStrength _passwordStrength(String pwd)
+- _salvarNovaSenha · method · L199-L248 — Future<void> _salvarNovaSenha() async
+- initState · method · L251-L255 — void initState()
+- dispose · method · L258-L271 — void dispose()
+- _salvar · method · L273-L288 — Future<void> _salvar(
+- _mostrarFormCabine · method · L290-L443 — Future<void> _mostrarFormCabine(BuildContext context) async
+- _confirmarDeletar · method · L445-L525 — Future<void> _confirmarDeletar(BuildContext context, Cabine cabine) async
+- _buildContent · method · L531-L550 — Widget _buildContent(dynamic conf)
+- build · method · L553-L635 — Widget build(BuildContext context)
+- _buildPanel · method · L639-L695 — Widget _buildPanel(
+- _field · method · L697-L717 — Widget _field(String label, TextEditingController ctrl,
+- _idDisplay · method · L719-L785 — Widget _idDisplay(String id)
+- _readOnlyRow · method · L787-L814 — Widget _readOnlyRow(String label, String value)
+- _pickAndUploadLogo · method · L816-L851 — Future<void> _pickAndUploadLogo() async
+- _logoUploadArea · method · L853-L971 — Widget _logoUploadArea()
+- _buildGeral · method · L975-L1036 — Widget _buildGeral(dynamic conf)
+- _buildContactHistory · method · L1038-L1078 — Widget _buildContactHistory(List<dynamic> history)
+- _buildFinanceiro · method · L1080-L1121 — Widget _buildFinanceiro(dynamic conf)
+- _buildIntegravel · method · L1123-L1236 — Widget _buildIntegravel(dynamic conf)
+- _testarTiktokConnection · method · L1238-L1257 — Future<void> _testarTiktokConnection() async
+- _confirmarDesconectarTiktok · method · L1259-L1291 — Future<void> _confirmarDesconectarTiktok() async
+- _conectarTikTok · method · L1293-L1319 — Future<void> _conectarTikTok() async
+- _buildSeguranca · method · L1321-L1364 — Widget _buildSeguranca()
+- _buildPacotes · method · L1366-L1513 — Widget _buildPacotes()
+- _buildCabines · method · L1515-L1598 — Widget _buildCabines()
+- _NavItem · class · L1603-L1646 — class _NavItem extends StatelessWidget
+- build · method · L1616-L1645 — Widget build(BuildContext context)
+- _CabineConfigItem · class · L1650-L1665 — class _CabineConfigItem extends StatefulWidget
+- createState · method · L1664-L1664 — State<_CabineConfigItem> createState() => _CabineConfigItemState();
+- _CabineConfigItemState · class · L1667-L1793 — class _CabineConfigItemState extends State<_CabineConfigItem>
+- initState · method · L1676-L1682 — void initState()
+- dispose · method · L1685-L1691 — void dispose()
+- _salvar · method · L1693-L1707 — Future<void> _salvar() async
+- build · method · L1710-L1792 — Widget build(BuildContext context)
+- _InfoChip · class · L1795-L1830 — class _InfoChip extends StatelessWidget
+- build · method · L1802-L1829 — Widget build(BuildContext context)
+- _PasswordStrengthBar · class · L1836-L1869 — class _PasswordStrengthBar extends StatelessWidget
+- build · method · L1842-L1868 — Widget build(BuildContext context)

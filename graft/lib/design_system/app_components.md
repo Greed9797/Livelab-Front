@@ -1,0 +1,67 @@
+# lib/design_system/app_components.dart
+
+- AppCard · class · L14-L72 — class AppCard extends StatelessWidget
+- build · method · L39-L71 — Widget build(BuildContext context)
+- AppPrimaryButton · class · L77-L154 — class AppPrimaryButton extends StatelessWidget
+- build · method · L98-L153 — Widget build(BuildContext context)
+- AppSecondaryButton · class · L159-L190 — class AppSecondaryButton extends StatelessWidget
+- build · method · L174-L189 — Widget build(BuildContext context)
+- AppTextField · class · L195-L223 — class AppTextField extends StatefulWidget
+- createState · method · L222-L222 — State<AppTextField> createState() => _AppTextFieldState();
+- _AppTextFieldState · class · L225-L272 — class _AppTextFieldState extends State<AppTextField>
+- initState · method · L229-L232 — void initState()
+- didUpdateWidget · method · L235-L240 — void didUpdateWidget(covariant AppTextField oldWidget)
+- build · method · L243-L271 — Widget build(BuildContext context)
+- AppBadge · class · L279-L361 — class AppBadge extends StatelessWidget
+- _statusConfigs · constant · L300-L321 — static const _statusConfigs = <String, (String, AppBadgeType)>
+- build · method · L324-L360 — Widget build(BuildContext context)
+- AppKpiCard · class · L366-L428 — class AppKpiCard extends StatelessWidget
+- build · method · L383-L427 — Widget build(BuildContext context)
+- AppProgressBar · class · L433-L455 — class AppProgressBar extends StatelessWidget
+- build · method · L444-L454 — Widget build(BuildContext context)
+- AppRatingStars · class · L460-L487 — class AppRatingStars extends StatelessWidget
+- build · method · L471-L486 — Widget build(BuildContext context)
+- AppGradientBackground · class · L492-L507 — class AppGradientBackground extends StatelessWidget
+- build · method · L498-L506 — Widget build(BuildContext context)
+- AppSectionHeader · class · L512-L553 — class AppSectionHeader extends StatelessWidget
+- build · method · L525-L552 — Widget build(BuildContext context)
+- AppDropdown · class · L558-L615 — class AppDropdown<T> extends StatelessWidget
+- build · method · L575-L614 — Widget build(BuildContext context)
+- _PulsingDot · class · L620-L625 — class _PulsingDot extends StatefulWidget
+- createState · method · L624-L624 — State<_PulsingDot> createState() => _PulsingDotState();
+- _PulsingDotState · class · L627-L658 — class _PulsingDotState extends State<_PulsingDot>
+- initState · method · L631-L636 — void initState()
+- dispose · method · L639-L642 — void dispose()
+- build · method · L645-L657 — Widget build(BuildContext context)
+- AppChip · class · L663-L711 — class AppChip extends StatelessWidget
+- build · method · L678-L710 — Widget build(BuildContext context)
+- AppSegmentedControl · class · L716-L767 — class AppSegmentedControl<T> extends StatelessWidget
+- build · method · L731-L766 — Widget build(BuildContext context)
+- AppGhostButton · class · L772-L823 — class AppGhostButton extends StatelessWidget
+- build · method · L789-L822 — Widget build(BuildContext context)
+- AppDangerButton · class · L828-L884 — class AppDangerButton extends StatelessWidget
+- build · method · L845-L883 — Widget build(BuildContext context)
+- AvatarGradientTopbar · class · L889-L931 — class AvatarGradientTopbar extends StatelessWidget
+- build · method · L900-L930 — Widget build(BuildContext context)
+- AppTableColumn · class · L936-L940 — class AppTableColumn
+- AppTableRow · class · L942-L946 — class AppTableRow
+- AppTable · class · L948-L1052 — class AppTable extends StatelessWidget
+- build · method · L963-L1045 — Widget build(BuildContext context)
+- _alignToTextAlign · method · L1047-L1051 — TextAlign _alignToTextAlign(Alignment align)
+- ScoreRing · class · L1057-L1091 — class ScoreRing extends StatelessWidget
+- build · method · L1064-L1090 — Widget build(BuildContext context)
+- _ScoreRingSvgPainter · class · L1093-L1134 — class _ScoreRingSvgPainter extends CustomPainter
+- paint · method · L1100-L1129 — void paint(Canvas canvas, Size size)
+- shouldRepaint · method · L1132-L1133 — bool shouldRepaint(covariant _ScoreRingSvgPainter old) =>
+- KpiAccentCard · class · L1139-L1215 — class KpiAccentCard extends StatelessWidget
+- build · method · L1160-L1214 — Widget build(BuildContext context)
+- KpiFinCard · class · L1222-L1281 — class KpiFinCard extends StatelessWidget
+- build · method · L1239-L1280 — Widget build(BuildContext context)
+- BigKpi · class · L1288-L1353 — class BigKpi extends StatelessWidget
+- build · method · L1305-L1352 — Widget build(BuildContext context)
+- ChartCard · class · L1358-L1393 — class ChartCard extends StatelessWidget
+- build · method · L1367-L1392 — Widget build(BuildContext context)
+- MetricCardRebrand · class · L1398-L1458 — class MetricCardRebrand extends StatelessWidget
+- build · method · L1417-L1457 — Widget build(BuildContext context)
+- MetricCard · class · L1459-L1557 — class MetricCard extends StatelessWidget
+- build · method · L1480-L1556 — Widget build(BuildContext context)

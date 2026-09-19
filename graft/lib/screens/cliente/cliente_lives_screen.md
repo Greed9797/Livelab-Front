@@ -1,0 +1,52 @@
+# lib/screens/cliente/cliente_lives_screen.dart
+
+- ClienteLivesScreen · class · L17-L31 — class ClienteLivesScreen extends StatelessWidget
+- build · method · L21-L30 — Widget build(BuildContext context)
+- ClienteLivesBody · class · L34-L39 — class ClienteLivesBody extends ConsumerStatefulWidget
+- createState · method · L38-L38 — ConsumerState<ClienteLivesBody> createState() => _ClienteLivesBodyState();
+- _ClienteLivesBodyState · class · L41-L84 — class _ClienteLivesBodyState extends ConsumerState<ClienteLivesBody>
+- initState · method · L46-L49 — void initState()
+- dispose · method · L52-L55 — void dispose()
+- build · method · L58-L83 — Widget build(BuildContext context)
+- _AoVivoTab · class · L90-L118 — class _AoVivoTab extends ConsumerWidget
+- build · method · L92-L117 — Widget build(BuildContext context, WidgetRef ref)
+- _AoVivoContent · class · L120-L135 — class _AoVivoContent extends StatelessWidget
+- build · method · L126-L134 — Widget build(BuildContext context)
+- _LiveActiveView · class · L137-L215 — class _LiveActiveView extends StatelessWidget
+- _currency · constant · L138-L139 — static final NumberFormat _currency =
+- build · method · L146-L214 — Widget build(BuildContext context)
+- _LiveHeader · class · L217-L282 — class _LiveHeader extends StatelessWidget
+- build · method · L223-L281 — Widget build(BuildContext context)
+- _MetricTile · class · L284-L344 — class _MetricTile extends StatelessWidget
+- build · method · L300-L343 — Widget build(BuildContext context)
+- _EngagementRow · class · L346-L392 — class _EngagementRow extends StatelessWidget
+- build · method · L352-L391 — Widget build(BuildContext context)
+- _EngagementChip · class · L394-L433 — class _EngagementChip extends StatelessWidget
+- build · method · L406-L432 — Widget build(BuildContext context)
+- _EmptyState · class · L435-L496 — class _EmptyState extends StatelessWidget
+- build · method · L441-L495 — Widget build(BuildContext context)
+- _ProximaReservaCard · class · L498-L563 — class _ProximaReservaCard extends StatelessWidget
+- _dateFormat · constant · L499-L500 — static final DateFormat _dateFormat =
+- build · method · L520-L562 — Widget build(BuildContext context)
+- _ReservaRow · class · L565-L593 — class _ReservaRow extends StatelessWidget
+- build · method · L572-L592 — Widget build(BuildContext context)
+- _ActionButtons · class · L595-L626 — class _ActionButtons extends StatelessWidget
+- build · method · L599-L625 — Widget build(BuildContext context)
+- _HistoricoTab · class · L632-L679 — class _HistoricoTab extends ConsumerWidget
+- build · method · L638-L678 — Widget build(BuildContext context, WidgetRef ref)
+- _HistoricoContent · class · L681-L789 — class _HistoricoContent extends StatelessWidget
+- _currency · constant · L682-L683 — static final NumberFormat _currency =
+- build · method · L690-L788 — Widget build(BuildContext context)
+- _MetricBox · class · L791-L800 — class _MetricBox extends StatelessWidget
+- build · method · L797-L799 — Widget build(BuildContext context)
+- _HistoryPeriodSelector · class · L802-L852 — class _HistoryPeriodSelector extends ConsumerWidget
+- _periodFormat · constant · L803-L803 — static final DateFormat _periodFormat = DateFormat.yMMMM('pt_BR');
+- build · method · L810-L851 — Widget build(BuildContext context, WidgetRef ref)
+- _LiveHistoryCard · class · L854-L926 — class _LiveHistoryCard extends StatelessWidget
+- _currency · constant · L855-L856 — static final NumberFormat _currency =
+- _date · constant · L857-L857 — static final DateFormat _date = DateFormat("dd/MM 'às' HH:mm", 'pt_BR');
+- build · method · L864-L925 — Widget build(BuildContext context)
+- _DetailMetric · class · L928-L957 — class _DetailMetric extends StatelessWidget
+- build · method · L935-L956 — Widget build(BuildContext context)
+- _StatusPill · class · L959-L989 — class _StatusPill extends StatelessWidget
+- build · method · L965-L988 — Widget build(BuildContext context)

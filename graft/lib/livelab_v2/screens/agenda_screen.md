@@ -1,0 +1,23 @@
+# lib/livelab_v2/screens/agenda_screen.dart
+
+- AgendaScreen · class · L6-L11 — class AgendaScreen extends StatefulWidget
+- createState · method · L10-L10 — State<AgendaScreen> createState() => _AgendaScreenState();
+- _AgendaScreenState · class · L13-L239 — class _AgendaScreenState extends State<AgendaScreen>
+- build · method · L50-L232 — Widget build(BuildContext context)
+- _periodLabel · method · L234-L238 — String? _periodLabel(String t)
+- _StatusLegend · class · L241-L271 — class _StatusLegend extends StatelessWidget
+- build · method · L249-L270 — Widget build(BuildContext context)
+- _WeekButton · class · L273-L290 — class _WeekButton extends StatelessWidget
+- build · method · L281-L289 — Widget build(BuildContext context)
+- _DayPill · class · L292-L354 — class _DayPill extends StatelessWidget
+- build · method · L300-L353 — Widget build(BuildContext context)
+- _CabinHeader · class · L356-L390 — class _CabinHeader extends StatelessWidget
+- build · method · L362-L389 — Widget build(BuildContext context)
+- _PeriodRow · class · L392-L409 — class _PeriodRow extends StatelessWidget
+- build · method · L398-L408 — Widget build(BuildContext context)
+- _AgendaCell · class · L411-L451 — class _AgendaCell extends StatelessWidget
+- build · method · L429-L450 — Widget build(BuildContext context)
+- _BookingBlock · class · L453-L522 — class _BookingBlock extends StatelessWidget
+- build · method · L458-L521 — Widget build(BuildContext context)
+- _Day · class · L524-L530 — class _Day
+- _Booking · class · L532-L538 — class _Booking

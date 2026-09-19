@@ -1,0 +1,25 @@
+# react-app/src/components/dashboard/GmvHeroPanel.tsx
+
+- GmvHeroPanelProps · interface · L5-L7 — interface GmvHeroPanelProps
+- IntradayPoint · interface · L9-L13 — interface IntradayPoint
+- DailyPoint · interface · L15-L21 — interface DailyPoint
+- ChartTooltip · function · L29-L63 — function ChartTooltip({ xRatio, title, rows, }: { xRatio: number title: string rows: Array<{ label: string; value: string; color?: string }> })
+- fmtCompact · function · L65-L69 — function fmtCompact(v: number): string
+- computeBusinessDays · function · L72-L91 — function computeBusinessDays(): { diaUtil: number; diasUteisTotal: number }
+- calcRitmoProjetado · function · L94-L97 — function calcRitmoProjetado(gmv: number, diaUtil: number, diasUteisTotal: number): number
+- getTodaySP · function · L103-L108 — function getTodaySP(): number
+- DeltaPill · function · L112-L126 — function DeltaPill({ v }: { v: number })
+- MetaBarProps · interface · L128-L135 — interface MetaBarProps
+- MetaBar · function · L137-L226 — function MetaBar({ gmv, meta, metaOrigem, diaUtil, diasUteisTotal, ritmo }: MetaBarProps)
+- buildIntradayPaths · function · L236-L288 — function buildIntradayPaths(data: IntradayPoint[])
+- xFn · function · L246-L246 — xFn = (i: number)
+- yFn · function · L247-L247 — yFn = (v: number)
+- IntradayChart · function · L290-L447 — function IntradayChart({ data }: { data: IntradayPoint[] })
+- onMove · function · L301-L307 — function onMove(event: ReactMouseEvent<SVGRectElement>)
+- DailyChartProps · interface · L451-L455 — interface DailyChartProps
+- buildDailyPaths · function · L457-L531 — function buildDailyPaths(data: DailyPoint[], todayDia: number, isCurrentMonth: boolean)
+- xFn · function · L483-L483 — xFn = (dia: number)
+- yFn · function · L484-L484 — yFn = (v: number)
+- DailyChart · function · L533-L696 — function DailyChart({ data, mesReferencia }: DailyChartProps)
+- onMove · function · L555-L564 — function onMove(event: ReactMouseEvent<SVGRectElement>)
+- GmvHeroPanel · function · L700-L936 — function GmvHeroPanel({ raw }: GmvHeroPanelProps)

@@ -1,0 +1,21 @@
+# react-app/src/components/dashboard/PresenterLeaderboard.tsx
+
+- PresenterLeaderboardProps · type · L7-L15 — type PresenterLeaderboardProps = { rows: JsonRecord[] title?: string subtitle?: string action?: ReactNode limit?: number variant?: 'compact' | 'full' emptyLabel?: string }
+- PresenterRow · type · L17-L30 — type PresenterRow = { key: string name: string initials: string avatarUrl: string cabine: string gmv: number lives: number pedidos: number commission: number progress: number sparkline: number[] badges: Array<{ label: string; tone: 'gold' | 'red' | 'green' | 'blue' }> }
+- clamp · function · L32-L35 — function clamp(value: number, min = 0, max = 100): number
+- getPresenterLeaderboardName · function · L37-L39 — function getPresenterLeaderboardName(row: JsonRecord): string
+- getPresenterLeaderboardProgress · function · L41-L44 — function getPresenterLeaderboardProgress(gmv: number, maxGmv: number): number
+- getPresenterSparklinePoints · function · L48-L56 — function getPresenterSparklinePoints(row: JsonRecord): number[]
+- initialsFromName · function · L58-L63 — function initialsFromName(name: string): string
+- getPresenterCabine · function · L65-L70 — function getPresenterCabine(row: JsonRecord): string
+- getPresenterCommission · function · L72-L74 — function getPresenterCommission(row: JsonRecord): number
+- buildBadges · function · L76-L92 — function buildBadges(row: JsonRecord, index: number): PresenterRow['badges']
+- isRealPresenter · function · L96-L101 — function isRealPresenter(row: JsonRecord): boolean
+- normalizeRows · function · L103-L128 — function normalizeRows(rows: JsonRecord[], limit?: number): PresenterRow[]
+- positionTone · function · L130-L155 — function positionTone(index: number)
+- badgeStyle · function · L157-L178 — function badgeStyle(tone: PresenterRow['badges'][number]['tone'])
+- Sparkline · function · L180-L212 — function Sparkline({ points, highlight }: { points: number[]; highlight: boolean })
+- Badge · function · L214-L226 — function Badge({ badge }: { badge: PresenterRow['badges'][number] })
+- Avatar · function · L228-L254 — function Avatar({ row, index }: { row: PresenterRow; index: number })
+- PresenterLeaderboardRow · function · L256-L371 — function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; index: number; variant: 'compact' | 'full' })
+- PresenterLeaderboard · function · L373-L424 — function PresenterLeaderboard({ rows, title = 'Ranking de apresentadoras', subtitle = 'Progresso vs. líder', action, limit, variant = 'compact', emptyLabel = 'Nenhuma apresentadora com GMV registrado neste mês.', }: PresenterLeaderboardProps)

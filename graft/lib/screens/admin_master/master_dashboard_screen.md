@@ -1,0 +1,34 @@
+# lib/screens/admin_master/master_dashboard_screen.dart
+
+- _recentPeriods · function · L12-L19 — List<String> _recentPeriods([int count = 6])
+- _periodLabel · function · L21-L24 — String _periodLabel(String period)
+- _currency · function · L26-L32 — String _currency(double value)
+- _signedPercent · function · L34-L37 — String _signedPercent(double value)
+- _severityColor · function · L39-L48 — Color _severityColor(String severity)
+- MasterDashboardScreen · class · L50-L56 — class MasterDashboardScreen extends ConsumerStatefulWidget
+- createState · method · L54-L55 — ConsumerState<MasterDashboardScreen> createState() =>
+- _MasterDashboardScreenState · class · L58-L154 — class _MasterDashboardScreenState extends ConsumerState<MasterDashboardScreen>
+- initState · method · L62-L65 — void initState()
+- build · method · L68-L153 — Widget build(BuildContext context)
+- _DashboardHeader · class · L156-L231 — class _DashboardHeader extends StatelessWidget
+- build · method · L170-L230 — Widget build(BuildContext context)
+- _ExecutiveSummaryBanner · class · L233-L281 — class _ExecutiveSummaryBanner extends StatelessWidget
+- build · method · L239-L280 — Widget build(BuildContext context)
+- _MetricsGrid · class · L283-L346 — class _MetricsGrid extends StatelessWidget
+- build · method · L290-L345 — Widget build(BuildContext context)
+- _AdaptiveGrid · class · L348-L375 — class _AdaptiveGrid extends StatelessWidget
+- build · method · L360-L374 — Widget build(BuildContext context)
+- _RankingCard · class · L377-L464 — class _RankingCard extends StatelessWidget
+- build · method · L389-L463 — Widget build(BuildContext context)
+- _AlertsCard · class · L466-L534 — class _AlertsCard extends StatelessWidget
+- build · method · L472-L533 — Widget build(BuildContext context)
+- _RevenueHistoryCard · class · L536-L661 — class _RevenueHistoryCard extends StatelessWidget
+- build · method · L542-L660 — Widget build(BuildContext context)
+- _GrowthCard · class · L663-L771 — class _GrowthCard extends StatelessWidget
+- build · method · L669-L770 — Widget build(BuildContext context)
+- _PipelineCard · class · L773-L823 — class _PipelineCard extends StatelessWidget
+- build · method · L779-L822 — Widget build(BuildContext context)
+- _CommissionSummaryCard · class · L825-L881 — class _CommissionSummaryCard extends StatelessWidget
+- build · method · L831-L880 — Widget build(BuildContext context)
+- _MasterErrorState · class · L883-L923 — class _MasterErrorState extends StatelessWidget
+- build · method · L890-L922 — Widget build(BuildContext context)

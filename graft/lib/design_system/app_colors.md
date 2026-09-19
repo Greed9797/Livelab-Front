@@ -1,0 +1,46 @@
+# lib/design_system/app_colors.dart
+
+- AppColors · class · L10-L112 — class AppColors
+- primary · constant · L16-L16 — static const Color primary = Color(0xFFFF5A1F);
+- primaryHover · constant · L17-L17 — static const Color primaryHover = Color(0xFFE64A0F);
+- primaryLight · constant · L18-L18 — static const Color primaryLight = Color(0xFFFF7A42);
+- bgBase · constant · L23-L23 — static const Color bgBase = Color(0xFFFDF6F1);
+- bgCard · constant · L24-L24 — static const Color bgCard = Color(0xFFFFFFFF);
+- bgSidebar · constant · L25-L25 — static const Color bgSidebar = Color(0xFFFFFFFF);
+- bgInput · constant · L26-L26 — static const Color bgInput = Color(0xFFF5EEE8);
+- bgMuted · constant · L27-L27 — static const Color bgMuted = Color(0xFFF5EBE3);
+- bgGradientStart · constant · L28-L28 — static const Color bgGradientStart = Color(0xFFFFE8DC);
+- bgGradientEnd · constant · L29-L29 — static const Color bgGradientEnd = Color(0xFFFDF6F1);
+- borderLight · constant · L30-L30 — static const Color borderLight = Color(0xFFEDE3DA);  // peach divider
+- textPrimary · constant · L35-L35 — static const Color textPrimary = Color(0xFF1A1A1A);
+- textSecondary · constant · L36-L36 — static const Color textSecondary = Color(0xFF4A4A4A);
+- textMuted · constant · L37-L37 — static const Color textMuted = Color(0xFF8A8A8A);
+- textPlaceholder · constant · L38-L38 — static const Color textPlaceholder = Color(0xFFA8A8A8);
+- textOnPrimary · constant · L39-L39 — static const Color textOnPrimary = Color(0xFFFFFFFF);
+- success · constant · L44-L44 — static const Color success = Color(0xFF1FA968);
+- successBg · constant · L45-L45 — static const Color successBg = Color(0xFFE3F6EA);
+- warning · constant · L46-L46 — static const Color warning = Color(0xFFE08A0B);
+- warningBg · constant · L47-L47 — static const Color warningBg = Color(0xFFFCF0D6);
+- danger · constant · L48-L48 — static const Color danger = Color(0xFFEF4444);
+- dangerBg · constant · L49-L49 — static const Color dangerBg = Color(0xFFFEE2E2);
+- info · constant · L54-L54 — static const Color info = Color(0xFF2C7AD6);
+- infoBg · constant · L55-L55 — static const Color infoBg = Color(0xFFE3EEFB);
+- infoPurple · constant · L56-L56 — static const Color infoPurple = Color(0xFF8B5CF6);
+- infoPurpleBg · constant · L57-L57 — static const Color infoPurpleBg = Color(0xFFEDE9FE);
+- medalGold · constant · L62-L62 — static const Color medalGold = Color(0xFFF59E0B);
+- medalSilver · constant · L63-L63 — static const Color medalSilver = Color(0xFF94A3B8);
+- medalBronze · constant · L64-L64 — static const Color medalBronze = Color(0xFFCD7F32);
+- lilac · constant · L69-L69 — static const Color lilac = Color(0xFFD8B4FE);
+- primarySoft · constant · L70-L70 — static const Color primarySoft = Color(0xFFFFE8DC);   // matches bgGradientStart
+- primarySofter · constant · L71-L71 — static const Color primarySofter = Color(0xFFFFF3EC); // --primary-softer from HTML
+- hairline · constant · L72-L72 — static const Color hairline = Color(0x0F1A1A1A);      // rgba(26,26,26,0.06)
+- darkBgBase · constant · L77-L77 — static const Color darkBgBase = Color(0xFF0F0F0F);
+- darkBgCard · constant · L78-L78 — static const Color darkBgCard = Color(0xFF1A1A1A);
+- darkBgInput · constant · L79-L79 — static const Color darkBgInput = Color(0xFF262626);
+- darkTextPrimary · constant · L80-L80 — static const Color darkTextPrimary = Color(0xFFFAFAFA);
+- darkTextSecondary · constant · L81-L81 — static const Color darkTextSecondary = Color(0xFFB0B0B0);
+- peachGradient · constant · L86-L94 — static const RadialGradient peachGradient = RadialGradient(
+- primaryGradient · constant · L96-L100 — static const LinearGradient primaryGradient = LinearGradient(
+- borderStrong · constant · L105-L105 — static const Color borderStrong = Color(0xFFE1D2C4);
+- border · constant · L106-L106 — static const Color border = Color(0xFFEFE4DB);
+- shadowLg · constant · L107-L111 — static const BoxShadow shadowLg = BoxShadow(

@@ -1,0 +1,33 @@
+# lib/livelab_v2/screens/minhas_lives_screen.dart
+
+- MinhasLivesScreen · class · L6-L11 — class MinhasLivesScreen extends StatefulWidget
+- createState · method · L10-L10 — State<MinhasLivesScreen> createState() => _MinhasLivesScreenState();
+- _MinhasLivesScreenState · class · L13-L105 — class _MinhasLivesScreenState extends State<MinhasLivesScreen>
+- build · method · L22-L79 — Widget build(BuildContext context)
+- _buildBody · method · L81-L104 — Widget _buildBody()
+- _MainTabs · class · L107-L154 — class _MainTabs extends StatelessWidget
+- build · method · L113-L153 — Widget build(BuildContext context)
+- _EmptyLiveCard · class · L156-L217 — class _EmptyLiveCard extends StatelessWidget
+- build · method · L162-L216 — Widget build(BuildContext context)
+- _HistoryList · class · L219-L295 — class _HistoryList extends StatelessWidget
+- build · method · L224-L294 — Widget build(BuildContext context)
+- _HistoryMetric · class · L297-L326 — class _HistoryMetric extends StatelessWidget
+- build · method · L305-L325 — Widget build(BuildContext context)
+- _AgendaList · class · L328-L400 — class _AgendaList extends StatelessWidget
+- build · method · L333-L399 — Widget build(BuildContext context)
+- SolicitarCalendar · class · L402-L407 — class SolicitarCalendar extends StatefulWidget
+- createState · method · L406-L406 — State<SolicitarCalendar> createState() => _SolicitarCalendarState();
+- _SolicitarCalendarState · class · L409-L663 — class _SolicitarCalendarState extends State<SolicitarCalendar>
+- _diasNomes · constant · L415-L415 — static const _diasNomes = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+- initState · method · L425-L430 — void initState()
+- _shiftWeek · method · L432-L437 — void _shiftWeek(int delta)
+- build · method · L440-L585 — Widget build(BuildContext context)
+- _showRequestDialog · method · L587-L662 — void _showRequestDialog(String time, int cabin)
+- _DialogField · class · L665-L689 — class _DialogField extends StatelessWidget
+- build · method · L673-L688 — Widget build(BuildContext context)
+- _RequestCell · class · L691-L739 — class _RequestCell extends StatelessWidget
+- build · method · L703-L738 — Widget build(BuildContext context)
+- _WeekButton2 · class · L741-L758 — class _WeekButton2 extends StatelessWidget
+- build · method · L749-L757 — Widget build(BuildContext context)
+- _HistoryLive · class · L760-L772 — class _HistoryLive
+- _AgendaLive · class · L774-L783 — class _AgendaLive

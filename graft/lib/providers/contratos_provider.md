@@ -1,0 +1,22 @@
+# lib/providers/contratos_provider.dart
+
+- ContratosNotifier · class · L10-L153 — class ContratosNotifier extends Notifier<void>
+- build · method · L12-L12 — void build() {}
+- _invalidateRelacionados · method · L14-L23 — void _invalidateRelacionados()
+- refreshAuditoriaAba · method · L25-L27 — void refreshAuditoriaAba(String aba)
+- criar · method · L29-L44 — Future<String> criar(
+- criarComDetalhes · method · L46-L68 — Future<Map<String, dynamic>> criarComDetalhes(
+- assinar · method · L71-L74 — Future<Map<String, dynamic>> assinar(String id) async
+- analisar · method · L76-L79 — Future<Map<String, dynamic>> analisar(String id) async
+- assinarDigital · method · L82-L91 — Future<Map<String, dynamic>> assinarDigital(
+- assumirRisco · method · L93-L108 — Future<void> assumirRisco(
+- cancelar · method · L110-L113 — Future<void> cancelar(String id) async
+- aprovar · method · L116-L119 — Future<void> aprovar(String id) async
+- pendencia · method · L121-L126 — Future<void> pendencia(String id, String motivo) async
+- reprovar · method · L128-L133 — Future<void> reprovar(String id, String motivo) async
+- arquivar · method · L135-L141 — Future<void> arquivar(String id, {String? motivo}) async
+- sinalizarRisco · method · L143-L146 — Future<void> sinalizarRisco(String id) async
+- setTiktokUsername · method · L148-L152 — Future<void> setTiktokUsername(String contratoId, String? username) async
+- contratosProvider · constant · L155-L156 — final contratosProvider =
+- auditoriaAbaProvider · constant · L159-L159 — final auditoriaAbaProvider = StateProvider<String>((ref) => 'all');
+- analiseCreditoProvider · constant · L161-L176 — final analiseCreditoProvider =

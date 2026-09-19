@@ -1,0 +1,31 @@
+# lib/livelab_v2/widgets/ll_admin_widgets.dart
+
+- AdminPageToolbar · class · L6-L52 — class AdminPageToolbar extends StatelessWidget
+- build · method · L23-L51 — Widget build(BuildContext context)
+- AdminFilterChip · class · L54-L111 — class AdminFilterChip extends StatelessWidget
+- build · method · L66-L110 — Widget build(BuildContext context)
+- AdminKpiCard · class · L113-L167 — class AdminKpiCard extends StatelessWidget
+- build · method · L134-L166 — Widget build(BuildContext context)
+- AdminSectionHeader · class · L169-L212 — class AdminSectionHeader extends StatelessWidget
+- build · method · L177-L211 — Widget build(BuildContext context)
+- RankCard · class · L214-L240 — class RankCard extends StatelessWidget
+- build · method · L220-L239 — Widget build(BuildContext context)
+- RankItem · class · L242-L248 — class RankItem
+- _RankRow · class · L250-L286 — class _RankRow extends StatelessWidget
+- build · method · L256-L285 — Widget build(BuildContext context)
+- AdminAlertRow · class · L288-L328 — class AdminAlertRow extends StatelessWidget
+- build · method · L297-L327 — Widget build(BuildContext context)
+- AdminChartCard · class · L332-L354 — class AdminChartCard extends StatelessWidget
+- build · method · L339-L353 — Widget build(BuildContext context)
+- AdminLineChart · class · L356-L386 — class AdminLineChart extends StatelessWidget
+- build · method · L366-L385 — Widget build(BuildContext context)
+- _AdminLineChartPainter · class · L388-L523 — class _AdminLineChartPainter extends CustomPainter
+- paint · method · L413-L505 — void paint(Canvas canvas, Size size)
+- _drawDashedLine · method · L507-L519 — void _drawDashedLine(Canvas canvas, Offset a, Offset b, Paint paint)
+- shouldRepaint · method · L522-L522 — bool shouldRepaint(covariant _AdminLineChartPainter oldDelegate) => oldDelegate.data != data || oldDelegate.secondaryData != secondaryData || oldDelegate.labels != labels || oldDelegate.maxY != maxY;
+- AdminGrowthChart · class · L525-L586 — class AdminGrowthChart extends StatelessWidget
+- build · method · L530-L585 — Widget build(BuildContext context)
+- GrowthBarItem · class · L588-L596 — class GrowthBarItem
+- _GrowthItem · class · L598-L603 — class _GrowthItem
+- AdminStatusPill · class · L605-L625 — class AdminStatusPill extends StatelessWidget
+- build · method · L611-L624 — Widget build(BuildContext context)

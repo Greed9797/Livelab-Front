@@ -1,0 +1,73 @@
+# lib/screens/painel_cliente/cliente_dashboard_screen.dart
+
+- _currency · constant · L26-L26 — final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+- _periodFormat · constant · L27-L27 — final _periodFormat = DateFormat.yMMMM('pt_BR');
+- ClienteDashboardScreen · class · L32-L72 — class ClienteDashboardScreen extends ConsumerWidget
+- build · method · L36-L71 — Widget build(BuildContext context, WidgetRef ref)
+- _PeriodTabs · class · L77-L232 — class _PeriodTabs extends ConsumerWidget
+- _tabs · constant · L83-L89 — static const _tabs = [
+- build · method · L92-L201 — Widget build(BuildContext context, WidgetRef ref)
+- _onTap · method · L203-L210 — void _onTap(BuildContext context, WidgetRef ref, String periodoStr)
+- _showDateRangePicker · method · L212-L231 — Future<void> _showDateRangePicker(
+- _DashboardContent · class · L237-L325 — class _DashboardContent extends StatelessWidget
+- build · method · L247-L324 — Widget build(BuildContext context)
+- _KpiGrid · class · L330-L372 — class _KpiGrid extends StatelessWidget
+- build · method · L336-L371 — Widget build(BuildContext context)
+- _KpiCard · class · L374-L437 — class _KpiCard extends StatelessWidget
+- build · method · L388-L436 — Widget build(BuildContext context)
+- _MetaCard · class · L442-L663 — class _MetaCard extends ConsumerWidget
+- _barColor · method · L447-L460 — Color _barColor(String status)
+- _statusLabel · method · L462-L475 — String _statusLabel(String status)
+- _statusTextColor · method · L477-L490 — Color _statusTextColor(String status)
+- build · method · L493-L651 — Widget build(BuildContext context, WidgetRef ref)
+- _showMetaDialog · method · L653-L662 — void _showMetaDialog(
+- _MetaEditDialog · class · L665-L673 — class _MetaEditDialog extends StatefulWidget
+- createState · method · L672-L672 — State<_MetaEditDialog> createState() => _MetaEditDialogState();
+- _MetaEditDialogState · class · L675-L759 — class _MetaEditDialogState extends State<_MetaEditDialog>
+- initState · method · L680-L686 — void initState()
+- dispose · method · L689-L692 — void dispose()
+- _save · method · L694-L713 — Future<void> _save() async
+- build · method · L716-L758 — Widget build(BuildContext context)
+- _ProximasLivesCard · class · L764-L834 — class _ProximasLivesCard extends ConsumerWidget
+- build · method · L770-L829 — Widget build(BuildContext context, WidgetRef ref)
+- _onSolicitarLive · method · L831-L833 — void _onSolicitarLive(BuildContext context)
+- _ProximaLiveRow · class · L836-L912 — class _ProximaLiveRow extends StatelessWidget
+- build · method · L842-L910 — Widget build(BuildContext context)
+- _PendenciasCard · class · L917-L952 — class _PendenciasCard extends StatelessWidget
+- build · method · L923-L951 — Widget build(BuildContext context)
+- _NovaLiveCta · class · L957-L968 — class _NovaLiveCta extends StatelessWidget
+- build · method · L959-L967 — Widget build(BuildContext context)
+- _ActiveLiveCard · class · L973-L1064 — class _ActiveLiveCard extends StatelessWidget
+- build · method · L979-L1063 — Widget build(BuildContext context)
+- _LivePulseMetric · class · L1066-L1111 — class _LivePulseMetric extends StatelessWidget
+- build · method · L1078-L1110 — Widget build(BuildContext context)
+- _SalesWindowsCard · class · L1116-L1155 — class _SalesWindowsCard extends StatelessWidget
+- build · method · L1122-L1154 — Widget build(BuildContext context)
+- _HorarioRow · class · L1157-L1203 — class _HorarioRow extends StatelessWidget
+- build · method · L1164-L1202 — Widget build(BuildContext context)
+- _MonthlySeriesCard · class · L1208-L1253 — class _MonthlySeriesCard extends StatelessWidget
+- build · method · L1214-L1252 — Widget build(BuildContext context)
+- _MonthlySeriesRow · class · L1255-L1307 — class _MonthlySeriesRow extends StatelessWidget
+- build · method · L1262-L1306 — Widget build(BuildContext context)
+- _MetricBox · class · L1312-L1321 — class _MetricBox extends StatelessWidget
+- build · method · L1318-L1320 — Widget build(BuildContext context)
+- _DetailedLivesSection · class · L1323-L1402 — class _DetailedLivesSection extends StatelessWidget
+- build · method · L1329-L1401 — Widget build(BuildContext context)
+- _LiveDetailCard · class · L1404-L1518 — class _LiveDetailCard extends StatelessWidget
+- _dateFormat · constant · L1405-L1405 — static final DateFormat _dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+- build · method · L1412-L1517 — Widget build(BuildContext context)
+- _LiveMetric · class · L1520-L1558 — class _LiveMetric extends StatelessWidget
+- build · method · L1532-L1557 — Widget build(BuildContext context)
+- _SectionTitle · class · L1563-L1611 — class _SectionTitle extends StatelessWidget
+- build · method · L1575-L1610 — Widget build(BuildContext context)
+- _EmptyHint · class · L1613-L1630 — class _EmptyHint extends StatelessWidget
+- build · method · L1619-L1629 — Widget build(BuildContext context)
+- _SectionLoading · class · L1632-L1655 — class _SectionLoading extends StatelessWidget
+- build · method · L1639-L1654 — Widget build(BuildContext context)
+- _SectionError · class · L1657-L1685 — class _SectionError extends StatelessWidget
+- build · method · L1664-L1684 — Widget build(BuildContext context)
+- _ErrorState · class · L1687-L1724 — class _ErrorState extends ConsumerWidget
+- build · method · L1693-L1723 — Widget build(BuildContext context, WidgetRef ref)
+- _CircularProgressPainter · class · L1726-L1773 — class _CircularProgressPainter extends CustomPainter
+- paint · method · L1740-L1765 — void paint(Canvas canvas, Size size)
+- shouldRepaint · method · L1768-L1772 — bool shouldRepaint(_CircularProgressPainter old) =>

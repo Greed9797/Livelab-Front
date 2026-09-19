@@ -1,0 +1,43 @@
+# lib/screens/cliente/cliente_cabine_detail_screen.dart
+
+- ClienteCabineDetailScreen · class · L14-L27 — class ClienteCabineDetailScreen extends ConsumerStatefulWidget
+- createState · method · L25-L26 — ConsumerState<ClienteCabineDetailScreen> createState() =>
+- _ClienteCabineDetailScreenState · class · L29-L176 — class _ClienteCabineDetailScreenState
+- _currency · constant · L32-L32 — static final _currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
+- _dateFormat · constant · L33-L33 — static final _dateFormat = DateFormat("dd/MM/yyyy 'às' HH:mm", 'pt_BR');
+- initState · method · L39-L43 — void initState()
+- dispose · method · L46-L52 — void dispose()
+- _showSolicitarLiveSheet · method · L54-L61 — void _showSolicitarLiveSheet(BuildContext context)
+- _syncPolling · method · L63-L81 — void _syncPolling()
+- build · method · L84-L175 — Widget build(BuildContext context)
+- _LiveTab · class · L182-L356 — class _LiveTab extends ConsumerWidget
+- build · method · L189-L355 — Widget build(BuildContext context, WidgetRef ref)
+- _MetricGrid · class · L358-L410 — class _MetricGrid extends StatelessWidget
+- build · method · L363-L409 — Widget build(BuildContext context)
+- _MetricItem · class · L412-L424 — class _MetricItem
+- _HistoricoTab · class · L430-L476 — class _HistoricoTab extends StatelessWidget
+- build · method · L442-L475 — Widget build(BuildContext context)
+- _LiveHistoricoCard · class · L478-L551 — class _LiveHistoricoCard extends StatelessWidget
+- build · method · L490-L550 — Widget build(BuildContext context)
+- _StatColumn · class · L553-L582 — class _StatColumn extends StatelessWidget
+- build · method · L565-L581 — Widget build(BuildContext context)
+- _SolicitarLiveSheet · class · L588-L595 — class _SolicitarLiveSheet extends ConsumerStatefulWidget
+- createState · method · L593-L594 — ConsumerState<_SolicitarLiveSheet> createState() =>
+- _SolicitarLiveSheetState · class · L597-L894 — class _SolicitarLiveSheetState
+- _dateFmt · constant · L606-L606 — static final _dateFmt = DateFormat('dd/MM/yyyy');
+- _dateIso · constant · L607-L607 — static final _dateIso = DateFormat('yyyy-MM-dd');
+- dispose · method · L610-L613 — void dispose()
+- _toDateString · method · L618-L618 — String _toDateString(DateTime d) => _dateIso.format(d);
+- _toTimeString · method · L621-L622 — String _toTimeString(TimeOfDay t) =>
+- _horaFimValida · method · L625-L626 — bool _horaFimValida(String inicio, String fim) =>
+- _pickDate · method · L628-L643 — Future<void> _pickDate() async
+- _pickHoraInicio · method · L645-L660 — Future<void> _pickHoraInicio() async
+- _pickHoraFim · method · L662-L680 — Future<void> _pickHoraFim() async
+- _submit · method · L682-L746 — Future<void> _submit() async
+- build · method · L749-L893 — Widget build(BuildContext context)
+- _PickerRow · class · L897-L940 — class _PickerRow extends StatelessWidget
+- build · method · L911-L939 — Widget build(BuildContext context)
+- _LiveRequestTile · class · L943-L1000 — class _LiveRequestTile extends StatelessWidget
+- _dateFmt · constant · L948-L948 — static final _dateFmt = DateFormat('dd/MM/yyyy');
+- _formatDate · method · L950-L957 — String _formatDate(String iso)
+- build · method · L960-L999 — Widget build(BuildContext context)

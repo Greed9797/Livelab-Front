@@ -1,0 +1,77 @@
+# lib/screens/onboarding/onboarding_screen.dart
+
+- _LL · class · L15-L58 — class _LL
+- primary · constant · L16-L16 — static const primary       = Color(0xFFFF5A1F);
+- primaryHover · constant · L17-L17 — static const primaryHover  = Color(0xFFE64A0F);
+- primaryLight · constant · L18-L18 — static const primaryLight  = Color(0xFFFF7A42);
+- primarySoft · constant · L19-L19 — static const primarySoft   = Color(0xFFFFE8DC);
+- primarySofter · constant · L20-L20 — static const primarySofter = Color(0xFFFFF3EC);
+- bgBase · constant · L22-L22 — static const bgBase        = Color(0xFFFDF6F1);
+- bgCard · constant · L23-L23 — static const bgCard        = Color(0xFFFFFFFF);
+- bgInput · constant · L24-L24 — static const bgInput       = Color(0xFFF7EFE8);
+- bgMuted · constant · L25-L25 — static const bgMuted       = Color(0xFFF5EBE3);
+- textPrimary · constant · L27-L27 — static const textPrimary     = Color(0xFF1A1A1A);
+- textSecondary · constant · L28-L28 — static const textSecondary   = Color(0xFF4A4A4A);
+- textMuted · constant · L29-L29 — static const textMuted       = Color(0xFF8A8A8A);
+- textPlaceholder · constant · L30-L30 — static const textPlaceholder = Color(0xFFB6ADA6);
+- border · constant · L32-L32 — static const border       = Color(0x141A1A1A);
+- borderInput · constant · L33-L33 — static const borderInput  = Color(0x1A1A1A1A);
+- borderStrong · constant · L34-L34 — static const borderStrong = Color(0x261A1A1A);
+- success · constant · L36-L36 — static const success = Color(0xFF1F9D55);
+- successBg · constant · L37-L37 — static const successBg = Color(0xFFD9F2E1);
+- danger · constant · L38-L38 — static const danger  = Color(0xFFD9402F);
+- radiusSm · constant · L40-L40 — static const radiusSm = 8.0;
+- radiusMd · constant · L41-L41 — static const radiusMd = 12.0;
+- radiusXl · constant · L42-L42 — static const radiusXl = 20.0;
+- radiusPill · constant · L43-L43 — static const radiusPill = 999.0;
+- shadowMd · constant · L45-L48 — static const shadowMd = [
+- shadowLg · constant · L50-L53 — static const shadowLg = [
+- shadowPrimary · constant · L55-L57 — static const shadowPrimary = [
+- OnboardingScreen · class · L60-L65 — class OnboardingScreen extends ConsumerStatefulWidget
+- createState · method · L64-L64 — ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
+- _OnboardingScreenState · class · L67-L113 — class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
+- _finish · method · L70-L72 — Future<void> _finish() async
+- build · method · L75-L112 — Widget build(BuildContext context)
+- _WelcomePage · class · L119-L161 — class _WelcomePage extends StatelessWidget
+- build · method · L124-L160 — Widget build(BuildContext context)
+- _FormPage · class · L167-L174 — class _FormPage extends ConsumerStatefulWidget
+- createState · method · L173-L173 — ConsumerState<_FormPage> createState() => _FormPageState();
+- _FormPageState · class · L176-L345 — class _FormPageState extends ConsumerState<_FormPage>
+- _required · constant · L182-L192 — static const _required = [
+- _optional · constant · L194-L200 — static const _optional = [
+- _multiline · constant · L202-L208 — static const _multiline =
+- initState · method · L211-L218 — void initState()
+- dispose · method · L221-L229 — void dispose()
+- _submit · method · L237-L260 — Future<void> _submit() async
+- build · method · L263-L344 — Widget build(BuildContext context)
+- _FormHeader · class · L347-L437 — class _FormHeader extends StatelessWidget
+- build · method · L354-L436 — Widget build(BuildContext context)
+- _SuccessPage · class · L443-L490 — class _SuccessPage extends StatelessWidget
+- build · method · L448-L489 — Widget build(BuildContext context)
+- _PeachCard · class · L496-L542 — class _PeachCard extends StatelessWidget
+- build · method · L501-L541 — Widget build(BuildContext context)
+- _BrandLogo · class · L544-L567 — class _BrandLogo extends StatelessWidget
+- build · method · L548-L566 — Widget build(BuildContext context)
+- _Eyebrow · class · L569-L600 — class _Eyebrow extends StatelessWidget
+- build · method · L575-L599 — Widget build(BuildContext context)
+- _BigTitle · class · L602-L635 — class _BigTitle extends StatelessWidget
+- build · method · L608-L634 — Widget build(BuildContext context)
+- _SectionTitle · class · L637-L675 — class _SectionTitle extends StatelessWidget
+- build · method · L643-L674 — Widget build(BuildContext context)
+- _ResponsiveGrid · class · L677-L705 — class _ResponsiveGrid extends StatelessWidget
+- build · method · L682-L704 — Widget build(BuildContext context)
+- _LLField · class · L707-L782 — class _LLField extends StatelessWidget
+- build · method · L725-L781 — Widget build(BuildContext context)
+- _LLDropdown · class · L784-L850 — class _LLDropdown extends StatelessWidget
+- _items · constant · L790-L795 — static const _items = [
+- build · method · L798-L849 — Widget build(BuildContext context)
+- _SubmitBar · class · L852-L896 — class _SubmitBar extends StatelessWidget
+- build · method · L865-L895 — Widget build(BuildContext context)
+- _GhostButton · class · L898-L905 — class _GhostButton extends StatefulWidget
+- createState · method · L904-L904 — State<_GhostButton> createState() => _GhostButtonState();
+- _GhostButtonState · class · L907-L947 — class _GhostButtonState extends State<_GhostButton>
+- build · method · L911-L946 — Widget build(BuildContext context)
+- _PrimaryButton · class · L949-L957 — class _PrimaryButton extends StatefulWidget
+- createState · method · L956-L956 — State<_PrimaryButton> createState() => _PrimaryButtonState();
+- _PrimaryButtonState · class · L959-L1010 — class _PrimaryButtonState extends State<_PrimaryButton>
+- build · method · L964-L1009 — Widget build(BuildContext context)

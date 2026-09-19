@@ -1,0 +1,34 @@
+# lib/livelab/widgets/livelab_scaffold.dart
+
+- _sidebarExpandedProvider · constant · L12-L12 — final _sidebarExpandedProvider = StateProvider<bool>((ref) => false);
+- LivelabNavItem · class · L14-L25 — class LivelabNavItem
+- LivelabNavSection · class · L27-L31 — class LivelabNavSection
+- _isHomeRoute · function · L35-L53 — bool _isHomeRoute(String route, String? papel)
+- LivelabScaffold · class · L55-L308 — class LivelabScaffold extends ConsumerWidget
+- build · method · L68-L149 — Widget build(BuildContext context, WidgetRef ref)
+- _hardRefresh · method · L151-L154 — void _hardRefresh(BuildContext context)
+- _openNotifications · method · L156-L228 — void _openNotifications(BuildContext context)
+- _navSections · method · L230-L307 — List<LivelabNavSection> _navSections(String papel)
+- _Rail · class · L310-L508 — class _Rail extends ConsumerWidget
+- _collapsedW · constant · L322-L322 — static const _collapsedW = 80.0;
+- _expandedW · constant · L323-L323 — static const _expandedW = 240.0;
+- build · method · L326-L440 — Widget build(BuildContext context, WidgetRef ref)
+- _section · method · L442-L473 — List<Widget> _section(LlTokens t, LivelabNavSection s, bool expanded)
+- _buildLogo · method · L475-L496 — Widget _buildLogo(LlTokens t)
+- _papelLabel · method · L498-L507 — String _papelLabel(String papel)
+- _RailItem · class · L510-L647 — class _RailItem extends StatelessWidget
+- build · method · L527-L646 — Widget build(BuildContext context)
+- _Topbar · class · L649-L763 — class _Topbar extends ConsumerWidget
+- build · method · L667-L751 — Widget build(BuildContext context, WidgetRef ref)
+- _subDate · method · L753-L762 — String _subDate()
+- _ThemeToggle · class · L765-L823 — class _ThemeToggle extends StatelessWidget
+- build · method · L771-L822 — Widget build(BuildContext context)
+- _IconButton · class · L825-L870 — class _IconButton extends StatelessWidget
+- build · method · L832-L869 — Widget build(BuildContext context)
+- _BottomNav · class · L872-L928 — class _BottomNav extends StatelessWidget
+- build · method · L878-L927 — Widget build(BuildContext context)
+- _LivelabWordmark · class · L932-L951 — class _LivelabWordmark extends StatelessWidget
+- build · method · L937-L950 — Widget build(BuildContext context)
+- _ClienteOrInitialsAvatar · class · L955-L1025 — class _ClienteOrInitialsAvatar extends ConsumerWidget
+- build · method · L970-L1017 — Widget build(BuildContext context, WidgetRef ref)
+- _initials · method · L1019-L1024 — static String _initials(String n)

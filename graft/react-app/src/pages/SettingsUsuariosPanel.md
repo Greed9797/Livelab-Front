@@ -1,0 +1,15 @@
+# react-app/src/pages/SettingsUsuariosPanel.tsx
+
+- ativoValue · function · L49-L51 — function ativoValue(value: unknown)
+- isPresenterProfile · function · L53-L55 — function isPresenterProfile(item: JsonRecord | null | undefined)
+- isPresenterUser · function · L57-L59 — function isPresenterUser(item: JsonRecord | null | undefined)
+- presenterFixedValue · function · L61-L64 — function presenterFixedValue(item: JsonRecord | null | undefined)
+- matchesSearch · function · L66-L72 — function matchesSearch(item: JsonRecord, term: string)
+- SettingsUsuariosPanel · function · L109-L542 — function SettingsUsuariosPanel()
+- setField · function · L275-L282 — function setField(key: keyof CreateFormState, value: string)
+- setEditField · function · L284-L291 — function setEditField(key: keyof typeof emptyEditForm, value: string | boolean)
+- openEditUser · function · L293-L305 — function openEditUser(item: JsonRecord)
+- onSubmit · function · L307-L319 — function onSubmit(event: FormEvent<HTMLFormElement>)
+- onEditSubmit · function · L321-L325 — function onEditSubmit(event: FormEvent<HTMLFormElement>)
+- onDeleteUser · function · L327-L332 — function onDeleteUser(item: JsonRecord)
+- submitFaixa · function · L334-L344 — function submitFaixa()

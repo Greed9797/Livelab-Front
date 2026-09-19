@@ -1,0 +1,33 @@
+# lib/providers/financeiro_provider.dart
+
+- FinanceiroResumo · class · L7-L26 — class FinanceiroResumo
+- CustoCadastrado · class · L28-L50 — class CustoCadastrado
+- FluxoCaixaItem · class · L52-L56 — class FluxoCaixaItem
+- FluxoCaixa · class · L58-L81 — class FluxoCaixa
+- ClienteFaturamento · class · L83-L96 — class ClienteFaturamento
+- financeiroPeriodoProvider · constant · L102-L102 — final financeiroPeriodoProvider = StateProvider<String>((ref) => 'mes');
+- _periodRange · function · L106-L119 — ({String inicio, String fim}) _periodRange(String periodo, DateTime now)
+- FinanceiroNotifier · class · L123-L165 — class FinanceiroNotifier extends AsyncNotifier<FinanceiroResumo>
+- build · method · L125-L132 — Future<FinanceiroResumo> build() async
+- _fetch · method · L134-L147 — Future<FinanceiroResumo> _fetch({int? mes, int? ano, String? periodo}) async
+- carregarPeriodo · method · L149-L152 — Future<void> carregarPeriodo(int mes, int ano) async
+- adicionarCusto · method · L154-L158 — Future<void> adicionarCusto(Map<String, dynamic> data) async
+- deletarCusto · method · L160-L164 — Future<void> deletarCusto(String id) async
+- financeiroProvider · constant · L167-L169 — final financeiroProvider =
+- CustosNotifier · class · L173-L219 — class CustosNotifier extends AsyncNotifier<List<CustoCadastrado>>
+- build · method · L175-L182 — Future<List<CustoCadastrado>> build() async
+- _fetch · method · L184-L200 — Future<List<CustoCadastrado>> _fetch({String periodo = 'mes'}) async
+- refresh · method · L202-L205 — Future<void> refresh() async
+- adicionar · method · L207-L211 — Future<void> adicionar(Map<String, dynamic> data) async
+- deletar · method · L213-L218 — Future<void> deletar(String id) async
+- custosProvider · constant · L221-L223 — final custosProvider =
+- FluxoCaixaNotifier · class · L227-L256 — class FluxoCaixaNotifier extends AsyncNotifier<FluxoCaixa>
+- build · method · L229-L236 — Future<FluxoCaixa> build() async
+- _fetch · method · L238-L250 — Future<FluxoCaixa> _fetch({String periodo = 'mes'}) async
+- refresh · method · L252-L255 — Future<void> refresh() async
+- fluxoCaixaProvider · constant · L258-L260 — final fluxoCaixaProvider =
+- FaturamentoPorClienteNotifier · class · L264-L300 — class FaturamentoPorClienteNotifier
+- build · method · L267-L274 — Future<List<ClienteFaturamento>> build() async
+- _fetch · method · L276-L294 — Future<List<ClienteFaturamento>> _fetch({String periodo = 'mes'}) async
+- refresh · method · L296-L299 — Future<void> refresh() async
+- faturamentoPorClienteProvider · constant · L302-L304 — final faturamentoPorClienteProvider =

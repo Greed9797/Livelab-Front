@@ -1,0 +1,42 @@
+# lib/screens/solicitacoes/solicitacoes_screen.dart
+
+- SolicitacoesScreen · class · L21-L27 — class SolicitacoesScreen extends ConsumerStatefulWidget
+- createState · method · L26-L26 — ConsumerState<SolicitacoesScreen> createState() => _SolicitacoesScreenState();
+- _SolicitacoesScreenState · class · L29-L692 — class _SolicitacoesScreenState extends ConsumerState<SolicitacoesScreen>
+- _refresh · method · L35-L37 — void _refresh()
+- _aprovar · method · L39-L48 — Future<void> _aprovar(String id) async
+- _recusar · method · L50-L101 — Future<void> _recusar(String id) async
+- _snack · method · L103-L112 — void _snack(String msg, {required bool success})
+- _novoAgendamento · method · L114-L125 — Future<void> _novoAgendamento() async
+- build · method · L128-L136 — Widget build(BuildContext context)
+- _content · method · L138-L256 — Widget _content()
+- _passesFilter · method · L258-L271 — bool _passesFilter(SolicitacaoFranqueador s)
+- _pageHeader · method · L273-L357 — Widget _pageHeader(LlTokens t)
+- _kpis · method · L359-L418 — Widget _kpis(LlTokens t, AsyncValue<List<SolicitacaoFranqueador>> async)
+- _kpi · method · L420-L467 — Widget _kpi(
+- _tabStrip · method · L469-L491 — Widget _tabStrip(LlTokens t,
+- _tabPill · method · L493-L551 — Widget _tabPill(LlTokens t,
+- _filtersBar · method · L553-L591 — Widget _filtersBar(LlTokens t)
+- _statusChip · method · L593-L618 — Widget _statusChip(LlTokens t, String value, String label)
+- _searchInput · method · L620-L654 — Widget _searchInput(
+- _emptyBox · method · L656-L691 — Widget _emptyBox(LlTokens t,
+- _SolRow · class · L698-L915 — class _SolRow extends StatelessWidget
+- _statusColor · method · L712-L721 — Color _statusColor(LlTokens t, String st)
+- _statusLabel · method · L723-L732 — String _statusLabel(String st)
+- build · method · L735-L868 — Widget build(BuildContext context)
+- _meta · method · L870-L880 — Widget _meta(LlTokens t, IconData icon, String text)
+- _actionBtn · method · L882-L914 — Widget _actionBtn(LlTokens t,
+- _ddmmyyyy · function · L921-L925 — String _ddmmyyyy(String iso)
+- _errorBox · function · L927-L948 — Widget _errorBox(LlTokens t, Object e)
+- _NovoAgendamentoDialog · class · L954-L961 — class _NovoAgendamentoDialog extends ConsumerStatefulWidget
+- createState · method · L959-L960 — ConsumerState<_NovoAgendamentoDialog> createState() =>
+- _NovoAgendamentoDialogState · class · L963-L1320 — class _NovoAgendamentoDialogState
+- dispose · method · L975-L978 — void dispose()
+- _pickData · method · L980-L1001 — Future<void> _pickData() async
+- _pickHora · method · L1003-L1034 — Future<void> _pickHora({required bool inicio}) async
+- _fmtTime · method · L1036-L1039 — String _fmtTime(TimeOfDay? t)
+- _salvar · method · L1041-L1084 — Future<void> _salvar() async
+- build · method · L1087-L1248 — Widget build(BuildContext context)
+- _label · method · L1250-L1261 — Widget _label(LlTokens t, String text)
+- _ddDecoration · method · L1263-L1283 — InputDecoration _ddDecoration(LlTokens t)
+- _pickerTile · method · L1285-L1319 — Widget _pickerTile(LlTokens t,

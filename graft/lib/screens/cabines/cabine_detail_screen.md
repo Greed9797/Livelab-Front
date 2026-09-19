@@ -1,0 +1,115 @@
+# lib/screens/cabines/cabine_detail_screen.dart
+
+- _ToneColors · class · L22-L26 — class _ToneColors
+- _tonePalette · constant · L28-L37 — const Map<_Tone, _ToneColors> _tonePalette =
+- _currencyFmt · constant · L39-L40 — final NumberFormat _currencyFmt =
+- CabineDetailScreen · class · L46-L58 — class CabineDetailScreen extends ConsumerStatefulWidget
+- createState · method · L57-L57 — ConsumerState<CabineDetailScreen> createState() => _CabineDetailScreenState();
+- _CabineDetailScreenState · class · L60-L214 — class _CabineDetailScreenState extends ConsumerState<CabineDetailScreen>
+- initState · method · L65-L68 — void initState()
+- dispose · method · L71-L74 — void dispose()
+- build · method · L77-L144 — Widget build(BuildContext context)
+- _buildTabBar · method · L146-L213 — Widget _buildTabBar(String numeroLabel)
+- _LivelabLoading · class · L216-L226 — class _LivelabLoading extends StatelessWidget
+- build · method · L220-L225 — Widget build(BuildContext context)
+- _LivelabError · class · L228-L262 — class _LivelabError extends StatelessWidget
+- build · method · L235-L261 — Widget build(BuildContext context)
+- _LiveTab · class · L268-L393 — class _LiveTab extends ConsumerWidget
+- build · method · L280-L392 — Widget build(BuildContext context, WidgetRef ref)
+- _HeroLive · class · L397-L633 — class _HeroLive extends StatelessWidget
+- build · method · L421-L632 — Widget build(BuildContext context)
+- _LiveBadge · class · L635-L638 — class _LiveBadge extends StatefulWidget
+- createState · method · L637-L637 — State<_LiveBadge> createState() => _LiveBadgeState();
+- _LiveBadgeState · class · L640-L695 — class _LiveBadgeState extends State<_LiveBadge>
+- initState · method · L645-L651 — void initState()
+- dispose · method · L654-L657 — void dispose()
+- build · method · L660-L694 — Widget build(BuildContext context)
+- _MetricsGrid · class · L697-L719 — class _MetricsGrid extends StatelessWidget
+- build · method · L704-L718 — Widget build(BuildContext context)
+- _MetricTile · class · L721-L784 — class _MetricTile extends StatelessWidget
+- build · method · L735-L783 — Widget build(BuildContext context)
+- _AudienceCard · class · L788-L841 — class _AudienceCard extends StatelessWidget
+- build · method · L795-L840 — Widget build(BuildContext context)
+- _SparklinePainter · class · L843-L990 — class _SparklinePainter extends CustomPainter
+- paint · method · L855-L967 — void paint(Canvas canvas, Size size)
+- _drawDashedLine · method · L969-L985 — void _drawDashedLine(
+- shouldRepaint · method · L988-L989 — bool shouldRepaint(covariant _SparklinePainter old) =>
+- _TiktokChannelCard · class · L994-L1007 — class _TiktokChannelCard extends ConsumerStatefulWidget
+- createState · method · L1006-L1006 — ConsumerState<_TiktokChannelCard> createState() => _TiktokChannelCardState();
+- _TiktokChannelCardState · class · L1009-L1188 — class _TiktokChannelCardState extends ConsumerState<_TiktokChannelCard>
+- initState · method · L1015-L1018 — void initState()
+- didUpdateWidget · method · L1021-L1026 — void didUpdateWidget(_TiktokChannelCard old)
+- dispose · method · L1029-L1032 — void dispose()
+- _save · method · L1034-L1053 — Future<void> _save() async
+- build · method · L1056-L1062 — Widget build(BuildContext context)
+- _buildViewMode · method · L1064-L1140 — Widget _buildViewMode(bool has)
+- _buildEditMode · method · L1142-L1187 — Widget _buildEditMode()
+- _BusinessInfoCard · class · L1192-L1283 — class _BusinessInfoCard extends StatelessWidget
+- build · method · L1199-L1282 — Widget build(BuildContext context)
+- _InfoCell · class · L1285-L1328 — class _InfoCell extends StatelessWidget
+- build · method · L1299-L1327 — Widget build(BuildContext context)
+- _CloserNotifyCard · class · L1335-L1350 — class _CloserNotifyCard extends ConsumerStatefulWidget
+- createState · method · L1349-L1349 — ConsumerState<_CloserNotifyCard> createState() => _CloserNotifyCardState();
+- _CloserNotifyCardState · class · L1352-L1587 — class _CloserNotifyCardState extends ConsumerState<_CloserNotifyCard>
+- _templates · constant · L1358-L1371 — static const List<(IconData, String, String, String)> _templates = [
+- dispose · method · L1374-L1377 — void dispose()
+- _sendTemplate · method · L1379-L1390 — Future<void> _sendTemplate(String type, String title, String template) async
+- _askValor · method · L1392-L1419 — Future<String?> _askValor(String title) async
+- _sendCustom · method · L1421-L1426 — Future<void> _sendCustom() async
+- _send · method · L1428-L1462 — Future<void> _send(String type, String message) async
+- build · method · L1465-L1586 — Widget build(BuildContext context)
+- _TemplateChip · class · L1589-L1634 — class _TemplateChip extends StatelessWidget
+- build · method · L1601-L1633 — Widget build(BuildContext context)
+- _InsightsTab · class · L1640-L1719 — class _InsightsTab extends StatelessWidget
+- build · method · L1646-L1718 — Widget build(BuildContext context)
+- _MelhoresHorariosCard · class · L1721-L1804 — class _MelhoresHorariosCard extends StatelessWidget
+- build · method · L1727-L1803 — Widget build(BuildContext context)
+- _HorarioBar · class · L1806-L1925 — class _HorarioBar extends StatelessWidget
+- build · method · L1820-L1924 — Widget build(BuildContext context)
+- _TopClientesCard · class · L1927-L1985 — class _TopClientesCard extends StatelessWidget
+- build · method · L1933-L1984 — Widget build(BuildContext context)
+- _TopClienteRow · class · L1987-L2094 — class _TopClienteRow extends StatelessWidget
+- build · method · L2005-L2093 — Widget build(BuildContext context)
+- _LeituraEficienciaCard · class · L2096-L2235 — class _LeituraEficienciaCard extends StatelessWidget
+- build · method · L2108-L2234 — Widget build(BuildContext context)
+- _HistoricoTab · class · L2241-L2248 — class _HistoricoTab extends StatefulWidget
+- createState · method · L2247-L2247 — State<_HistoricoTab> createState() => _HistoricoTabState();
+- _HistoricoTabState · class · L2250-L2402 — class _HistoricoTabState extends State<_HistoricoTab>
+- build · method · L2254-L2382 — Widget build(BuildContext context)
+- _buildMonthsData · method · L2384-L2401 — List<_MesData> _buildMonthsData(Map<String, dynamic> desempenho, int months)
+- _MesData · class · L2404-L2415 — class _MesData
+- _SegmentedControl · class · L2417-L2449 — class _SegmentedControl extends StatelessWidget
+- build · method · L2429-L2448 — Widget build(BuildContext context)
+- _SegButton · class · L2451-L2484 — class _SegButton extends StatelessWidget
+- build · method · L2463-L2483 — Widget build(BuildContext context)
+- _EvolucaoMensalRow · class · L2486-L2596 — class _EvolucaoMensalRow extends StatelessWidget
+- build · method · L2500-L2595 — Widget build(BuildContext context)
+- _UltimasLivesTable · class · L2598-L2695 — class _UltimasLivesTable extends StatelessWidget
+- build · method · L2604-L2694 — Widget build(BuildContext context)
+- _TableHeader · class · L2697-L2715 — class _TableHeader extends StatelessWidget
+- build · method · L2703-L2714 — Widget build(BuildContext context)
+- _LivelabCard · class · L2721-L2749 — class _LivelabCard extends StatelessWidget
+- build · method · L2731-L2748 — Widget build(BuildContext context)
+- _CardTitle · class · L2751-L2786 — class _CardTitle extends StatelessWidget
+- build · method · L2758-L2785 — Widget build(BuildContext context)
+- _ChipBadge · class · L2788-L2834 — class _ChipBadge extends StatelessWidget
+- build · method · L2800-L2833 — Widget build(BuildContext context)
+- _EmptyState · class · L2836-L2893 — class _EmptyState extends StatelessWidget
+- build · method · L2848-L2892 — Widget build(BuildContext context)
+- _CloserNotificationListener · class · L2899-L2911 — class _CloserNotificationListener extends ConsumerStatefulWidget
+- createState · method · L2909-L2910 — ConsumerState<_CloserNotificationListener> createState() =>
+- _ActiveNotif · class · L2913-L2924 — class _ActiveNotif
+- _CloserNotificationListenerState · class · L2926-L3011 — class _CloserNotificationListenerState
+- dispose · method · L2932-L2938 — void dispose()
+- _addNotification · method · L2940-L2962 — void _addNotification(CloserNotification n)
+- _dismiss · method · L2964-L2971 — void _dismiss(String id)
+- build · method · L2974-L3010 — Widget build(BuildContext context)
+- _CloserPopup · class · L3013-L3021 — class _CloserPopup extends StatefulWidget
+- createState · method · L3020-L3020 — State<_CloserPopup> createState() => _CloserPopupState();
+- _CloserPopupState · class · L3023-L3204 — class _CloserPopupState extends State<_CloserPopup>
+- initState · method · L3028-L3034 — void initState()
+- dispose · method · L3037-L3040 — void dispose()
+- _iconFor · method · L3042-L3050 — IconData _iconFor(String type) => switch (type)
+- _labelFor · method · L3052-L3061 — String _labelFor(String type) => switch (type)
+- build · method · L3064-L3198 — Widget build(BuildContext context)
+- _fmtTs · method · L3200-L3203 — static String _fmtTs(DateTime d)

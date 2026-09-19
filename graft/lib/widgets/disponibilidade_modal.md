@@ -1,0 +1,26 @@
+# lib/widgets/disponibilidade_modal.dart
+
+- DisponibilidadeModal · class · L22-L56 — class DisponibilidadeModal extends ConsumerStatefulWidget
+- open · method · L32-L51 — static Future<void> open(
+- createState · method · L54-L55 — ConsumerState<DisponibilidadeModal> createState() =>
+- _DisponibilidadeModalState · class · L58-L218 — class _DisponibilidadeModalState extends ConsumerState<DisponibilidadeModal>
+- initState · method · L66-L69 — void initState()
+- dispose · method · L72-L75 — void dispose()
+- _confirmClose · method · L77-L98 — Future<bool> _confirmClose() async
+- build · method · L101-L163 — Widget build(BuildContext context)
+- _header · method · L165-L198 — Widget _header(BuildContext context)
+- _salvarGrade · method · L200-L217 — Future<void> _salvarGrade(DisponibilidadePayload payload) async
+- _GradeTab · class · L221-L329 — class _GradeTab extends StatelessWidget
+- build · method · L239-L290 — Widget build(BuildContext context)
+- _addSlot · method · L292-L325 — Future<void> _addSlot(BuildContext context, int dow) async
+- _format · method · L327-L328 — static String _format(TimeOfDay t) =>
+- _DiaEditor · class · L331-L385 — class _DiaEditor extends StatelessWidget
+- build · method · L345-L384 — Widget build(BuildContext context)
+- _BloqueiosTab · class · L388-L399 — class _BloqueiosTab extends ConsumerStatefulWidget
+- createState · method · L398-L398 — ConsumerState<_BloqueiosTab> createState() => _BloqueiosTabState();
+- _BloqueiosTabState · class · L401-L575 — class _BloqueiosTabState extends ConsumerState<_BloqueiosTab>
+- _df · constant · L402-L402 — static final _df = DateFormat("dd/MM/yyyy 'às' HH:mm");
+- build · method · L405-L446 — Widget build(BuildContext context)
+- _bloqueioCard · method · L448-L484 — Widget _bloqueioCard(ApresentadoraBloqueio b)
+- _adicionar · method · L486-L544 — Future<void> _adicionar() async
+- _remover · method · L546-L574 — Future<void> _remover(ApresentadoraBloqueio b) async

@@ -1,0 +1,21 @@
+# react-app/src/utils/period.ts
+
+- PeriodMode · type · L8-L8 — type PeriodMode = 'single' | 'range'
+- PeriodRange · interface · L10-L14 — interface PeriodRange
+- periodToYm · function · L19-L21 — function periodToYm(period: Period): string
+- ymToPeriod · function · L23-L26 — function ymToPeriod(ym: string): Period
+- ymIndex · function · L28-L31 — function ymIndex(ym: string): number
+- ymFromIndex · function · L33-L37 — function ymFromIndex(index: number): string
+- lastDayOf · function · L39-L43 — function lastDayOf(ym: string): string
+- defaultPeriodRange · function · L45-L48 — function defaultPeriodRange(): PeriodRange
+- isValidPeriodRange · function · L50-L52 — function isValidPeriodRange(pr: PeriodRange): boolean
+- monthsInRange · function · L54-L56 — function monthsInRange(pr: PeriodRange): number
+- periodKey · function · L59-L61 — function periodKey(pr: PeriodRange): string
+- financeiroParams · function · L64-L66 — function financeiroParams(pr: PeriodRange): Record<string, string>
+- comissoesParams · function · L69-L72 — function comissoesParams(pr: PeriodRange): Record<string, string>
+- custosCompetencia · function · L75-L77 — function custosCompetencia(pr: PeriodRange): string
+- previousPeriodRange · function · L80-L85 — function previousPeriodRange(pr: PeriodRange): PeriodRange
+- periodRangeLabel · function · L88-L97 — function periodRangeLabel(pr: PeriodRange): string
+- presetRange · function · L100-L105 — function presetRange(kind: 'last3' | 'last6' | 'ytd'): PeriodRange
+- periodRangeFromParams · function · L109-L118 — function periodRangeFromParams(params: URLSearchParams): PeriodRange
+- writePeriodRangeToParams · function · L120-L127 — function writePeriodRangeToParams(params: URLSearchParams, pr: PeriodRange): URLSearchParams

@@ -1,0 +1,16 @@
+# react-app/src/pages/CrmPage.tsx
+
+- CrmPage · function · L36-L348 — function CrmPage()
+- invalidateCrm · function · L52-L56 — invalidateCrm = ()
+- closeModal · function · L58-L64 — closeModal = ()
+- setLeadField · function · L133-L135 — function setLeadField(key: keyof typeof emptyLeadForm, value: string)
+- fillForm · function · L137-L152 — function fillForm(lead: JsonRecord)
+- openCreateForm · function · L154-L159 — function openCreateForm()
+- openDetail · function · L161-L165 — function openDetail(lead: JsonRecord)
+- openEditForm · function · L167-L172 — function openEditForm(lead: JsonRecord)
+- onLeadSubmit · function · L174-L190 — function onLeadSubmit(event: FormEvent<HTMLFormElement>)
+- moveLead · function · L192-L197 — function moveLead(id: string, stage: CrmStageKey)
+- registerContact · function · L199-L203 — function registerContact(lead: JsonRecord)
+- createTask · function · L205-L209 — function createTask(lead: JsonRecord)
+- markLost · function · L211-L214 — function markLost(lead: JsonRecord)
+- deleteSelectedLead · function · L216-L219 — function deleteSelectedLead(lead: JsonRecord)

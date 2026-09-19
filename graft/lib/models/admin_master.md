@@ -1,0 +1,26 @@
+# lib/models/admin_master.dart
+
+- _toDouble · function · L1-L4 — double _toDouble(dynamic value)
+- _toInt · function · L6-L9 — int _toInt(dynamic value)
+- _toStringValue · function · L11-L15 — String _toStringValue(dynamic value, [String fallback = ''])
+- _toMapList · function · L17-L23 — List<Map<String, dynamic>> _toMapList(dynamic value)
+- MasterHistoryPoint · class · L25-L50 — class MasterHistoryPoint
+- MasterPipelineTenant · class · L52-L73 — class MasterPipelineTenant
+- MasterPipelineStage · class · L75-L109 — class MasterPipelineStage
+- MasterCrmTotals · class · L111-L153 — class MasterCrmTotals
+- empty · constant · L144-L152 — static const empty = MasterCrmTotals(
+- MasterDashboardCards · class · L155-L191 — class MasterDashboardCards
+- MasterRankingItem · class · L193-L214 — class MasterRankingItem
+- MasterAlertItem · class · L216-L243 — class MasterAlertItem
+- MasterGrowthUnit · class · L245-L269 — class MasterGrowthUnit
+- MasterCommissionSummary · class · L271-L292 — class MasterCommissionSummary
+- MasterDashboardData · class · L294-L358 — class MasterDashboardData
+- MasterUnitsSummary · class · L360-L381 — class MasterUnitsSummary
+- MasterClient · class · L383-L419 — class MasterClient
+- MasterUnit · class · L421-L474 — class MasterUnit
+- MasterUnitsData · class · L476-L499 — class MasterUnitsData
+- MasterConsolidatedOverview · class · L501-L546 — class MasterConsolidatedOverview
+- MasterConsolidatedUnit · class · L548-L581 — class MasterConsolidatedUnit
+- MasterConsolidatedData · class · L583-L613 — class MasterConsolidatedData
+- MasterCrmSummary · class · L615-L642 — class MasterCrmSummary
+- MasterCrmData · class · L644-L682 — class MasterCrmData

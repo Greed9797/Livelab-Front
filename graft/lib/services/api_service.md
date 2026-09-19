@@ -1,0 +1,36 @@
+# lib/services/api_service.dart
+
+- ApiException · class · L11-L18 — class ApiException implements Exception
+- toString · method · L17-L17 — String toString() => message;
+- ApiService · class · L21-L450 — class ApiService
+- _configuredBaseUrl · constant · L22-L25 — static const _configuredBaseUrl = String.fromEnvironment(
+- _tokenKey · constant · L26-L26 — static const _tokenKey = 'access_token';
+- _refreshKey · constant · L27-L27 — static const _refreshKey = 'refresh_token';
+- _userKey · constant · L28-L28 — static const _userKey = 'auth_user';
+- _storage · constant · L30-L30 — static const _storage = FlutterSecureStorage();
+- _memFallback · constant · L34-L34 — static final Map<String, String> _memFallback = {};
+- _storageWrite · method · L38-L49 — static Future<void> _storageWrite(String key, String value) async
+- _storageRead · method · L51-L58 — static Future<String?> _storageRead(String key) async
+- _storageDelete · method · L60-L65 — static Future<void> _storageDelete(String key) async
+- setUnauthorizedHandler · method · L73-L75 — static void setUnauthorizedHandler(Future<void> Function()? handler)
+- init · method · L77-L126 — static Future<void> init() async
+- _resolveBaseUrl · method · L128-L147 — static String _resolveBaseUrl()
+- _isAuthRoute · method · L149-L153 — static bool _isAuthRoute(String path)
+- _refreshAccessToken · method · L155-L163 — static Future<String?> _refreshAccessToken()
+- _performRefresh · method · L165-L200 — static Future<String?> _performRefresh() async
+- extractErrorMessage · method · L202-L241 — static String extractErrorMessage(Object error)
+- _runRequest · method · L243-L250 — static Future<Response<T>> _runRequest<T>(
+- saveTokens · method · L252-L255 — static Future<void> saveTokens(String access, String refresh) async
+- saveUser · method · L257-L259 — static Future<void> saveUser(Map<String, dynamic> user) async
+- getSavedUser · method · L261-L272 — static Future<Map<String, dynamic>?> getSavedUser() async
+- clearTokens · method · L274-L278 — static Future<void> clearTokens() async
+- getAccessToken · method · L280-L280 — static Future<String?> getAccessToken() => _storageRead(_tokenKey);
+- tryRefresh · method · L284-L284 — static Future<String?> tryRefresh() => _performRefresh();
+- get · method · L286-L288 — static Future<Response<T>> get<T>(String path,
+- post · method · L290-L291 — static Future<Response<T>> post<T>(String path, {dynamic data}) =>
+- postFormData · method · L294-L304 — static Future<Response<T>> postFormData<T>(
+- patch · method · L306-L307 — static Future<Response<T>> patch<T>(String path, {dynamic data}) =>
+- delete · method · L309-L310 — static Future<Response<T>> delete<T>(String path) =>
+- downloadBytes · method · L314-L333 — static Future<({Uint8List bytes, String? filename, String? contentType})>
+- streamLiveSnapshot · method · L339-L391 — static Stream<LiveSnapshot> streamLiveSnapshot(String liveId) async*
+- streamCloserNotifications · method · L396-L449 — static Stream<Map<String, dynamic>> streamCloserNotifications(

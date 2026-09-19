@@ -1,0 +1,37 @@
+# lib/providers/knowledge_provider.dart
+
+- KnowledgeCategoriesNotifier · class · L12-L99 — class KnowledgeCategoriesNotifier
+- build · method · L15-L21 — Future<List<KnowledgeCategory>> build() async
+- _fetch · method · L23-L33 — Future<List<KnowledgeCategory>> _fetch() async
+- refresh · method · L35-L38 — Future<void> refresh() async
+- criar · method · L40-L49 — Future<KnowledgeCategory> criar(Map<String, dynamic> payload) async
+- editar · method · L51-L65 — Future<KnowledgeCategory> editar(
+- deletar · method · L67-L72 — Future<void> deletar(String id) async
+- reordenar · method · L76-L98 — Future<void> reordenar(List<String> orderedIds) async
+- knowledgeCategoriesProvider · constant · L101-L103 — final knowledgeCategoriesProvider = AsyncNotifierProvider<
+- KnowledgeArticlesFilter · class · L109-L129 — class KnowledgeArticlesFilter
+- toQueryParams · method · L120-L128 — Map<String, dynamic> toQueryParams()
+- KnowledgeArticlesFilterNotifier · class · L131-L159 — class KnowledgeArticlesFilterNotifier
+- build · method · L134-L134 — KnowledgeArticlesFilter build() => const KnowledgeArticlesFilter();
+- update · method · L136-L142 — void update({String? categorySlug, String? status, String? q})
+- clear · method · L144-L144 — void clear() => state = const KnowledgeArticlesFilter();
+- setCategory · method · L146-L151 — void setCategory(String? slug) =>
+- setStatus · method · L153-L158 — void setStatus(String? status) =>
+- knowledgeArticlesFilterProvider · constant · L161-L163 — final knowledgeArticlesFilterProvider = NotifierProvider<
+- KnowledgeArticlesNotifier · class · L165-L261 — class KnowledgeArticlesNotifier
+- build · method · L168-L175 — Future<List<KnowledgeArticle>> build() async
+- _fetch · method · L177-L191 — Future<List<KnowledgeArticle>> _fetch(
+- refresh · method · L193-L198 — Future<void> refresh() async
+- criar · method · L200-L209 — Future<KnowledgeArticle> criar(Map<String, dynamic> payload) async
+- editar · method · L211-L225 — Future<KnowledgeArticle> editar(
+- publicar · method · L227-L239 — Future<KnowledgeArticle> publicar(String id) async
+- arquivar · method · L241-L253 — Future<KnowledgeArticle> arquivar(String id) async
+- deletar · method · L255-L260 — Future<void> deletar(String id) async
+- knowledgeArticlesProvider · constant · L263-L265 — final knowledgeArticlesProvider = AsyncNotifierProvider<
+- KnowledgeSearchNotifier · class · L271-L290 — class KnowledgeSearchNotifier
+- build · method · L274-L289 — Future<List<KnowledgeArticle>> build(String q) async
+- knowledgeSearchProvider · constant · L292-L295 — final knowledgeSearchProvider = AsyncNotifierProvider.autoDispose
+- KnowledgeArticleBySlugNotifier · class · L301-L324 — class KnowledgeArticleBySlugNotifier
+- build · method · L304-L313 — Future<KnowledgeArticle> build(String slug) async
+- refresh · method · L315-L323 — Future<void> refresh() async
+- knowledgeArticleBySlugProvider · constant · L326-L329 — final knowledgeArticleBySlugProvider = AsyncNotifierProvider.family<

@@ -1,0 +1,81 @@
+# lib/screens/cabines/cabines_screen.dart
+
+- CabinesScreen · class · L23-L30 — class CabinesScreen extends ConsumerStatefulWidget
+- createState · method · L29-L29 — ConsumerState<CabinesScreen> createState() => _CabinesScreenState();
+- _CabinesScreenState · class · L32-L444 — class _CabinesScreenState extends ConsumerState<CabinesScreen>
+- _desktopBreakpoint · constant · L34-L34 — static const _desktopBreakpoint = 950.0;
+- _statusFilters · constant · L36-L41 — static const _statusFilters = [
+- initState · method · L51-L58 — void initState()
+- dispose · method · L61-L65 — void dispose()
+- _syncSelectedCabine · method · L67-L78 — void _syncSelectedCabine(List<Cabine> cabines, {required bool isDesktop})
+- _applyFilters · method · L80-L98 — List<Cabine> _applyFilters(List<Cabine> cabines)
+- _findSelectedCabine · method · L100-L108 — Cabine? _findSelectedCabine(List<Cabine> cabines)
+- _sumLiveAudienceFromSse · method · L110-L122 — int _sumLiveAudienceFromSse(List<Cabine> cabines)
+- _findSelectedContrato · method · L124-L132 — FilaAtivacaoItem? _findSelectedContrato(List<FilaAtivacaoItem> fila)
+- _openFilaAtivacaoSheet · method · L134-L145 — Future<void> _openFilaAtivacaoSheet() async
+- _reservarCabine · method · L147-L176 — Future<void> _reservarCabine(Cabine cabine, {required bool isDesktop}) async
+- _registrarLiveManual · method · L178-L183 — Future<void> _registrarLiveManual() async
+- _iniciarLive · method · L185-L201 — Future<void> _iniciarLive(Cabine cabine) async
+- _liberarCabine · method · L203-L219 — Future<void> _liberarCabine(Cabine cabine) async
+- _showTiktokDialog · method · L221-L278 — Future<void> _showTiktokDialog(Cabine cabine) async
+- _handleCabineTap · method · L280-L291 — void _handleCabineTap(Cabine cabine, {required bool isDesktop})
+- _handleCabineDoubleTap · method · L295-L301 — void _handleCabineDoubleTap(Cabine cabine)
+- build · method · L304-L443 — Widget build(BuildContext context)
+- _MainOperationalArea · class · L446-L602 — class _MainOperationalArea extends StatelessWidget
+- build · method · L488-L505 — Widget build(BuildContext context)
+- _buildScrollView · method · L507-L601 — Widget _buildScrollView(BuildContext context, int crossAxisCount)
+- _HeaderSection · class · L604-L640 — class _HeaderSection extends StatelessWidget
+- build · method · L616-L639 — Widget build(BuildContext context)
+- _KpiSection · class · L642-L708 — class _KpiSection extends StatelessWidget
+- build · method · L648-L707 — Widget build(BuildContext context)
+- _FeaturedKpiCard · class · L710-L766 — class _FeaturedKpiCard extends StatelessWidget
+- build · method · L722-L765 — Widget build(BuildContext context)
+- _ToolbarSection · class · L768-L837 — class _ToolbarSection extends StatelessWidget
+- _countFor · method · L783-L788 — int _countFor(String status) => switch (status)
+- build · method · L791-L823 — Widget build(BuildContext context)
+- _statusLabel · method · L825-L836 — String _statusLabel(String status)
+- _ChipWithCount · class · L839-L894 — class _ChipWithCount extends StatelessWidget
+- build · method · L853-L893 — Widget build(BuildContext context)
+- _SelectedContractBanner · class · L896-L940 — class _SelectedContractBanner extends StatelessWidget
+- build · method · L903-L939 — Widget build(BuildContext context)
+- _OperationalCard · class · L942-L992 — class _OperationalCard extends StatelessWidget
+- build · method · L968-L991 — Widget build(BuildContext context)
+- _OperationalActions · class · L994-L1051 — class _OperationalActions extends StatelessWidget
+- build · method · L1008-L1050 — Widget build(BuildContext context)
+- _SidebarContent · class · L1053-L1121 — class _SidebarContent extends ConsumerWidget
+- build · method · L1071-L1120 — Widget build(BuildContext context, WidgetRef ref)
+- _SelectedCabinePanel · class · L1123-L1139 — class _SelectedCabinePanel extends ConsumerStatefulWidget
+- createState · method · L1137-L1138 — ConsumerState<_SelectedCabinePanel> createState() =>
+- _SelectedCabinePanelState · class · L1141-L1467 — class _SelectedCabinePanelState extends ConsumerState<_SelectedCabinePanel>
+- _addApresentador · method · L1143-L1207 — Future<void> _addApresentador(BuildContext context, WidgetRef ref, Cabine cabine) async
+- _buildApresentadoresLabel · method · L1209-L1217 — String _buildApresentadoresLabel(Cabine cabine)
+- build · method · L1220-L1466 — Widget build(BuildContext context)
+- _QueuePanel · class · L1469-L1558 — class _QueuePanel extends StatelessWidget
+- build · method · L1483-L1557 — Widget build(BuildContext context)
+- _MiniAnalyticsPanel · class · L1560-L1742 — class _MiniAnalyticsPanel extends ConsumerWidget
+- _currency · constant · L1565-L1566 — static final NumberFormat _currency =
+- _formatHourBucket · method · L1568-L1571 — String _formatHourBucket(int hora)
+- build · method · L1574-L1741 — Widget build(BuildContext context, WidgetRef ref)
+- _SidebarCard · class · L1744-L1771 — class _SidebarCard extends StatelessWidget
+- build · method · L1751-L1770 — Widget build(BuildContext context)
+- _InfoLine · class · L1773-L1805 — class _InfoLine extends StatelessWidget
+- build · method · L1780-L1804 — Widget build(BuildContext context)
+- _SecondaryInfoLine · class · L1807-L1841 — class _SecondaryInfoLine extends StatelessWidget
+- build · method · L1814-L1840 — Widget build(BuildContext context)
+- _TempoRestanteLine · class · L1843-L1890 — class _TempoRestanteLine extends StatelessWidget
+- build · method · L1849-L1889 — Widget build(BuildContext context)
+- _MetricRankRow · class · L1892-L1920 — class _MetricRankRow extends StatelessWidget
+- build · method · L1899-L1919 — Widget build(BuildContext context)
+- _RankedMetricRow · class · L1922-L1986 — class _RankedMetricRow extends StatelessWidget
+- build · method · L1936-L1985 — Widget build(BuildContext context)
+- _AnalyticsSummaryRow · class · L1988-L2045 — class _AnalyticsSummaryRow extends StatelessWidget
+- _formatHoras · method · L1999-L2004 — String _formatHoras(double h)
+- build · method · L2007-L2044 — Widget build(BuildContext context)
+- _CabinesEmptyState · class · L2047-L2081 — class _CabinesEmptyState extends StatelessWidget
+- build · method · L2051-L2080 — Widget build(BuildContext context)
+- _FilaAtivacaoBottomSheet · class · L2083-L2164 — class _FilaAtivacaoBottomSheet extends ConsumerWidget
+- build · method · L2087-L2163 — Widget build(BuildContext context, WidgetRef ref)
+- _CabinesMetrics · class · L2168-L2207 — class _CabinesMetrics
+- _EngajamentoChip · class · L2209-L2256 — class _EngajamentoChip extends StatelessWidget
+- build · method · L2223-L2255 — Widget build(BuildContext context)
+- _formatDuracao · function · L2258-L2262 — String _formatDuracao(Duration d)

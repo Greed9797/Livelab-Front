@@ -1,0 +1,27 @@
+# lib/screens/admin_master/master_units_screen.dart
+
+- _unitPeriods · function · L11-L18 — List<String> _unitPeriods([int count = 6])
+- _periodText · function · L20-L22 — String _periodText(String period)
+- _money · function · L24-L30 — String _money(double value)
+- _pct · function · L32-L35 — String _pct(double value)
+- MasterUnitsScreen · class · L37-L42 — class MasterUnitsScreen extends ConsumerStatefulWidget
+- createState · method · L41-L41 — ConsumerState<MasterUnitsScreen> createState() => _MasterUnitsScreenState();
+- _MasterUnitsScreenState · class · L44-L177 — class _MasterUnitsScreenState extends ConsumerState<MasterUnitsScreen>
+- initState · method · L49-L52 — void initState()
+- build · method · L55-L176 — Widget build(BuildContext context)
+- _UnitsHeader · class · L179-L278 — class _UnitsHeader extends StatelessWidget
+- build · method · L197-L277 — Widget build(BuildContext context)
+- _UnitExpansionCard · class · L280-L377 — class _UnitExpansionCard extends StatelessWidget
+- build · method · L286-L376 — Widget build(BuildContext context)
+- _SummaryChip · class · L379-L405 — class _SummaryChip extends StatelessWidget
+- build · method · L387-L404 — Widget build(BuildContext context)
+- _DetailMetric · class · L407-L430 — class _DetailMetric extends StatelessWidget
+- build · method · L414-L429 — Widget build(BuildContext context)
+- _UnitHistoryRow · class · L432-L487 — class _UnitHistoryRow extends StatelessWidget
+- build · method · L438-L486 — Widget build(BuildContext context)
+- _ClientsSection · class · L489-L605 — class _ClientsSection extends StatelessWidget
+- build · method · L495-L604 — Widget build(BuildContext context)
+- _MiniLine · class · L607-L630 — class _MiniLine extends StatelessWidget
+- build · method · L614-L629 — Widget build(BuildContext context)
+- _UnitsErrorState · class · L632-L672 — class _UnitsErrorState extends StatelessWidget
+- build · method · L639-L671 — Widget build(BuildContext context)

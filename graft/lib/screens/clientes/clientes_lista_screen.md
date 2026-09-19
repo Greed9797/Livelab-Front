@@ -1,0 +1,30 @@
+# lib/screens/clientes/clientes_lista_screen.dart
+
+- ClientesListaScreen · class · L14-L20 — class ClientesListaScreen extends ConsumerStatefulWidget
+- createState · method · L18-L19 — ConsumerState<ClientesListaScreen> createState() =>
+- _ClientesListaScreenState · class · L22-L156 — class _ClientesListaScreenState extends ConsumerState<ClientesListaScreen>
+- dispose · method · L27-L30 — void dispose()
+- _applyFilter · method · L32-L44 — List<Cliente> _applyFilter(List<Cliente> all)
+- _confirmDelete · method · L46-L108 — Future<void> _confirmDelete(Cliente cliente) async
+- _abrirCriarLogin · method · L110-L115 — void _abrirCriarLogin()
+- build · method · L118-L155 — Widget build(BuildContext context)
+- _Header · class · L162-L222 — class _Header extends StatelessWidget
+- build · method · L168-L221 — Widget build(BuildContext context)
+- _SearchBar · class · L228-L267 — class _SearchBar extends StatelessWidget
+- build · method · L235-L266 — Widget build(BuildContext context)
+- _ClientesTable · class · L273-L378 — class _ClientesTable extends StatelessWidget
+- build · method · L283-L323 — Widget build(BuildContext context)
+- _buildRow · method · L325-L377 — DataRow _buildRow(Cliente cliente)
+- _StatusBadge · class · L384-L424 — class _StatusBadge extends StatelessWidget
+- _resolve · method · L389-L400 — static (String, Color, Color) _resolve(String status)
+- build · method · L403-L423 — Widget build(BuildContext context)
+- _ApresentadorasPills · class · L430-L478 — class _ApresentadorasPills extends StatelessWidget
+- build · method · L435-L477 — Widget build(BuildContext context)
+- _AcoesCell · class · L484-L512 — class _AcoesCell extends StatelessWidget
+- build · method · L491-L511 — Widget build(BuildContext context)
+- _EmptyState · class · L518-L554 — class _EmptyState extends StatelessWidget
+- build · method · L524-L553 — Widget build(BuildContext context)
+- _ClientesListaSkeleton · class · L560-L570 — class _ClientesListaSkeleton extends StatelessWidget
+- build · method · L564-L569 — Widget build(BuildContext context)
+- _ClientesListaError · class · L576-L612 — class _ClientesListaError extends StatelessWidget
+- build · method · L586-L611 — Widget build(BuildContext context)

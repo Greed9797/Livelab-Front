@@ -1,0 +1,31 @@
+# lib/livelab_v2/screens/consolidado_screen.dart
+
+- _currentPeriod · function · L14-L17 — String _currentPeriod()
+- _periodLabel · function · L19-L26 — String _periodLabel(String period)
+- _currency · function · L28-L29 — String _currency(double v) =>
+- _signedPercent · function · L31-L32 — String _signedPercent(double v) =>
+- _exportCsv · function · L34-L77 — void _exportCsv(BuildContext context, MasterConsolidatedData data)
+- ConsolidadoScreen · class · L79-L84 — class ConsolidadoScreen extends ConsumerStatefulWidget
+- createState · method · L83-L83 — ConsumerState<ConsolidadoScreen> createState() => _ConsolidadoScreenState();
+- _ConsolidadoScreenState · class · L86-L161 — class _ConsolidadoScreenState extends ConsumerState<ConsolidadoScreen>
+- initState · method · L91-L94 — void initState()
+- build · method · L97-L154 — Widget build(BuildContext context)
+- _statusLabel · method · L156-L160 — String _statusLabel(String s) => switch (s)
+- _Body · class · L163-L301 — class _Body extends StatelessWidget
+- build · method · L168-L300 — Widget build(BuildContext context)
+- _ErrorBox · class · L303-L336 — class _ErrorBox extends StatelessWidget
+- build · method · L309-L335 — Widget build(BuildContext context)
+- RevenueMixWidget · class · L338-L383 — class RevenueMixWidget extends StatelessWidget
+- build · method · L343-L382 — Widget build(BuildContext context)
+- _MixItem · class · L385-L395 — class _MixItem
+- _MixBar · class · L397-L440 — class _MixBar extends StatelessWidget
+- build · method · L402-L439 — Widget build(BuildContext context)
+- _MixFooter · class · L442-L466 — class _MixFooter extends StatelessWidget
+- build · method · L449-L465 — Widget build(BuildContext context)
+- _tableFlexes · constant · L472-L472 — const _tableFlexes = [3, 2, 1, 2, 1, 1, 2];
+- ConsolidatedUnitTable · class · L474-L531 — class ConsolidatedUnitTable extends StatelessWidget
+- build · method · L480-L530 — Widget build(BuildContext context)
+- _TableHeader · class · L533-L575 — class _TableHeader extends StatelessWidget
+- build · method · L537-L574 — Widget build(BuildContext context)
+- _TableRowData · class · L577-L688 — class _TableRowData extends StatelessWidget
+- build · method · L635-L687 — Widget build(BuildContext context)

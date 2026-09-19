@@ -1,0 +1,32 @@
+# lib/livelab_v2/screens/unidades_screen.dart
+
+- _currentPeriod · function · L14-L17 — String _currentPeriod()
+- _periodLabel · function · L19-L26 — String _periodLabel(String period)
+- _currency · function · L28-L30 — String _currency(double value) =>
+- _signedPercent · function · L32-L35 — String _signedPercent(double value)
+- UnidadesScreen · class · L37-L42 — class UnidadesScreen extends ConsumerStatefulWidget
+- createState · method · L41-L41 — ConsumerState<UnidadesScreen> createState() => _UnidadesScreenState();
+- _UnidadesScreenState · class · L44-L117 — class _UnidadesScreenState extends ConsumerState<UnidadesScreen>
+- initState · method · L49-L52 — void initState()
+- build · method · L55-L110 — Widget build(BuildContext context)
+- _statusLabel · method · L112-L116 — String _statusLabel(String s) => switch (s)
+- _Body · class · L119-L195 — class _Body extends StatelessWidget
+- build · method · L124-L194 — Widget build(BuildContext context)
+- _ErrorBox · class · L197-L230 — class _ErrorBox extends StatelessWidget
+- build · method · L203-L229 — Widget build(BuildContext context)
+- UnitDrillDownCard · class · L232-L239 — class UnitDrillDownCard extends StatefulWidget
+- createState · method · L238-L238 — State<UnitDrillDownCard> createState() => _UnitDrillDownCardState();
+- _UnitDrillDownCardState · class · L241-L341 — class _UnitDrillDownCardState extends State<UnitDrillDownCard>
+- build · method · L245-L340 — Widget build(BuildContext context)
+- _UnitChip · class · L343-L372 — class _UnitChip extends StatelessWidget
+- build · method · L350-L371 — Widget build(BuildContext context)
+- _UnitExpandedContent · class · L374-L402 — class _UnitExpandedContent extends StatelessWidget
+- build · method · L379-L401 — Widget build(BuildContext context)
+- _MiniDreCard · class · L404-L448 — class _MiniDreCard extends StatelessWidget
+- build · method · L409-L447 — Widget build(BuildContext context)
+- _TopClientsCard · class · L450-L481 — class _TopClientsCard extends StatelessWidget
+- build · method · L455-L480 — Widget build(BuildContext context)
+- _ClientRow · class · L483-L508 — class _ClientRow extends StatelessWidget
+- build · method · L488-L507 — Widget build(BuildContext context)
+- _DreRow · class · L510-L549 — class _DreRow extends StatelessWidget
+- build · method · L524-L548 — Widget build(BuildContext context)

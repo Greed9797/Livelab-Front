@@ -1,0 +1,24 @@
+# lib/screens/manuais/manuais_screen.dart
+
+- ManuaisScreen · class · L12-L17 — class ManuaisScreen extends ConsumerStatefulWidget
+- createState · method · L16-L16 — ConsumerState<ManuaisScreen> createState() => _ManuaisScreenState();
+- _ManuaisScreenState · class · L19-L313 — class _ManuaisScreenState extends ConsumerState<ManuaisScreen>
+- _categories · constant · L20-L27 — static const _categories = [
+- _abrirAddDialog · method · L31-L128 — Future<void> _abrirAddDialog(BuildContext context) async
+- _launchManual · method · L130-L136 — Future<void> _launchManual(String url) async
+- _filter · method · L138-L147 — List<Manual> _filter(List<Manual> manuais)
+- build · method · L150-L280 — Widget build(BuildContext context)
+- _buildErrorCard · method · L282-L299 — Widget _buildErrorCard(Object e) => AppCard(
+- _buildEmptyCard · method · L301-L312 — Widget _buildEmptyCard() => AppCard(
+- _SearchField · class · L315-L321 — class _SearchField extends StatefulWidget
+- createState · method · L320-L320 — State<_SearchField> createState() => _SearchFieldState();
+- _SearchFieldState · class · L323-L374 — class _SearchFieldState extends State<_SearchField>
+- dispose · method · L327-L330 — void dispose()
+- build · method · L333-L373 — Widget build(BuildContext context)
+- _FeaturedManualCard · class · L378-L466 — class _FeaturedManualCard extends StatelessWidget
+- _dateFmt · constant · L389-L389 — static final _dateFmt = DateFormat('dd/MM/yyyy');
+- _formatUpdated · method · L391-L392 — String _formatUpdated(DateTime? d) =>
+- build · method · L395-L465 — Widget build(BuildContext context)
+- _ManualListCard · class · L470-L560 — class _ManualListCard extends StatelessWidget
+- _dateFmt · constant · L481-L481 — static final _dateFmt = DateFormat('dd/MM/yyyy');
+- build · method · L484-L559 — Widget build(BuildContext context)

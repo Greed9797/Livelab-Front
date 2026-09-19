@@ -1,0 +1,42 @@
+# lib/screens/vendas/vendas_screen.dart
+
+- VendasScreen · class · L13-L18 — class VendasScreen extends ConsumerStatefulWidget
+- createState · method · L17-L17 — ConsumerState<VendasScreen> createState() => _VendasScreenState();
+- _VendasScreenState · class · L20-L488 — class _VendasScreenState extends ConsumerState<VendasScreen>
+- _etapas · constant · L24-L32 — static const _etapas = <_CrmStage>[
+- _brl · constant · L34-L35 — static final _brl =
+- initState · method · L38-L41 — void initState()
+- dispose · method · L44-L47 — void dispose()
+- build · method · L50-L143 — Widget build(BuildContext context)
+- _leadParado · method · L145-L148 — static bool _leadParado(Lead lead)
+- _moveLead · method · L150-L174 — static Future<void> _moveLead(
+- _askMotivoPerda · method · L176-L199 — static Future<String?> _askMotivoPerda(BuildContext context)
+- _showLeadForm · method · L201-L339 — static Future<void> _showLeadForm(BuildContext context, WidgetRef ref) async
+- _showLeadDetail · method · L341-L369 — static Future<void> _showLeadDetail(
+- _showGanharLeadDialog · method · L371-L487 — static Future<void> _showGanharLeadDialog(
+- _MetricasTab · class · L492-L673 — class _MetricasTab extends StatelessWidget
+- build · method · L512-L672 — Widget build(BuildContext context)
+- _EtapaRow · class · L675-L728 — class _EtapaRow extends StatelessWidget
+- build · method · L687-L727 — Widget build(BuildContext context)
+- _KanbanBoard · class · L732-L789 — class _KanbanBoard extends StatelessWidget
+- build · method · L748-L788 — Widget build(BuildContext context)
+- _KanbanColumn · class · L791-L907 — class _KanbanColumn extends StatelessWidget
+- build · method · L807-L906 — Widget build(BuildContext context)
+- _LeadKanbanCard · class · L909-L1000 — class _LeadKanbanCard extends StatelessWidget
+- build · method · L923-L999 — Widget build(BuildContext context)
+- _LeadDetailSheet · class · L1002-L1019 — class _LeadDetailSheet extends StatefulWidget
+- createState · method · L1018-L1018 — State<_LeadDetailSheet> createState() => _LeadDetailSheetState();
+- _LeadDetailSheetState · class · L1021-L1250 — class _LeadDetailSheetState extends State<_LeadDetailSheet>
+- initState · method · L1031-L1043 — void initState()
+- dispose · method · L1046-L1054 — void dispose()
+- _save · method · L1056-L1101 — Future<void> _save() async
+- build · method · L1104-L1249 — Widget build(BuildContext context)
+- _MiniLine · class · L1252-L1279 — class _MiniLine extends StatelessWidget
+- build · method · L1259-L1278 — Widget build(BuildContext context)
+- _HistoryRow · class · L1281-L1301 — class _HistoryRow extends StatelessWidget
+- build · method · L1287-L1300 — Widget build(BuildContext context)
+- _ErrorState · class · L1303-L1326 — class _ErrorState extends StatelessWidget
+- build · method · L1310-L1325 — Widget build(BuildContext context)
+- _TextArea · class · L1328-L1364 — class _TextArea extends StatelessWidget
+- build · method · L1340-L1363 — Widget build(BuildContext context)
+- _CrmStage · class · L1366-L1371 — class _CrmStage

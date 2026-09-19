@@ -1,0 +1,31 @@
+# lib/widgets/crm/lead_filter.dart
+
+- FieldSpec · class · L37-L48 — class FieldSpec
+- kLeadFields · constant · L50-L75 — const kLeadFields = <FieldSpec>[
+- kEtapaOptions · constant · L77-L86 — const kEtapaOptions = <(String, String)>[
+- LeadFilter · class · L88-L192 — class LeadFilter
+- copyWith · method · L94-L99 — LeadFilter copyWith({String? fieldKey, FilterOp? op, String? value}) =>
+- extract · method · L109-L130 — Object? extract(Lead lead)
+- _parseMoney · method · L133-L149 — static double? _parseMoney(Object? raw)
+- matches · method · L151-L191 — bool matches(Lead lead)
+- applyFilters · function · L194-L197 — List<Lead> applyFilters(List<Lead> leads, List<LeadFilter> filters)
+- LeadFilterBuilder · class · L201-L223 — class LeadFilterBuilder extends StatefulWidget
+- createState · method · L222-L222 — State<LeadFilterBuilder> createState() => _LeadFilterBuilderState();
+- _LeadFilterBuilderState · class · L225-L334 — class _LeadFilterBuilderState extends State<LeadFilterBuilder>
+- _add · method · L226-L230 — void _add()
+- _remove · method · L232-L235 — void _remove(int idx)
+- _update · method · L237-L241 — void _update(int idx, LeadFilter f)
+- _clear · method · L243-L243 — void _clear() => widget.onChanged(const []);
+- build · method · L246-L333 — Widget build(BuildContext context)
+- _FilterRow · class · L336-L452 — class _FilterRow extends StatelessWidget
+- _opsFor · method · L355-L369 — List<FilterOp> _opsFor(FieldType t)
+- build · method · L372-L451 — Widget build(BuildContext context)
+- _MiniDropdown · class · L454-L498 — class _MiniDropdown<T> extends StatelessWidget
+- build · method · L470-L497 — Widget build(BuildContext context)
+- _MiniInput · class · L500-L519 — class _MiniInput extends StatefulWidget
+- createState · method · L518-L518 — State<_MiniInput> createState() => _MiniInputState();
+- _MiniInputState · class · L521-L574 — class _MiniInputState extends State<_MiniInput>
+- initState · method · L525-L528 — void initState()
+- didUpdateWidget · method · L531-L536 — void didUpdateWidget(covariant _MiniInput old)
+- dispose · method · L539-L542 — void dispose()
+- build · method · L545-L573 — Widget build(BuildContext context)

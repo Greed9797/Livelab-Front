@@ -1,0 +1,24 @@
+# lib/screens/vendas/cadastro_cliente_screen.dart
+
+- CadastroClienteScreen · class · L11-L16 — class CadastroClienteScreen extends ConsumerStatefulWidget
+- createState · method · L14-L15 — ConsumerState<CadastroClienteScreen> createState() =>
+- _CadastroClienteScreenState · class · L18-L470 — class _CadastroClienteScreenState extends ConsumerState<CadastroClienteScreen>
+- dispose · method · L51-L66 — void dispose()
+- _onCepChanged · method · L68-L74 — void _onCepChanged(String value)
+- _buscarCep · method · L76-L94 — Future<void> _buscarCep(String cep) async
+- _nextStep · method · L96-L109 — void _nextStep()
+- _prevStep · method · L111-L117 — void _prevStep()
+- _salvar · method · L119-L158 — Future<void> _salvar({required bool gerarContrato}) async
+- build · method · L161-L200 — Widget build(BuildContext context)
+- _step1 · method · L202-L228 — Widget _step1() => Form(
+- _step2 · method · L230-L249 — Widget _step2() => Form(
+- _step3 · method · L251-L294 — Widget _step3() => SingleChildScrollView(
+- _step4 · method · L296-L342 — Widget _step4() => SingleChildScrollView(
+- _reviewRow · method · L344-L353 — Widget _reviewRow(String label, String value) => Padding(
+- _buildNavButtons · method · L355-L396 — Widget _buildNavButtons()
+- _applyDocMask · method · L398-L421 — String _applyDocMask(String digits)
+- _docField · method · L423-L457 — Widget _docField()
+- _field · method · L459-L469 — Widget _field(String label, TextEditingController ctrl,
+- _StepIndicator · class · L472-L534 — class _StepIndicator extends StatelessWidget
+- _labels · constant · L476-L481 — static const _labels = [
+- build · method · L484-L533 — Widget build(BuildContext context)
