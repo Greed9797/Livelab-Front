@@ -8,13 +8,19 @@ class LLLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(size * 0.28),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: size,
+      height: size,
+      padding: EdgeInsets.all(size * 0.12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white : const Color(0xFFF5F5F7),
+        borderRadius: BorderRadius.circular(size * 0.22),
+      ),
       child: Image.asset(
-        'assets/images/favicon.png',
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
+        'assets/images/logo.png',
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
       ),
     );
   }

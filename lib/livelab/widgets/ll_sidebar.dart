@@ -40,23 +40,19 @@ class LlSidebar extends StatelessWidget {
             padding: const EdgeInsets.all(LlSpacing.xl),
             child: Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(LlRadius.sm),
+                // Official Flutter brand wordmark (not favicon play-square).
+                Expanded(
                   child: Image.asset(
-                    'assets/images/favicon.png',
-                    width: 28,
-                    height: 28,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: LlSpacing.md),
-                Text(
-                  'Livelab',
-                  style: TextStyle(
-                    color: t.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
+                    'assets/images/livelab_wordmark.png',
+                    height: 22,
+                    fit: BoxFit.contain,
+                    alignment: Alignment.centerLeft,
+                    color: t.textPrimary.computeLuminance() > 0.5
+                        ? t.textPrimary
+                        : null,
+                    colorBlendMode: t.textPrimary.computeLuminance() > 0.5
+                        ? BlendMode.srcIn
+                        : null,
                   ),
                 ),
               ],

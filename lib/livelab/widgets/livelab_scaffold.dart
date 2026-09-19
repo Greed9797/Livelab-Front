@@ -347,9 +347,9 @@ class _Rail extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  // Logo mark + wordmark
-                  _buildLogo(t),
-                  const SizedBox(width: 10),
+                  // Canonical Flutter brand: wordmark only (favicon play-square
+                  // is not the LiveLab mark — see assets/images/logo.png /
+                  // livelab_wordmark.png).
                   Expanded(
                     child: _LivelabWordmark(textColor: t.textPrimary),
                   ),
@@ -370,7 +370,7 @@ class _Rail extends ConsumerWidget {
               ),
             )
           else
-            // Collapsed: logo is the expand button
+            // Collapsed: brand mark is the expand control
             Center(
               child: GestureDetector(
                 onTap: () => ref.read(_sidebarExpandedProvider.notifier).state = true,
@@ -474,24 +474,27 @@ class _Rail extends ConsumerWidget {
     ];
   }
 
+  /// Collapsed-rail brand mark — official Flutter `logo.png` (livelab + orange
+  /// chevron), not `favicon.png` (generic orange play square).
   Widget _buildLogo(LlTokens t) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-              color: t.primary.withValues(alpha: 0.45),
-              blurRadius: 16,
-              offset: const Offset(0, 6)),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+    final isDark = t.bgElev1.computeLuminance() < 0.5;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Container(
+        width: 64,
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          // Keep dark ink + orange chevron readable on dark rails.
+          color: isDark ? Colors.white : t.bgElev2,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: t.border),
+        ),
         child: Image.asset(
-          'assets/images/favicon.png',
-          fit: BoxFit.cover,
+          'assets/images/logo.png',
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.high,
         ),
       ),
     );
