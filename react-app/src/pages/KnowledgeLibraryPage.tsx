@@ -154,7 +154,11 @@ function MaterialSection({ title, description, rows, manager, onOpen, onEdit, on
 
 function LocalReader({ material, manager, headingRef, onBack, onEdit, onOpenCategory }: { material: KnowledgeMaterial; manager: boolean; headingRef: React.RefObject<HTMLHeadingElement | null>; onBack: () => void; onEdit: () => void; onOpenCategory?: (slug: string) => void }) {
   const [copied, setCopied] = useState(false)
-  const source = safeExternalUrl(material.external_url); const video = videoUrlFromKnowledgeMaterial(material); const html = sanitizeKnowledgeMarkdown(material.content_markdown); const rawAttachments = material.attachments ?? material.anexos; const attachments = Array.isArray(rawAttachments) ? rawAttachments : []
+  const source = safeExternalUrl(material.external_url)
+  const video = videoUrlFromKnowledgeMaterial(material)
+  const html = sanitizeKnowledgeMarkdown(material.content_markdown)
+  const rawAttachments = material.attachments ?? material.anexos
+  const attachments = Array.isArray(rawAttachments) ? rawAttachments : []
   const categorySlug = asString(material.category_slug)
   const categoryLabel = material.category_name || 'Sem categoria'
   async function copyLink() {
@@ -166,7 +170,51 @@ function LocalReader({ material, manager, headingRef, onBack, onEdit, onOpenCate
       setCopied(false)
     }
   }
-  return <div className="space-y-5"><Button type="button" variant="ghost" icon={ChevronLeft} onClick={onBack}>Voltar à Base</Button><Card className="max-w-4xl"><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{categorySlug && onOpenCategory ? <button type="button" className="text-brand underline-offset-2 hover:underline" onClick={() => onOpenCategory(categorySlug)}>{categoryLabel}</button> : categoryLabel} · {TYPE_LABEL[material.material_type] || 'Material'}</p><h1 ref={headingRef} tabIndex={-1} className="mt-1 text-2xl font-bold text-ink">{material.titulo}</h1><p className="mt-2 text-sm text-ink-muted">{material.excerpt || ''}</p></div><div className="flex flex-wrap gap-2">{Button type="button" variant="secondary" icon={Link2} onClick={() => void copyLink()}>{copied ? 'Link copiado' : 'Copiar link'}</Button>{manager ? <Button type="button" variant="secondary" icon={Edit3} onClick={onEdit}>Editar</Button> : null}</div></div></CardHeader><CardBody><div className="flex flex-wrap gap-3">{source ? <a className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted" href={source} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />Abrir material</a> : null}{video ? <a className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted" href={video} target="_blank" rel="noopener noreferrer"><Play className="h-4 w-4" />Abrir vídeo</a> : null}{attachments.map((attachment) => <AttachmentLink key={attachment.id} materialId={material.id} attachment={attachment} />)}</div>{html ? <article className="mt-6 break-words text-sm leading-7 text-ink [&_a]:text-brand [&_a]:underline [&_h1]:mt-6 [&_h1]:text-2xl [&_h2]:mt-6 [&_h2]:text-xl [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-xl [&_pre]:bg-surface-muted [&_pre]:p-3 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} /> : <EmptyState title={source || video || attachments.length ? 'Acesse o material pelos links acima' : 'Conteúdo ainda não disponível'} />}</CardBody></Card></div>
+  const categoryNode = categorySlug && onOpenCategory ? (
+    <button type="button" className="text-brand underline-offset-2 hover:underline" onClick={() => onOpenCategory(categorySlug)}>
+      {categoryLabel}
+    </button>
+  ) : (
+    categoryLabel
+  )
+  return (
+    <div className="space-y-5">
+      <Button type="button" variant="ghost" icon={ChevronLeft} onClick={onBack}>Voltar à Base</Button>
+      <Card className="max-w-4xl">
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                {categoryNode}
+                {' · '}
+                {TYPE_LABEL[material.material_type] || 'Material'}
+              </p>
+              <h1 ref={headingRef} tabIndex={-1} className="mt-1 text-2xl font-bold text-ink">{material.titulo}</h1>
+              <p className="mt-2 text-sm text-ink-muted">{material.excerpt || ''}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" icon={Link2} onClick={() => void copyLink()}>
+                {copied ? 'Link copiado' : 'Copiar link'}
+              </Button>
+              {manager ? <Button type="button" variant="secondary" icon={Edit3} onClick={onEdit}>Editar</Button> : null}
+            </div>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <div className="flex flex-wrap gap-3">
+            {source ? <a className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted" href={source} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />Abrir material</a> : null}
+            {video ? <a className="inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted" href={video} target="_blank" rel="noopener noreferrer"><Play className="h-4 w-4" />Abrir vídeo</a> : null}
+            {attachments.map((attachment) => <AttachmentLink key={attachment.id} materialId={material.id} attachment={attachment} />)}
+          </div>
+          {html ? (
+            <article className="mt-6 break-words text-sm leading-7 text-ink [&_a]:text-brand [&_a]:underline [&_h1]:mt-6 [&_h1]:text-2xl [&_h2]:mt-6 [&_h2]:text-xl [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-xl [&_pre]:bg-surface-muted [&_pre]:p-3 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} />
+          ) : (
+            <EmptyState title={source || video || attachments.length ? 'Acesse o material pelos links acima' : 'Conteúdo ainda não disponível'} />
+          )}
+        </CardBody>
+      </Card>
+    </div>
+  )
 }
 
 function GlobalReader({ material, headingRef, onBack }: { material: KnowledgeMaterial; headingRef: React.RefObject<HTMLHeadingElement | null>; onBack: () => void }) {
