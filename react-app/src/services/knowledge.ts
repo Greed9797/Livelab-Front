@@ -14,6 +14,8 @@ export interface KnowledgeCategory extends JsonRecord {
   icon?: string | null
   sort_order?: number
   is_active?: boolean
+  /** Present when API returns counts (Back #15+); UI falls back to client tally when absent. */
+  article_count?: number
 }
 
 export interface KnowledgeAttachment extends JsonRecord {
