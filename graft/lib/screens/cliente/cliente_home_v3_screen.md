@@ -1,0 +1,77 @@
+# lib/screens/cliente/cliente_home_v3_screen.dart
+
+- _HomeTone · class · L26-L64 — class _HomeTone
+- dark · constant · L41-L51 — static const dark = _HomeTone(
+- light · constant · L53-L63 — static const light = _HomeTone(
+- _HomeTheme · class · L71-L90 — class _HomeTheme
+- primary · constant · L73-L73 — static const primary      = Color(0xFFE85D2C);
+- primaryLight · constant · L74-L74 — static const primaryLight = Color(0xFFFF9966);
+- primarySoft · constant · L75-L75 — static const primarySoft  = Color(0x29E85D2C);
+- danger · constant · L77-L77 — static const danger  = Color(0xFFFF453A);
+- warning · constant · L78-L78 — static const warning = Color(0xFFFF9F0A);
+- success · constant · L79-L79 — static const success = Color(0xFF34C759);
+- info · constant · L80-L80 — static const info    = Color(0xFF5AC8FA);
+- accent · constant · L81-L81 — static const accent  = Color(0xFFAF7BFF);
+- radiusCard · constant · L83-L83 — static const radiusCard = 14.0;
+- ClienteHomeV3Screen · class · L92-L97 — class ClienteHomeV3Screen extends ConsumerStatefulWidget
+- createState · method · L96-L96 — ConsumerState<ClienteHomeV3Screen> createState() => _ClienteHomeV3ScreenState();
+- _ClienteHomeV3ScreenState · class · L99-L163 — class _ClienteHomeV3ScreenState extends ConsumerState<ClienteHomeV3Screen>
+- dispose · method · L103-L106 — void dispose()
+- build · method · L109-L162 — Widget build(BuildContext context)
+- _moneyFmt · constant · L169-L169 — final _moneyFmt = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$', decimalDigits: 2);
+- _intFmt · constant · L170-L170 — final _intFmt = NumberFormat.decimalPattern('pt_BR');
+- _fmtMoney · function · L172-L172 — String _fmtMoney(double v) => _moneyFmt.format(v);
+- _fmtInt · function · L173-L173 — String _fmtInt(int v) => _intFmt.format(v);
+- _fmtHrs · function · L174-L174 — String _fmtHrs(double h) => '${h.toStringAsFixed(1)}h';
+- _PageHeader · class · L180-L230 — class _PageHeader extends StatelessWidget
+- build · method · L184-L229 — Widget build(BuildContext context)
+- _PeriodTabs · class · L232-L352 — class _PeriodTabs extends ConsumerWidget
+- tabs · constant · L235-L240 — static const tabs = [
+- build · method · L243-L351 — Widget build(BuildContext context, WidgetRef ref)
+- _KpiRow · class · L358-L416 — class _KpiRow extends StatelessWidget
+- build · method · L363-L415 — Widget build(BuildContext context)
+- _KpiCard · class · L418-L498 — class _KpiCard extends StatelessWidget
+- build · method · L434-L497 — Widget build(BuildContext context)
+- _Row3MetaProximasMelhores · class · L504-L542 — class _Row3MetaProximasMelhores extends StatelessWidget
+- build · method · L509-L541 — Widget build(BuildContext context)
+- _MetaCard · class · L544-L788 — class _MetaCard extends ConsumerWidget
+- build · method · L549-L676 — Widget build(BuildContext context, WidgetRef ref)
+- _editMeta · method · L678-L757 — static Future<void> _editMeta(BuildContext context, WidgetRef ref, ClienteDashboard d) async
+- _statusLabel · method · L759-L774 — static String _statusLabel(String s)
+- _statusColor · method · L776-L787 — static Color _statusColor(String s)
+- _Dot · class · L790-L799 — class _Dot extends StatelessWidget
+- build · method · L794-L798 — Widget build(BuildContext context) => Container(
+- _DonutPainter · class · L801-L833 — class _DonutPainter extends CustomPainter
+- paint · method · L808-L828 — void paint(Canvas canvas, Size size)
+- shouldRepaint · method · L831-L832 — bool shouldRepaint(covariant _DonutPainter old) =>
+- _ProximasLivesCard · class · L835-L867 — class _ProximasLivesCard extends StatelessWidget
+- build · method · L840-L866 — Widget build(BuildContext context)
+- _ProximaLiveRow · class · L869-L910 — class _ProximaLiveRow extends StatelessWidget
+- build · method · L874-L909 — Widget build(BuildContext context)
+- _MelhoresHorariosCard · class · L912-L975 — class _MelhoresHorariosCard extends StatelessWidget
+- build · method · L917-L974 — Widget build(BuildContext context)
+- _EvolucaoMensal · class · L981-L1028 — class _EvolucaoMensal extends StatelessWidget
+- build · method · L986-L1027 — Widget build(BuildContext context)
+- _EvoData · class · L1030-L1036 — class _EvoData
+- _EvoRow · class · L1038-L1134 — class _EvoRow extends StatelessWidget
+- build · method · L1043-L1133 — Widget build(BuildContext context)
+- _LivesDetalhadas · class · L1140-L1228 — class _LivesDetalhadas extends StatelessWidget
+- build · method · L1145-L1227 — Widget build(BuildContext context)
+- _LiveListRow · class · L1230-L1263 — class _LiveListRow extends StatelessWidget
+- build · method · L1235-L1262 — Widget build(BuildContext context)
+- _DetailKpi · class · L1265-L1339 — class _DetailKpi extends StatelessWidget
+- build · method · L1279-L1338 — Widget build(BuildContext context)
+- _CardShell · class · L1345-L1415 — class _CardShell extends StatelessWidget
+- build · method · L1360-L1414 — Widget build(BuildContext context)
+- _MiniTag · class · L1417-L1435 — class _MiniTag extends StatelessWidget
+- build · method · L1421-L1434 — Widget build(BuildContext context)
+- _EmptyBlock · class · L1437-L1491 — class _EmptyBlock extends StatelessWidget
+- build · method · L1451-L1490 — Widget build(BuildContext context)
+- _OutlinedCta · class · L1493-L1519 — class _OutlinedCta extends StatelessWidget
+- build · method · L1499-L1518 — Widget build(BuildContext context)
+- _goSolicitar · function · L1521-L1523 — void _goSolicitar(BuildContext context)
+- _DashedCta · class · L1525-L1557 — class _DashedCta extends StatelessWidget
+- build · method · L1531-L1556 — Widget build(BuildContext context)
+- _DashedBorderPainter · class · L1559-L1595 — class _DashedBorderPainter extends CustomPainter
+- paint · method · L1571-L1591 — void paint(Canvas canvas, Size size)
+- shouldRepaint · method · L1594-L1594 — bool shouldRepaint(covariant _DashedBorderPainter old) => old.color != color || old.radius != radius;

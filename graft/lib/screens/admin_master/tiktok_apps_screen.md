@@ -1,0 +1,21 @@
+# lib/screens/admin_master/tiktok_apps_screen.dart
+
+- TiktokAppsScreen · class · L16-L70 — class TiktokAppsScreen extends ConsumerWidget
+- build · method · L20-L69 — Widget build(BuildContext context, WidgetRef ref)
+- _FilterBar · class · L72-L111 — class _FilterBar extends StatelessWidget
+- build · method · L78-L110 — Widget build(BuildContext context)
+- _FilterOption · class · L113-L117 — class _FilterOption
+- _SummaryAndList · class · L119-L172 — class _SummaryAndList extends StatelessWidget
+- build · method · L124-L171 — Widget build(BuildContext context)
+- _SummaryTile · class · L174-L232 — class _SummaryTile extends StatelessWidget
+- build · method · L187-L231 — Widget build(BuildContext context)
+- _AppRow · class · L234-L350 — class _AppRow extends StatelessWidget
+- build · method · L239-L342 — Widget build(BuildContext context)
+- _locationLine · method · L344-L349 — String _locationLine(TiktokApp a)
+- _StatusBadge · class · L352-L397 — class _StatusBadge extends StatelessWidget
+- build · method · L357-L396 — Widget build(BuildContext context)
+- _EmptyState · class · L399-L419 — class _EmptyState extends StatelessWidget
+- build · method · L404-L418 — Widget build(BuildContext context)
+- _ErrorState · class · L421-L445 — class _ErrorState extends StatelessWidget
+- build · method · L427-L444 — Widget build(BuildContext context)
+- _initials · function · L447-L452 — String _initials(String nome)

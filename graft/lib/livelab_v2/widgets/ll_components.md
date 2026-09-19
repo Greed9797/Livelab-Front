@@ -1,0 +1,36 @@
+# lib/livelab_v2/widgets/ll_components.dart
+
+- LLLogo · class · L5-L21 — class LLLogo extends StatelessWidget
+- build · method · L10-L20 — Widget build(BuildContext context)
+- LLAvatar · class · L23-L54 — class LLAvatar extends StatelessWidget
+- build · method · L30-L53 — Widget build(BuildContext context)
+- LLBadge · class · L56-L81 — class LLBadge extends StatelessWidget
+- build · method · L63-L80 — Widget build(BuildContext context)
+- LLScreenHeader · class · L83-L112 — class LLScreenHeader extends StatelessWidget
+- build · method · L91-L111 — Widget build(BuildContext context)
+- LLButton · class · L114-L172 — class LLButton extends StatelessWidget
+- build · method · L133-L171 — Widget build(BuildContext context)
+- LLCard · class · L176-L213 — class LLCard extends StatelessWidget
+- build · method · L195-L212 — Widget build(BuildContext context)
+- LLDelta · class · L215-L228 — class LLDelta extends StatelessWidget
+- build · method · L221-L227 — Widget build(BuildContext context)
+- LLSegmented · class · L230-L268 — class LLSegmented extends StatelessWidget
+- build · method · L237-L267 — Widget build(BuildContext context)
+- LLSegmentItem · class · L270-L275 — class LLSegmentItem
+- LLSparkline · class · L277-L290 — class LLSparkline extends StatelessWidget
+- build · method · L286-L289 — Widget build(BuildContext context)
+- _SparklinePainter · class · L292-L343 — class _SparklinePainter extends CustomPainter
+- paint · method · L299-L339 — void paint(Canvas canvas, Size size)
+- shouldRepaint · method · L342-L342 — bool shouldRepaint(covariant _SparklinePainter oldDelegate) => oldDelegate.data != data || oldDelegate.color != color || oldDelegate.fill != fill;
+- LLCircularProgress · class · L345-L367 — class LLCircularProgress extends StatelessWidget
+- build · method · L354-L366 — Widget build(BuildContext context)
+- _CirclePainter · class · L369-L396 — class _CirclePainter extends CustomPainter
+- paint · method · L377-L392 — void paint(Canvas canvas, Size size)
+- shouldRepaint · method · L395-L395 — bool shouldRepaint(covariant _CirclePainter oldDelegate) => oldDelegate.value != value || oldDelegate.color != color || oldDelegate.trackColor != trackColor;
+- LLProgressBar · class · L398-L423 — class LLProgressBar extends StatelessWidget
+- build · method · L405-L422 — Widget build(BuildContext context)
+- LLBarChart · class · L425-L495 — class LLBarChart extends StatelessWidget
+- build · method · L430-L494 — Widget build(BuildContext context)
+- LLBarItem · class · L497-L504 — class LLBarItem
+- llMoney · function · L506-L519 — String llMoney(num value)
+- llPad2 · function · L521-L521 — String llPad2(int value) => value.toString().padLeft(2, '0');

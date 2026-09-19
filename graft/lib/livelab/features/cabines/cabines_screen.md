@@ -1,0 +1,34 @@
+# lib/livelab/features/cabines/cabines_screen.dart
+
+- CabinesScreen · class · L20-L26 — class CabinesScreen extends StatefulWidget
+- createState · method · L25-L25 — State<CabinesScreen> createState() => _CabinesScreenState();
+- _CabinesScreenState · class · L28-L612 — class _CabinesScreenState extends State<CabinesScreen>
+- initState · method · L36-L39 — void initState()
+- _reload · method · L41-L46 — void _reload()
+- _setBusy · method · L48-L57 — void _setBusy(String id, bool busy)
+- _toast · method · L59-L68 — void _toast(String msg, {bool error = false})
+- _runAction · method · L70-L81 — Future<void> _runAction(Cabin c, Future<void> Function() action, String successMsg) async
+- _iniciarLive · method · L83-L127 — Future<void> _iniciarLive(Cabin c) async
+- _encerrarLive · method · L129-L267 — Future<void> _encerrarLive(Cabin c) async
+- _liberar · method · L269-L275 — Future<void> _liberar(Cabin c) async
+- _setManutencao · method · L277-L326 — Future<void> _setManutencao(Cabin c) async
+- _abrirNovaLiveDialog · method · L328-L348 — Future<void> _abrirNovaLiveDialog(List<Cabin> all) async
+- build · method · L351-L412 — Widget build(BuildContext context)
+- _content · method · L414-L560 — Widget _content(List<Cabin> all)
+- _header · method · L562-L611 — Widget _header(LlTokens t, List<Cabin> all)
+- _HistoricoLivesTab · class · L614-L619 — class _HistoricoLivesTab extends StatefulWidget
+- createState · method · L618-L618 — State<_HistoricoLivesTab> createState() => _HistoricoLivesTabState();
+- _HistoricoLivesTabState · class · L621-L775 — class _HistoricoLivesTabState extends State<_HistoricoLivesTab>
+- initState · method · L625-L628 — void initState()
+- _fetch · method · L630-L636 — Future<List<Map<String, dynamic>>> _fetch() async
+- _fmtDate · method · L638-L646 — String _fmtDate(String? iso)
+- _fmtMoney · method · L648-L651 — String _fmtMoney(num? v)
+- build · method · L654-L774 — Widget build(BuildContext context)
+- _MetricaBadge · class · L779-L804 — class _MetricaBadge extends StatelessWidget
+- build · method · L790-L803 — Widget build(BuildContext context)
+- _ManualMetrics · class · L808-L815 — class _ManualMetrics
+- _MetricasManualDialog · class · L817-L823 — class _MetricasManualDialog extends StatefulWidget
+- createState · method · L822-L822 — State<_MetricasManualDialog> createState() => _MetricasManualDialogState();
+- _MetricasManualDialogState · class · L825-L924 — class _MetricasManualDialogState extends State<_MetricasManualDialog>
+- dispose · method · L832-L838 — void dispose()
+- build · method · L841-L923 — Widget build(BuildContext context)

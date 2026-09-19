@@ -1,0 +1,29 @@
+# lib/livelab_v2/screens/admin_master_screen.dart
+
+- _currentPeriod · function · L13-L16 — String _currentPeriod()
+- _periodLabel · function · L18-L25 — String _periodLabel(String period)
+- _currency · function · L27-L29 — String _currency(double value) =>
+- _signedPercent · function · L31-L34 — String _signedPercent(double value)
+- AdminMasterScreen · class · L36-L41 — class AdminMasterScreen extends ConsumerStatefulWidget
+- createState · method · L40-L40 — ConsumerState<AdminMasterScreen> createState() => _AdminMasterScreenState();
+- _AdminMasterScreenState · class · L43-L98 — class _AdminMasterScreenState extends ConsumerState<AdminMasterScreen>
+- initState · method · L47-L50 — void initState()
+- build · method · L53-L97 — Widget build(BuildContext context)
+- _Body · class · L100-L354 — class _Body extends StatelessWidget
+- build · method · L105-L342 — Widget build(BuildContext context)
+- _alertKind · method · L344-L353 — AdminAlertKind _alertKind(String severity)
+- _ExecutiveSummary · class · L356-L399 — class _ExecutiveSummary extends StatelessWidget
+- build · method · L361-L398 — Widget build(BuildContext context)
+- _PipelineCard · class · L401-L421 — class _PipelineCard extends StatelessWidget
+- build · method · L406-L420 — Widget build(BuildContext context)
+- _PipeRow · class · L423-L477 — class _PipeRow extends StatelessWidget
+- _color · method · L427-L433 — Color _color(BuildContext context) => switch (stage.stage)
+- build · method · L448-L476 — Widget build(BuildContext context)
+- _CommissionCard · class · L479-L535 — class _CommissionCard extends StatelessWidget
+- build · method · L484-L534 — Widget build(BuildContext context)
+- _MoneyStatus · class · L537-L573 — class _MoneyStatus extends StatelessWidget
+- build · method · L545-L572 — Widget build(BuildContext context)
+- _openAlertDetail · function · L575-L687 — void _openAlertDetail(BuildContext context, MasterAlertItem alert)
+- _alertColor · function · L689-L699 — Color _alertColor(String severity)
+- _ErrorBox · class · L701-L729 — class _ErrorBox extends StatelessWidget
+- build · method · L707-L728 — Widget build(BuildContext context)

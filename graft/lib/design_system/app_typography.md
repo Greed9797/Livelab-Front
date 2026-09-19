@@ -1,0 +1,21 @@
+# lib/design_system/app_typography.dart
+
+- AppTypography · class · L21-L168 — class AppTypography
+- fontFamily · constant · L24-L24 — static const String fontFamily = 'Inter';
+- displayLarge · constant · L29-L35 — static const TextStyle displayLarge = TextStyle(
+- displayMedium · constant · L37-L43 — static const TextStyle displayMedium = TextStyle(
+- h1 · constant · L48-L53 — static const TextStyle h1 = TextStyle(
+- h2 · constant · L55-L60 — static const TextStyle h2 = TextStyle(
+- h3 · constant · L62-L67 — static const TextStyle h3 = TextStyle(
+- h4 · constant · L69-L74 — static const TextStyle h4 = TextStyle(
+- bodyLarge · constant · L79-L84 — static const TextStyle bodyLarge = TextStyle(
+- bodyMedium · constant · L86-L91 — static const TextStyle bodyMedium = TextStyle(
+- bodySmall · constant · L93-L98 — static const TextStyle bodySmall = TextStyle(
+- label · constant · L103-L108 — static const TextStyle label = TextStyle(
+- caption · constant · L110-L115 — static const TextStyle caption = TextStyle(
+- badge · constant · L117-L123 — static const TextStyle badge = TextStyle(
+- buttonLarge · constant · L128-L135 — static const TextStyle buttonLarge = TextStyle(
+- buttonMedium · constant · L137-L143 — static const TextStyle buttonMedium = TextStyle(
+- kpiLabel · constant · L148-L153 — static const TextStyle kpiLabel = TextStyle(
+- kpiValue · constant · L155-L160 — static const TextStyle kpiValue = TextStyle(
+- tableTh · constant · L162-L167 — static const TextStyle tableTh = TextStyle(

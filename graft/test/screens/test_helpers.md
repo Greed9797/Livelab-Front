@@ -1,0 +1,22 @@
+# test/screens/test_helpers.dart
+
+- makeUser · function · L26-L33 — User makeUser({String papel = 'franqueado'}) => User(
+- MockAuthNotifier · class · L38-L47 — class MockAuthNotifier extends AuthNotifier
+- build · method · L43-L43 — AuthState build() => AuthState(user: makeUser(papel: papel));
+- login · method · L46-L46 — Future<bool> login(String email, String senha) async => false;
+- MockBillingAlertNotifier · class · L52-L55 — class MockBillingAlertNotifier extends BillingAlertNotifier
+- build · method · L54-L54 — Future<BoletoAlerta?> build() async => null;
+- MockBoletosNotifier · class · L57-L60 — class MockBoletosNotifier extends BoletosNotifier
+- build · method · L59-L59 — Future<List<Boleto>> build() async => const [];
+- MockConfiguracoesNotifier · class · L62-L72 — class MockConfiguracoesNotifier extends ConfiguracoesNotifier
+- build · method · L64-L71 — Future<ConfiguracoesFranquia> build() async => const ConfiguracoesFranquia(
+- MockClientesNotifier · class · L74-L80 — class MockClientesNotifier extends ClientesNotifier
+- build · method · L79-L79 — Future<List<Cliente>> build() async => data;
+- MockPacotesNotifier · class · L82-L85 — class MockPacotesNotifier extends PacotesNotifier
+- build · method · L84-L84 — Future<List<Pacote>> build() async => const [];
+- scaffoldOverrides · function · L90-L102 — List<Override> scaffoldOverrides(
+- setDesktopViewport · function · L107-L115 — void setDesktopViewport(WidgetTester tester, {Size size = const Size(1440, 900)})
+- ignoreLayoutOverflows · function · L121-L134 — void ignoreLayoutOverflows()
+- restoreErrorHandler · function · L136-L141 — void restoreErrorHandler()
+- themedApp · function · L146-L152 — MaterialApp themedApp({required Widget home, Map<String, WidgetBuilder>? routes})
+- themedAppWithGenerator · function · L154-L163 — MaterialApp themedAppWithGenerator(

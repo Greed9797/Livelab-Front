@@ -1,0 +1,28 @@
+# react-app/src/components/forms/AgendarLiveModal.tsx
+
+- AgendarLiveModalMode · type · L13-L13 — type AgendarLiveModalMode = 'create' | 'edit' | 'now'
+- AgendaForm · type · L15-L33 — type AgendaForm = { tipo: string live_tipo: string cabine_id: string marca_id: string cliente_id: string apresentadora_id: string data: string hora_inicio: string hora_fim: string status: string responsavel_marketing: string observacoes: string recorrencia_tipo: string recorrencia_ate: string recorrencia_total_ocorrencias: string recorrencia_dias_semana: string modo_recorrencia: string }
+- LookupOption · type · L35-L38 — type LookupOption = { value: string label: string }
+- AccountComboboxProps · type · L40-L47 — type AccountComboboxProps = { value: string options: LookupOption[] required?: boolean invalid?: boolean onChange: (value: string) => void onSelect: (option: LookupOption) => void }
+- AvailabilityState · type · L49-L52 — type AvailabilityState = { status: 'idle' | 'checking' | 'available' | 'conflict' | 'error' message: string }
+- today · function · L74-L76 — function today()
+- dateWithHourOffset · function · L78-L82 — function dateWithHourOffset(hours: number)
+- makeDateTime · function · L84-L86 — function makeDateTime(date: string, time: string)
+- toDateInput · function · L88-L99 — function toDateInput(value: unknown)
+- toTimeInput · function · L101-L110 — function toTimeInput(value: unknown)
+- liveTypeFromMarca · function · L112-L117 — function liveTypeFromMarca(marca?: JsonRecord): 'cliente' | 'afiliado' | 'teste'
+- findLookupOption · function · L119-L125 — function findLookupOption(options: LookupOption[], rawValue: string)
+- optionLabel · function · L127-L129 — function optionLabel(options: LookupOption[], value: string)
+- filterOptions · function · L131-L137 — function filterOptions(options: LookupOption[], query: string)
+- selectedWeekdays · function · L139-L144 — function selectedWeekdays(value: string)
+- recurrencePayload · function · L146-L165 — function recurrencePayload(form: AgendaForm): JsonRecord | null
+- AccountCombobox · function · L167-L213 — function AccountCombobox({ value, options, required, invalid, onChange, onSelect }: AccountComboboxProps)
+- AgendarLiveModal · function · L215-L709 — function AgendarLiveModal({ open, mode, event, defaultDate, defaultCabineId, cabines, marcas, clientes, apresentadoras, isSaving, error, onClose, onCreate, onUpdate, onStartNow, onDelete, }: { open: boolean mode: AgendarLiveModalMode event?: JsonRecord | null defaultDate?: string defaultCabineId?: string cabines: Cabine[] marcas: JsonRecord[] clientes: JsonRecord[] apresentadoras: JsonRecord[] isSaving?: boolean error?: unknown onClose: () => void onCreate?: (payload: JsonRecord) => void onUpdate?: (id: string, payload: JsonRecord) => void onStartNow?: (payload: JsonRecord) => void onDelete?: (id: string, modoRecorrencia: string) => void })
+- setField · function · L390-L392 — function setField(key: keyof AgendaForm, value: string)
+- setRecurrenceType · function · L394-L402 — function setRecurrenceType(value: string)
+- toggleWeekday · function · L404-L412 — function toggleWeekday(day: number)
+- setAccount · function · L414-L431 — function setAccount(value: string)
+- onAccountLookupChange · function · L433-L436 — function onAccountLookupChange(value: string)
+- onAccountOptionSelect · function · L438-L441 — function onAccountOptionSelect(option: LookupOption)
+- onCabineLookupChange · function · L443-L448 — function onCabineLookupChange(value: string)
+- onSubmit · function · L450-L516 — function onSubmit(submitEvent: FormEvent<HTMLFormElement>)

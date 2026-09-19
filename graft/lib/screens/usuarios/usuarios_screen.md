@@ -1,0 +1,66 @@
+# lib/screens/usuarios/usuarios_screen.dart
+
+- UsuariosScreen · class · L23-L28 — class UsuariosScreen extends ConsumerStatefulWidget
+- createState · method · L27-L27 — ConsumerState<UsuariosScreen> createState() => _UsuariosScreenState();
+- _UsuariosScreenState · class · L30-L514 — class _UsuariosScreenState extends ConsumerState<UsuariosScreen>
+- _papeisInternos · constant · L36-L41 — static const _papeisInternos = [
+- _refresh · method · L43-L48 — void _refresh()
+- _openNovoUsuario · method · L50-L55 — Future<void> _openNovoUsuario() async
+- build · method · L60-L66 — Widget build(BuildContext context)
+- _content · method · L68-L103 — Widget _content()
+- _pageHeader · method · L105-L186 — Widget _pageHeader(LlTokens t)
+- _toolbar · method · L188-L253 — Widget _toolbar(LlTokens t)
+- _tabStrip · method · L255-L325 — Widget _tabStrip(
+- _matchesSearch · method · L327-L332 — bool _matchesSearch(String name, String? email)
+- _internosBody · method · L334-L356 — Widget _internosBody(
+- _convitesBody · method · L361-L399 — Widget _convitesBody(
+- _bulkToolbar · method · L401-L450 — Widget _bulkToolbar(LlTokens t)
+- _reenviarBulk · method · L452-L476 — Future<void> _reenviarBulk(LlTokens t) async
+- _cancelarConvite · method · L478-L513 — Future<void> _cancelarConvite(LlTokens t, ConvitePendente c) async
+- _papelLabels · constant · L520-L530 — const _papelLabels =
+- _avatar · function · L532-L551 — Widget _avatar(LlTokens t, String letter, {required Color bg, required Color fg})
+- _statusPill · function · L553-L581 — Widget _statusPill(LlTokens t, {required String label, required Color color})
+- _rowShell · function · L583-L595 — Widget _rowShell(LlTokens t, {required Widget child})
+- _InternoRow · class · L597-L682 — class _InternoRow extends StatelessWidget
+- build · method · L604-L681 — Widget build(BuildContext context)
+- _MoreMenuInterno · class · L684-L827 — class _MoreMenuInterno extends StatelessWidget
+- build · method · L692-L826 — Widget build(BuildContext context)
+- _InternoFormDialog · class · L829-L836 — class _InternoFormDialog extends ConsumerStatefulWidget
+- createState · method · L834-L835 — ConsumerState<_InternoFormDialog> createState() =>
+- _InternoFormDialogState · class · L838-L968 — class _InternoFormDialogState extends ConsumerState<_InternoFormDialog>
+- _papeis · constant · L844-L849 — static const _papeis = [
+- initState · method · L852-L859 — void initState()
+- dispose · method · L862-L866 — void dispose()
+- _salvar · method · L868-L900 — Future<void> _salvar() async
+- build · method · L903-L967 — Widget build(BuildContext context)
+- _ApresentadoraRow · class · L970-L1075 — class _ApresentadoraRow extends ConsumerWidget
+- build · method · L976-L1056 — Widget build(BuildContext context, WidgetRef ref)
+- _stat · method · L1058-L1074 — Widget _stat(LlTokens t,
+- _ClienteRow · class · L1077-L1130 — class _ClienteRow extends ConsumerWidget
+- build · method · L1083-L1129 — Widget build(BuildContext context, WidgetRef ref)
+- _ApresentadoraMenu · class · L1136-L1222 — class _ApresentadoraMenu extends StatelessWidget
+- build · method · L1144-L1221 — Widget build(BuildContext context)
+- _ClienteMenu · class · L1224-L1296 — class _ClienteMenu extends StatelessWidget
+- build · method · L1231-L1295 — Widget build(BuildContext context)
+- _confirmDialog · function · L1298-L1322 — Future<bool?> _confirmDialog(BuildContext context, LlTokens t,
+- _ApresentadoraFormDialog · class · L1326-L1333 — class _ApresentadoraFormDialog extends ConsumerStatefulWidget
+- createState · method · L1331-L1332 — ConsumerState<_ApresentadoraFormDialog> createState() =>
+- _ApresentadoraFormDialogState · class · L1335-L1509 — class _ApresentadoraFormDialogState
+- initState · method · L1348-L1362 — void initState()
+- dispose · method · L1365-L1374 — void dispose()
+- _salvar · method · L1376-L1421 — Future<void> _salvar() async
+- build · method · L1424-L1508 — Widget build(BuildContext context)
+- _ClienteFormDialog · class · L1513-L1520 — class _ClienteFormDialog extends ConsumerStatefulWidget
+- createState · method · L1518-L1519 — ConsumerState<_ClienteFormDialog> createState() =>
+- _ClienteFormDialogState · class · L1522-L1666 — class _ClienteFormDialogState extends ConsumerState<_ClienteFormDialog>
+- initState · method · L1532-L1541 — void initState()
+- dispose · method · L1544-L1552 — void dispose()
+- _salvar · method · L1554-L1599 — Future<void> _salvar() async
+- build · method · L1602-L1665 — Widget build(BuildContext context)
+- _formField · function · L1668-L1711 — Widget _formField(LlTokens t, String label, TextEditingController c,
+- _emptyBox · function · L1717-L1751 — Widget _emptyBox(LlTokens t,
+- _errorBox · function · L1753-L1774 — Widget _errorBox(LlTokens t, Object e)
+- _LoadingBox · class · L1776-L1786 — class _LoadingBox extends StatelessWidget
+- build · method · L1780-L1785 — Widget build(BuildContext context)
+- _ConviteRow · class · L1792-L1942 — class _ConviteRow extends StatelessWidget
+- build · method · L1808-L1941 — Widget build(BuildContext context)

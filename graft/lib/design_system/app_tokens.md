@@ -1,0 +1,34 @@
+# lib/design_system/app_tokens.dart
+
+- AppSpacing · class · L4-L18 — class AppSpacing
+- x1 · constant · L7-L7 — static const double x1 = 4.0;
+- x2 · constant · L8-L8 — static const double x2 = 8.0;
+- x3 · constant · L9-L9 — static const double x3 = 12.0;
+- x4 · constant · L10-L10 — static const double x4 = 16.0;
+- x5 · constant · L11-L11 — static const double x5 = 20.0;
+- x6 · constant · L12-L12 — static const double x6 = 24.0;
+- x8 · constant · L13-L13 — static const double x8 = 32.0;
+- x10 · constant · L14-L14 — static const double x10 = 40.0;
+- x12 · constant · L15-L15 — static const double x12 = 48.0;
+- x16 · constant · L16-L16 — static const double x16 = 64.0;
+- sidebarW · constant · L17-L17 — static const double sidebarW = 232.0;
+- AppRadius · class · L21-L38 — class AppRadius
+- sm · constant · L24-L24 — static const double sm = 8.0;
+- md · constant · L25-L25 — static const double md = 12.0;
+- lg · constant · L26-L26 — static const double lg = 16.0;
+- xl · constant · L27-L27 — static const double xl = 20.0;
+- xxl · constant · L28-L28 — static const double xxl = 24.0;
+- full · constant · L29-L29 — static const double full = 9999.0;
+- AppShadows · class · L43-L77 — class AppShadows
+- sm · constant · L46-L52 — static const List<BoxShadow> sm = [
+- md · constant · L54-L60 — static const List<BoxShadow> md = [
+- lg · constant · L62-L68 — static const List<BoxShadow> lg = [
+- xl · constant · L70-L76 — static const List<BoxShadow> xl = [
+- AppBreakpoints · class · L80-L98 — class AppBreakpoints
+- mobile · constant · L83-L83 — static const double mobile = 600;
+- tablet · constant · L84-L84 — static const double tablet = 800;
+- desktop · constant · L85-L85 — static const double desktop = 1100;
+- wide · constant · L86-L86 — static const double wide = 1400;
+- isMobile · method · L88-L89 — static bool isMobile(BuildContext context) =>
+- isTablet · method · L91-L94 — static bool isTablet(BuildContext context)
+- isDesktop · method · L96-L97 — static bool isDesktop(BuildContext context) =>

@@ -1,0 +1,23 @@
+# lib/screens/admin_master/regional_managers_screen.dart
+
+- RegionalManagersScreen · class · L16-L57 — class RegionalManagersScreen extends ConsumerWidget
+- build · method · L20-L56 — Widget build(BuildContext context, WidgetRef ref)
+- _ManagerRow · class · L59-L152 — class _ManagerRow extends ConsumerWidget
+- build · method · L64-L137 — Widget build(BuildContext context, WidgetRef ref)
+- _initials · method · L139-L144 — String _initials(String nome)
+- _openEditDialog · method · L146-L151 — void _openEditDialog(BuildContext context, WidgetRef ref)
+- _EditTenantsDialog · class · L154-L160 — class _EditTenantsDialog extends ConsumerStatefulWidget
+- createState · method · L159-L159 — ConsumerState<_EditTenantsDialog> createState() => _EditTenantsDialogState();
+- _EditTenantsDialogState · class · L162-L301 — class _EditTenantsDialogState extends ConsumerState<_EditTenantsDialog>
+- initState · method · L168-L171 — void initState()
+- build · method · L174-L270 — Widget build(BuildContext context)
+- _filterTenants · method · L272-L277 — List<Tenant> _filterTenants(List<Tenant> all)
+- _save · method · L279-L300 — Future<void> _save() async
+- _TenantList · class · L303-L353 — class _TenantList extends StatelessWidget
+- build · method · L315-L352 — Widget build(BuildContext context)
+- _Chip · class · L355-L379 — class _Chip extends StatelessWidget
+- build · method · L361-L378 — Widget build(BuildContext context)
+- _EmptyState · class · L381-L413 — class _EmptyState extends StatelessWidget
+- build · method · L385-L412 — Widget build(BuildContext context)
+- _ErrorState · class · L415-L446 — class _ErrorState extends StatelessWidget
+- build · method · L421-L445 — Widget build(BuildContext context)

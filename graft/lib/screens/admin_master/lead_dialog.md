@@ -1,0 +1,35 @@
+# lib/screens/admin_master/lead_dialog.dart
+
+- _D · class · L10-L21 — class _D
+- bg · constant · L11-L11 — static const bg          = Color(0xFF16161A);
+- surface · constant · L12-L12 — static const surface     = Color(0xFF1E1E22);
+- input · constant · L13-L13 — static const input       = Color(0xFF1A1A1E);
+- border · constant · L14-L14 — static const border      = Color(0x1AFFFFFF);
+- borderFocus · constant · L15-L15 — static const borderFocus = Color(0xFFFF6A2F);
+- text · constant · L16-L16 — static const text        = Color(0xFFF5F0EB);
+- textSec · constant · L17-L17 — static const textSec     = Color(0xFFB8B2AC);
+- textMuted · constant · L18-L18 — static const textMuted   = Color(0xFF75716D);
+- primary · constant · L19-L19 — static const primary     = Color(0xFFFF6A2F);
+- danger · constant · L20-L20 — static const danger      = Color(0xFFF87171);
+- _STAGE_OPTS · constant · L23-L32 — const _STAGE_OPTS = [
+- showLeadDialog · function · L34-L47 — Future<bool?> showLeadDialog(BuildContext context, {Lead? lead})
+- _LeadForm · class · L49-L55 — class _LeadForm extends ConsumerStatefulWidget
+- createState · method · L54-L54 — ConsumerState<_LeadForm> createState() => _LeadFormState();
+- _LeadFormState · class · L57-L352 — class _LeadFormState extends ConsumerState<_LeadForm>
+- initState · method · L77-L101 — void initState()
+- _stringifyExtra · method · L103-L108 — static String _stringifyExtra(dynamic v)
+- dispose · method · L111-L125 — void dispose()
+- _detectTipo · method · L127-L134 — String _detectTipo(String? nicho)
+- _ARRAY_KEYS · constant · L136-L136 — static const _ARRAY_KEYS = {'atrativos'};
+- _save · method · L138-L200 — Future<void> _save() async
+- _delete · method · L202-L240 — Future<void> _delete() async
+- build · method · L243-L351 — Widget build(BuildContext context)
+- _Field · class · L354-L403 — class _Field extends StatelessWidget
+- build · method · L364-L402 — Widget build(BuildContext context)
+- _Dropdown · class · L405-L442 — class _Dropdown extends StatelessWidget
+- build · method · L413-L441 — Widget build(BuildContext context)
+- _BioFormFields · class · L447-L548 — class _BioFormFields extends StatelessWidget
+- _LABELS · constant · L451-L474 — static const _LABELS = <String, String>
+- _humanLabel · method · L476-L478 — static String _humanLabel(String key) =>
+- _SECTIONS · constant · L481-L486 — static const _SECTIONS = <(String, List<String>)>[
+- build · method · L489-L547 — Widget build(BuildContext context)

@@ -1,0 +1,51 @@
+# lib/screens/auth/login_screen.dart
+
+- _kLastEmailKey · constant · L16-L16 — const _kLastEmailKey = 'auth.last_email';
+- _kRememberKey · constant · L17-L17 — const _kRememberKey = 'auth.remember_email';
+- _storage · constant · L18-L18 — const _storage = FlutterSecureStorage();
+- _LL · class · L20-L80 — class _LL
+- primary · constant · L22-L22 — static const primary       = Color(0xFFFF5A1F);
+- primaryHover · constant · L23-L23 — static const primaryHover  = Color(0xFFE64A0F);
+- primarySoft · constant · L24-L24 — static const primarySoft   = Color(0xFFFFE8DC);
+- primarySofter · constant · L25-L25 — static const primarySofter = Color(0xFFFFF3EC);
+- danger · constant · L26-L26 — static const danger        = Color(0xFFD9402F);
+- _isDark · method · L29-L30 — static bool _isDark(BuildContext c) =>
+- bgBase · method · L32-L33 — static Color bgBase(BuildContext c) =>
+- bgCard · method · L34-L35 — static Color bgCard(BuildContext c) =>
+- bgInput · method · L36-L37 — static Color bgInput(BuildContext c) =>
+- textPrimary · method · L39-L40 — static Color textPrimary(BuildContext c) =>
+- textSecondary · method · L41-L42 — static Color textSecondary(BuildContext c) =>
+- textMuted · method · L43-L44 — static Color textMuted(BuildContext c) =>
+- textPlaceholder · method · L45-L46 — static Color textPlaceholder(BuildContext c) =>
+- border · method · L48-L49 — static Color border(BuildContext c) =>
+- borderInput · method · L50-L51 — static Color borderInput(BuildContext c) =>
+- radiusMd · constant · L53-L53 — static const radiusMd = 12.0;
+- radiusXl · constant · L54-L54 — static const radiusXl = 20.0;
+- radiusPill · constant · L55-L55 — static const radiusPill = 999.0;
+- shadowLg · constant · L57-L70 — static const shadowLg = [
+- shadowPrimary · constant · L72-L79 — static const shadowPrimary = [
+- LoginScreen · class · L82-L86 — class LoginScreen extends ConsumerStatefulWidget
+- createState · method · L85-L85 — ConsumerState<LoginScreen> createState() => _LoginScreenState();
+- _LoginScreenState · class · L88-L227 — class _LoginScreenState extends ConsumerState<LoginScreen>
+- initState · method · L98-L103 — void initState()
+- _goToForgotPassword · method · L106-L108 — void _goToForgotPassword(BuildContext ctx)
+- _restoreRememberedEmail · method · L110-L120 — Future<void> _restoreRememberedEmail() async
+- dispose · method · L123-L129 — void dispose()
+- _login · method · L131-L165 — Future<void> _login() async
+- build · method · L168-L226 — Widget build(BuildContext context)
+- _WelcomeCard · class · L233-L302 — class _WelcomeCard extends StatelessWidget
+- build · method · L238-L301 — Widget build(BuildContext context)
+- _WelcomeLogo · class · L304-L334 — class _WelcomeLogo extends StatelessWidget
+- build · method · L308-L333 — Widget build(BuildContext context)
+- _WelcomeEyebrow · class · L336-L360 — class _WelcomeEyebrow extends StatelessWidget
+- build · method · L340-L359 — Widget build(BuildContext context)
+- _WelcomeTitle · class · L362-L391 — class _WelcomeTitle extends StatelessWidget
+- build · method · L364-L390 — Widget build(BuildContext context)
+- _LoginForm · class · L397-L534 — class _LoginForm extends StatelessWidget
+- build · method · L427-L533 — Widget build(BuildContext context)
+- _LLField · class · L536-L613 — class _LLField extends StatelessWidget
+- build · method · L560-L612 — Widget build(BuildContext context)
+- _LLPrimaryButton · class · L615-L623 — class _LLPrimaryButton extends StatefulWidget
+- createState · method · L622-L622 — State<_LLPrimaryButton> createState() => _LLPrimaryButtonState();
+- _LLPrimaryButtonState · class · L625-L682 — class _LLPrimaryButtonState extends State<_LLPrimaryButton>
+- build · method · L630-L681 — Widget build(BuildContext context)

@@ -1,0 +1,32 @@
+# lib/providers/cliente_dashboard_provider.dart
+
+- _clienteLivePolling · constant · L8-L8 — const _clienteLivePolling = Duration(seconds: 30);
+- _clienteIdlePolling · constant · L9-L9 — const _clienteIdlePolling = Duration(minutes: 10);
+- _toDouble · function · L11-L14 — double _toDouble(dynamic value)
+- _toInt · function · L16-L19 — int _toInt(dynamic value)
+- ClientePeriod · class · L21-L49 — class ClientePeriod
+- previous · method · L32-L35 — ClientePeriod previous()
+- next · method · L37-L40 — ClientePeriod next()
+- clientePeriodProvider · constant · L51-L53 — final clientePeriodProvider = StateProvider<ClientePeriod>(
+- LiveAtiva · class · L55-L92 — class LiveAtiva
+- ProdutoVendido · class · L94-L110 — class ProdutoVendido
+- RankingDia · class · L112-L128 — class RankingDia
+- ProximaReserva · class · L130-L159 — class ProximaReserva
+- BenchmarkResumo · class · L161-L189 — class BenchmarkResumo
+- HorarioVenda · class · L191-L213 — class HorarioVenda
+- SerieMensal · class · L215-L246 — class SerieMensal
+- ClienteLive · class · L248-L312 — class ClienteLive
+- ClienteLivesResumo · class · L314-L355 — class ClienteLivesResumo
+- ClienteLivesResponse · class · L357-L385 — class ClienteLivesResponse
+- ProximaLive · class · L387-L412 — class ProximaLive
+- ClienteDashboard · class · L414-L584 — class ClienteDashboard
+- clientePeriodStringProvider · constant · L587-L587 — final clientePeriodStringProvider = StateProvider<String>((_) => 'mes_atual');
+- ClienteDashboardNotifier · class · L589-L669 — class ClienteDashboardNotifier extends AsyncNotifier<ClienteDashboard>
+- _configurePolling · method · L592-L613 — void _configurePolling(
+- build · method · L616-L625 — Future<ClienteDashboard> build() async
+- _fetch · method · L627-L640 — Future<ClienteDashboard> _fetch(
+- refresh · method · L642-L651 — Future<void> refresh() async
+- fetchPeriodo · method · L653-L656 — Future<void> fetchPeriodo(String periodoStr) async
+- setPeriodo · method · L658-L660 — void setPeriodo(ClientePeriod period)
+- updateMeta · method · L662-L668 — Future<void> updateMeta(int ano, int mes, double metaGmv) async
+- clienteDashboardProvider · constant · L671-L674 — final clienteDashboardProvider =

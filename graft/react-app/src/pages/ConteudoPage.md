@@ -1,0 +1,22 @@
+# react-app/src/pages/ConteudoPage.tsx
+
+- ConteudoTab · type · L56-L56 — type ConteudoTab = 'agenda' | 'lives' | 'videos'
+- today · function · L62-L62 — today = ()
+- normalizeConteudoTab · function · L64-L68 — function normalizeConteudoTab(value: string | null): ConteudoTab
+- parseLiveDate · function · L70-L74 — function parseLiveDate(value: unknown): Date | null
+- liveStartDate · function · L76-L78 — function liveStartDate(live: JsonRecord): Date | null
+- liveEndDate · function · L80-L82 — function liveEndDate(live: JsonRecord): Date | null
+- isSyntheticLiveEvent · function · L84-L86 — function isSyntheticLiveEvent(item: JsonRecord)
+- buildLiveAgendaFallback · function · L88-L116 — function buildLiveAgendaFallback(live: JsonRecord, cabines: JsonRecord[]): JsonRecord | null
+- mergeAgendaWithLiveFallbacks · function · L118-L140 — function mergeAgendaWithLiveFallbacks( agendaRows: JsonRecord[], livesRows: JsonRecord[], cabines: JsonRecord[], range: { start: string; end: string }, )
+- ConteudoPage · function · L142-L618 — function ConteudoPage()
+- setLivesParams · function · L192-L200 — function setLivesParams(patch: Record<string, string | null>, { resetPage = true } = {})
+- invalidateOperational · function · L238-L240 — function invalidateOperational()
+- closeAgendaModal · function · L242-L242 — function closeAgendaModal()
+- closeVideoModal · function · L243-L243 — function closeVideoModal(resetForm = true)
+- closeMetrics · function · L244-L244 — function closeMetrics()
+- closeLiveRecord · function · L245-L245 — function closeLiveRecord()
+- switchTab · function · L348-L354 — function switchTab(next: ConteudoTab)
+- openEditAgendaModal · function · L356-L371 — function openEditAgendaModal(event: JsonRecord)
+- openEditVideoModal · function · L373-L387 — function openEditVideoModal(video: JsonRecord)
+- onVideoSubmit · function · L389-L402 — function onVideoSubmit(event: FormEvent<HTMLFormElement>)

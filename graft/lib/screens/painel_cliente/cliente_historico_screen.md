@@ -1,0 +1,51 @@
+# lib/screens/painel_cliente/cliente_historico_screen.dart
+
+- AppColors · class · L16-L25 — class AppColors
+- primary · constant · L17-L17 — static const primary = ds_colors.AppColors.primary;
+- infoBlue · constant · L18-L18 — static const infoBlue = ds_colors.AppColors.info;
+- primaryOrange · constant · L19-L19 — static const primaryOrange = ds_colors.AppColors.primary;
+- successGreen · constant · L20-L20 — static const successGreen = ds_colors.AppColors.success;
+- warningYellow · constant · L21-L21 — static const warningYellow = ds_colors.AppColors.warning;
+- orange600 · constant · L22-L22 — static const orange600 = ds_colors.AppColors.primaryLight;
+- lilac · constant · L23-L23 — static const lilac = ds_colors.AppColors.lilac;
+- gray200 · constant · L24-L24 — static const gray200 = ds_colors.AppColors.borderLight;
+- AppSpacing · class · L27-L36 — class AppSpacing
+- xs · constant · L28-L28 — static const xs = ds_tokens.AppSpacing.x1;
+- sm · constant · L29-L29 — static const sm = ds_tokens.AppSpacing.x2;
+- md · constant · L30-L30 — static const md = ds_tokens.AppSpacing.x4;
+- lg · constant · L31-L31 — static const lg = ds_tokens.AppSpacing.x6;
+- xl · constant · L32-L32 — static const xl = ds_tokens.AppSpacing.x8;
+- x2l · constant · L33-L33 — static const x2l = ds_tokens.AppSpacing.x10;
+- x3l · constant · L34-L34 — static const x3l = ds_tokens.AppSpacing.x12;
+- screenPadding · constant · L35-L35 — static const screenPadding = ds_tokens.AppSpacing.x6;
+- AppRadius · class · L38-L43 — class AppRadius
+- md · constant · L39-L39 — static const md = ds_tokens.AppRadius.md;
+- lg · constant · L40-L40 — static const lg = ds_tokens.AppRadius.lg;
+- full · constant · L41-L41 — static const full = ds_tokens.AppRadius.full;
+- pill · constant · L42-L42 — static const pill = ds_tokens.AppRadius.full;
+- AppTypography · class · L45-L53 — class AppTypography
+- h2 · constant · L46-L46 — static const h2 = ds_typography.AppTypography.h2;
+- h3 · constant · L47-L47 — static const h3 = ds_typography.AppTypography.h3;
+- bodyLarge · constant · L48-L48 — static const bodyLarge = ds_typography.AppTypography.bodyLarge;
+- bodySmall · constant · L49-L49 — static const bodySmall = ds_typography.AppTypography.bodySmall;
+- caption · constant · L50-L50 — static const caption = ds_typography.AppTypography.caption;
+- labelLarge · constant · L51-L51 — static const labelLarge = ds_typography.AppTypography.label;
+- labelSmall · constant · L52-L52 — static const labelSmall = ds_typography.AppTypography.caption;
+- ClienteHistoricoScreen · class · L55-L97 — class ClienteHistoricoScreen extends ConsumerWidget
+- build · method · L59-L96 — Widget build(BuildContext context, WidgetRef ref)
+- _HistoricoContent · class · L99-L208 — class _HistoricoContent extends StatelessWidget
+- _currency · constant · L100-L102 — static final NumberFormat _currency = NumberFormat.simpleCurrency(
+- build · method · L109-L207 — Widget build(BuildContext context)
+- _MetricBox · class · L210-L219 — class _MetricBox extends StatelessWidget
+- build · method · L216-L218 — Widget build(BuildContext context)
+- _HistoryPeriodSelector · class · L221-L270 — class _HistoryPeriodSelector extends ConsumerWidget
+- _periodFormat · constant · L222-L222 — static final DateFormat _periodFormat = DateFormat.yMMMM('pt_BR');
+- build · method · L229-L269 — Widget build(BuildContext context, WidgetRef ref)
+- _LiveHistoryCard · class · L272-L344 — class _LiveHistoryCard extends StatelessWidget
+- _currency · constant · L273-L275 — static final NumberFormat _currency = NumberFormat.simpleCurrency(
+- _date · constant · L276-L276 — static final DateFormat _date = DateFormat("dd/MM 'às' HH:mm", 'pt_BR');
+- build · method · L283-L343 — Widget build(BuildContext context)
+- _DetailMetric · class · L346-L374 — class _DetailMetric extends StatelessWidget
+- build · method · L353-L373 — Widget build(BuildContext context)
+- _StatusPill · class · L376-L405 — class _StatusPill extends StatelessWidget
+- build · method · L382-L404 — Widget build(BuildContext context)

@@ -1,0 +1,40 @@
+# lib/screens/analytics/analytics_dashboard_screen.dart
+
+- _formatDeltaPct · function · L16-L22 — String _formatDeltaPct(num delta, bool positive)
+- AnalyticsDashboardScreen · class · L24-L29 — class AnalyticsDashboardScreen extends ConsumerStatefulWidget
+- createState · method · L28-L28 — ConsumerState<AnalyticsDashboardScreen> createState() => _AnalyticsDashboardScreenState();
+- _AnalyticsDashboardScreenState · class · L31-L1213 — class _AnalyticsDashboardScreenState extends ConsumerState<AnalyticsDashboardScreen>
+- _refresh · method · L32-L34 — void _refresh()
+- _setPreset · method · L36-L38 — void _setPreset(AnalyticsPreset p)
+- _openCustomRangePicker · method · L40-L69 — Future<void> _openCustomRangePicker() async
+- build · method · L72-L92 — Widget build(BuildContext context)
+- _content · method · L94-L136 — Widget _content(AnalyticsDashboardData data)
+- _row2 · method · L138-L153 — Widget _row2(LlResponsive r, Widget a, Widget b)
+- _pageHeader · method · L155-L238 — Widget _pageHeader(LlTokens t)
+- _filtersBar · method · L240-L276 — Widget _filtersBar(LlTokens t)
+- _clienteFilterBtn · method · L278-L396 — Widget _clienteFilterBtn(LlTokens t, String? selectedId)
+- _presetPill · method · L398-L423 — Widget _presetPill(LlTokens t, AnalyticsPreset preset, AnalyticsPreset active)
+- _customRangeBtn · method · L425-L456 — Widget _customRangeBtn(LlTokens t, bool active)
+- _kpiStrip · method · L458-L518 — Widget _kpiStrip(LlTokens t, AnalyticsDashboardData d)
+- _kpiCard · method · L520-L582 — Widget _kpiCard(LlTokens t, _KpiSpec spec)
+- _deltaPill · method · L584-L603 — Widget _deltaPill(LlTokens t, int delta)
+- _sectionTitle · method · L605-L635 — Widget _sectionTitle(LlTokens t, String title, String sub)
+- _cardShell · method · L637-L671 — Widget _cardShell(LlTokens t, {required String title, required String subtitle, Widget? tag, required Widget body, double? minHeight})
+- _tag · method · L673-L685 — Widget _tag(LlTokens t, String text, {Color? color, Color? bg})
+- _last12Months · method · L688-L696 — List<String> _last12Months()
+- _faturamentoCard · method · L698-L766 — Widget _faturamentoCard(LlTokens t, AnalyticsDashboardData d)
+- _vendasCard · method · L768-L835 — Widget _vendasCard(LlTokens t, AnalyticsDashboardData d)
+- _peakHoursCard · method · L837-L914 — Widget _peakHoursCard(LlTokens t, AnalyticsDashboardData d)
+- _heatmapCard · method · L916-L1031 — Widget _heatmapCard(LlTokens t, AnalyticsDashboardData d)
+- _horasCard · method · L1033-L1063 — Widget _horasCard(LlTokens t, AnalyticsDashboardData d)
+- _rankingCard · method · L1065-L1146 — Widget _rankingCard(LlTokens t, AnalyticsDashboardData d)
+- _medalPos · method · L1148-L1173 — Widget _medalPos(LlTokens t, int pos)
+- _emptyState · method · L1175-L1185 — Widget _emptyState(LlTokens t, String msg)
+- _mesLabel · method · L1187-L1193 — String _mesLabel(String iso)
+- _compactBrl · method · L1195-L1199 — String _compactBrl(double v)
+- _compactInt · method · L1201-L1205 — String _compactInt(int v)
+- _initials · method · L1207-L1212 — String _initials(String name)
+- _KpiSpec · class · L1215-L1232 — class _KpiSpec
+- _LineChartPainter · class · L1234-L1299 — class _LineChartPainter extends CustomPainter
+- paint · method · L1241-L1294 — void paint(Canvas canvas, Size size)
+- shouldRepaint · method · L1297-L1298 — bool shouldRepaint(_LineChartPainter old) =>

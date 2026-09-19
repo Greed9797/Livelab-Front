@@ -1,0 +1,33 @@
+# lib/livelab_v2/screens/config_screen.dart
+
+- ConfigScreen · class · L10-L15 — class ConfigScreen extends ConsumerStatefulWidget
+- createState · method · L14-L14 — ConsumerState<ConfigScreen> createState() => _ConfigScreenState();
+- _ConfigScreenState · class · L17-L152 — class _ConfigScreenState extends ConsumerState<ConfigScreen>
+- dispose · method · L30-L36 — void dispose()
+- _onSavePassword · method · L38-L72 — Future<void> _onSavePassword() async
+- _snack · method · L74-L79 — void _snack(String msg, {required bool erro})
+- build · method · L82-L131 — Widget build(BuildContext context)
+- _content · method · L133-L151 — Widget _content()
+- _ConfigNavButton · class · L154-L210 — class _ConfigNavButton extends StatelessWidget
+- build · method · L162-L209 — Widget build(BuildContext context)
+- _ContaSection · class · L212-L351 — class _ContaSection extends ConsumerWidget
+- _initials · method · L239-L245 — String _initials(String nome)
+- _papelLabel · method · L247-L254 — String _papelLabel(String papel) => switch (papel)
+- build · method · L257-L350 — Widget build(BuildContext context, WidgetRef ref)
+- _TikTokClienteCard · class · L356-L361 — class _TikTokClienteCard extends ConsumerStatefulWidget
+- createState · method · L360-L360 — ConsumerState<_TikTokClienteCard> createState() => _TikTokClienteCardState();
+- _TikTokClienteCardState · class · L363-L455 — class _TikTokClienteCardState extends ConsumerState<_TikTokClienteCard>
+- dispose · method · L370-L373 — void dispose()
+- _save · method · L375-L397 — Future<void> _save() async
+- build · method · L400-L454 — Widget build(BuildContext context)
+- _PasswordField · class · L457-L488 — class _PasswordField extends StatelessWidget
+- build · method · L470-L487 — Widget build(BuildContext context)
+- _PlanoSection · class · L490-L592 — class _PlanoSection extends StatelessWidget
+- build · method · L494-L591 — Widget build(BuildContext context)
+- _PlanCard · class · L594-L676 — class _PlanCard extends StatelessWidget
+- build · method · L608-L675 — Widget build(BuildContext context)
+- _SuporteSection · class · L678-L754 — class _SuporteSection extends StatelessWidget
+- build · method · L682-L753 — Widget build(BuildContext context)
+- _SupportItem · class · L756-L787 — class _SupportItem extends StatelessWidget
+- build · method · L764-L786 — Widget build(BuildContext context)
+- _ConfigNav · class · L789-L795 — class _ConfigNav

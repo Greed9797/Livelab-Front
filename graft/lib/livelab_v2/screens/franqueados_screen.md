@@ -1,0 +1,82 @@
+# lib/livelab_v2/screens/franqueados_screen.dart
+
+- _FqColors · class · L22-L42 — class _FqColors
+- primaryStart · constant · L24-L24 — static const primaryStart = Color(0xFFFF6A2F);
+- primaryEnd · constant · L25-L25 — static const primaryEnd = Color(0xFFFF8A5B);
+- blueStart · constant · L26-L26 — static const blueStart = Color(0xFF2F80ED);
+- blueEnd · constant · L27-L27 — static const blueEnd = Color(0xFF5AC8FA);
+- purpStart · constant · L28-L28 — static const purpStart = Color(0xFF7B61FF);
+- purpEnd · constant · L29-L29 — static const purpEnd = Color(0xFFAF7BFF);
+- goldStart · constant · L30-L30 — static const goldStart = Color(0xFFC2913A);
+- goldEnd · constant · L31-L31 — static const goldEnd = Color(0xFFE8B85B);
+- tealStart · constant · L32-L32 — static const tealStart = Color(0xFF1F8A7C);
+- tealEnd · constant · L33-L33 — static const tealEnd = Color(0xFF34C759);
+- grayStart · constant · L34-L34 — static const grayStart = Color(0xFF6E6E76);
+- grayEnd · constant · L35-L35 — static const grayEnd = Color(0xFF8A8A92);
+- success · constant · L38-L38 — static const success = Color(0xFF34C759);
+- warning · constant · L39-L39 — static const warning = Color(0xFFFFB020);
+- danger · constant · L40-L40 — static const danger = Color(0xFFF87171);
+- masterPurple · constant · L41-L41 — static const masterPurple = Color(0xFFAF7BFF);
+- _avatarGradient · function · L44-L77 — LinearGradient _avatarGradient(String key)
+- _FranqueadoView · class · L83-L172 — class _FranqueadoView
+- _formatCity · method · L149-L156 — static String _formatCity(String? cidade, String? uf)
+- _colorForId · method · L158-L162 — static String _colorForId(String id)
+- _daysSince · method · L164-L171 — static int? _daysSince(String? iso)
+- _fmtMoneyShort · function · L174-L180 — String _fmtMoneyShort(double v)
+- _currentPeriod · function · L182-L185 — String _currentPeriod()
+- FranqueadosScreen · class · L191-L196 — class FranqueadosScreen extends ConsumerStatefulWidget
+- createState · method · L195-L195 — ConsumerState<FranqueadosScreen> createState() => _FranqueadosScreenState();
+- _FranqueadosScreenState · class · L198-L264 — class _FranqueadosScreenState extends ConsumerState<FranqueadosScreen>
+- initState · method · L204-L207 — void initState()
+- dispose · method · L210-L213 — void dispose()
+- build · method · L216-L255 — Widget build(BuildContext context)
+- _openCreateDialog · method · L257-L263 — Future<void> _openCreateDialog(BuildContext ctx) async
+- _Body · class · L270-L346 — class _Body extends StatelessWidget
+- build · method · L290-L345 — Widget build(BuildContext context)
+- _PageHeader · class · L352-L421 — class _PageHeader extends StatelessWidget
+- build · method · L357-L420 — Widget build(BuildContext context)
+- _StatsGrid · class · L427-L484 — class _StatsGrid extends StatelessWidget
+- build · method · L443-L483 — Widget build(BuildContext context)
+- _StatCard · class · L486-L537 — class _StatCard extends StatelessWidget
+- build · method · L500-L536 — Widget build(BuildContext context)
+- _Toolbar · class · L543-L629 — class _Toolbar extends StatelessWidget
+- build · method · L559-L628 — Widget build(BuildContext context)
+- _SearchInput · class · L631-L668 — class _SearchInput extends StatelessWidget
+- build · method · L637-L667 — Widget build(BuildContext context)
+- _Tab · class · L670-L715 — class _Tab extends StatelessWidget
+- build · method · L683-L714 — Widget build(BuildContext context)
+- _IconBtn · class · L717-L742 — class _IconBtn extends StatelessWidget
+- build · method · L724-L741 — Widget build(BuildContext context)
+- _ListCard · class · L748-L798 — class _ListCard extends StatelessWidget
+- build · method · L754-L797 — Widget build(BuildContext context)
+- _RowHeader · class · L800-L847 — class _RowHeader extends StatelessWidget
+- _h · method · L803-L808 — TextStyle _h(BuildContext c) => GoogleFonts.inter(
+- build · method · L811-L846 — Widget build(BuildContext context)
+- _Row · class · L849-L855 — class _Row extends StatefulWidget
+- createState · method · L854-L854 — State<_Row> createState() => _RowState();
+- _RowState · class · L857-L878 — class _RowState extends State<_Row>
+- build · method · L861-L877 — Widget build(BuildContext context)
+- _ExpandedRow · class · L880-L918 — class _ExpandedRow extends StatelessWidget
+- build · method · L885-L917 — Widget build(BuildContext context)
+- _CompactRow · class · L920-L955 — class _CompactRow extends StatelessWidget
+- build · method · L925-L954 — Widget build(BuildContext context)
+- _Avatar · class · L957-L980 — class _Avatar extends StatelessWidget
+- build · method · L963-L979 — Widget build(BuildContext context)
+- _NameCell · class · L982-L1011 — class _NameCell extends StatelessWidget
+- build · method · L987-L1010 — Widget build(BuildContext context)
+- _MiniTag · class · L1013-L1037 — class _MiniTag extends StatelessWidget
+- build · method · L1018-L1036 — Widget build(BuildContext context)
+- _MetaCell · class · L1039-L1076 — class _MetaCell extends StatelessWidget
+- build · method · L1046-L1075 — Widget build(BuildContext context)
+- _InlineMeta · class · L1078-L1099 — class _InlineMeta extends StatelessWidget
+- build · method · L1084-L1098 — Widget build(BuildContext context)
+- _StatusActions · class · L1101-L1124 — class _StatusActions extends StatelessWidget
+- build · method · L1106-L1123 — Widget build(BuildContext context)
+- _StatusPill · class · L1126-L1172 — class _StatusPill extends StatelessWidget
+- build · method · L1131-L1171 — Widget build(BuildContext context)
+- _AcessarBtn · class · L1174-L1203 — class _AcessarBtn extends StatelessWidget
+- build · method · L1179-L1202 — Widget build(BuildContext context)
+- _LoadingShell · class · L1209-L1226 — class _LoadingShell extends StatelessWidget
+- build · method · L1213-L1225 — Widget build(BuildContext context)
+- _ErrorState · class · L1228-L1262 — class _ErrorState extends StatelessWidget
+- build · method · L1234-L1261 — Widget build(BuildContext context)

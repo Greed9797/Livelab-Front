@@ -1,0 +1,26 @@
+# lib/screens/cliente/cliente_ao_vivo_screen.dart
+
+- ClienteAoVivoScreen · class · L10-L46 — class ClienteAoVivoScreen extends ConsumerWidget
+- build · method · L14-L45 — Widget build(BuildContext context, WidgetRef ref)
+- _AoVivoContent · class · L48-L63 — class _AoVivoContent extends StatelessWidget
+- build · method · L54-L62 — Widget build(BuildContext context)
+- _LiveActiveView · class · L69-L154 — class _LiveActiveView extends StatelessWidget
+- _currency · constant · L70-L71 — static final NumberFormat _currency =
+- build · method · L78-L153 — Widget build(BuildContext context)
+- _LiveHeader · class · L156-L222 — class _LiveHeader extends StatelessWidget
+- build · method · L162-L221 — Widget build(BuildContext context)
+- _MetricTile · class · L224-L284 — class _MetricTile extends StatelessWidget
+- build · method · L240-L283 — Widget build(BuildContext context)
+- _EngagementRow · class · L286-L332 — class _EngagementRow extends StatelessWidget
+- build · method · L292-L331 — Widget build(BuildContext context)
+- _EngagementChip · class · L334-L373 — class _EngagementChip extends StatelessWidget
+- build · method · L346-L372 — Widget build(BuildContext context)
+- _EmptyState · class · L379-L440 — class _EmptyState extends StatelessWidget
+- build · method · L385-L439 — Widget build(BuildContext context)
+- _ProximaReservaCard · class · L442-L510 — class _ProximaReservaCard extends StatelessWidget
+- _dateFormat · constant · L443-L444 — static final DateFormat _dateFormat =
+- build · method · L464-L509 — Widget build(BuildContext context)
+- _ReservaRow · class · L512-L540 — class _ReservaRow extends StatelessWidget
+- build · method · L519-L539 — Widget build(BuildContext context)
+- _ActionButtons · class · L546-L577 — class _ActionButtons extends StatelessWidget
+- build · method · L550-L576 — Widget build(BuildContext context)

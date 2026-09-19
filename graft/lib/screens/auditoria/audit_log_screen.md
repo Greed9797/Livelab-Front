@@ -1,0 +1,34 @@
+# lib/screens/auditoria/audit_log_screen.dart
+
+- AuditLogScreen · class · L13-L19 — class AuditLogScreen extends ConsumerStatefulWidget
+- createState · method · L18-L18 — ConsumerState<AuditLogScreen> createState() => _AuditLogScreenState();
+- _AuditLogScreenState · class · L21-L102 — class _AuditLogScreenState extends ConsumerState<AuditLogScreen>
+- _commonActions · constant · L22-L41 — static const _commonActions = <String>[
+- _entityTypes · constant · L43-L54 — static const _entityTypes = <String>[
+- build · method · L57-L101 — Widget build(BuildContext context)
+- _FiltrosCard · class · L106-L119 — class _FiltrosCard extends ConsumerStatefulWidget
+- createState · method · L118-L118 — ConsumerState<_FiltrosCard> createState() => _FiltrosCardState();
+- _FiltrosCardState · class · L121-L266 — class _FiltrosCardState extends ConsumerState<_FiltrosCard>
+- initState · method · L125-L128 — void initState()
+- dispose · method · L131-L134 — void dispose()
+- build · method · L137-L265 — Widget build(BuildContext context)
+- _AuditLogTable · class · L270-L318 — class _AuditLogTable extends ConsumerWidget
+- build · method · L276-L317 — Widget build(BuildContext context, WidgetRef ref)
+- _Paginator · class · L320-L354 — class _Paginator extends StatelessWidget
+- build · method · L332-L353 — Widget build(BuildContext context)
+- _AuditLogRow · class · L356-L363 — class _AuditLogRow extends StatefulWidget
+- createState · method · L362-L362 — State<_AuditLogRow> createState() => _AuditLogRowState();
+- _AuditLogRowState · class · L365-L475 — class _AuditLogRowState extends State<_AuditLogRow>
+- build · method · L369-L469 — Widget build(BuildContext context)
+- _short · method · L471-L474 — static String _short(String uuid)
+- _AutorBlock · class · L477-L526 — class _AutorBlock extends StatelessWidget
+- build · method · L482-L525 — Widget build(BuildContext context)
+- _ActionChip · class · L528-L573 — class _ActionChip extends StatelessWidget
+- build · method · L533-L553 — Widget build(BuildContext context)
+- _colorFor · method · L555-L572 — static Color _colorFor(String action)
+- _EmptyState · class · L577-L613 — class _EmptyState extends StatelessWidget
+- build · method · L581-L612 — Widget build(BuildContext context)
+- _AuditLogSkeleton · class · L615-L638 — class _AuditLogSkeleton extends StatelessWidget
+- build · method · L619-L637 — Widget build(BuildContext context)
+- _ErrorBox · class · L640-L672 — class _ErrorBox extends StatelessWidget
+- build · method · L647-L671 — Widget build(BuildContext context)

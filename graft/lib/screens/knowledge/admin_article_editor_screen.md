@@ -1,0 +1,27 @@
+# lib/screens/knowledge/admin_article_editor_screen.dart
+
+- AdminArticleEditorScreen · class · L19-L33 — class AdminArticleEditorScreen extends ConsumerStatefulWidget
+- createState · method · L31-L32 — ConsumerState<AdminArticleEditorScreen> createState() =>
+- _AdminArticleEditorScreenState · class · L35-L381 — class _AdminArticleEditorScreenState
+- initState · method · L55-L76 — void initState()
+- _loadById · method · L78-L107 — Future<void> _loadById(String id) async
+- dispose · method · L110-L119 — void dispose()
+- _buildPayload · method · L121-L145 — Map<String, dynamic> _buildPayload({KbArticleStatus? overrideStatus})
+- _prepareImageBytes · method · L151-L153 — Future<Uint8List> _prepareImageBytes(Uint8List original) async
+- _pickAndUploadCover · method · L155-L202 — Future<void> _pickAndUploadCover() async
+- _save · method · L204-L253 — Future<void> _save({required bool publish}) async
+- build · method · L256-L380 — Widget build(BuildContext context)
+- _FormColumn · class · L383-L732 — class _FormColumn extends StatelessWidget
+- build · method · L425-L731 — Widget build(BuildContext context)
+- _PreviewColumn · class · L734-L751 — class _PreviewColumn extends StatefulWidget
+- createState · method · L750-L750 — State<_PreviewColumn> createState() => _PreviewColumnState();
+- _PreviewColumnState · class · L753-L866 — class _PreviewColumnState extends State<_PreviewColumn>
+- _debounceWindow · constant · L754-L754 — static const Duration _debounceWindow = Duration(milliseconds: 500);
+- initState · method · L765-L776 — void initState()
+- didUpdateWidget · method · L779-L785 — void didUpdateWidget(covariant _PreviewColumn old)
+- _scheduleRebuild · method · L787-L790 — void _scheduleRebuild()
+- _flushNow · method · L792-L801 — void _flushNow()
+- dispose · method · L804-L811 — void dispose()
+- build · method · L814-L865 — Widget build(BuildContext context)
+- _Label · class · L868-L885 — class _Label extends StatelessWidget
+- build · method · L873-L884 — Widget build(BuildContext context)

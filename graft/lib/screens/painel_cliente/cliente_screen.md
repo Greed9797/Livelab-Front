@@ -1,0 +1,73 @@
+# lib/screens/painel_cliente/cliente_screen.dart
+
+- AppColors · class · L14-L23 — class AppColors
+- primary · constant · L15-L15 — static const primary = ds_colors.AppColors.primary;
+- primaryOrange · constant · L16-L16 — static const primaryOrange = ds_colors.AppColors.primary;
+- gray200 · constant · L17-L17 — static const gray200 = ds_colors.AppColors.borderLight;
+- infoBlue · constant · L18-L18 — static const infoBlue = ds_colors.AppColors.info;
+- lilac · constant · L19-L19 — static const lilac = ds_colors.AppColors.lilac;
+- orange600 · constant · L20-L20 — static const orange600 = ds_colors.AppColors.primaryLight;
+- successGreen · constant · L21-L21 — static const successGreen = ds_colors.AppColors.success;
+- warningYellow · constant · L22-L22 — static const warningYellow = ds_colors.AppColors.warning;
+- AppSpacing · class · L25-L34 — class AppSpacing
+- xs · constant · L26-L26 — static const xs = ds_tokens.AppSpacing.x1;
+- sm · constant · L27-L27 — static const sm = ds_tokens.AppSpacing.x2;
+- md · constant · L28-L28 — static const md = ds_tokens.AppSpacing.x4;
+- lg · constant · L29-L29 — static const lg = ds_tokens.AppSpacing.x6;
+- xl · constant · L30-L30 — static const xl = ds_tokens.AppSpacing.x8;
+- x2l · constant · L31-L31 — static const x2l = ds_tokens.AppSpacing.x10;
+- x3l · constant · L32-L32 — static const x3l = ds_tokens.AppSpacing.x12;
+- screenPadding · constant · L33-L33 — static const screenPadding = ds_tokens.AppSpacing.x6;
+- AppRadius · class · L36-L41 — class AppRadius
+- md · constant · L37-L37 — static const md = ds_tokens.AppRadius.md;
+- lg · constant · L38-L38 — static const lg = ds_tokens.AppRadius.lg;
+- full · constant · L39-L39 — static const full = ds_tokens.AppRadius.full;
+- pill · constant · L40-L40 — static const pill = ds_tokens.AppRadius.full;
+- AppTypography · class · L43-L51 — class AppTypography
+- h2 · constant · L44-L44 — static const h2 = ds_typography.AppTypography.h2;
+- h3 · constant · L45-L45 — static const h3 = ds_typography.AppTypography.h3;
+- bodyLarge · constant · L46-L46 — static const bodyLarge = ds_typography.AppTypography.bodyLarge;
+- bodySmall · constant · L47-L47 — static const bodySmall = ds_typography.AppTypography.bodySmall;
+- caption · constant · L48-L48 — static const caption = ds_typography.AppTypography.caption;
+- labelLarge · constant · L49-L49 — static const labelLarge = ds_typography.AppTypography.label;
+- labelSmall · constant · L50-L50 — static const labelSmall = ds_typography.AppTypography.caption;
+- ClienteScreen · class · L53-L93 — class ClienteScreen extends ConsumerWidget
+- build · method · L57-L92 — Widget build(BuildContext context, WidgetRef ref)
+- _ClienteContent · class · L95-L219 — class _ClienteContent extends StatelessWidget
+- _currency · constant · L96-L98 — static final NumberFormat _currency = NumberFormat.simpleCurrency(
+- build · method · L106-L218 — Widget build(BuildContext context)
+- _MetricBox · class · L221-L230 — class _MetricBox extends StatelessWidget
+- build · method · L227-L229 — Widget build(BuildContext context)
+- _PeriodSelector · class · L232-L284 — class _PeriodSelector extends ConsumerWidget
+- _periodFormat · constant · L233-L233 — static final DateFormat _periodFormat = DateFormat.yMMMM('pt_BR');
+- build · method · L240-L283 — Widget build(BuildContext context, WidgetRef ref)
+- _PerformanceSection · class · L286-L363 — class _PerformanceSection extends StatelessWidget
+- _currency · constant · L287-L289 — static final NumberFormat _currency = NumberFormat.simpleCurrency(
+- build · method · L296-L362 — Widget build(BuildContext context)
+- _HorariosCard · class · L365-L434 — class _HorariosCard extends StatelessWidget
+- _currency · constant · L366-L368 — static final NumberFormat _currency = NumberFormat.simpleCurrency(
+- build · method · L375-L424 — Widget build(BuildContext context)
+- _progress · method · L426-L433 — double _progress(HorarioVenda item)
+- _InsightCard · class · L436-L468 — class _InsightCard extends StatelessWidget
+- build · method · L450-L467 — Widget build(BuildContext context)
+- _CardTitle · class · L470-L493 — class _CardTitle extends StatelessWidget
+- build · method · L477-L492 — Widget build(BuildContext context)
+- _BenchmarkSection · class · L495-L546 — class _BenchmarkSection extends StatelessWidget
+- build · method · L502-L545 — Widget build(BuildContext context)
+- _BenchmarkCard · class · L548-L618 — class _BenchmarkCard extends StatelessWidget
+- _currency · constant · L549-L551 — static final NumberFormat _currency = NumberFormat.simpleCurrency(
+- build · method · L559-L617 — Widget build(BuildContext context)
+- _MiniMetric · class · L620-L643 — class _MiniMetric extends StatelessWidget
+- build · method · L627-L642 — Widget build(BuildContext context)
+- _LivePanel · class · L645-L722 — class _LivePanel extends StatelessWidget
+- _currency · constant · L646-L648 — static final NumberFormat _currency = NumberFormat.simpleCurrency(
+- build · method · L655-L721 — Widget build(BuildContext context)
+- _LiveMetric · class · L724-L766 — class _LiveMetric extends StatelessWidget
+- build · method · L736-L765 — Widget build(BuildContext context)
+- _RecentLivesCard · class · L768-L831 — class _RecentLivesCard extends StatelessWidget
+- _currency · constant · L769-L771 — static final NumberFormat _currency = NumberFormat.simpleCurrency(
+- _date · constant · L772-L772 — static final DateFormat _date = DateFormat('dd/MM HH:mm', 'pt_BR');
+- build · method · L779-L830 — Widget build(BuildContext context)
+- _MaisVendidosCard · class · L833-L896 — class _MaisVendidosCard extends StatelessWidget
+- _currency · constant · L834-L836 — static final NumberFormat _currency = NumberFormat.simpleCurrency(
+- build · method · L843-L895 — Widget build(BuildContext context)

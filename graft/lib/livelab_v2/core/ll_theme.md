@@ -1,0 +1,33 @@
+# lib/livelab_v2/core/ll_theme.dart
+
+- LL · class · L3-L166 — class LL
+- bg · constant · L7-L7 — static const Color bg = Color(0xFF0B0B0F);
+- surface · constant · L8-L8 — static const Color surface = Color(0xFF141418);
+- surface2 · constant · L9-L9 — static const Color surface2 = Color(0xFF1C1C22);
+- surface3 · constant · L10-L10 — static const Color surface3 = Color(0xFF242430);
+- border · constant · L12-L12 — static const Color border = Color(0x0FFFFFFF);
+- borderMid · constant · L13-L13 — static const Color borderMid = Color(0x1AFFFFFF);
+- accent · constant · L15-L15 — static const Color accent = Color(0xFFFF5500);
+- accent2 · constant · L16-L16 — static const Color accent2 = Color(0xFFFF7733);
+- accentSoft · constant · L17-L17 — static const Color accentSoft = Color(0x24FF5500);
+- accentGlow · constant · L18-L18 — static const Color accentGlow = Color(0x14FF5500);
+- live · constant · L20-L20 — static const Color live = Color(0xFFFF3B30);
+- liveSoft · constant · L21-L21 — static const Color liveSoft = Color(0x24FF3B30);
+- success · constant · L22-L22 — static const Color success = Color(0xFF34C759);
+- successSoft · constant · L23-L23 — static const Color successSoft = Color(0x1F34C759);
+- warning · constant · L24-L24 — static const Color warning = Color(0xFFFFD60A);
+- warnSoft · constant · L25-L25 — static const Color warnSoft = Color(0x1FFFD60A);
+- info · constant · L26-L26 — static const Color info = Color(0xFF5E9CF5);
+- infoSoft · constant · L27-L27 — static const Color infoSoft = Color(0x1F5E9CF5);
+- textPrimary · constant · L29-L29 — static const Color textPrimary = Color(0xFFF0EDE8);
+- textSecond · constant · L30-L30 — static const Color textSecond = Color(0xFFA09CB0);
+- textMuted · constant · L31-L31 — static const Color textMuted = Color(0xFF55535F);
+- _lBg · constant · L34-L34 — static const Color _lBg = Color(0xFFF5F4F2);
+- _lSurface · constant · L35-L35 — static const Color _lSurface = Color(0xFFFFFFFF);
+- _lSurface3 · constant · L36-L36 — static const Color _lSurface3 = Color(0xFFF0EEE8);
+- _lBorder · constant · L37-L37 — static const Color _lBorder = Color(0x1A000000);
+- _lTextPrimary · constant · L38-L38 — static const Color _lTextPrimary = Color(0xFF1A1918);
+- _lTextMuted · constant · L39-L39 — static const Color _lTextMuted = Color(0xFF9E9BA8);
+- sidebarExpanded · constant · L41-L41 — static const double sidebarExpanded = 220;
+- sidebarCollapsed · constant · L42-L42 — static const double sidebarCollapsed = 64;
+- llOpacity · method · L169-L169 — Color llOpacity(double opacity) => withOpacity(opacity.clamp(0.0, 1.0).toDouble());

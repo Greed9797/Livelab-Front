@@ -1,0 +1,22 @@
+# lib/screens/knowledge/knowledge_home_screen.dart
+
+- KnowledgeHomeScreen · class · L18-L24 — class KnowledgeHomeScreen extends ConsumerStatefulWidget
+- createState · method · L22-L23 — ConsumerState<KnowledgeHomeScreen> createState() =>
+- _KnowledgeHomeScreenState · class · L26-L95 — class _KnowledgeHomeScreenState extends ConsumerState<KnowledgeHomeScreen>
+- dispose · method · L32-L36 — void dispose()
+- _onSearchChanged · method · L38-L43 — void _onSearchChanged(String value)
+- build · method · L46-L94 — Widget build(BuildContext context)
+- _SearchBar · class · L97-L145 — class _SearchBar extends StatelessWidget
+- build · method · L109-L144 — Widget build(BuildContext context)
+- _BrowseContent · class · L147-L240 — class _BrowseContent extends ConsumerWidget
+- build · method · L152-L239 — Widget build(BuildContext context, WidgetRef ref)
+- _CategoryGrid · class · L242-L279 — class _CategoryGrid extends StatelessWidget
+- build · method · L252-L278 — Widget build(BuildContext context)
+- _ArticleGrid · class · L281-L312 — class _ArticleGrid extends StatelessWidget
+- build · method · L286-L311 — Widget build(BuildContext context)
+- _SearchResults · class · L314-L351 — class _SearchResults extends ConsumerWidget
+- build · method · L319-L350 — Widget build(BuildContext context, WidgetRef ref)
+- _CategoriesSkeleton · class · L353-L374 — class _CategoriesSkeleton extends StatelessWidget
+- build · method · L357-L373 — Widget build(BuildContext context)
+- _ArticlesSkeleton · class · L376-L397 — class _ArticlesSkeleton extends StatelessWidget
+- build · method · L380-L396 — Widget build(BuildContext context)

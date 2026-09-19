@@ -1,0 +1,23 @@
+# lib/screens/admin_master/master_consolidated_screen.dart
+
+- _consolidatedPeriods · function · L12-L19 — List<String> _consolidatedPeriods([int count = 6])
+- _periodName · function · L21-L23 — String _periodName(String period)
+- _formatMoney · function · L25-L31 — String _formatMoney(double value)
+- _formatPct · function · L33-L36 — String _formatPct(double value)
+- MasterConsolidatedScreen · class · L38-L44 — class MasterConsolidatedScreen extends ConsumerStatefulWidget
+- createState · method · L42-L43 — ConsumerState<MasterConsolidatedScreen> createState() =>
+- _MasterConsolidatedScreenState · class · L46-L250 — class _MasterConsolidatedScreenState
+- initState · method · L53-L56 — void initState()
+- build · method · L59-L249 — Widget build(BuildContext context)
+- _ConsolidatedHeader · class · L252-L382 — class _ConsolidatedHeader extends StatelessWidget
+- build · method · L274-L381 — Widget build(BuildContext context)
+- _NetworkHistoryCard · class · L384-L492 — class _NetworkHistoryCard extends StatelessWidget
+- build · method · L390-L491 — Widget build(BuildContext context)
+- _RevenueBreakdownCard · class · L494-L577 — class _RevenueBreakdownCard extends StatelessWidget
+- build · method · L500-L576 — Widget build(BuildContext context)
+- _InlineMetric · class · L579-L597 — class _InlineMetric extends StatelessWidget
+- build · method · L586-L596 — Widget build(BuildContext context)
+- _ConsolidatedTable · class · L599-L669 — class _ConsolidatedTable extends StatelessWidget
+- build · method · L605-L668 — Widget build(BuildContext context)
+- _ConsolidatedErrorState · class · L671-L711 — class _ConsolidatedErrorState extends StatelessWidget
+- build · method · L678-L710 — Widget build(BuildContext context)

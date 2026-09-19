@@ -1,0 +1,76 @@
+# lib/routes/app_routes.dart
+
+- AppRoutes · class · L64-L961 — class AppRoutes
+- login · constant · L65-L65 — static const login = '/login';
+- esqueciSenha · constant · L67-L67 — static const esqueciSenha = '/esqueci-senha';
+- redefinirSenha · constant · L68-L68 — static const redefinirSenha = '/redefinir-senha';
+- aceitarConvite · constant · L69-L69 — static const aceitarConvite = '/aceitar-convite';
+- home · constant · L70-L70 — static const home = '/';
+- vendas · constant · L71-L71 — static const vendas = '/vendas';
+- comercial · constant · L72-L72 — static const comercial = '/comercial';
+- cadastroCliente · constant · L73-L73 — static const cadastroCliente = '/vendas/cadastro';
+- contrato · constant · L74-L74 — static const contrato = '/vendas/contrato';
+- analise · constant · L75-L75 — static const analise = '/vendas/analise';
+- analiseCredito · constant · L76-L76 — static const analiseCredito = '/vendas/analise_credito';
+- financeiro · constant · L77-L77 — static const financeiro = '/financeiro';
+- cabines · constant · L78-L78 — static const cabines = '/cabines';
+- cabineDetail · constant · L79-L79 — static const cabineDetail = '/cabines/detalhe';
+- franqueado · constant · L80-L80 — static const franqueado = '/franqueado';
+- masterDashboard · constant · L81-L81 — static const masterDashboard = '/master';
+- masterUnits · constant · L82-L82 — static const masterUnits = '/master/unidades';
+- masterConsolidated · constant · L83-L83 — static const masterConsolidated = '/master/consolidado';
+- masterCrm · constant · L84-L84 — static const masterCrm = '/master/crm';
+- cliente · constant · L85-L85 — static const cliente = '/cliente';
+- clienteAoVivo · constant · L86-L86 — static const clienteAoVivo = '/cliente/ao-vivo';
+- clienteHistorico · constant · L87-L87 — static const clienteHistorico = '/cliente/historico';
+- clienteCabineDetail · constant · L88-L88 — static const clienteCabineDetail = '/cliente/cabines/detalhe';
+- clienteDashboard · constant · L89-L89 — static const clienteDashboard = '/cliente/dashboard';
+- leads · constant · L90-L90 — static const leads = '/leads';
+- boletos · constant · L91-L91 — static const boletos = '/boletos';
+- excelencia · constant · L92-L92 — static const excelencia = '/excelencia';
+- recomendacoes · constant · L93-L93 — static const recomendacoes = '/recomendacoes';
+- manuais · constant · L94-L94 — static const manuais = '/manuais';
+- baseConhecimento · constant · L95-L95 — static const baseConhecimento = '/base-conhecimento';
+- carteiraClientes · constant · L96-L96 — static const carteiraClientes = '/carteira-clientes';
+- auditoriaContratos · constant · L97-L97 — static const auditoriaContratos = '/auditoria-contratos';
+- auditLog · constant · L98-L98 — static const auditLog = '/auditoria/log';
+- clientesLeads · constant · L99-L99 — static const clientesLeads = '/clientes-leads';
+- clientes · constant · L100-L100 — static const clientes = '/clientes';
+- configuracoes · constant · L101-L101 — static const configuracoes = '/configuracoes';
+- solicitacoes · constant · L102-L102 — static const solicitacoes = '/solicitacoes';
+- agendamentos · constant · L103-L103 — static const agendamentos = '/agendamentos';
+- apresentadoras · constant · L104-L104 — static const apresentadoras = '/apresentadoras';
+- analyticsDashboard · constant · L105-L105 — static const analyticsDashboard = '/analytics-dashboard';
+- clienteConfiguracoes · constant · L106-L106 — static const clienteConfiguracoes = '/cliente/configuracoes';
+- clienteCabinesTabs · constant · L107-L107 — static const clienteCabinesTabs = '/cliente/cabines';
+- clienteLives · constant · L108-L108 — static const clienteLives = '/cliente/lives';
+- clienteAgenda · constant · L109-L109 — static const clienteAgenda = '/cliente/agenda';
+- clienteReservas · constant · L110-L110 — static const clienteReservas = '/cliente/reservas';
+- onboarding · constant · L111-L111 — static const onboarding = '/onboarding';
+- usuarios · constant · L112-L112 — static const usuarios = '/usuarios';
+- masterFranqueados · constant · L113-L113 — static const masterFranqueados = '/master/franqueados';
+- masterRegionalManagers · constant · L114-L114 — static const masterRegionalManagers = '/master/gerentes-regionais';
+- masterTiktokApps · constant · L115-L115 — static const masterTiktokApps = '/master/tiktok-apps';
+- _masterRoles · constant · L119-L123 — static const Set<String> _masterRoles =
+- knowledgeBase · constant · L126-L126 — static const knowledgeBase = '/conhecimento';
+- knowledgeCategory · constant · L127-L127 — static const knowledgeCategory = '/conhecimento/c';
+- knowledgeArticle · constant · L128-L128 — static const knowledgeArticle = '/conhecimento/a';
+- adminKnowledgeNew · constant · L129-L129 — static const adminKnowledgeNew = '/master/conhecimento/novo';
+- adminKnowledgeEdit · constant · L130-L130 — static const adminKnowledgeEdit = '/master/conhecimento/editar';
+- adminKnowledgeCategories · constant · L131-L131 — static const adminKnowledgeCategories = '/master/conhecimento/categorias';
+- _knowledgeReadRoles · constant · L133-L144 — static const Set<String> _knowledgeReadRoles =
+- _internalRoles · constant · L150-L163 — static const Set<String> _internalRoles =
+- _commercialRoles · constant · L164-L172 — static const Set<String> _commercialRoles =
+- _financeRoles · constant · L173-L179 — static const Set<String> _financeRoles =
+- _opsRoles · constant · L180-L188 — static const Set<String> _opsRoles =
+- _cabineRoles · constant · L189-L200 — static const Set<String> _cabineRoles =
+- routeForRole · method · L202-L228 — static String routeForRole(String? role, {bool onboardingCompleted = true})
+- onGenerateRoute · method · L234-L899 — static Route<dynamic>? onGenerateRoute(RouteSettings settings)
+- _knowledgeDynamicRoute · method · L905-L960 — static Route<dynamic>? _knowledgeDynamicRoute(RouteSettings settings)
+- _CabineNotFoundScreen · class · L963-L1013 — class _CabineNotFoundScreen extends StatelessWidget
+- build · method · L967-L1012 — Widget build(BuildContext context)
+- _LazyScreen · class · L1018-L1032 — class _LazyScreen extends StatefulWidget
+- createState · method · L1031-L1031 — State<_LazyScreen> createState() => _LazyScreenState();
+- _LazyScreenState · class · L1034-L1089 — class _LazyScreenState extends State<_LazyScreen>
+- initState · method · L1038-L1041 — void initState()
+- build · method · L1044-L1088 — Widget build(BuildContext context)

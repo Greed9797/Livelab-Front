@@ -53,6 +53,3 @@ app.*.map.json
 # Metadados de ferramentas locais
 .serena/
 .vercel
-
-# graft's local graph cache — regenerable, not committed (run `graft build`).
-/graft/

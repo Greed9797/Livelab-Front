@@ -1,0 +1,46 @@
+# lib/screens/auth/_auth_visual.dart
+
+- LL · class · L10-L71 — class LL
+- primary · constant · L13-L13 — static const primary = Color(0xFFFF5A1F);
+- primaryHover · constant · L14-L14 — static const primaryHover = Color(0xFFE64A0F);
+- primarySoft · constant · L15-L15 — static const primarySoft = Color(0xFFFFE8DC);
+- primarySofter · constant · L16-L16 — static const primarySofter = Color(0xFFFFF3EC);
+- danger · constant · L17-L17 — static const danger = Color(0xFFD9402F);
+- success · constant · L18-L18 — static const success = Color(0xFF10B981);
+- _isDark · method · L20-L21 — static bool _isDark(BuildContext c) =>
+- bgBase · method · L23-L24 — static Color bgBase(BuildContext c) =>
+- bgCard · method · L25-L26 — static Color bgCard(BuildContext c) =>
+- bgInput · method · L27-L28 — static Color bgInput(BuildContext c) =>
+- textPrimary · method · L30-L31 — static Color textPrimary(BuildContext c) =>
+- textSecondary · method · L32-L33 — static Color textSecondary(BuildContext c) =>
+- textMuted · method · L34-L35 — static Color textMuted(BuildContext c) =>
+- textPlaceholder · method · L36-L37 — static Color textPlaceholder(BuildContext c) =>
+- border · method · L39-L40 — static Color border(BuildContext c) =>
+- borderInput · method · L41-L42 — static Color borderInput(BuildContext c) =>
+- radiusMd · constant · L44-L44 — static const radiusMd = 12.0;
+- radiusXl · constant · L45-L45 — static const radiusXl = 20.0;
+- radiusPill · constant · L46-L46 — static const radiusPill = 999.0;
+- shadowLg · constant · L48-L61 — static const shadowLg = [
+- shadowPrimary · constant · L63-L70 — static const shadowPrimary = [
+- AuthScaffold · class · L74-L121 — class AuthScaffold extends StatelessWidget
+- build · method · L79-L120 — Widget build(BuildContext context)
+- AuthCard · class · L123-L145 — class AuthCard extends StatelessWidget
+- build · method · L128-L144 — Widget build(BuildContext context)
+- AuthHeader · class · L147-L255 — class AuthHeader extends StatelessWidget
+- build · method · L162-L254 — Widget build(BuildContext context)
+- AuthField · class · L257-L279 — class AuthField extends StatefulWidget
+- createState · method · L278-L278 — State<AuthField> createState() => _AuthFieldState();
+- _AuthFieldState · class · L281-L385 — class _AuthFieldState extends State<AuthField>
+- initState · method · L286-L289 — void initState()
+- dispose · method · L292-L295 — void dispose()
+- build · method · L298-L384 — Widget build(BuildContext context)
+- AuthErrorBanner · class · L387-L418 — class AuthErrorBanner extends StatelessWidget
+- build · method · L392-L417 — Widget build(BuildContext context)
+- AuthSuccessBanner · class · L420-L451 — class AuthSuccessBanner extends StatelessWidget
+- build · method · L425-L450 — Widget build(BuildContext context)
+- AuthPrimaryButton · class · L453-L466 — class AuthPrimaryButton extends StatefulWidget
+- createState · method · L465-L465 — State<AuthPrimaryButton> createState() => _AuthPrimaryButtonState();
+- _AuthPrimaryButtonState · class · L468-L518 — class _AuthPrimaryButtonState extends State<AuthPrimaryButton>
+- build · method · L473-L517 — Widget build(BuildContext context)
+- AuthBackToLogin · class · L520-L539 — class AuthBackToLogin extends StatelessWidget
+- build · method · L525-L538 — Widget build(BuildContext context)

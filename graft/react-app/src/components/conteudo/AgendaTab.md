@@ -1,0 +1,29 @@
+# react-app/src/components/conteudo/AgendaTab.tsx
+
+- AgendaView · type · L36-L36 — type AgendaView = 'dia' | 'semana' | 'mes'
+- typeLabel · function · L38-L44 — function typeLabel(tipo: unknown)
+- isPastRegisterable · function · L46-L54 — function isPastRegisterable(event: JsonRecord)
+- isLiveOnAir · function · L56-L58 — function isLiveOnAir(item: JsonRecord)
+- eventCor · function · L61-L63 — function eventCor(event: JsonRecord): string
+- isoDay · function · L69-L74 — function isoDay(d: Date): string
+- dayNumber · function · L75-L77 — function dayNumber(iso: string)
+- ddmm · function · L78-L80 — function ddmm(iso: string)
+- eventTitle · function · L81-L83 — function eventTitle(e: JsonRecord)
+- cabineLabel · function · L84-L88 — function cabineLabel(e: JsonRecord)
+- dedupSorted · function · L89-L92 — function dedupSorted(rows: JsonRecord[])
+- EventChip · function · L94-L114 — function EventChip({ event, chipH, onOpen }: { event: JsonRecord; chipH: number; onOpen: (e: JsonRecord) => void })
+- AgendaTabProps · interface · L116-L141 — interface AgendaTabProps
+- AgendaTab · function · L143-L324 — function AgendaTab(props: AgendaTabProps)
+- shiftDays · function · L168-L172 — function shiftDays(delta: number)
+- shiftMonths · function · L173-L177 — function shiftMonths(delta: number)
+- goPrev · function · L178-L178 — goPrev = ()
+- goNext · function · L179-L179 — goNext = ()
+- openDrawer · function · L188-L190 — function openDrawer(e: JsonRecord)
+- drawerEdit · function · L191-L196 — function drawerEdit()
+- drawerDelete · function · L197-L202 — function drawerDelete()
+- drawerRegister · function · L203-L208 — function drawerRegister()
+- WeekView · function · L327-L366 — function WeekView({ week, today, rows, cellMin, chipH, onOpen, }: { week: string[] today: string rows: JsonRecord[] cellMin: number chipH: number onOpen: (e: JsonRecord) => void })
+- DayView · function · L369-L450 — function DayView({ agendaDate, activeCabines, rows, onOpenEvent, }: { agendaDate: string activeCabines: Cabine[] rows: JsonRecord[] onOpenEvent: (e: JsonRecord) => void })
+- MonthView · function · L453-L517 — function MonthView({ monthCells, monthRef, today, rows, onOpenEvent, onOpenDay, }: { monthCells: string[] monthRef: string today: string rows: JsonRecord[] onOpenEvent: (e: JsonRecord) => void onOpenDay: (day: string) => void })
+- DrawerField · function · L520-L530 — function DrawerField({ icon: Icon, label, value }: { icon: typeof Clock; label: string; value: string })
+- EventDrawer · function · L532-L582 — function EventDrawer({ event, onClose, onEdit, onDelete, onRegister, }: { event: JsonRecord onClose: () => void onEdit: () => void onDelete: () => void onRegister: () => void })

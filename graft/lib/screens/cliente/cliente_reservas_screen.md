@@ -1,0 +1,22 @@
+# lib/screens/cliente/cliente_reservas_screen.dart
+
+- ClienteReserva · class · L18-L49 — class ClienteReserva
+- clienteReservasProvider · constant · L55-L57 — final clienteReservasProvider =
+- _ClienteReservasNotifier · class · L59-L74 — class _ClienteReservasNotifier
+- build · method · L62-L62 — Future<List<ClienteReserva>> build() => _fetch();
+- _fetch · method · L64-L68 — Future<List<ClienteReserva>> _fetch() async
+- refresh · method · L70-L73 — Future<void> refresh() async
+- ClienteReservasScreen · class · L80-L93 — class ClienteReservasScreen extends StatelessWidget
+- build · method · L84-L92 — Widget build(BuildContext context)
+- ClienteReservasBody · class · L96-L148 — class ClienteReservasBody extends ConsumerWidget
+- build · method · L100-L147 — Widget build(BuildContext context, WidgetRef ref)
+- _Header · class · L154-L202 — class _Header extends StatelessWidget
+- build · method · L161-L201 — Widget build(BuildContext context)
+- _EmptyState · class · L208-L254 — class _EmptyState extends StatelessWidget
+- build · method · L214-L253 — Widget build(BuildContext context)
+- _ReservaCard · class · L260-L389 — class _ReservaCard extends StatelessWidget
+- build · method · L266-L369 — Widget build(BuildContext context)
+- _statusColor · method · L371-L378 — Color _statusColor(String status)
+- _statusLabel · method · L380-L388 — String _statusLabel(String status)
+- _StatusPill · class · L391-L416 — class _StatusPill extends StatelessWidget
+- build · method · L398-L415 — Widget build(BuildContext context)

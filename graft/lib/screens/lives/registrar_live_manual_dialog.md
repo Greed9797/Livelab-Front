@@ -1,0 +1,24 @@
+# lib/screens/lives/registrar_live_manual_dialog.dart
+
+- RegistrarLiveManualDialog · class · L18-L31 — class RegistrarLiveManualDialog extends ConsumerStatefulWidget
+- createState · method · L29-L30 — ConsumerState<RegistrarLiveManualDialog> createState() =>
+- _RegistrarLiveManualDialogState · class · L33-L411 — class _RegistrarLiveManualDialogState
+- initState · method · L55-L80 — void initState()
+- dispose · method · L83-L88 — void dispose()
+- _fmt · method · L90-L91 — String _fmt(TimeOfDay t) =>
+- _fmtDate · method · L93-L94 — String _fmtDate(DateTime d) =>
+- _pickDate · method · L96-L104 — Future<void> _pickDate() async
+- _pickHora · method · L106-L120 — Future<void> _pickHora(bool isInicio) async
+- _submit · method · L122-L183 — Future<void> _submit() async
+- _showError · method · L185-L188 — void _showError(String msg)
+- build · method · L191-L410 — Widget build(BuildContext context)
+- _Header · class · L413-L447 — class _Header extends StatelessWidget
+- build · method · L418-L446 — Widget build(BuildContext context)
+- _SectionLabel · class · L449-L460 — class _SectionLabel extends StatelessWidget
+- build · method · L454-L459 — Widget build(BuildContext context)
+- _PickerField · class · L462-L497 — class _PickerField extends StatelessWidget
+- build · method · L478-L496 — Widget build(BuildContext context)
+- _DropdownField · class · L499-L534 — class _DropdownField<T> extends StatelessWidget
+- build · method · L517-L533 — Widget build(BuildContext context)
+- _DropdownShimmer · class · L536-L549 — class _DropdownShimmer extends StatelessWidget
+- build · method · L540-L548 — Widget build(BuildContext context)

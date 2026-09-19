@@ -1,0 +1,46 @@
+# lib/screens/financeiro/financeiro_screen.dart
+
+- FinanceiroScreen · class · L18-L23 — class FinanceiroScreen extends ConsumerStatefulWidget
+- createState · method · L22-L22 — ConsumerState<FinanceiroScreen> createState() => _FinanceiroScreenState();
+- _FinanceiroScreenState · class · L25-L251 — class _FinanceiroScreenState extends ConsumerState<FinanceiroScreen>
+- _refresh · method · L28-L33 — void _refresh()
+- build · method · L36-L42 — Widget build(BuildContext context)
+- _content · method · L44-L67 — Widget _content()
+- _pageHeader · method · L69-L152 — Widget _pageHeader(LlTokens t)
+- _periodSwitcher · method · L154-L192 — Widget _periodSwitcher(LlTokens t)
+- _tabStrip · method · L194-L250 — Widget _tabStrip(LlTokens t)
+- _fmtBrlCompact · constant · L257-L258 — final _fmtBrlCompact =
+- _fmtBrl · constant · L259-L260 — final _fmtBrl =
+- _fmtCompetencia · function · L262-L269 — String _fmtCompetencia(String iso)
+- _cardShell · function · L271-L286 — Widget _cardShell(
+- _finKpiCard · function · L288-L360 — Widget _finKpiCard(
+- _eyebrow · function · L362-L378 — Widget _eyebrow(LlTokens t, String text)
+- _blockHeader · function · L380-L400 — Widget _blockHeader(LlTokens t, String title, {Widget? trailing})
+- _kpiGrid · function · L402-L421 — Widget _kpiGrid(LlTokens t, List<Widget> cards)
+- _OperacionalTab · class · L427-L577 — class _OperacionalTab extends ConsumerWidget
+- _categorias · constant · L431-L437 — static const _categorias = [
+- build · method · L440-L576 — Widget build(BuildContext context, WidgetRef ref)
+- _FluxoCaixaPanel · class · L579-L691 — class _FluxoCaixaPanel extends StatelessWidget
+- build · method · L592-L690 — Widget build(BuildContext context)
+- _AddButton · class · L693-L728 — class _AddButton extends StatelessWidget
+- build · method · L700-L727 — Widget build(BuildContext context)
+- _EmptyCustos · class · L730-L760 — class _EmptyCustos extends StatelessWidget
+- build · method · L735-L759 — Widget build(BuildContext context)
+- _CustoTile · class · L762-L881 — class _CustoTile extends StatelessWidget
+- _iconFor · method · L768-L781 — IconData _iconFor(String tipo)
+- build · method · L784-L880 — Widget build(BuildContext context)
+- _Categoria · class · L883-L888 — class _Categoria
+- _showAdicionarCusto · function · L890-L1000 — void _showAdicionarCusto(
+- _PorClienteTab · class · L1006-L1095 — class _PorClienteTab extends ConsumerWidget
+- build · method · L1011-L1094 — Widget build(BuildContext context, WidgetRef ref)
+- _PorClienteHeader · class · L1097-L1131 — class _PorClienteHeader extends StatelessWidget
+- build · method · L1102-L1117 — Widget build(BuildContext context)
+- _hdr · method · L1119-L1130 — Widget _hdr(LlTokens t, String text, {bool right = false})
+- _PorClienteRow · class · L1133-L1270 — class _PorClienteRow extends StatelessWidget
+- build · method · L1154-L1269 — Widget build(BuildContext context)
+- _RecebiveisTab · class · L1276-L1370 — class _RecebiveisTab extends ConsumerWidget
+- build · method · L1281-L1349 — Widget build(BuildContext context, WidgetRef ref)
+- _legend · method · L1351-L1369 — Widget _legend(LlTokens t, Color c, String label)
+- _CompareBars · class · L1372-L1451 — class _CompareBars extends StatelessWidget
+- build · method · L1378-L1450 — Widget build(BuildContext context)
+- _errorBox · function · L1457-L1470 — Widget _errorBox(LlTokens t, Object e)

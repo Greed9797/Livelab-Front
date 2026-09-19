@@ -1,0 +1,23 @@
+# lib/screens/clientes/clientes_leads_screen.dart
+
+- _ClientesMetricas · class · L16-L37 — class _ClientesMetricas
+- _clientesMetricasProvider · constant · L39-L43 — final _clientesMetricasProvider =
+- ClientesLeadsScreen · class · L45-L89 — class ClientesLeadsScreen extends ConsumerWidget
+- build · method · L49-L88 — Widget build(BuildContext context, WidgetRef ref)
+- _KanbanPhase · class · L93-L105 — class _KanbanPhase
+- _buildPhases · function · L107-L149 — List<_KanbanPhase> _buildPhases(List<Cliente> all)
+- _ClientesContent · class · L153-L160 — class _ClientesContent extends ConsumerStatefulWidget
+- createState · method · L159-L159 — ConsumerState<_ClientesContent> createState() => _ClientesContentState();
+- _ClientesContentState · class · L162-L375 — class _ClientesContentState extends ConsumerState<_ClientesContent>
+- _currencyFmt · constant · L166-L170 — static final _currencyFmt = NumberFormat.currency(
+- dispose · method · L173-L176 — void dispose()
+- _applySearch · method · L180-L187 — List<Cliente> _applySearch(List<Cliente> source)
+- build · method · L190-L346 — Widget build(BuildContext context)
+- _moverParaOnboarding · method · L348-L374 — Future<void> _moverParaOnboarding(Cliente cliente) async
+- _KanbanColumn · class · L379-L478 — class _KanbanColumn extends StatelessWidget
+- build · method · L389-L477 — Widget build(BuildContext context)
+- _KanbanCard · class · L482-L634 — class _KanbanCard extends StatelessWidget
+- _currencyFmt · constant · L491-L495 — static final _currencyFmt = NumberFormat.currency(
+- build · method · L501-L613 — Widget build(BuildContext context)
+- _HistoricoSheet · class · L636-L683 — class _HistoricoSheet extends StatelessWidget
+- build · method · L641-L682 — Widget build(BuildContext context)

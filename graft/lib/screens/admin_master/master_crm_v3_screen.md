@@ -1,0 +1,78 @@
+# lib/screens/admin_master/master_crm_v3_screen.dart
+
+- _C · class · L20-L65 — class _C
+- _isDark · method · L22-L23 — static bool _isDark(BuildContext c) =>
+- bgBase · method · L25-L26 — static Color bgBase(BuildContext c) =>
+- bgElev1 · method · L27-L28 — static Color bgElev1(BuildContext c) =>
+- bgElev2 · method · L29-L30 — static Color bgElev2(BuildContext c) =>
+- bgElev3 · method · L31-L32 — static Color bgElev3(BuildContext c) =>
+- textPrimary · method · L34-L35 — static Color textPrimary(BuildContext c) =>
+- textSecondary · method · L36-L37 — static Color textSecondary(BuildContext c) =>
+- textMuted · method · L38-L39 — static Color textMuted(BuildContext c) =>
+- textFaint · method · L40-L41 — static Color textFaint(BuildContext c) =>
+- hairline · method · L43-L44 — static Color hairline(BuildContext c) =>
+- primary · constant · L47-L47 — static const primary       = Color(0xFFFF6A2F);
+- primarySoft · constant · L48-L48 — static const primarySoft   = Color(0x24FF6A2F); // 14%
+- primarySofter · constant · L49-L49 — static const primarySofter = Color(0x12FF6A2F); // 7%
+- success · constant · L51-L51 — static const success     = Color(0xFF34D399);
+- successSoft · constant · L52-L52 — static const successSoft = Color(0x1F34D399);
+- warning · constant · L53-L53 — static const warning     = Color(0xFFFBBF24);
+- warningSoft · constant · L54-L54 — static const warningSoft = Color(0x1FFBBF24);
+- danger · constant · L55-L55 — static const danger      = Color(0xFFF87171);
+- info · constant · L56-L56 — static const info        = Color(0xFF5AC8FA);
+- infoSoft · constant · L57-L57 — static const infoSoft    = Color(0x295AC8FA);
+- accent · constant · L58-L58 — static const accent      = Color(0xFFAF7BFF);
+- accentSoft · constant · L59-L59 — static const accentSoft  = Color(0x2DAF7BFF);
+- _StageDef · class · L68-L73 — class _StageDef
+- _STAGES · constant · L75-L84 — const _STAGES = [
+- _money · constant · L86-L86 — final _money = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$', decimalDigits: 0);
+- _moneyDec · constant · L87-L87 — final _moneyDec = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$', decimalDigits: 2);
+- MasterCrmV3Screen · class · L93-L98 — class MasterCrmV3Screen extends ConsumerStatefulWidget
+- createState · method · L97-L97 — ConsumerState<MasterCrmV3Screen> createState() => _MasterCrmV3ScreenState();
+- _MasterCrmV3ScreenState · class · L100-L252 — class _MasterCrmV3ScreenState extends ConsumerState<MasterCrmV3Screen>
+- build · method · L106-L217 — Widget build(BuildContext context)
+- _applyFilter · method · L219-L233 — List<Lead> _applyFilter(List<Lead> leads)
+- _moveLead · method · L235-L251 — Future<void> _moveLead(Lead lead, String newStage) async
+- _Header · class · L258-L308 — class _Header extends StatelessWidget
+- build · method · L260-L307 — Widget build(BuildContext context)
+- _ConstructionAlert · class · L310-L361 — class _ConstructionAlert extends StatelessWidget
+- build · method · L312-L360 — Widget build(BuildContext context)
+- _KpiGrid · class · L367-L427 — class _KpiGrid extends StatelessWidget
+- build · method · L380-L426 — Widget build(BuildContext context)
+- _KpiCard · class · L429-L520 — class _KpiCard extends StatelessWidget
+- build · method · L446-L519 — Widget build(BuildContext context)
+- _Kanban · class · L526-L614 — class _Kanban extends StatelessWidget
+- build · method · L545-L613 — Widget build(BuildContext context)
+- _NewLeadButton · class · L616-L648 — class _NewLeadButton extends StatelessWidget
+- build · method · L621-L647 — Widget build(BuildContext context)
+- _FilterChip · class · L650-L680 — class _FilterChip extends StatelessWidget
+- build · method · L657-L679 — Widget build(BuildContext context)
+- _KanbanColumn · class · L682-L698 — class _KanbanColumn extends StatefulWidget
+- createState · method · L697-L697 — State<_KanbanColumn> createState() => _KanbanColumnState();
+- _KanbanColumnState · class · L700-L809 — class _KanbanColumnState extends State<_KanbanColumn>
+- build · method · L704-L808 — Widget build(BuildContext context)
+- _KanbanCard · class · L811-L961 — class _KanbanCard extends StatelessWidget
+- build · method · L818-L939 — Widget build(BuildContext context)
+- _tagFor · method · L941-L953 — static _Tag? _tagFor(Lead lead)
+- _initials · method · L955-L960 — static String _initials(String s)
+- _Tag · class · L963-L968 — class _Tag
+- _TypeTag · class · L970-L995 — class _TypeTag extends StatelessWidget
+- build · method · L977-L994 — Widget build(BuildContext context)
+- _PipelineCard · class · L1001-L1043 — class _PipelineCard extends StatelessWidget
+- _items · constant · L1002-L1010 — static const _items = [
+- build · method · L1013-L1042 — Widget build(BuildContext context)
+- _FieldsCard · class · L1045-L1085 — class _FieldsCard extends StatelessWidget
+- _fields · constant · L1046-L1056 — static const _fields = [
+- build · method · L1059-L1084 — Widget build(BuildContext context)
+- _SectionCard · class · L1087-L1125 — class _SectionCard extends StatelessWidget
+- build · method · L1094-L1124 — Widget build(BuildContext context)
+- _LoadingBlock · class · L1131-L1137 — class _LoadingBlock extends StatelessWidget
+- build · method · L1134-L1136 — Widget build(BuildContext context)
+- _ErrorBlock · class · L1139-L1180 — class _ErrorBlock extends StatelessWidget
+- build · method · L1145-L1179 — Widget build(BuildContext context)
+- _PipelineRealCard · class · L1187-L1400 — class _PipelineRealCard extends StatelessWidget
+- _stageColor · method · L1191-L1209 — Color _stageColor(BuildContext ctx, String stageId)
+- build · method · L1212-L1317 — Widget build(BuildContext context)
+- _showStageDrillDown · method · L1319-L1399 — void _showStageDrillDown(BuildContext context, MasterPipelineStage stage)
+- _MiniStat · class · L1402-L1434 — class _MiniStat extends StatelessWidget
+- build · method · L1408-L1433 — Widget build(BuildContext context)
