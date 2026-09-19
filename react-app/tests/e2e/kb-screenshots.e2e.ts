@@ -141,7 +141,9 @@ test('capture knowledge base UI previews (production React dark sidebar)', async
   await expect(page.getByRole('dialog', { name: /Gerenciar categorias|Categorias/ })).toBeVisible()
   await expect(page.getByLabel('Nova categoria')).toBeVisible()
   await page.screenshot({ path: path.join(MEDIA, 'kb-categories-admin.png'), fullPage: false })
-  await page.getByRole('button', { name: 'Fechar', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
 
   await page.getByText('Checklist pré-live', { exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Checklist pré-live', exact: true })).toBeVisible()
