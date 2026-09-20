@@ -84,6 +84,13 @@ export const QK = {
   knowledgeUnitCategories: (tenantId?: string) => ['knowledge-unit', tenantId ?? '', 'categories'] as const,
   knowledgeUnitMaterials: (tenantId?: string, filters?: { q?: string; category_slug?: string; material_type?: string; status?: string; page?: number }) => ['knowledge-unit', tenantId ?? '', 'materials', filters ?? {}] as const,
   knowledgeUnitMaterial: (tenantId: string | undefined, idOrSlug: string) => ['knowledge-unit', tenantId ?? '', 'material', idOrSlug] as const,
+  trainingHome: (tenantId?: string, filters?: Record<string, unknown>) => ['training', tenantId ?? '', 'home', filters ?? {}] as const,
+  trainingTrails: (tenantId?: string) => ['training', tenantId ?? '', 'trails'] as const,
+  trainingTrail: (tenantId: string | undefined, slug: string) => ['training', tenantId ?? '', 'trail', slug] as const,
+  trainingStarter: (tenantId?: string) => ['training', tenantId ?? '', 'starter'] as const,
+  trainingLesson: (tenantId: string | undefined, id: string) => ['training', tenantId ?? '', 'lesson', id] as const,
+  trainingProgress: (tenantId?: string, userId?: string) => ['training', tenantId ?? '', 'progress', userId ?? ''] as const,
+  trainingBookmarks: (tenantId?: string, userId?: string) => ['training', tenantId ?? '', 'bookmarks', userId ?? ''] as const,
   ativoOperacional: (params?: { kind?: string; id?: string }) =>
     params ? ['ativo-operacional', params] as const : ['ativo-operacional'] as const,
   marcaCondicoes: (marcaId?: string) => marcaId ? ['marca-condicoes', marcaId] as const : ['marca-condicoes'] as const,

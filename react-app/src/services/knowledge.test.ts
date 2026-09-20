@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { safeExternalUrl, sanitizeKnowledgeMarkdown, videoUrlFromKnowledgeMaterial } from './knowledge'
+import { knowledgeVideoEmbed, safeExternalUrl, sanitizeKnowledgeMarkdown, videoUrlFromKnowledgeMaterial } from './knowledge'
 
 describe('knowledge external URLs', () => {
   it('allows only absolute HTTP(S) links', () => {
@@ -17,5 +17,15 @@ describe('knowledge external URLs', () => {
     expect(videoUrlFromKnowledgeMaterial({ video_provider: 'youtube', video_id: 'abc123', video_url: null })).toBe('https://www.youtube.com/watch?v=abc123')
     expect(videoUrlFromKnowledgeMaterial({ video_provider: 'panda', video_id: 'panda123', video_url: null })).toContain('panda123')
     expect(videoUrlFromKnowledgeMaterial({ video_provider: 'none', video_id: 'abc123', video_url: null })).toBeNull()
+  })
+
+  it('builds allowlisted embeds without a custom player protocol', () => {
+    expect(knowledgeVideoEmbed({ video_provider: 'youtube', video_id: 'abc123', video_url: null })).toEqual({
+      provider: 'youtube',
+      embedUrl: 'https://www.youtube-nocookie.com/embed/abc123',
+      watchUrl: 'https://www.youtube.com/watch?v=abc123',
+    })
+    expect(knowledgeVideoEmbed({ video_provider: 'panda', video_id: 'panda123', video_url: null })?.embedUrl).toBe('https://player.pandavideo.com.br/embed/?v=panda123')
+    expect(knowledgeVideoEmbed({ video_provider: 'none', video_id: 'abc123', video_url: 'javascript:alert(1)' })).toBeNull()
   })
 })

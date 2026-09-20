@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { UnsavedChangesNotice } from '../ui/UnsavedChangesNotice'
 import { extractErrorMessage } from '../../services/api'
 import { sanitizeKnowledgeMarkdown, videoUrlFromKnowledgeMaterial, type KnowledgeCategory, type KnowledgeMaterial, type KnowledgeMaterialInput, type KnowledgeMaterialStatus, type KnowledgeMaterialType } from '../../services/knowledge'
+import { decodeTrainingMeta, encodeTrainingTags } from '../../services/knowledge-training'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 
 const TYPES: Array<[KnowledgeMaterialType, string]> = [
@@ -29,6 +30,7 @@ const initialDraft: KnowledgeMaterialInput = {
 
 function formFromMaterial(material?: KnowledgeMaterial | null): KnowledgeMaterialInput {
   if (!material) return { ...initialDraft }
+  const meta = decodeTrainingMeta(material)
   return {
     titulo: material.titulo ?? '',
     category_id: material.category_id ?? null,
@@ -40,8 +42,16 @@ function formFromMaterial(material?: KnowledgeMaterial | null): KnowledgeMateria
     // O backend persiste video_id/provedor e pode omitir a URL original no
     // detalhe. Reconstituímos uma URL canônica para não apagar o vídeo ao salvar.
     video_url: videoUrlFromKnowledgeMaterial(material),
-    tags: Array.isArray(material.tags) ? material.tags : [],
+    tags: meta.displayTags,
     status: material.status ?? 'draft',
+    cover_image_url: meta.coverUrl,
+    duration_minutes: meta.durationMinutes,
+    difficulty: meta.level,
+    objectives: meta.objectives,
+    prerequisites: meta.prerequisites,
+    audience_role: meta.role,
+    topic: meta.topic,
+    platform: meta.platform,
   }
 }
 
@@ -102,7 +112,18 @@ export function KnowledgeEditor({ open, material, categories, onClose, onSave }:
         content_markdown: form.content_markdown?.trim() || null,
         external_url: form.external_url?.trim() || null,
         video_url: form.video_url?.trim() || null,
-        tags: (form.tags ?? []).map((tag) => tag.trim()).filter(Boolean),
+        tags: encodeTrainingTags({
+          ...form,
+          tags: (form.tags ?? []).map((tag) => tag.trim()).filter(Boolean),
+        }),
+        cover_image_url: form.cover_image_url?.trim() || null,
+        duration_minutes: form.duration_minutes && form.duration_minutes > 0 ? form.duration_minutes : null,
+        difficulty: form.difficulty || null,
+        objectives: form.objectives,
+        prerequisites: form.prerequisites,
+        audience_role: form.audience_role || null,
+        topic: form.topic || null,
+        platform: form.platform || null,
       }, file)
       const next = formFromMaterial(result.material)
       setForm(next)
@@ -147,6 +168,12 @@ export function KnowledgeEditor({ open, material, categories, onClose, onSave }:
           <label className="grid gap-2 text-sm font-semibold text-ink">Categoria<select className="design-input h-11 px-3" value={form.category_id ?? ''} onChange={(event) => update('category_id', event.target.value || null)}><option value="">Sem categoria</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
           <label className="grid gap-2 text-sm font-semibold text-ink sm:col-span-2">Resumo<textarea className="design-input min-h-20 px-3 py-2" value={form.excerpt ?? ''} onChange={(event) => update('excerpt', event.target.value)} maxLength={500} /></label>
           <label className="grid gap-2 text-sm font-semibold text-ink sm:col-span-2">Tags<span className="text-xs font-normal text-ink-muted">Separe por vírgulas</span><input className="design-input h-11 px-3" value={(form.tags ?? []).join(', ')} onChange={(event) => update('tags', event.target.value.split(','))} /></label>
+          <label className="grid gap-2 text-sm font-semibold text-ink">Duração (min)<input className="design-input h-11 px-3" type="number" min={1} inputMode="numeric" value={form.duration_minutes ?? ''} onChange={(event) => update('duration_minutes', event.target.value ? Number(event.target.value) : null)} /></label>
+          <label className="grid gap-2 text-sm font-semibold text-ink">Nível<select className="design-input h-11 px-3" value={form.difficulty ?? ''} onChange={(event) => update('difficulty', event.target.value || null)}><option value="">Não informado</option><option value="iniciante">Iniciante</option><option value="intermediario">Intermediário</option><option value="avancado">Avançado</option></select></label>
+          <label className="grid gap-2 text-sm font-semibold text-ink">Função<select className="design-input h-11 px-3" value={form.audience_role ?? ''} onChange={(event) => update('audience_role', event.target.value || null)}><option value="">Não informado</option><option value="apresentadora">Apresentadora</option><option value="operacao">Operação</option><option value="comercial">Comercial</option><option value="gestor">Gestor</option></select></label>
+          <label className="grid gap-2 text-sm font-semibold text-ink">Tema<select className="design-input h-11 px-3" value={form.topic ?? ''} onChange={(event) => update('topic', event.target.value || null)}><option value="">Não informado</option><option value="live">Live</option><option value="shop">Shop</option><option value="ads">Ads</option><option value="conteudo">Conteúdo</option><option value="politicas">Políticas</option></select></label>
+          <label className="grid gap-2 text-sm font-semibold text-ink sm:col-span-2">Objetivo da aula<input className="design-input h-11 px-3" value={typeof form.objectives === 'string' ? form.objectives : (form.objectives ?? []).join('; ')} onChange={(event) => update('objectives', event.target.value ? [event.target.value] : [])} maxLength={240} /></label>
+          <label className="grid gap-2 text-sm font-semibold text-ink sm:col-span-2">URL da capa<input className="design-input h-11 px-3" type="url" inputMode="url" placeholder="https://" value={form.cover_image_url ?? ''} onChange={(event) => update('cover_image_url', event.target.value || null)} /></label>
         </div>
         {form.material_type === 'link' ? <label className="grid gap-2 text-sm font-semibold text-ink">URL do material<input className="design-input h-11 px-3" type="url" inputMode="url" placeholder="https://" value={form.external_url ?? ''} onChange={(event) => update('external_url', event.target.value)} required /></label> : null}
         {form.material_type === 'video' ? <div className="grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-sm font-semibold text-ink">Provedor<select className="design-input h-11 px-3" value={form.video_provider ?? 'none'} onChange={(event) => update('video_provider', event.target.value as KnowledgeMaterialInput['video_provider'])}><option value="none">Escolha</option><option value="youtube">YouTube</option><option value="panda">Panda Video</option></select></label><label className="grid gap-2 text-sm font-semibold text-ink">URL do vídeo<input className="design-input h-11 px-3" type="url" inputMode="url" placeholder="https://" value={form.video_url ?? ''} onChange={(event) => update('video_url', event.target.value)} required /></label></div> : null}

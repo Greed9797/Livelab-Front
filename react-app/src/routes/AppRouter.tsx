@@ -147,6 +147,8 @@ function RouterApplication() {
 
             <Route element={<ProtectedRoute allowedRoles={[...masterRoles, ...internalRoles, 'apresentador', 'apresentadora']} />}>
               <Route path="/conhecimento" element={<Suspense fallback={<PageFallback />}><KnowledgePage /></Suspense>} />
+              <Route path="/conhecimento/trilhas/:trailSlug" element={<Suspense fallback={<PageFallback />}><KnowledgePage /></Suspense>} />
+              <Route path="/conhecimento/trilhas/:trailSlug/aulas/:lessonId" element={<Suspense fallback={<PageFallback />}><KnowledgePage /></Suspense>} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Route>

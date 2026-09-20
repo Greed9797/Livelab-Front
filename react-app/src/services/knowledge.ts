@@ -48,6 +48,15 @@ export interface KnowledgeMaterial extends JsonRecord {
   atualizado_em?: string
   published_at?: string | null
   attachments?: KnowledgeAttachment[]
+  cover_image_url?: string | null
+  duration_minutes?: number | null
+  difficulty?: string | null
+  objectives?: string[] | string | null
+  prerequisites?: string[] | string | null
+  audience_role?: string | null
+  topic?: string | null
+  platform?: string | null
+  destaque?: boolean
 }
 
 export interface KnowledgeMaterialList {
@@ -68,6 +77,14 @@ export interface KnowledgeMaterialInput {
   video_url?: string | null
   tags?: string[]
   status?: KnowledgeMaterialStatus
+  cover_image_url?: string | null
+  duration_minutes?: number | null
+  difficulty?: string | null
+  objectives?: string[] | string | null
+  prerequisites?: string[] | string | null
+  audience_role?: string | null
+  topic?: string | null
+  platform?: string | null
 }
 
 export function getKnowledgeArticle(slugOrId: string) {
@@ -135,6 +152,82 @@ export function videoUrlFromKnowledgeMaterial(material: Pick<KnowledgeMaterial, 
   if (!material.video_id || material.video_provider === 'none') return null
   if (material.video_provider === 'youtube') return `https://www.youtube.com/watch?v=${encodeURIComponent(material.video_id)}`
   if (material.video_provider === 'panda') return `https://panda.video/${encodeURIComponent(material.video_id)}`
+  return null
+}
+
+const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com', 'www.youtube-nocookie.com'])
+const PANDA_HOSTS = new Set(['panda.video', 'www.panda.video', 'player.pandavideo.com.br', 'www.player.pandavideo.com.br'])
+
+function hostnameOf(value: string): string | null {
+  const href = safeExternalUrl(value)
+  if (!href) return null
+  try { return new URL(href).hostname.toLowerCase() } catch { return null }
+}
+
+export function youtubeIdFromUrl(value: unknown): string | null {
+  const href = safeExternalUrl(value)
+  if (!href) return null
+  try {
+    const url = new URL(href)
+    const host = url.hostname.toLowerCase()
+    if (!YOUTUBE_HOSTS.has(host)) return null
+    if (host === 'youtu.be') return url.pathname.replace(/^\//, '').split('/')[0] || null
+    const fromQuery = url.searchParams.get('v')
+    if (fromQuery) return fromQuery
+    const parts = url.pathname.split('/').filter(Boolean)
+    const embedAt = parts.indexOf('embed')
+    if (embedAt >= 0) return parts[embedAt + 1] || null
+    return null
+  } catch { return null }
+}
+
+export function pandaIdFromUrl(value: unknown): string | null {
+  const href = safeExternalUrl(value)
+  if (!href) return null
+  try {
+    const url = new URL(href)
+    const host = url.hostname.toLowerCase()
+    if (!PANDA_HOSTS.has(host)) return null
+    const fromQuery = url.searchParams.get('v')
+    if (fromQuery) return fromQuery
+    const parts = url.pathname.split('/').filter(Boolean)
+    return parts[0] && parts[0] !== 'embed' ? parts[0] : parts[1] || null
+  } catch { return null }
+}
+
+export interface KnowledgeVideoEmbed {
+  provider: 'youtube' | 'panda'
+  embedUrl: string
+  watchUrl: string
+}
+
+export function knowledgeVideoEmbed(material: Pick<KnowledgeMaterial, 'video_provider' | 'video_id' | 'video_url'>): KnowledgeVideoEmbed | null {
+  const watchUrl = videoUrlFromKnowledgeMaterial(material)
+  const youtubeId = material.video_provider === 'youtube' && material.video_id
+    ? material.video_id
+    : youtubeIdFromUrl(material.video_url) ?? (watchUrl ? youtubeIdFromUrl(watchUrl) : null)
+  if (youtubeId && /^[A-Za-z0-9_-]{6,}$/.test(youtubeId)) {
+    return {
+      provider: 'youtube',
+      embedUrl: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}`,
+      watchUrl: watchUrl ?? `https://www.youtube.com/watch?v=${encodeURIComponent(youtubeId)}`,
+    }
+  }
+  const pandaId = material.video_provider === 'panda' && material.video_id
+    ? material.video_id
+    : pandaIdFromUrl(material.video_url) ?? (watchUrl ? pandaIdFromUrl(watchUrl) : null)
+  if (pandaId && /^[A-Za-z0-9_-]{6,}$/.test(pandaId)) {
+    const existing = safeExternalUrl(material.video_url)
+    const existingHost = existing ? hostnameOf(existing) : null
+    const embedUrl = existing && existingHost && PANDA_HOSTS.has(existingHost) && existing.includes('embed')
+      ? existing
+      : `https://player.pandavideo.com.br/embed/?v=${encodeURIComponent(pandaId)}`
+    return {
+      provider: 'panda',
+      embedUrl,
+      watchUrl: watchUrl ?? `https://panda.video/${encodeURIComponent(pandaId)}`,
+    }
+  }
   return null
 }
 
