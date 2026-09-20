@@ -1,8 +1,7 @@
 /**
  * Screenshot capture for Knowledge Base UI (current production React design).
- * Matches app.grupolivelab.com.br / feat/multi-apresentadora-agenda:
- * dark shell, textual sidebar, Base da unidade, Novo material in header,
- * Gerenciar categorias in the filter row.
+ * Learner home (Base de treinamento TikTok) plus Administrar Base.
+ * Dark shell, textual sidebar, Novo material only behind Administrar.
  *
  * Run: npx playwright test tests/e2e/kb-screenshots.e2e.ts --project=chromium
  */
@@ -24,8 +23,9 @@ const material = {
   category_id: '22222222-2222-4222-8222-222222222222',
   category_name: 'Operação de cabine',
   category_slug: 'operacao-de-cabine',
-  tags: ['live', 'ops'],
+  tags: ['live', 'ops', 'nivel:iniciante', 'tema:live', 'duracao:6'],
   updated_at: '2026-09-16T10:00:00.000Z',
+  published_at: '2026-09-16T10:00:00.000Z',
 }
 
 const material2 = {
@@ -109,11 +109,13 @@ test('capture knowledge base UI previews (production React dark sidebar)', async
   await page.setViewportSize({ width: 1440, height: 960 })
   await page.goto('/conhecimento')
 
-  await expect(page.getByRole('heading', { name: 'Base da unidade', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Novo material', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Todas as bibliotecas', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Biblioteca da rede', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Gerenciar categorias', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Base de treinamento TikTok', exact: true })).toBeVisible()
+  await expect(page.getByText('Comece aqui', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Novo material', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Início', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Trilhas', exact: true })).toBeVisible()
+  await expect(page.getByText('Recomendado para você', { exact: true })).toBeVisible()
+  await expect(page.getByText('Primeira Live que converte', { exact: true }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: 'Home', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Clientes', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Agenda', exact: true })).toBeVisible()
@@ -126,13 +128,17 @@ test('capture knowledge base UI previews (production React dark sidebar)', async
   await expect(page.getByText('Grupo W3', { exact: true })).toBeVisible()
   await expect(page.getByText('Checklist pré-live', { exact: true })).toBeVisible()
 
-  // Header has Novo material only — Gerenciar categorias stays in the filter row.
+  await page.screenshot({ path: path.join(MEDIA, 'kb-master-ctas.png'), fullPage: false })
+
+  await page.getByRole('button', { name: 'Administrar Base', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Administrar Base', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Novo material', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Todas as bibliotecas', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Biblioteca da rede', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Gerenciar categorias', exact: true })).toBeVisible()
   const novo = page.getByRole('button', { name: 'Novo material', exact: true })
   const bg = await novo.evaluate((el) => getComputedStyle(el).backgroundColor)
   expect(bg).not.toMatch(/oklch\(0\.592/)
-
-  await page.screenshot({ path: path.join(MEDIA, 'kb-master-ctas.png'), fullPage: false })
-
   await page.getByRole('button', { name: /Unidade: Operação de cabine/ }).click()
   await expect(page.getByText('Checklist pré-live', { exact: true })).toBeVisible()
   await page.screenshot({ path: path.join(MEDIA, 'kb-list.png'), fullPage: false })
