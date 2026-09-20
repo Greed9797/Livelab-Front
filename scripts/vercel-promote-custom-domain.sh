@@ -98,6 +98,26 @@ elif names:
   done
 done
 
+
+echo "=== resolve deployment (no teamId) ==="
+DEP_JSON2=$(curl -sS -H "$AUTH" "https://api.vercel.com/v13/deployments/${DEPLOY_ID}" || true)
+echo "$DEP_JSON2" | python3 -c 'import sys,json
+try:d=json.load(sys.stdin)
+except Exception as e: print("parse",e); raise SystemExit
+print("id", d.get("id") or d.get("uid")); print("url", d.get("url")); print("readyState", d.get("readyState")); print("error", d.get("error"))' || true
+if [ -z "${DEP_HOST:-}" ]; then
+  DEP_HOST=$(echo "$DEP_JSON2" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("url") or "")' 2>/dev/null || true)
+fi
+
+echo "=== attempt assign domain to deployment via aliases API ==="
+if [ -n "${DEP_HOST:-}" ]; then
+  curl -sS -H "$AUTH" -H 'Content-Type: application/json'     -d "{\"alias\":\"${DOMAIN}\"}"     "https://api.vercel.com/v2/deployments/${DEPLOY_ID}/aliases?teamId=${VERCEL_ORG_ID}" | json || true
+  curl -sS -H "$AUTH" -H 'Content-Type: application/json'     -d "{\"alias\":\"${DOMAIN}\"}"     "https://api.vercel.com/v2/deployments/${DEPLOY_ID}/aliases" | json || true
+fi
+
+echo "=== domain verification status on project ==="
+curl -sS -H "$AUTH"   "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${DOMAIN}?teamId=${VERCEL_ORG_ID}" | json || true
+
 echo "=== live version checks ==="
 echo -n "custom: "; curl -sS -H 'Cache-Control: no-cache' "https://${DOMAIN}/version.json?cb=$(date +%s)" || true
 echo
