@@ -37,6 +37,9 @@ name: Frontend Deploy (Vercel)
 on:
   push:
     branches: [migration/react-vercel]
+    paths:
+      - 'react-app/**'
+      - '.github/workflows/frontend-deploy.yml'
   workflow_dispatch:
 
 # Um deploy por vez; push novo cancela o anterior ainda em fila.
