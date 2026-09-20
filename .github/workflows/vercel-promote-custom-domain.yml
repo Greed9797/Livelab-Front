@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       deploy_id:
-        description: Vercel deployment id to alias
+        description: Vercel deployment id to alias (dpl_ prefix optional)
         required: true
-        default: An6ny33Ys6ppaJMUL3xwqybb8Rvr
+        default: dpl_An6ny33Ys6ppaJMUL3xwqybb8Rvr
       domain:
         description: Custom domain to promote
         required: true

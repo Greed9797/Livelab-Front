@@ -5,6 +5,11 @@ set -eu
 # Intentionally NOT pipefail — json.tool|head previously killed diagnose with exit 32.
 
 DEPLOY_ID="${DEPLOY_ID:-An6ny33Ys6ppaJMUL3xwqybb8Rvr}"
+# Vercel API expects the dpl_ prefix on deployment ids.
+case "$DEPLOY_ID" in
+  dpl_*) ;;
+  *) DEPLOY_ID="dpl_${DEPLOY_ID}" ;;
+esac
 DOMAIN="${DOMAIN:-app.grupolivelab.com.br}"
 AUTH="Authorization: Bearer ${VERCEL_TOKEN}"
 
@@ -37,7 +42,14 @@ echo "=== try add domain to configured project ==="
 ADD_RESP=$(curl -sS -w '\nHTTP:%{http_code}' -H "$AUTH" -H 'Content-Type: application/json' \
   -d "{\"name\":\"${DOMAIN}\"}" \
   "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_ORG_ID}" || true)
-echo "$ADD_RESP" | json || echo "$ADD_RESP"
+echo "$ADD_RESP"
+echo "=== try verify domain (TXT may already be live) ==="
+VERIFY_RESP=$(curl -sS -w '\nHTTP:%{http_code}' -X POST -H "$AUTH" \
+  "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${DOMAIN}/verify?teamId=${VERCEL_ORG_ID}" || true)
+echo "$VERIFY_RESP"
+echo "=== domain status after verify ==="
+curl -sS -H "$AUTH" \
+  "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${DOMAIN}?teamId=${VERCEL_ORG_ID}" | json || true
 
 echo "=== resolve deployment url for $DEPLOY_ID ==="
 DEP_JSON=$(curl -sS -H "$AUTH" \
