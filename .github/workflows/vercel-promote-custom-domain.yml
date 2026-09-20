@@ -1,0 +1,45 @@
+name: Vercel Promote Custom Domain
+
+# Attempts to attach app.grupolivelab.com.br to the production deployment
+# that already has Front PR #18 (default: An6ny33Ys6ppaJMUL3xwqybb8Rvr).
+# Uses stored Actions secrets — does not print token values.
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_id:
+        description: Vercel deployment id to alias
+        required: true
+        default: An6ny33Ys6ppaJMUL3xwqybb8Rvr
+      domain:
+        description: Custom domain to promote
+        required: true
+        default: app.grupolivelab.com.br
+
+jobs:
+  promote:
+    name: Promote custom domain
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      DEPLOY_ID: ${{ inputs.deploy_id }}
+      DOMAIN: ${{ inputs.domain }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require secrets
+        run: |
+          missing=""
+          [ -z "$VERCEL_TOKEN" ] && missing="$missing VERCEL_TOKEN"
+          [ -z "$VERCEL_ORG_ID" ] && missing="$missing VERCEL_ORG_ID"
+          [ -z "$VERCEL_PROJECT_ID" ] && missing="$missing VERCEL_PROJECT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing secrets:$missing"
+            exit 1
+          fi
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Promote / diagnose
+        run: bash scripts/vercel-promote-custom-domain.sh
