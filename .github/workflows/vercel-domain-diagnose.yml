@@ -18,3 +18,9 @@ jobs:
         run: npm install --global vercel@latest
       - name: Run diagnose script
         run: bash scripts/vercel-domain-diagnose.sh
+      - name: Promote custom domain to PR18 deploy
+        env:
+          DEPLOY_ID: An6ny33Ys6ppaJMUL3xwqybb8Rvr
+          DOMAIN: app.grupolivelab.com.br
+        run: bash scripts/vercel-promote-custom-domain.sh
+        # Domain may live on another Vercel team; capture exact API/CLI errors.
