@@ -139,4 +139,28 @@ jobs:
 
       - name: Vercel deploy (produção)
         working-directory: react-app
-        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+        id: vercel_deploy
+        run: |
+          set -euo pipefail
+          # Capture the deployment URL printed by the CLI (last https line).
+          url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tee /tmp/vercel-deploy.out | grep -Eo 'https://[^ ]+' | tail -1)
+          echo "Deployed: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          # Also keep the host for aliasing.
+          host=$(echo "$url" | sed -E 's#https?://##; s#/.*##')
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+
+      # Custom domain historically lagged behind the *.vercel.app production alias.
+      # Explicitly point app.grupolivelab.com.br at this production deployment.
+      - name: Alias custom domain
+        env:
+          DEPLOY_HOST: ${{ steps.vercel_deploy.outputs.host }}
+        run: |
+          set -euo pipefail
+          DOMAIN=app.grupolivelab.com.br
+          echo "Aliasing $DOMAIN -> $DEPLOY_HOST"
+          vercel alias set "$DEPLOY_HOST" "$DOMAIN" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+          echo '=== project domains ==='
+          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/domains?teamId=$VERCEL_ORG_ID" \
+            | python3 -c 'import sys,json; d=json.load(sys.stdin); print(json.dumps([{k:x.get(k) for k in ("name","verified","gitBranch","redirect")} for x in d.get("domains",[])], indent=2))'
