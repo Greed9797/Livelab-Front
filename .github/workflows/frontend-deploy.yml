@@ -1,65 +1,111 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Deploy automático do front (react-app) para a Vercel — produção.
-#
-# Dispara em push na branch de produção `migration/react-vercel`.
-# Typecheck + testes + build rodam ANTES; qualquer falha aborta sem deployar.
-#
-# ── SECRETS OBRIGATÓRIOS (GitHub → Settings → Secrets and variables → Actions)
-#
-#   VERCEL_TOKEN
-#     Token pessoal da Vercel. Onde: vercel.com → Account Settings → Tokens →
-#     "Create Token" (scope: o time dono do projeto). Copiar na hora — só é
-#     exibido uma vez.
-#
-#   VERCEL_ORG_ID
-#     ID do time/org dono do projeto. Onde: vercel.com → Team Settings → General
-#     → "Team ID"; ou rodando `vercel link` local e lendo `.vercel/project.json`
-#     (campo `orgId`). Valor atual do projeto: team_ncMJZtGdUvp9d9AiSCgWnPCg
-#
-#   VERCEL_PROJECT_ID
-#     ID do projeto `liveshop-saas-frontend-react`. Onde: vercel.com → Projeto →
-#     Settings → General → "Project ID"; ou `.vercel/project.json` (`projectId`).
-#     Valor atual: prj_IPxaQSUF0gWOMt63Wep0fRTkCsXq
-#
-# Sem os 3 secrets o workflow falha logo no primeiro step, dizendo QUAIS faltam,
-# e nada é publicado.
-#
-# ── ATENÇÃO: VITE_API_URL
-# Vite embute as envs `VITE_*` no bundle EM TEMPO DE BUILD. Se ela não estiver
-# presente durante o `vercel build`, o app vai a produção apontando para lugar
-# nenhum — isso já quebrou prod neste projeto. Por isso a URL do backend Railway
-# é fixada aqui embaixo (env do job) E reescrita no arquivo de env que o
-# `vercel build` consome, sobrescrevendo o que vier do `vercel pull`.
-# ─────────────────────────────────────────────────────────────────────────────
-
 name: Frontend Deploy (Vercel)
 
 on:
   push:
     branches: [migration/react-vercel]
   workflow_dispatch:
+    inputs:
+      diagnose_only:
+        description: 'Only diagnose domain/project ownership (skip build/deploy)'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
 
-# Um deploy por vez; push novo cancela o anterior ainda em fila.
 concurrency:
   group: frontend-deploy-production
   cancel-in-progress: true
 
 jobs:
+  diagnose:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnose_only == 'true' }}
+    name: Diagnose Vercel domain ownership
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Whoami + teams + domain lookup
+        run: |
+          set -euo pipefail
+          echo '=== whoami ==='
+          vercel whoami --token "$VERCEL_TOKEN" || true
+
+          echo '=== teams ==='
+          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            'https://api.vercel.com/v2/teams' | python3 -m json.tool | head -120
+
+          echo '=== configured project ==='
+          echo "ORG=$VERCEL_ORG_ID PROJECT=$VERCEL_PROJECT_ID"
+          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" \
+            | python3 -c 'import sys,json; p=json.load(sys.stdin); print(json.dumps({k:p.get(k) for k in ("id","name","accountId","framework","targets")}, indent=2)[:2000])'
+
+          echo '=== domains on configured project ==='
+          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/domains?teamId=$VERCEL_ORG_ID" \
+            | python3 -m json.tool
+
+          echo '=== domain app.grupolivelab.com.br global lookup ==='
+          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            'https://api.vercel.com/v5/domains/app.grupolivelab.com.br' | python3 -m json.tool || true
+
+          echo '=== domain grupolivelab.com.br ==='
+          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            'https://api.vercel.com/v5/domains/grupolivelab.com.br' | python3 -m json.tool || true
+
+          echo '=== list projects across teams for liveshop/livelab ==='
+          # personal account projects
+          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            'https://api.vercel.com/v9/projects?limit=50' \
+            | python3 -c 'import sys,json; d=json.load(sys.stdin);
+print("personal:")
+for p in d.get("projects",[]):
+  n=p.get("name","")
+  if any(x in n.lower() for x in ("live","shop","lab","grupo")):
+    print(p.get("id"), n, p.get("accountId"))'
+
+          # each team
+          teams=$(curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" 'https://api.vercel.com/v2/teams' | python3 -c 'import sys,json; print(" ".join(t["id"] for t in json.load(sys.stdin).get("teams",[])))')
+          for tid in $teams; do
+            echo "-- team $tid --"
+            curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v9/projects?teamId=$tid&limit=50" \
+              | python3 -c 'import sys,json; d=json.load(sys.stdin);
+for p in d.get("projects",[]):
+  n=p.get("name","")
+  if any(x in n.lower() for x in ("live","shop","lab","grupo")) or True:
+    print(p.get("id"), n)'
+            curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/domains?teamId=$tid" 2>/dev/null \
+              | python3 -c 'import sys,json
+try:
+ d=json.load(sys.stdin)
+ print("domains:", [x.get("name") for x in d.get("domains",[])])
+except Exception as e:
+ print("skip", e)' || true
+          done
+
+          echo '=== search domain assignments via alias API ==='
+          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
+            'https://api.vercel.com/v4/aliases?domain=app.grupolivelab.com.br&limit=10' | python3 -m json.tool | head -100 || true
+
   deploy:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.diagnose_only == 'true') }}
     name: Verify + Deploy to Vercel (production)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     env:
-      # Backend de produção (Railway). NÃO usar livelabackend.onrender.com — morto.
       VITE_API_URL: https://liveshop-saas-api-production.up.railway.app/v1
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
     steps:
-      # Primeiro step de propósito: falha barato, antes de instalar ou buildar,
-      # e nomeia exatamente o que está faltando.
       - name: Checar secrets obrigatórios
         run: |
           missing=""
@@ -68,7 +114,6 @@ jobs:
           if [ -z "$VERCEL_PROJECT_ID" ]; then missing="$missing VERCEL_PROJECT_ID"; fi
           if [ -n "$missing" ]; then
             echo "::error::Secrets do repositório faltando:$missing"
-            echo "::error::Cadastre em Settings → Secrets and variables → Actions. Instruções no topo de .github/workflows/frontend-deploy.yml. Nenhum deploy foi feito."
             exit 1
           fi
           echo "Secrets da Vercel presentes."
@@ -87,7 +132,6 @@ jobs:
         working-directory: react-app
         run: npm ci
 
-      # ── Gate de qualidade: nada abaixo roda se algum destes falhar ──────────
       - name: Type check
         working-directory: react-app
         run: npx tsc -b --noEmit
@@ -100,7 +144,6 @@ jobs:
         working-directory: react-app
         run: npm run build
 
-      # ── Deploy ─────────────────────────────────────────────────────────────
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
@@ -111,10 +154,6 @@ jobs:
       - name: Garantir VITE_API_URL no build da Vercel
         working-directory: react-app
         run: |
-          # O `vercel build` lê as envs deste arquivo (gerado pelo pull). Se o
-          # projeto na Vercel não tiver VITE_API_URL — ou tiver o valor antigo —
-          # o bundle sai apontando pro backend errado. Sobrescrever aqui torna o
-          # valor correto uma garantia do workflow, não uma config do dashboard.
           ENV_FILE=.vercel/.env.production.local
           touch "$ENV_FILE"
           grep -v '^VITE_API_URL=' "$ENV_FILE" > "$ENV_FILE.tmp" || true
@@ -129,8 +168,6 @@ jobs:
       - name: Confirmar que a URL do backend entrou no bundle
         working-directory: react-app
         run: |
-          # Falha ANTES de publicar se a env não foi embutida — o modo de falha
-          # histórico deste projeto era descobrir isso só com o app no ar.
           if ! grep -rqF "liveshop-saas-api-production.up.railway.app" .vercel/output/static/assets/; then
             echo "::error::VITE_API_URL não foi embutida no bundle. Deploy abortado."
             exit 1
@@ -139,28 +176,4 @@ jobs:
 
       - name: Vercel deploy (produção)
         working-directory: react-app
-        id: vercel_deploy
-        run: |
-          set -euo pipefail
-          # Capture the deployment URL printed by the CLI (last https line).
-          url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tee /tmp/vercel-deploy.out | grep -Eo 'https://[^ ]+' | tail -1)
-          echo "Deployed: $url"
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-          # Also keep the host for aliasing.
-          host=$(echo "$url" | sed -E 's#https?://##; s#/.*##')
-          echo "host=$host" >> "$GITHUB_OUTPUT"
-
-      # Custom domain historically lagged behind the *.vercel.app production alias.
-      # Explicitly point app.grupolivelab.com.br at this production deployment.
-      - name: Alias custom domain
-        env:
-          DEPLOY_HOST: ${{ steps.vercel_deploy.outputs.host }}
-        run: |
-          set -euo pipefail
-          DOMAIN=app.grupolivelab.com.br
-          echo "Aliasing $DOMAIN -> $DEPLOY_HOST"
-          vercel alias set "$DEPLOY_HOST" "$DOMAIN" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
-          echo '=== project domains ==='
-          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/domains?teamId=$VERCEL_ORG_ID" \
-            | python3 -c 'import sys,json; d=json.load(sys.stdin); print(json.dumps([{k:x.get(k) for k in ("name","verified","gitBranch","redirect")} for x in d.get("domains",[])], indent=2))'
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
