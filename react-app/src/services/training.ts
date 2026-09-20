@@ -1,4 +1,5 @@
 import { apiDelete, apiGet, apiPost } from './api'
+import type { KnowledgeAttachment, KnowledgeMaterial, KnowledgeMaterialType } from './knowledge'
 
 export type TrainingProgressState = 'not_started' | 'in_progress' | 'completed'
 
@@ -49,6 +50,15 @@ export interface TrainingLesson {
   progress_pct?: number
   completed_lessons?: number
   required_lessons?: number
+  content_markdown?: string | null
+  body?: string | null
+  body_markdown?: string | null
+  video_url?: string | null
+  video_provider?: 'youtube' | 'panda' | 'none' | string | null
+  video_id?: string | null
+  embed_url?: string | null
+  external_url?: string | null
+  attachments?: KnowledgeAttachment[]
 }
 
 export interface TrainingModule {
@@ -152,6 +162,52 @@ export interface TrainingHomeFilters {
 
 export function trainingLessonPath(trailSlug: string, lessonId: string) {
   return `/conhecimento/trilhas/${trailSlug}/aulas/${lessonId}`
+}
+
+const MATERIAL_TYPES = new Set<KnowledgeMaterialType>(['playbook', 'study', 'video', 'document', 'link'])
+
+function firstText(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return null
+}
+
+function asVideoProvider(value: unknown): KnowledgeMaterial['video_provider'] {
+  if (value === 'youtube' || value === 'panda' || value === 'none') return value
+  return 'none'
+}
+
+/** Maps a training lesson payload to a reader material when the API already includes body/video. */
+export function trainingLessonToMaterial(lesson: TrainingLesson): KnowledgeMaterial | null {
+  const content_markdown = firstText(lesson.content_markdown, lesson.body_markdown, lesson.body)
+  const video_url = firstText(lesson.video_url, lesson.embed_url)
+  const video_id = firstText(lesson.video_id)
+  const external_url = firstText(lesson.external_url)
+  const attachments = Array.isArray(lesson.attachments) && lesson.attachments.length ? lesson.attachments : undefined
+  const video_provider = asVideoProvider(lesson.video_provider)
+  if (!content_markdown && !video_url && !video_id && video_provider === 'none' && !external_url && !attachments) return null
+  const format = lesson.format
+  const material_type = format && MATERIAL_TYPES.has(format as KnowledgeMaterialType)
+    ? format as KnowledgeMaterialType
+    : (video_url || video_id || video_provider !== 'none' ? 'video' : 'study')
+  return {
+    id: lesson.source?.id || lesson.id,
+    titulo: lesson.title,
+    slug: (typeof lesson.source?.slug === 'string' && lesson.source.slug) || lesson.id,
+    excerpt: lesson.excerpt ?? null,
+    content_markdown,
+    material_type,
+    external_url,
+    video_provider,
+    video_id,
+    video_url,
+    status: 'published',
+    revision: 1,
+    cover_image_url: lesson.cover_image_url ?? null,
+    duration_minutes: lesson.duration_minutes ?? null,
+    attachments,
+  }
 }
 
 export function getTrainingHome(filters: TrainingHomeFilters = {}) {

@@ -5,7 +5,8 @@ import { Button } from '../ui/Button'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { EmptyState } from '../ui/States'
 import { KnowledgeVideoEmbed } from './KnowledgeVideoEmbed'
-import { safeExternalUrl, sanitizeKnowledgeMarkdown, type KnowledgeAttachment, type KnowledgeMaterial } from '../../services/knowledge'
+import { safeExternalUrl, type KnowledgeAttachment, type KnowledgeMaterial } from '../../services/knowledge'
+import { sanitizeKnowledgeMarkdown } from '../../services/knowledge-markdown'
 import { FORMAT_LABEL, LEVEL_LABEL, TOPIC_LABEL, formatDuration } from '../../services/knowledge-training'
 import type { TrainingLesson, TrainingLessonDetail } from '../../services/training'
 import { formatDate } from '../../utils/format'
@@ -43,6 +44,14 @@ export function KnowledgeLessonPage({
   const html = sanitizeKnowledgeMarkdown(material?.content_markdown)
   const rawAttachments = material?.attachments ?? material?.anexos
   const attachments = Array.isArray(rawAttachments) ? rawAttachments as KnowledgeAttachment[] : []
+  const hasVideo = Boolean(
+    material && (
+      (material.video_provider && material.video_provider !== 'none')
+      || material.video_url
+      || material.video_id
+    ),
+  )
+  const reserveVideo = !hasVideo && (lesson.format === 'video' || Boolean(lesson.video_url || lesson.video_id || (lesson.video_provider && lesson.video_provider !== 'none')))
   const nextId = lesson.next_lesson_id
   const next = nextId ? lesson.outline.flatMap((module) => module.lessons).find((item) => item.id === nextId) : null
   const status = lesson.progress?.state ?? 'not_started'
@@ -103,7 +112,7 @@ export function KnowledgeLessonPage({
               </button>
             </div>
           ) : null}
-          {material ? <KnowledgeVideoEmbed material={material} /> : null}
+          {hasVideo && material ? <KnowledgeVideoEmbed material={material} /> : reserveVideo ? <div className="aspect-video overflow-hidden rounded-2xl border border-line bg-black" aria-hidden /> : null}
           {source ? (
             <a className="inline-flex h-11 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted" href={source} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4" />Abrir material

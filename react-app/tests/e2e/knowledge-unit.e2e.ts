@@ -24,10 +24,12 @@ type SetupOptions = {
   publishEmpty?: boolean
   conflict?: boolean
   uploadFailure?: boolean
+  lessonBody?: boolean
 }
 
 async function setup(page: Page, papel = 'franqueado', options: SetupOptions = {}) {
   const writes: Array<{ method: string; path: string; body: unknown }> = []
+  const gets: string[] = []
   const listedMaterial = options.video ? { ...material, titulo: 'Vídeo de onboarding', material_type: 'video', video_provider: 'youtube', video_id: 'youtube-123' } : material
   const detailMaterial = options.attachment ? { ...listedMaterial, attachments: [{ id: 'attachment-1', original_name: 'manual-operacao.pdf', mime_type: 'application/pdf', byte_size: 1024 }] } : listedMaterial
   const globalArticle = { id: 'global-article-1', slug: 'guia-rede', titulo: 'Guia da rede', excerpt: 'Material global publicado.', content_markdown: '# Guia da rede', categoria: 'Operação', status: 'published', tags: ['tema:live'], published_at: '2026-09-15T10:00:00.000Z' }
@@ -110,10 +112,29 @@ async function setup(page: Page, papel = 'franqueado', options: SetupOptions = {
       if (path === '/v1/training/bookmarks') return route.fulfill({ status: 201, json: { lesson_id: lessonId, bookmarked: true } })
       return route.fulfill({ status: 200, json: { ...material } })
     }
+    gets.push(path)
     if (path === '/v1/training/home') return route.fulfill({ json: home })
     if (path === '/v1/training/trails') return route.fulfill({ json: { items: [starter] } })
     if (path === `/v1/training/trails/${trailSlug}` || path === '/v1/training/starter') return route.fulfill({ json: starter })
-    if (path === `/v1/training/lessons/${lessonId}`) return route.fulfill({ json: { ...lessonCard, trail: { slug: trailSlug, title: starter.title }, module: { title: 'Preparação' }, outline: starter.modules, progress: { state: 'in_progress', started_at: 's', last_opened_at: 's', completed_at: null } } })
+    if (path === `/v1/training/lessons/${lessonId}`) {
+      return route.fulfill({
+        json: {
+          ...lessonCard,
+          trail: { slug: trailSlug, title: starter.title },
+          module: { title: 'Preparação' },
+          outline: starter.modules,
+          progress: { state: 'in_progress', started_at: 's', last_opened_at: 's', completed_at: null },
+          ...(options.lessonBody
+            ? {
+              content_markdown: '# Aula\n\nCorpo enviado no payload da aula.',
+              video_provider: 'youtube',
+              video_id: 'youtube-123',
+              format: 'video',
+            }
+            : {}),
+        },
+      })
+    }
     if (path === `/v1/training/lessons/${networkLessonId}`) return route.fulfill({ json: { ...networkCard, trail: { slug: trailSlug, title: starter.title }, module: { title: 'Preparação' }, outline: starter.modules } })
     if (path === '/v1/training/progress') return route.fulfill({ json: { audience: 'apresentadora', last_lesson: null, items: [] } })
     if (path === '/v1/training/bookmarks') return route.fulfill({ json: { items: [] } })
@@ -126,11 +147,11 @@ async function setup(page: Page, papel = 'franqueado', options: SetupOptions = {
     if (path.endsWith('/attachments/attachment-1')) return route.fulfill({ json: { id: 'attachment-1', original_name: 'manual-operacao.pdf', url: 'https://cdn.example.test/manual.pdf' } })
     return route.fulfill({ json: [] })
   })
-  return writes
+  return { writes, gets }
 }
 
 test('gestão entra pela home de treino e cria material em Administrar', async ({ page }) => {
-  const writes = await setup(page)
+  const { writes } = await setup(page)
   await page.goto('/conhecimento')
   await expect(page.getByRole('heading', { name: 'Base de treinamento TikTok', exact: true })).toBeVisible()
   await expect(page.getByText('Comece aqui', { exact: true })).toBeVisible()
@@ -216,4 +237,46 @@ test('mantém editor aberto quando publicação vazia, conflito ou upload falham
   await page.getByRole('button', { name: 'Salvar material', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('servidor está indisponível')
   await expect(page.getByRole('dialog', { name: 'Novo material' })).toBeVisible()
+})
+
+test('Início pinta com /training/home e não busca trails, bookmarks nem categorias', async ({ page }) => {
+  const { gets } = await setup(page, 'apresentadora')
+  await page.goto('/conhecimento')
+  await expect(page.getByRole('heading', { name: 'Base de treinamento TikTok', exact: true })).toBeVisible()
+  await expect(page.getByText('Comece aqui', { exact: true })).toBeVisible()
+  await expect.poll(() => gets.filter((path) => path === '/v1/training/home').length).toBe(1)
+  expect(gets.filter((path) => path === '/v1/training/trails')).toEqual([])
+  expect(gets.filter((path) => path === '/v1/training/bookmarks')).toEqual([])
+  expect(gets.filter((path) => path === '/v1/knowledge/unit/categories')).toEqual([])
+
+  await page.getByRole('tab', { name: 'Trilhas', exact: true }).click()
+  await expect.poll(() => gets.filter((path) => path === '/v1/training/trails').length).toBe(1)
+  expect(gets.filter((path) => path === '/v1/training/home')).toHaveLength(1)
+
+  await page.getByRole('button', { name: 'Salvos', exact: true }).click()
+  await expect.poll(() => gets.filter((path) => path === '/v1/training/bookmarks').length).toBe(1)
+  expect(gets.filter((path) => path === '/v1/knowledge/unit/categories')).toEqual([])
+})
+
+test('filtro da home não dispara outro GET /training/home', async ({ page }) => {
+  const { gets } = await setup(page, 'apresentadora')
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto('/conhecimento')
+  await expect(page.getByRole('heading', { name: 'Base de treinamento TikTok', exact: true })).toBeVisible()
+  await expect.poll(() => gets.filter((path) => path === '/v1/training/home').length).toBe(1)
+  await page.getByLabel('Função').selectOption('apresentadora')
+  await expect(page.getByText(/aulas neste recorte/)).toBeVisible()
+  expect(gets.filter((path) => path === '/v1/training/home')).toHaveLength(1)
+  expect(gets.filter((path) => path === '/v1/training/trails')).toEqual([])
+})
+
+test('aula com corpo e vídeo no payload não busca material da knowledge', async ({ page }) => {
+  const { gets } = await setup(page, 'apresentadora', { lessonBody: true })
+  await page.goto('/conhecimento')
+  await page.getByText('Playbook de abertura', { exact: true }).first().click()
+  await expect(page.getByRole('heading', { name: 'Playbook de abertura', exact: true })).toBeVisible()
+  await expect(page.getByTitle('Vídeo: Playbook de abertura')).toBeVisible()
+  await expect(page.getByText('Corpo enviado no payload da aula.')).toBeVisible()
+  expect(gets.filter((path) => path === '/v1/training/lessons/a1111111-1111-4111-8111-111111111131')).toHaveLength(1)
+  expect(gets.some((path) => path.startsWith('/v1/knowledge/unit/materials/') || path.startsWith('/v1/knowledge/articles/'))).toBe(false)
 })
