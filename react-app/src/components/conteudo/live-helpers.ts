@@ -39,6 +39,27 @@ export function hasRecordedMetricValue(value: unknown): boolean {
   return (typeof value === 'number' || typeof value === 'string') && Number.isFinite(Number(value))
 }
 
+export function recordedCount(value: unknown): number | null {
+  if (!hasRecordedMetricValue(value)) return null
+  return Number(value)
+}
+
+export function addRecordedCount(current: number | null, value: unknown): number | null {
+  const next = recordedCount(value)
+  if (next == null) return current
+  return (current ?? 0) + next
+}
+
+export function formatCount(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(Math.round(value))
+}
+
+export function countFragment(value: number | null | undefined, singular: string, plural: string): string | null {
+  if (value == null || !Number.isFinite(value)) return null
+  const rounded = Math.round(value)
+  return `${formatCount(rounded)} ${Math.abs(rounded) === 1 ? singular : plural}`
+}
+
 /**
  * A lista nova traz `gmv` como COALESCE(..., 0), então esse alias sozinho não comprova que
  * zero foi registrado. Quando as fontes cruas existem no payload, elas decidem a presença.

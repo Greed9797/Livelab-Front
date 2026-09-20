@@ -8,14 +8,20 @@ import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatDate, formatMoney } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
 import { extractErrorMessage } from '../../services/api'
-import { calcDuration, fmtTime, livePresenterNames } from './live-helpers'
+import { calcDuration, fmtTime, formatCount, livePresenterNames, recordedCount } from './live-helpers'
 import type { JsonRecord } from '../../types/models'
 import { BotBadge } from '../ui/BotBadge'
 import { getLiveUnion, undoLiveUnion } from '../../services/domain'
 
 const ORIGEM_LABEL: Record<string, string> = { manual: 'Manual', api: 'API TikTok', bot: 'BOT (automação)' }
 
-function buildReport(live: JsonRecord): string {
+function optionalCountLine(emoji: string, label: string, value: unknown): string | null {
+  const n = recordedCount(value)
+  if (n == null) return null
+  return `${emoji} ${label}: ${formatCount(n)}`
+}
+
+export function buildReport(live: JsonRecord): string {
   const nome = asString(live.marca_nome ?? live.cliente_nome, '')
   const inicio = live.iniciado_em ? new Date(live.iniciado_em as string) : null
   if (!inicio || Number.isNaN(inicio.getTime())) return ''
@@ -37,6 +43,8 @@ function buildReport(live: JsonRecord): string {
     '',
     `💰 GMV: ${formatMoney(officialLiveGmv(live))}`,
     `🛒 Pedidos: ${asNumber(live.manual_orders ?? live.final_orders_count).toLocaleString('pt-BR')}`,
+    optionalCountLine('👁️', 'Visualizações', live.manual_views),
+    optionalCountLine('📣', 'Impressões', live.live_impressions),
   ]
   return lines.filter(Boolean).join('\n')
 }

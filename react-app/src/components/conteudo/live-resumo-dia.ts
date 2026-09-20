@@ -1,7 +1,7 @@
 import type { JsonRecord } from '../../types/models'
 import { asNumber, formatMoney } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
-import { calcDuration } from './live-helpers'
+import { addRecordedCount, calcDuration, countFragment } from './live-helpers'
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/
 const SAO_PAULO_TZ = 'America/Sao_Paulo'
@@ -59,6 +59,8 @@ export interface ResumoMarcaItem {
   horas_formatadas: string
   gmv_por_hora: number
   lives_count: number
+  visualizacoes: number | null
+  impressoes: number | null
 }
 
 export interface ResumoApresentadoraItem {
@@ -109,6 +111,8 @@ export function buildClientResumoDiaText(
         horas_formatadas: '',
         gmv_por_hora: 0,
         lives_count: 0,
+        visualizacoes: null,
+        impressoes: null,
       })
     }
     const marcaObj = marcasMap.get(marcaKey)!
@@ -116,6 +120,8 @@ export function buildClientResumoDiaText(
     marcaObj.pedidos += livePedidos
     marcaObj.minutos += liveMins
     marcaObj.lives_count += 1
+    marcaObj.visualizacoes = addRecordedCount(marcaObj.visualizacoes, live.manual_views)
+    marcaObj.impressoes = addRecordedCount(marcaObj.impressoes, live.live_impressions)
 
     // Apresentadoras
     const rateio = Array.isArray(live.apresentadoras) ? live.apresentadoras : []
@@ -235,8 +241,17 @@ export function buildClientResumoDiaText(
     lines.push('🏷️ *POR MARCA*')
     for (const m of marcas) {
       lines.push(`*${m.nome}*`)
-      const pedidosStr = `${m.pedidos} ${m.pedidos === 1 ? 'pedido' : 'pedidos'}`
-      lines.push(`${formatMoney(m.gmv)} · ${m.horas_formatadas} · ${formatMoney(m.gmv_por_hora)}/h · ${pedidosStr}`)
+      const parts = [
+        formatMoney(m.gmv),
+        m.horas_formatadas,
+        `${formatMoney(m.gmv_por_hora)}/h`,
+        `${m.pedidos} ${m.pedidos === 1 ? 'pedido' : 'pedidos'}`,
+      ]
+      const views = countFragment(m.visualizacoes, 'visualização', 'visualizações')
+      const impressions = countFragment(m.impressoes, 'impressão', 'impressões')
+      if (views) parts.push(views)
+      if (impressions) parts.push(impressions)
+      lines.push(parts.join(' · '))
       lines.push('')
     }
     if (lines[lines.length - 1] === '') lines.pop()
