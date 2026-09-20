@@ -45,66 +45,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  diagnose:
-    if: ${{ hashFiles('.github/vercel-diagnose.flag') != '' }}
-    name: Diagnose Vercel domain ownership
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-      - name: Domain / team / project probe
-        run: |
-          set -euo pipefail
-          echo '=== whoami ==='
-          vercel whoami --token "$VERCEL_TOKEN" || true
-          echo "ORG=$VERCEL_ORG_ID PROJECT=$VERCEL_PROJECT_ID"
-          echo '=== teams ==='
-          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" 'https://api.vercel.com/v2/teams' | python3 -m json.tool
-          echo '=== project ==='
-          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN"             "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" | python3 -m json.tool | head -80
-          echo '=== domains on project ==='
-          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN"             "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/domains?teamId=$VERCEL_ORG_ID" | python3 -m json.tool
-          echo '=== domain app.grupolivelab.com.br ==='
-          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN"             'https://api.vercel.com/v5/domains/app.grupolivelab.com.br' | python3 -m json.tool || true
-          echo '=== domain grupolivelab.com.br ==='
-          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN"             'https://api.vercel.com/v5/domains/grupolivelab.com.br' | python3 -m json.tool || true
-          echo '=== aliases for app.grupolivelab.com.br ==='
-          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN"             'https://api.vercel.com/v4/aliases?limit=20' | python3 -c '
-import sys,json
-d=json.load(sys.stdin)
-for a in d.get("aliases",[]):
-  if "grupolivelab" in (a.get("alias") or "") or "grupolivelab" in (a.get("domain") or ""):
-    print(json.dumps(a, indent=2))
-'
-          echo '=== all projects (personal) ==='
-          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" 'https://api.vercel.com/v9/projects?limit=100'             | python3 -c 'import sys,json; d=json.load(sys.stdin);
-[print(p["id"], p["name"]) for p in d.get("projects",[])]'
-          teams=$(curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" 'https://api.vercel.com/v2/teams' | python3 -c 'import sys,json; print(" ".join(t["id"] for t in json.load(sys.stdin).get("teams",[])))')
-          for tid in $teams; do
-            echo "== projects team $tid =="
-            curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v9/projects?teamId=$tid&limit=100"               | python3 -c 'import sys,json; d=json.load(sys.stdin);
-[print(p["id"], p["name"]) for p in d.get("projects",[])]'
-            echo "== domains search via each project =="
-            ids=$(curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v9/projects?teamId=$tid&limit=100" | python3 -c 'import sys,json; print(" ".join(p["id"] for p in json.load(sys.stdin).get("projects",[])))')
-            for pid in $ids; do
-              doms=$(curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v9/projects/$pid/domains?teamId=$tid")
-              echo "$doms" | python3 -c 'import sys,json
-d=json.load(sys.stdin)
-names=[x.get("name") for x in d.get("domains",[])]
-if any("grupolivelab" in (n or "") for n in names):
-  print("FOUND", names)
-' 
-            done
-          done
-
   deploy:
-    if: ${{ hashFiles('.github/vercel-diagnose.flag') == '' }}
     name: Verify + Deploy to Vercel (production)
     runs-on: ubuntu-latest
     timeout-minutes: 20
