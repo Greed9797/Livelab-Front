@@ -95,4 +95,66 @@ describe('live-resumo-dia', () => {
     // Verify absence of • bullet that causes WhatsApp indent
     expect(text).not.toContain('• ')
   })
+
+  it('adds stored views and impressions on each brand and omits missing values', () => {
+    const text = buildClientResumoDiaText([
+      {
+        iniciado_em: '2026-09-11T13:00:00-03:00',
+        encerrado_em: '2026-09-11T14:00:00-03:00',
+        gmv: 1000,
+        pedidos: 10,
+        marca_nome: 'Marca B',
+        apresentadora_nome: 'Ana',
+        manual_views: 1000,
+        live_impressions: '8000',
+      },
+      {
+        iniciado_em: '2026-09-11T14:00:00-03:00',
+        encerrado_em: '2026-09-11T15:00:00-03:00',
+        gmv: 500,
+        pedidos: 5,
+        marca_nome: 'Marca B',
+        apresentadora_nome: 'Ana',
+        manual_views: null,
+        live_impressions: 400,
+      },
+      {
+        iniciado_em: '2026-09-11T15:00:00-03:00',
+        encerrado_em: '2026-09-11T16:00:00-03:00',
+        gmv: 200,
+        pedidos: 2,
+        marca_nome: 'Sem métrica',
+        apresentadora_nome: 'Bia',
+      },
+      {
+        iniciado_em: '2026-09-11T16:00:00-03:00',
+        encerrado_em: '2026-09-11T17:00:00-03:00',
+        gmv: 100,
+        pedidos: 1,
+        marca_nome: 'Pico antigo',
+        apresentadora_nome: 'Bia',
+        final_peak_viewers: 80,
+      },
+      {
+        iniciado_em: '2026-09-11T17:00:00-03:00',
+        encerrado_em: '2026-09-11T18:00:00-03:00',
+        gmv: 50,
+        pedidos: 1,
+        marca_nome: 'Zero gravado',
+        apresentadora_nome: 'Bia',
+        manual_views: 0,
+        final_peak_viewers: 99,
+        live_impressions: 0,
+      },
+    ], '2026-09-11', new Date('2026-09-11T19:00:00-03:00'))
+
+    expect(text).toContain('R$ 1.500,00 · 2h 00min · R$ 750,00/h · 15 pedidos · 1.000 visualizações · 8.400 impressões')
+    expect(text).toContain('R$ 200,00 · 1h 00min · R$ 200,00/h · 2 pedidos\n')
+    expect(text).toContain('R$ 100,00 · 1h 00min · R$ 100,00/h · 1 pedido · 80 visualizações\n')
+    expect(text).toContain('R$ 50,00 · 1h 00min · R$ 50,00/h · 1 pedido · 0 visualizações · 0 impressões')
+    expect(text).not.toContain('99 visualizações')
+    const presenterBlock = text.split('🎤 *POR APRESENTADORA*')[1]
+    expect(presenterBlock).not.toContain('visualiza')
+    expect(presenterBlock).not.toContain('impress')
+  })
 })

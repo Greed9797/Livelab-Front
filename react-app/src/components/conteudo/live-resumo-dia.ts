@@ -1,7 +1,7 @@
 import type { JsonRecord } from '../../types/models'
 import { asNumber, formatMoney } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
-import { calcDuration } from './live-helpers'
+import { calcDuration, hasRecordedMetricValue } from './live-helpers'
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/
 const SAO_PAULO_TZ = 'America/Sao_Paulo'
@@ -50,6 +50,37 @@ export function formatTimestampLabel(date: Date = new Date()): string {
   return dateParts.replace(', ', ' às ')
 }
 
+function recordedCount(value: unknown): number | null {
+  if (!hasRecordedMetricValue(value)) return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+export function liveVisualizacoes(live: JsonRecord): number | null {
+  const manual = recordedCount(live.manual_views)
+  if (manual != null) return manual
+  return recordedCount(live.final_peak_viewers)
+}
+
+export function liveImpressoes(live: JsonRecord): number | null {
+  return recordedCount(live.live_impressions)
+}
+
+function addRecorded(total: number | null, value: number | null): number | null {
+  if (value == null) return total
+  return (total ?? 0) + value
+}
+
+export function formatAudienceCount(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(value)
+}
+
+function countFragment(value: number | null, singular: string, plural: string): string | null {
+  if (value == null) return null
+  const n = Math.round(value)
+  return `${formatAudienceCount(n)} ${n === 1 ? singular : plural}`
+}
+
 export interface ResumoMarcaItem {
   marca_id: string | null
   nome: string
@@ -59,6 +90,8 @@ export interface ResumoMarcaItem {
   horas_formatadas: string
   gmv_por_hora: number
   lives_count: number
+  visualizacoes: number | null
+  impressoes: number | null
 }
 
 export interface ResumoApresentadoraItem {
@@ -109,6 +142,8 @@ export function buildClientResumoDiaText(
         horas_formatadas: '',
         gmv_por_hora: 0,
         lives_count: 0,
+        visualizacoes: null,
+        impressoes: null,
       })
     }
     const marcaObj = marcasMap.get(marcaKey)!
@@ -116,6 +151,8 @@ export function buildClientResumoDiaText(
     marcaObj.pedidos += livePedidos
     marcaObj.minutos += liveMins
     marcaObj.lives_count += 1
+    marcaObj.visualizacoes = addRecorded(marcaObj.visualizacoes, liveVisualizacoes(live))
+    marcaObj.impressoes = addRecorded(marcaObj.impressoes, liveImpressoes(live))
 
     // Apresentadoras
     const rateio = Array.isArray(live.apresentadoras) ? live.apresentadoras : []
@@ -192,6 +229,8 @@ export function buildClientResumoDiaText(
         ...m,
         horas_formatadas: formatMinsToHours(m.minutos),
         gmv_por_hora: gmvPorHora,
+        visualizacoes: m.visualizacoes == null ? null : Math.round(m.visualizacoes),
+        impressoes: m.impressoes == null ? null : Math.round(m.impressoes),
       }
     })
     .sort((a, b) => b.gmv - a.gmv || b.minutos - a.minutos || a.nome.localeCompare(b.nome))
@@ -235,8 +274,17 @@ export function buildClientResumoDiaText(
     lines.push('🏷️ *POR MARCA*')
     for (const m of marcas) {
       lines.push(`*${m.nome}*`)
-      const pedidosStr = `${m.pedidos} ${m.pedidos === 1 ? 'pedido' : 'pedidos'}`
-      lines.push(`${formatMoney(m.gmv)} · ${m.horas_formatadas} · ${formatMoney(m.gmv_por_hora)}/h · ${pedidosStr}`)
+      const parts = [
+        formatMoney(m.gmv),
+        m.horas_formatadas,
+        `${formatMoney(m.gmv_por_hora)}/h`,
+        `${m.pedidos} ${m.pedidos === 1 ? 'pedido' : 'pedidos'}`,
+      ]
+      const views = countFragment(m.visualizacoes, 'visualização', 'visualizações')
+      const impressions = countFragment(m.impressoes, 'impressão', 'impressões')
+      if (views) parts.push(views)
+      if (impressions) parts.push(impressions)
+      lines.push(parts.join(' · '))
       lines.push('')
     }
     if (lines[lines.length - 1] === '') lines.pop()
