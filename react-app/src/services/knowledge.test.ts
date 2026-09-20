@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { knowledgeVideoEmbed, safeExternalUrl, sanitizeKnowledgeMarkdown, videoUrlFromKnowledgeMaterial } from './knowledge'
+import { knowledgeVideoEmbed, safeExternalUrl, videoUrlFromKnowledgeMaterial } from './knowledge'
+import { sanitizeKnowledgeMarkdown } from './knowledge-markdown'
 
 describe('knowledge external URLs', () => {
   it('allows only absolute HTTP(S) links', () => {
