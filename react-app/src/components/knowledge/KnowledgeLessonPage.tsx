@@ -1,42 +1,19 @@
 import { Bookmark, Check, ChevronLeft, Edit3, ExternalLink, Link2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { EmptyState } from '../ui/States'
 import { KnowledgeVideoEmbed } from './KnowledgeVideoEmbed'
-import { safeExternalUrl, sanitizeKnowledgeMarkdown, type KnowledgeAttachment } from '../../services/knowledge'
-import {
-  FORMAT_LABEL,
-  LEVEL_LABEL,
-  TOPIC_LABEL,
-  formatDuration,
-  nextTrailLesson,
-  progressStatus,
-  trailProgress,
-  type CatalogLesson,
-  type LearnerLessonState,
-  type LearnerProgressContract,
-  type TrainingTrail,
-} from '../../services/knowledge-training'
+import { safeExternalUrl, sanitizeKnowledgeMarkdown, type KnowledgeAttachment, type KnowledgeMaterial } from '../../services/knowledge'
+import { FORMAT_LABEL, LEVEL_LABEL, TOPIC_LABEL, formatDuration } from '../../services/knowledge-training'
+import type { TrainingLesson, TrainingLessonDetail } from '../../services/training'
 import { formatDate } from '../../utils/format'
 import clsx from 'clsx'
 
-function AttachmentLink({ materialId, attachment, onOpen }: { materialId: string; attachment: { id: string; filename?: string; original_name?: string }; onOpen: (materialId: string, attachment: { id: string }) => void }) {
-  const filename = attachment.filename || attachment.original_name || 'PDF do material'
-  return (
-    <Button type="button" variant="secondary" onClick={() => onOpen(materialId, attachment)}>
-      {filename}
-    </Button>
-  )
-}
-
 export function KnowledgeLessonPage({
   lesson,
-  catalog,
-  trail,
-  progress,
-  state,
+  material,
   manager,
   headingRef,
   staleUpdate,
@@ -46,41 +23,33 @@ export function KnowledgeLessonPage({
   onCopyLink,
   onComplete,
   onBookmark,
-  onOpened,
   onOpenAttachment,
 }: {
-  lesson: CatalogLesson
-  catalog: CatalogLesson[]
-  trail: TrainingTrail
-  progress: LearnerProgressContract
-  state?: LearnerLessonState
+  lesson: TrainingLessonDetail
+  material?: KnowledgeMaterial | null
   manager: boolean
   headingRef: React.RefObject<HTMLHeadingElement | null>
-  staleUpdate?: CatalogLesson | null
+  staleUpdate?: { title: string; onOpen: () => void } | null
   onBack: () => void
-  onOpen: (lesson: CatalogLesson) => void
+  onOpen: (lessonId: string) => void
   onEdit?: () => void
   onCopyLink?: () => Promise<void> | void
   onComplete: () => void
   onBookmark: () => void
-  onOpened: () => void
   onOpenAttachment?: (materialId: string, attachment: { id: string }) => void
 }) {
   const [copied, setCopied] = useState(false)
-  const material = lesson.material
-  const source = safeExternalUrl(material.external_url)
-  const html = sanitizeKnowledgeMarkdown(material.content_markdown)
-  const rawAttachments = material.attachments ?? material.anexos
+  const source = material ? safeExternalUrl(material.external_url) : null
+  const html = sanitizeKnowledgeMarkdown(material?.content_markdown)
+  const rawAttachments = material?.attachments ?? material?.anexos
   const attachments = Array.isArray(rawAttachments) ? rawAttachments as KnowledgeAttachment[] : []
-  const trailIndex = trail.lessonIds.indexOf(lesson.id)
-  const next = nextTrailLesson(lesson.id, trail, catalog)
-  const trailState = trailProgress(trail, progress)
-  const status = progressStatus(state)
-  const module = trail.modules.find((item) => item.lessonIds.includes(lesson.id))
-  const objectives = lesson.objective ? [lesson.objective] : []
-  const updatedLabel = lesson.updatedAt || lesson.publishedAt
-
-  useEffect(() => { onOpened() }, [lesson.id]) // open creates started_at once per aula, not on every parent render
+  const nextId = lesson.next_lesson_id
+  const next = nextId ? lesson.outline.flatMap((module) => module.lessons).find((item) => item.id === nextId) : null
+  const status = lesson.progress?.state ?? 'not_started'
+  const objectives = lesson.objectives?.length ? lesson.objectives : (lesson.outcome ? [lesson.outcome] : [])
+  const topic = lesson.topics?.[0]
+  const completedRequired = lesson.outline.flatMap((module) => module.lessons).filter((item) => item.required !== false && item.progress?.state === 'completed').length
+  const requiredTotal = lesson.outline.flatMap((module) => module.lessons).filter((item) => item.required !== false).length
 
   async function copy() {
     if (!onCopyLink) return
@@ -93,30 +62,32 @@ export function KnowledgeLessonPage({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button type="button" variant="ghost" icon={ChevronLeft} onClick={onBack}>Voltar à trilha</Button>
-        {trailIndex >= 0 ? (
-          <p className="text-sm text-ink-muted">
-            {trail.title}
-            {module ? ` / ${module.title}` : ''}
-            {` / Aula ${trailIndex + 1} de ${trail.lessonIds.length}`}
-          </p>
-        ) : <p className="text-sm text-ink-muted">Material rápido</p>}
+        <p className="text-sm text-ink-muted">
+          {lesson.trail.title}
+          {lesson.module?.title ? ` / ${lesson.module.title}` : ''}
+          {lesson.position_label ? ` / ${lesson.position_label}` : ''}
+        </p>
       </div>
       <Card className="max-w-4xl">
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                {FORMAT_LABEL[lesson.format]}
-                {lesson.topic ? ` · ${TOPIC_LABEL[lesson.topic]}` : ''}
+                {FORMAT_LABEL[lesson.format as keyof typeof FORMAT_LABEL] || lesson.format || 'Aula'}
+                {topic ? ` · ${TOPIC_LABEL[topic as keyof typeof TOPIC_LABEL] || topic}` : ''}
               </p>
-              <h1 ref={headingRef} tabIndex={-1} className="mt-1 text-2xl font-bold text-ink">{lesson.titulo}</h1>
+              <h1 ref={headingRef} tabIndex={-1} className="mt-1 text-2xl font-bold text-ink">{lesson.title}</h1>
               <p className="mt-2 text-sm text-ink-muted">
-                {[formatDuration(lesson.durationMinutes), lesson.level ? LEVEL_LABEL[lesson.level] : null, updatedLabel ? `Atualizado em ${formatDate(updatedLabel)}` : null].filter(Boolean).join(' · ')}
+                {[
+                  formatDuration(lesson.duration_minutes && lesson.duration_minutes > 0 ? lesson.duration_minutes : null),
+                  lesson.difficulty ? (LEVEL_LABEL[lesson.difficulty as keyof typeof LEVEL_LABEL] || lesson.difficulty) : null,
+                  lesson.updated_at || lesson.published_at ? `Atualizado em ${formatDate(lesson.updated_at || lesson.published_at || undefined)}` : null,
+                ].filter(Boolean).join(' · ')}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="secondary" icon={Bookmark} aria-pressed={Boolean(state?.bookmarked)} onClick={onBookmark}>
-                {state?.bookmarked ? 'Salvo' : 'Salvar'}
+              <Button type="button" variant="secondary" icon={Bookmark} aria-pressed={Boolean(lesson.bookmarked)} onClick={onBookmark}>
+                {lesson.bookmarked ? 'Salvo' : 'Salvar'}
               </Button>
               {onCopyLink ? <Button type="button" variant="secondary" icon={Link2} onClick={() => void copy()}>{copied ? 'Link copiado' : 'Copiar link'}</Button> : null}
               {manager && onEdit ? <Button type="button" variant="secondary" icon={Edit3} onClick={onEdit}>Editar</Button> : null}
@@ -127,21 +98,23 @@ export function KnowledgeLessonPage({
           {staleUpdate ? (
             <div role="status" className="rounded-xl border border-[color-mix(in_srgb,var(--warning)_28%,transparent)] bg-[var(--warning-soft)] px-4 py-3 text-sm text-ink">
               Há uma atualização mais recente sobre este tema.{' '}
-              <button type="button" className="font-semibold text-brand underline-offset-2 hover:underline" onClick={() => onOpen(staleUpdate)}>
-                Ver {staleUpdate.titulo}
+              <button type="button" className="font-semibold text-brand underline-offset-2 hover:underline" onClick={staleUpdate.onOpen}>
+                Ver {staleUpdate.title}
               </button>
             </div>
           ) : null}
-          <KnowledgeVideoEmbed material={material} />
+          {material ? <KnowledgeVideoEmbed material={material} /> : null}
           {source ? (
             <a className="inline-flex h-11 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted" href={source} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4" />Abrir material
             </a>
           ) : null}
-          {attachments.length && onOpenAttachment ? (
+          {attachments.length && onOpenAttachment && material ? (
             <div className="flex flex-wrap gap-2">
               {attachments.map((attachment) => (
-                <AttachmentLink key={attachment.id} materialId={material.id} attachment={attachment} onOpen={onOpenAttachment} />
+                <Button key={attachment.id} type="button" variant="secondary" onClick={() => onOpenAttachment(material.id, attachment)}>
+                  {attachment.filename || attachment.original_name || 'PDF do material'}
+                </Button>
               ))}
             </div>
           ) : null}
@@ -154,7 +127,7 @@ export function KnowledgeLessonPage({
           <section>
             <h2 className="text-sm font-bold text-ink">Antes de começar</h2>
             <ul className="mt-2 list-disc pl-5 text-sm text-[var(--text-secondary)]">
-              {lesson.prerequisites.length ? lesson.prerequisites.map((item) => <li key={item}>{item}</li>) : <li>Nenhum pré-requisito.</li>}
+              {lesson.prerequisites?.length ? lesson.prerequisites.map((item) => <li key={item}>{item}</li>) : <li>Nenhum pré-requisito.</li>}
             </ul>
           </section>
           {html ? (
@@ -165,45 +138,40 @@ export function KnowledgeLessonPage({
           <div className="sticky bottom-3 z-10 flex flex-col gap-2 rounded-2xl border border-line bg-surface/95 p-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink-muted" aria-live="polite">
               {status === 'completed' ? 'Aula concluída' : 'Conclusão é explícita — abrir não marca como feita.'}
-              {trail.lessonIds.length ? ` · Trilha ${trailState.completed}/${trailState.total}` : ''}
+              {requiredTotal ? ` · Trilha ${completedRequired}/${requiredTotal}` : ''}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant={status === 'completed' ? 'secondary' : 'primary'} icon={Check} onClick={onComplete} disabled={status === 'completed'}>
                 {status === 'completed' ? 'Concluída' : 'Marcar como concluída'}
               </Button>
-              {next ? <Button type="button" variant="secondary" onClick={() => onOpen(next)}>Próxima: {next.titulo}</Button> : null}
+              {next ? <Button type="button" variant="secondary" onClick={() => onOpen(next.id)}>Próxima: {next.title}</Button> : null}
             </div>
           </div>
-          {trail.lessonIds.length ? (
+          {lesson.outline.length ? (
             <details className="rounded-2xl border border-line bg-surface-muted/40 p-4">
               <summary className="cursor-pointer text-sm font-bold text-ink">Sumário da trilha</summary>
               <ol className="mt-3 space-y-3">
-                {trail.modules.map((item) => (
+                {lesson.outline.map((item) => (
                   <li key={item.id}>
                     <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">{item.title}</p>
                     <ul className="mt-1 space-y-1">
-                      {item.lessonIds.map((id) => {
-                        const entry = catalog.find((row) => row.id === id)
-                        if (!entry) return null
-                        const entryStatus = progressStatus(progress.lessons[id])
-                        return (
-                          <li key={id}>
-                            <button type="button" className={clsx('text-left text-sm underline-offset-2 hover:underline', id === lesson.id ? 'font-bold text-ink' : 'text-[var(--text-secondary)]')} onClick={() => onOpen(entry)}>
-                              {entry.titulo}
-                              <span className="ml-2 text-xs text-ink-muted">
-                                {entryStatus === 'completed' ? 'concluída' : entryStatus === 'in_progress' ? 'em andamento' : 'não iniciada'}
-                              </span>
-                            </button>
-                          </li>
-                        )
-                      })}
+                      {item.lessons.map((entry: TrainingLesson) => (
+                        <li key={entry.id}>
+                          <button type="button" className={clsx('text-left text-sm underline-offset-2 hover:underline', entry.id === lesson.id ? 'font-bold text-ink' : 'text-[var(--text-secondary)]')} onClick={() => onOpen(entry.id)}>
+                            {entry.title}
+                            <span className="ml-2 text-xs text-ink-muted">
+                              {entry.progress?.state === 'completed' ? 'concluída' : entry.progress?.state === 'in_progress' ? 'em andamento' : 'não iniciada'}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
                     </ul>
                   </li>
                 ))}
               </ol>
             </details>
           ) : null}
-          <Badge tone="neutral">{lesson.origin === 'network' ? 'Rede' : 'Unidade'}</Badge>
+          <Badge tone="neutral">{lesson.source?.origin === 'unidade' ? 'Unidade' : 'Rede'}</Badge>
         </CardBody>
       </Card>
     </div>

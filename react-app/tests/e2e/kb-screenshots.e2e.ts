@@ -68,6 +68,62 @@ async function setup(page: Page) {
     const json = (body: unknown, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
 
+    const lessonId = 'a1111111-1111-4111-8111-111111111131'
+    const trailSlug = 'primeira-live-que-converte'
+    const lessonCard = {
+      id: lessonId,
+      title: material.titulo,
+      excerpt: material.excerpt,
+      outcome: material.excerpt,
+      duration_minutes: 6,
+      difficulty: 'iniciante',
+      format: 'playbook',
+      audience_roles: ['gestor'],
+      topics: ['live'],
+      platforms: ['tiktok'],
+      objectives: [material.excerpt],
+      progress: { state: 'not_started', started_at: null, last_opened_at: null, completed_at: null },
+      source: { kind: 'unit_material', id: material.id, slug: material.slug, origin: 'unidade' },
+      resume_path: `/conhecimento/trilhas/${trailSlug}/aulas/${lessonId}`,
+    }
+    const starter = {
+      id: 'trail-1',
+      slug: trailSlug,
+      title: 'Primeira Live que converte',
+      outcome: 'Preparar a primeira live.',
+      module_count: 1,
+      required_lessons: 2,
+      completed_lessons: 0,
+      resume_path: lessonCard.resume_path,
+      modules: [{
+        id: 'mod-1',
+        title: 'Preparação',
+        lessons: [
+          lessonCard,
+          { ...lessonCard, id: 'lesson-2', title: material2.titulo, excerpt: material2.excerpt },
+        ],
+      }],
+    }
+    if (pathName === '/v1/training/home') {
+      return json({
+        title: 'Base de treinamento TikTok',
+        audience: 'gestor',
+        resume: { has_started: false, lesson_id: lessonId, trail_slug: trailSlug, path: lessonCard.resume_path },
+        continue_learning: null,
+        start_here: starter,
+        recommended: [lessonCard],
+        featured: [lessonCard],
+        starter_trail: starter,
+        updates: [{ kind: 'novo', id: 'u1', title: material.titulo, what_changed: material.excerpt, published_at: material.published_at, lesson_id: lessonId }],
+      })
+    }
+    if (pathName === '/v1/training/trails') return json({ items: [starter] })
+    if (pathName === `/v1/training/trails/${trailSlug}` || pathName === '/v1/training/starter') return json(starter)
+    if (pathName === `/v1/training/lessons/${lessonId}`) {
+      return json({ ...lessonCard, trail: { slug: trailSlug, title: starter.title }, module: { title: 'Preparação' }, outline: starter.modules })
+    }
+    if (pathName === '/v1/training/progress') return json({ audience: 'gestor', last_lesson: null, items: [] })
+    if (pathName === '/v1/training/bookmarks') return json({ items: [] })
     if (pathName === '/v1/knowledge/unit/categories') {
       return json([
         {

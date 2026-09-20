@@ -1,7 +1,7 @@
 import { Archive, ArrowDown, ArrowUp, BookOpen, Check, Edit3, FolderPlus, Plus, Save, Search, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { ErrorState, LoadingState, EmptyState } from '../components/ui/States'
@@ -16,17 +16,18 @@ import { extractErrorMessage } from '../services/api'
 import { asString } from '../utils/format'
 import { QK } from '../services/query-keys'
 import { useCurrentUser } from '../stores/auth-store'
-import { useLearnerProgress } from '../hooks/useLearnerProgress'
+import { emptyTrainingFilters, type TrainingFilters } from '../services/knowledge-training'
 import {
-  buildStarterTrail,
-  continueLesson,
-  emptyTrainingFilters,
-  roleFromUserPapel,
-  toCatalogLesson,
-  updateLessons,
-  type CatalogLesson,
-  type TrainingFilters,
-} from '../services/knowledge-training'
+  addTrainingBookmark,
+  completeTrainingLesson,
+  getTrainingBookmarks,
+  getTrainingHome,
+  getTrainingLesson,
+  getTrainingTrails,
+  removeTrainingBookmark,
+  trainingLessonPath,
+  type TrainingLesson,
+} from '../services/training'
 
 const KnowledgeEditor = lazy(() => import('../components/knowledge/KnowledgeEditor').then((module) => ({ default: module.KnowledgeEditor })))
 const MANAGERS = new Set(['franqueador_master', 'franqueado', 'gerente', 'gerente_comercial'])
@@ -76,10 +77,14 @@ function CategoryManager({ open, categories, busy, onClose, onCreate, onUpdate, 
 
 export function KnowledgeLibraryPage() {
   const user = useCurrentUser(); const tenantId = user?.tenant_id; const manager = isManager(user?.papel)
+  const navigate = useNavigate()
+  const route = useParams<{ trailSlug?: string; lessonId?: string }>()
   const [params, setParams] = useSearchParams()
   const view = params.get('view')
   const tab = (['home', 'trails', 'library', 'updates', 'saved'].includes(view ?? '') ? view : 'home') as LearnerTab
   const admin = view === 'admin' && manager
+  const trailSlug = route.trailSlug
+  const lessonId = route.lessonId
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [categoryOrigin, setCategoryOrigin] = useState<'local' | 'global' | ''>('')
@@ -94,14 +99,23 @@ export function KnowledgeLibraryPage() {
   const client = useQueryClient()
   const articleRef = params.get('material') ?? ''
   const globalArticleRef = params.get('artigo') ?? ''
-  const learner = useLearnerProgress(user?.id)
-  const role = roleFromUserPapel(user?.papel)
+  const homeFilters = useMemo(() => ({
+    role: learnerFilters.role || undefined,
+    level: learnerFilters.level || undefined,
+    topic: learnerFilters.topic || undefined,
+    platform: learnerFilters.platform || undefined,
+    format: learnerFilters.format || undefined,
+  }), [learnerFilters])
   const filters = useMemo(() => ({ q: search.trim() || undefined, category_slug: categoryOrigin === 'local' ? category || undefined : undefined, material_type: type || undefined, status: manager && admin ? status : 'published', page: 1, page_size: 48 }), [admin, category, categoryOrigin, manager, search, status, type])
+  const trainingHome = useQuery({ queryKey: QK.trainingHome(tenantId, homeFilters), queryFn: () => getTrainingHome(homeFilters), enabled: Boolean(tenantId && !admin && !articleRef && !globalArticleRef && !lessonId) })
+  const trainingTrails = useQuery({ queryKey: QK.trainingTrails(tenantId), queryFn: getTrainingTrails, enabled: Boolean(tenantId && !admin) })
+  const trainingBookmarks = useQuery({ queryKey: QK.trainingBookmarks(tenantId, user?.id), queryFn: getTrainingBookmarks, enabled: Boolean(tenantId && !admin) })
+  const trainingLesson = useQuery({ queryKey: QK.trainingLesson(tenantId, lessonId ?? ''), queryFn: () => getTrainingLesson(lessonId!), enabled: Boolean(tenantId && lessonId) })
   const categories = useQuery({ queryKey: QK.knowledgeUnitCategories(tenantId), queryFn: manager ? getKnowledgeUnitCategoriesForManagement : getKnowledgeUnitCategories, enabled: Boolean(tenantId) })
-  const materials = useQuery({ queryKey: QK.knowledgeUnitMaterials(tenantId, filters), queryFn: () => getKnowledgeUnitMaterials(filters), enabled: Boolean(tenantId && (admin ? source !== 'network' : true)) })
-  const globalCategories = useQuery({ queryKey: QK.knowledgeGlobalCategories(tenantId), queryFn: getKnowledgeCategories, enabled: Boolean(tenantId && (admin ? source !== 'unit' : true)) })
+  const materials = useQuery({ queryKey: QK.knowledgeUnitMaterials(tenantId, filters), queryFn: () => getKnowledgeUnitMaterials(filters), enabled: Boolean(tenantId && (admin || articleRef)) })
+  const globalCategories = useQuery({ queryKey: QK.knowledgeGlobalCategories(tenantId), queryFn: getKnowledgeCategories, enabled: Boolean(tenantId && admin) })
   const globalFilters = useMemo(() => ({ q: search.trim() || undefined, category_slug: categoryOrigin === 'global' ? category || undefined : undefined }), [category, categoryOrigin, search])
-  const globalArticles = useQuery({ queryKey: QK.knowledgeGlobalArticles(tenantId, globalFilters), queryFn: () => getKnowledgeArticles(globalFilters), enabled: Boolean(tenantId && (admin ? source !== 'unit' : true)) })
+  const globalArticles = useQuery({ queryKey: QK.knowledgeGlobalArticles(tenantId, globalFilters), queryFn: () => getKnowledgeArticles(globalFilters), enabled: Boolean(tenantId && admin && source !== 'unit') })
   const detail = useQuery({ queryKey: QK.knowledgeUnitMaterial(tenantId, articleRef), queryFn: () => getKnowledgeUnitMaterial(articleRef), enabled: Boolean(tenantId && articleRef) })
   const globalDetail = useQuery({ queryKey: QK.knowledgeGlobalArticle(tenantId, globalArticleRef), queryFn: () => getKnowledgeArticle(globalArticleRef), enabled: Boolean(tenantId && globalArticleRef) })
   const editDetail = useQuery({ queryKey: QK.knowledgeUnitMaterial(tenantId, editingId), queryFn: () => getKnowledgeUnitMaterial(editingId), enabled: Boolean(tenantId && editingId && editorOpen) })
@@ -127,18 +141,35 @@ export function KnowledgeLibraryPage() {
     },
   })
   const statusAction = useMutation({ mutationFn: ({ id, action, revision }: { id: string; action: 'publish' | 'archive'; revision: number }) => action === 'publish' ? publishKnowledgeUnitMaterial(id, revision) : archiveKnowledgeUnitMaterial(id, revision), onSuccess: () => { void client.invalidateQueries({ queryKey: QK.knowledgeUnitMaterials(tenantId) }); void client.invalidateQueries({ queryKey: QK.knowledgeUnitMaterial(tenantId, articleRef) }) } })
+  const completeLesson = useMutation({
+    mutationFn: completeTrainingLesson,
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['training'] })
+    },
+  })
+  const toggleBookmark = useMutation({
+    mutationFn: async (lesson: TrainingLesson) => {
+      if (lesson.bookmarked) await removeTrainingBookmark(lesson.id)
+      else await addTrainingBookmark(lesson.id)
+    },
+    onSuccess: () => { void client.invalidateQueries({ queryKey: ['training'] }) },
+  })
+  const sourceRef = trainingLesson.data?.source
+  const unitSource = useQuery({
+    queryKey: QK.knowledgeUnitMaterial(tenantId, sourceRef?.slug || sourceRef?.id || ''),
+    queryFn: () => getKnowledgeUnitMaterial(sourceRef?.slug || sourceRef?.id || ''),
+    enabled: Boolean(tenantId && sourceRef && (sourceRef.kind === 'unit_material' || sourceRef.origin === 'unidade')),
+  })
+  const networkSource = useQuery({
+    queryKey: QK.knowledgeGlobalArticle(tenantId, sourceRef?.slug || sourceRef?.id || ''),
+    queryFn: () => getKnowledgeArticle(sourceRef?.slug || sourceRef?.id || ''),
+    enabled: Boolean(tenantId && sourceRef && (sourceRef.kind === 'network_article' || sourceRef.origin === 'rede')),
+  })
   const rows = materials.data?.items ?? []
   const categoryRows = categories.data ?? []
   const globalRows = (globalArticles.data ?? []).map(asGlobalMaterial)
   const globalCategoryRows = globalCategories.data ?? []
   const visibleGlobalRows = type ? globalRows.filter((material) => material.material_type === type) : globalRows
-  const catalog = useMemo<CatalogLesson[]>(() => [
-    ...rows.map((material) => toCatalogLesson(material, 'unit')),
-    ...globalRows.map((material) => toCatalogLesson(material, 'network')),
-  ], [globalRows, rows])
-  const published = useMemo(() => catalog.filter((lesson) => lesson.material.status === 'published'), [catalog])
-  const trail = useMemo(() => buildStarterTrail(published), [published])
-  const resume = useMemo(() => continueLesson(published, trail, learner.progress), [learner.progress, published, trail])
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>()
     for (const row of rows) {
@@ -173,11 +204,15 @@ export function KnowledgeLibraryPage() {
       return next
     })
   }
-  function openLesson(lesson: CatalogLesson) {
-    if (lesson.origin === 'network') openGlobal(lesson.material)
-    else openLocal(lesson.material)
+  function openTrainingLesson(lesson: TrainingLesson, slug?: string) {
+    const path = lesson.resume_path || (slug || trailSlug ? trainingLessonPath(slug || trailSlug || 'primeira-live-que-converte', lesson.id) : null)
+    if (path) navigate(path)
   }
   function closeLesson() {
+    if (lessonId) {
+      navigate(trailSlug ? `/conhecimento/trilhas/${trailSlug}` : '/conhecimento')
+      return
+    }
     setParams((current) => {
       const next = new URLSearchParams(current)
       next.delete('material')
@@ -204,52 +239,80 @@ export function KnowledgeLibraryPage() {
   }, [])
 
   useEffect(() => {
-    if ((articleRef && detail.isSuccess) || (globalArticleRef && globalDetail.isSuccess)) articleHeading.current?.focus()
-  }, [articleRef, detail.isSuccess, globalArticleRef, globalDetail.isSuccess])
-
-  const currentLesson = useMemo(() => {
-    if (articleRef && detail.data) return toCatalogLesson(detail.data, 'unit')
-    if (globalArticleRef && globalDetail.data) return toCatalogLesson(asGlobalMaterial(globalDetail.data), 'network')
-    return null
-  }, [articleRef, detail.data, globalArticleRef, globalDetail.data])
-  const staleUpdate = useMemo(() => {
-    if (!currentLesson?.topic) return null
-    return updateLessons(published).find((lesson) => lesson.topic === currentLesson.topic && lesson.id !== currentLesson.id) ?? null
-  }, [currentLesson, published])
+    if ((articleRef && detail.isSuccess) || (globalArticleRef && globalDetail.isSuccess) || (lessonId && trainingLesson.isSuccess)) articleHeading.current?.focus()
+  }, [articleRef, detail.isSuccess, globalArticleRef, globalDetail.isSuccess, lessonId, trainingLesson.isSuccess])
 
   if (!tenantId) return <ErrorState message="Não foi possível identificar a unidade desta sessão." />
+  if (lessonId) {
+    if (trainingLesson.isLoading) return <LoadingState label="Abrindo aula" />
+    if (trainingLesson.isError || !trainingLesson.data) return <ErrorState message={extractErrorMessage(trainingLesson.error)} onRetry={() => void trainingLesson.refetch()} />
+    const sourceMaterial = sourceRef?.kind === 'unit_material' || sourceRef?.origin === 'unidade'
+      ? unitSource.data
+      : networkSource.data ? asGlobalMaterial(networkSource.data) : undefined
+    return (
+      <KnowledgeLessonPage
+        lesson={trainingLesson.data}
+        material={sourceMaterial}
+        manager={manager && (sourceRef?.kind === 'unit_material' || sourceRef?.origin === 'unidade')}
+        headingRef={articleHeading}
+        onBack={closeLesson}
+        onOpen={(id) => navigate(trainingLessonPath(trainingLesson.data.trail.slug, id))}
+        onEdit={sourceMaterial && (sourceRef?.kind === 'unit_material' || sourceRef?.origin === 'unidade') ? () => openEdit(sourceMaterial) : undefined}
+        onCopyLink={async () => { await navigator.clipboard.writeText(window.location.href) }}
+        onComplete={() => {
+          void completeLesson.mutateAsync(trainingLesson.data.id).then((result) => {
+            if (result.resume_path) navigate(result.resume_path)
+          })
+        }}
+        onBookmark={() => { void toggleBookmark.mutateAsync(trainingLesson.data) }}
+        onOpenAttachment={sourceRef?.kind === 'unit_material' || sourceRef?.origin === 'unidade' ? (id, attachment) => { void openAttachment(id, attachment) } : undefined}
+      />
+    )
+  }
   if (articleRef || globalArticleRef) {
     if (articleRef && detail.isLoading) return <div className="space-y-5"><LoadingState label="Abrindo material" /></div>
     if (globalArticleRef && globalDetail.isLoading) return <div className="space-y-5"><LoadingState label="Abrindo material da rede" /></div>
     if (articleRef && (detail.isError || !detail.data)) return <ErrorState message={extractErrorMessage(detail.error)} onRetry={() => void detail.refetch()} />
     if (globalArticleRef && (globalDetail.isError || !globalDetail.data)) return <ErrorState message={extractErrorMessage(globalDetail.error)} onRetry={() => void globalDetail.refetch()} />
-    if (currentLesson) {
+    const adminMaterial = articleRef ? detail.data : asGlobalMaterial(globalDetail.data!)
+    if (adminMaterial) {
       return (
-        <KnowledgeLessonPage
-          lesson={currentLesson}
-          catalog={published}
-          trail={trail}
-          progress={learner.progress}
-          state={learner.progress.lessons[currentLesson.id]}
-          manager={manager && currentLesson.origin === 'unit'}
-          headingRef={articleHeading}
-          staleUpdate={staleUpdate}
-          onBack={closeLesson}
-          onOpen={openLesson}
-          onEdit={currentLesson.origin === 'unit' ? () => openEdit(currentLesson.material) : undefined}
-          onCopyLink={currentLesson.origin === 'unit' ? async () => { await navigator.clipboard.writeText(window.location.href) } : undefined}
-          onComplete={() => learner.completeLesson(currentLesson.id)}
-          onBookmark={() => learner.bookmarkLesson(currentLesson.id)}
-          onOpened={() => learner.openLesson(currentLesson.id)}
-          onOpenAttachment={currentLesson.origin === 'unit' ? (id, attachment) => { void openAttachment(id, attachment) } : undefined}
-        />
+        <div className="space-y-5">
+          <Button type="button" variant="ghost" onClick={closeLesson}>Voltar à Base</Button>
+          <KnowledgeLessonPage
+            lesson={{
+              id: adminMaterial.id,
+              title: adminMaterial.titulo,
+              excerpt: adminMaterial.excerpt,
+              progress: { state: 'not_started', started_at: null, last_opened_at: null, completed_at: null },
+              trail: { slug: trailSlug || 'administrar', title: articleRef ? 'Base da unidade' : 'Biblioteca da rede' },
+              module: { title: adminMaterial.category_name || 'Material' },
+              resume_path: window.location.pathname,
+              outline: [],
+              source: { kind: articleRef ? 'unit_material' : 'network_article', id: adminMaterial.id, slug: adminMaterial.slug, origin: articleRef ? 'unidade' : 'rede' },
+            }}
+            material={adminMaterial}
+            manager={Boolean(articleRef && manager)}
+            headingRef={articleHeading}
+            onBack={closeLesson}
+            onOpen={() => undefined}
+            onEdit={articleRef ? () => openEdit(adminMaterial) : undefined}
+            onCopyLink={articleRef ? async () => { await navigator.clipboard.writeText(window.location.href) } : undefined}
+            onComplete={() => undefined}
+            onBookmark={() => undefined}
+            onOpenAttachment={articleRef ? (id, attachment) => { void openAttachment(id, attachment) } : undefined}
+          />
+        </div>
       )
     }
   }
-  if (categories.isLoading || materials.isLoading || globalArticles.isLoading) return <LoadingState label="Carregando a Base de treinamento" />
-  if (categories.isError) return <ErrorState message={extractErrorMessage(categories.error)} onRetry={() => void categories.refetch()} />
-  if (materials.isError) return <ErrorState message={extractErrorMessage(materials.error)} onRetry={() => void materials.refetch()} />
-  if (globalArticles.isError) return <ErrorState message={extractErrorMessage(globalArticles.error)} onRetry={() => void globalArticles.refetch()} />
+  if (admin && (categories.isLoading || (source !== 'network' && materials.isLoading) || (source !== 'unit' && globalArticles.isLoading))) return <LoadingState label="Carregando a Base da unidade" />
+  if (!admin && (trainingHome.isLoading || trainingTrails.isLoading)) return <LoadingState label="Carregando a Base de treinamento" />
+  if (admin && categories.isError) return <ErrorState message={extractErrorMessage(categories.error)} onRetry={() => void categories.refetch()} />
+  if (admin && materials.isError) return <ErrorState message={extractErrorMessage(materials.error)} onRetry={() => void materials.refetch()} />
+  if (admin && globalArticles.isError) return <ErrorState message={extractErrorMessage(globalArticles.error)} onRetry={() => void globalArticles.refetch()} />
+  if (!admin && trainingHome.isError) return <ErrorState message={extractErrorMessage(trainingHome.error)} onRetry={() => void trainingHome.refetch()} />
+  if (!admin && trainingTrails.isError) return <ErrorState message={extractErrorMessage(trainingTrails.error)} onRetry={() => void trainingTrails.refetch()} />
 
   const localCategoryRows = categoryRows.filter((item) => item.is_active !== false)
   const editor = manager && editorOpen ? (
@@ -275,25 +338,27 @@ export function KnowledgeLibraryPage() {
   ) : null
 
   if (!admin) {
+    if (!trainingHome.data) return <LoadingState label="Carregando a Base de treinamento" />
     return (
       <>
         <KnowledgeLearnerHome
-          tab={tab}
-          onTab={setView}
-          catalog={catalog}
-          published={published}
-          trail={trail}
-          continueLesson={resume}
-          progress={learner.progress}
-          role={role}
+          tab={trailSlug && !lessonId ? 'trails' : tab}
+          onTab={(next) => {
+            if (trailSlug) navigate(next === 'home' ? '/conhecimento' : `/conhecimento?view=${next}`)
+            else setView(next)
+          }}
+          home={trainingHome.data}
+          trails={trainingTrails.data?.items ?? (trainingHome.data.starter_trail ? [trainingHome.data.starter_trail] : [])}
+          bookmarks={trainingBookmarks.data?.items ?? []}
           manager={manager}
           search={search}
           onSearch={setSearch}
           filters={learnerFilters}
           onFilters={setLearnerFilters}
-          onOpen={openLesson}
-          onBookmark={(lesson) => learner.bookmarkLesson(lesson.id)}
-          onAdmin={manager ? () => setView('admin') : undefined}
+          onOpen={openTrainingLesson}
+          onOpenPath={(path) => navigate(path)}
+          onBookmark={(lesson) => { void toggleBookmark.mutateAsync(lesson) }}
+          onAdmin={manager ? () => navigate('/conhecimento?view=admin') : undefined}
         />
         {editor}
         {categoryModal}
@@ -308,7 +373,7 @@ export function KnowledgeLibraryPage() {
         subtitle="Biblioteca interna: criação, categorias, status e origem. A home da aprendiz fica em Base de treinamento TikTok."
         actions={(
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="ghost" onClick={() => setView('home')}>Voltar ao treinamento</Button>
+            <Button type="button" variant="ghost" onClick={() => navigate('/conhecimento')}>Voltar ao treinamento</Button>
             <Button type="button" icon={Plus} onClick={openNew}>Novo material</Button>
           </div>
         )}

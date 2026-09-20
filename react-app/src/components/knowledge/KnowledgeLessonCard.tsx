@@ -1,47 +1,41 @@
 import { Bookmark } from 'lucide-react'
 import { Badge } from '../ui/Badge'
-import {
-  FORMAT_LABEL,
-  LEVEL_LABEL,
-  TOPIC_LABEL,
-  formatDuration,
-  progressStatus,
-  type CatalogLesson,
-  type LearnerLessonState,
-} from '../../services/knowledge-training'
+import { FORMAT_LABEL, LEVEL_LABEL, TOPIC_LABEL, formatDuration } from '../../services/knowledge-training'
+import type { TrainingLesson } from '../../services/training'
 import clsx from 'clsx'
 
-function Cover({ lesson }: { lesson: CatalogLesson }) {
-  if (lesson.coverUrl) {
-    return <img src={lesson.coverUrl} alt="" className="h-full w-full object-cover" />
+const FORMAT_FALLBACK: Record<string, string> = { ...FORMAT_LABEL, checklist: 'Checklist' }
+
+function Cover({ lesson }: { lesson: TrainingLesson }) {
+  if (lesson.cover_image_url) {
+    return <img src={lesson.cover_image_url} alt="" className="h-full w-full object-cover" />
   }
   return (
     <div className="flex h-full w-full items-end bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_42%,#1a120e),#1f1814)] p-3">
-      <span className="text-xs font-bold uppercase tracking-[0.08em] text-white/90">{FORMAT_LABEL[lesson.format]}</span>
+      <span className="text-xs font-bold uppercase tracking-[0.08em] text-white/90">{FORMAT_FALLBACK[lesson.format ?? ''] || 'Aula'}</span>
     </div>
   )
 }
 
-function statusLabel(state?: LearnerLessonState) {
-  const status = progressStatus(state)
-  if (status === 'completed') return 'Concluída'
-  if (status === 'in_progress') return 'Em andamento'
+function statusLabel(state?: string) {
+  if (state === 'completed') return 'Concluída'
+  if (state === 'in_progress') return 'Em andamento'
   return 'Não iniciada'
 }
 
 export function KnowledgeLessonCard({
   lesson,
-  state,
   onOpen,
   onBookmark,
 }: {
-  lesson: CatalogLesson
-  state?: LearnerLessonState
+  lesson: TrainingLesson
   onOpen: () => void
   onBookmark?: () => void
 }) {
-  const duration = formatDuration(lesson.durationMinutes)
-  const status = progressStatus(state)
+  const duration = formatDuration(lesson.duration_minutes && lesson.duration_minutes > 0 ? lesson.duration_minutes : null)
+  const status = lesson.progress?.state ?? 'not_started'
+  const topic = lesson.topics?.[0]
+  const objective = lesson.objectives?.[0] || lesson.outcome || lesson.excerpt || 'Aula da Base de treinamento TikTok.'
   return (
     <article className="overflow-hidden rounded-2xl border border-line bg-surface">
       <button type="button" onClick={onOpen} className="block w-full text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20">
@@ -54,16 +48,16 @@ export function KnowledgeLessonCard({
           ) : null}
         </div>
         <div className="space-y-2 p-4">
-          <p className="text-base font-bold text-ink">{lesson.titulo}</p>
-          <p className="line-clamp-2 text-sm text-[var(--text-secondary)]">{lesson.objective || lesson.excerpt || 'Aula da Base de treinamento TikTok.'}</p>
+          <p className="text-base font-bold text-ink">{lesson.title}</p>
+          <p className="line-clamp-2 text-sm text-[var(--text-secondary)]">{objective}</p>
           <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
             {duration ? <span>{duration}</span> : null}
-            {lesson.level ? <span>{LEVEL_LABEL[lesson.level]}</span> : null}
-            {lesson.topic ? <span>{TOPIC_LABEL[lesson.topic]}</span> : null}
-            <span>{FORMAT_LABEL[lesson.format]}</span>
-            <Badge tone="neutral">{lesson.origin === 'network' ? 'Rede' : 'Unidade'}</Badge>
+            {lesson.difficulty ? <span>{LEVEL_LABEL[lesson.difficulty as keyof typeof LEVEL_LABEL] || lesson.difficulty}</span> : null}
+            {topic ? <span>{TOPIC_LABEL[topic as keyof typeof TOPIC_LABEL] || topic}</span> : null}
+            <span>{FORMAT_FALLBACK[lesson.format ?? ''] || 'Aula'}</span>
+            <Badge tone="neutral">{lesson.source?.origin === 'unidade' ? 'Unidade' : 'Rede'}</Badge>
           </div>
-          <p className="text-xs font-semibold text-ink" aria-live="polite">{statusLabel(state)}</p>
+          <p className="text-xs font-semibold text-ink" aria-live="polite">{statusLabel(status)}</p>
           {status !== 'not_started' ? (
             <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted" aria-hidden="true">
               <div className={clsx('h-full rounded-full bg-brand', status === 'completed' ? 'w-full' : 'w-1/3')} />
@@ -76,11 +70,11 @@ export function KnowledgeLessonCard({
           <button
             type="button"
             className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink-muted hover:bg-surface-muted hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
-            aria-label={state?.bookmarked ? `Remover ${lesson.titulo} dos salvos` : `Salvar ${lesson.titulo}`}
-            aria-pressed={Boolean(state?.bookmarked)}
+            aria-label={lesson.bookmarked ? `Remover ${lesson.title} dos salvos` : `Salvar ${lesson.title}`}
+            aria-pressed={Boolean(lesson.bookmarked)}
             onClick={onBookmark}
           >
-            <Bookmark className={clsx('h-4 w-4', state?.bookmarked && 'fill-current text-brand')} />
+            <Bookmark className={clsx('h-4 w-4', lesson.bookmarked && 'fill-current text-brand')} />
           </button>
         </div>
       ) : null}
