@@ -13,7 +13,7 @@ import { asArray, asNumber, asString } from '../../utils/format'
 import { presenterProfileId } from '../../utils/presenters'
 import { isOperationalBrand, isOperationalClient, isOperationalPresenter } from '../../utils/operational-status'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
-import type { AgendaTurno, Cabine, JsonRecord } from '../../types/models'
+import type { AgendaTurno, JsonRecord } from '../../types/models'
 
 export type AgendarLiveModalMode = 'create' | 'edit' | 'now'
 
@@ -27,7 +27,6 @@ export type TurnoForm = {
 type AgendaForm = {
   tipo: string
   live_tipo: string
-  cabine_id: string
   marca_id: string
   cliente_id: string
   apresentadora_id: string
@@ -80,7 +79,6 @@ type TurnoFalha = {
 const emptyForm: AgendaForm = {
   tipo: 'live',
   live_tipo: 'cliente',
-  cabine_id: '',
   marca_id: '',
   cliente_id: '',
   apresentadora_id: '',
@@ -341,14 +339,6 @@ function liveTypeFromMarca(marca?: JsonRecord): 'cliente' | 'afiliado' | 'teste'
   return 'teste'
 }
 
-function findLookupOption(options: LookupOption[], rawValue: string) {
-  const value = rawValue.trim().toLocaleLowerCase('pt-BR')
-  return options.find((option) => (
-    option.label.toLocaleLowerCase('pt-BR') === value ||
-    option.value.toLocaleLowerCase('pt-BR') === value
-  ))
-}
-
 function optionLabel(options: LookupOption[], value: string) {
   return options.find((option) => option.value === value)?.label ?? ''
 }
@@ -442,11 +432,9 @@ export function AgendarLiveModal({
   mode,
   event,
   defaultDate,
-  defaultCabineId,
   defaultHoraInicio,
   defaultHoraFim,
   defaultMarcaId,
-  cabines,
   marcas,
   clientes,
   apresentadoras,
@@ -462,11 +450,9 @@ export function AgendarLiveModal({
   mode: AgendarLiveModalMode
   event?: JsonRecord | null
   defaultDate?: string
-  defaultCabineId?: string
   defaultHoraInicio?: string
   defaultHoraFim?: string
   defaultMarcaId?: string
-  cabines: Cabine[]
   marcas: JsonRecord[]
   clientes: JsonRecord[]
   apresentadoras: JsonRecord[]
@@ -486,7 +472,6 @@ export function AgendarLiveModal({
   const [form, setForm] = useState<AgendaForm>(emptyForm)
   const initialFormRef = useRef<AgendaForm>(emptyForm)
   const [accountLookup, setAccountLookup] = useState('')
-  const [cabineLookup, setCabineLookup] = useState('')
   const [availability, setAvailability] = useState<AvailabilityState>({ status: 'idle', message: '' })
   const [turnoAvisos, setTurnoAvisos] = useState<string[]>([])
   const [turnoFalha, setTurnoFalha] = useState<TurnoFalha | null>(null)
@@ -514,10 +499,6 @@ export function AgendarLiveModal({
     const name = asString(event.marca_nome ?? event.cliente_nome, marcaId ? 'Marca da agenda' : 'Cliente da agenda')
     return [{ value, label: `${name} (inativo)` }, ...accountOptions]
   }, [accountOptions, event, mode])
-  const cabineOptions = useMemo<LookupOption[]>(() => cabines.map((cabine) => ({
-    value: asString(cabine.id, ''),
-    label: `Cabine ${asString(cabine.numero, '')}`,
-  })).filter((option) => option.value), [cabines])
   const editingEventId = mode === 'edit' ? asString(event?.id, '') : ''
   const eventoTemTurnos = asArray<JsonRecord>(event?.apresentadoras).length > 0
   const rateioJaGerado = mode === 'edit' && liveJaFoiAberta(event)
@@ -580,7 +561,6 @@ export function AgendarLiveModal({
         ...emptyForm,
         tipo: asString(event.tipo, 'live'),
         live_tipo: liveTypeFromMarca(marca),
-        cabine_id: asString(event.cabine_id, ''),
         marca_id: marcaId,
         cliente_id: asString(event.cliente_id ?? marca?.cliente_id, ''),
         apresentadora_id: asString(event.apresentadora_id, ''),
@@ -599,7 +579,6 @@ export function AgendarLiveModal({
       initialFormRef.current = nextForm
       setForm(nextForm)
       setAccountLookup(optionLabel(accountOptionsWithHistorical, nextForm.marca_id ? `marca:${nextForm.marca_id}` : nextForm.cliente_id ? `cliente:${nextForm.cliente_id}` : ''))
-      setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
       return
     }
 
@@ -609,7 +588,6 @@ export function AgendarLiveModal({
     const marcaPadrao = defaultMarcaId ? marcas.find((item) => asString(item.id, '') === defaultMarcaId) : undefined
     const nextForm = {
       ...emptyForm,
-      cabine_id: defaultCabineId ?? '',
       marca_id: marcaPadrao ? asString(marcaPadrao.id, '') : '',
       cliente_id: asString(marcaPadrao?.cliente_id, ''),
       live_tipo: marcaPadrao ? liveTypeFromMarca(marcaPadrao) : emptyForm.live_tipo,
@@ -621,20 +599,14 @@ export function AgendarLiveModal({
     initialFormRef.current = nextForm
     setForm(nextForm)
     setAccountLookup(marcaPadrao ? optionLabel(accountOptionsWithHistorical, `marca:${asString(marcaPadrao.id, '')}`) : '')
-    setCabineLookup(optionLabel(cabineOptions, nextForm.cabine_id))
-    // Deps mínimas — accountOptions/cabineOptions removidas pra estabilizar.
+    // Deps mínimas — accountOptions removidas pra estabilizar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   // Atualiza apenas o LABEL dos selects quando listas mudam (form preservado).
   useEffect(() => {
-    if (!open) return
-    setCabineLookup((current) => current || optionLabel(cabineOptions, form.cabine_id))
-  }, [cabineOptions, open, form.cabine_id])
-
-  useEffect(() => {
     const checagens = turnosParaChecagem({ data: form.data, turnos: form.turnos })
-    if (!open || (!form.cabine_id && !form.apresentadora_id && checagens.length === 0) || !form.data || !form.hora_inicio || !form.hora_fim) {
+    if (!open || (!form.apresentadora_id && checagens.length === 0) || !form.data || !form.hora_inicio || !form.hora_fim) {
       setAvailability({ status: 'idle', message: '' })
       setTurnoAvisos([])
       return
@@ -649,15 +621,10 @@ export function AgendarLiveModal({
 
     let cancelled = false
     const timer = window.setTimeout(() => {
-      setAvailability({ status: 'checking', message: 'Verificando disponibilidade da cabine e apresentadora...' })
-      // Com revezamento a checagem vira N+1 chamadas: a cabine responde pela
-      // janela inteira e cada apresentadora só pela SUA faixa — perguntar pela
-      // janela inteira acusaria conflito falso em quem sai no meio.
-      // getAgendaConflitos não muda de assinatura.
-      const cabineCheck = form.cabine_id
+      setAvailability({ status: 'checking', message: 'Verificando disponibilidade da apresentadora...' })
+      const apresentadoraCheck = form.apresentadora_id && checagens.length === 0
         ? getAgendaConflitos({
-          cabineId: form.cabine_id,
-          apresentadoraId: checagens.length === 0 ? form.apresentadora_id || undefined : undefined,
+          apresentadoraId: form.apresentadora_id,
           dataInicio,
           dataFim,
           excludeId: editingEventId || undefined,
@@ -670,8 +637,8 @@ export function AgendarLiveModal({
         excludeId: editingEventId || undefined,
       }))
 
-      Promise.all([cabineCheck, Promise.all(turnoChecks)])
-        .then(([cabine, porTurno]) => {
+      Promise.all([apresentadoraCheck, Promise.all(turnoChecks)])
+        .then(([apresentadora, porTurno]) => {
           if (cancelled) return
           // Cada resultado volta ancorado no índice da linha que o pediu — o
           // payload é filtrado e reordenado, então posição não serve de âncora.
@@ -684,9 +651,9 @@ export function AgendarLiveModal({
           }))
           setTurnoAvisos(avisos)
 
-          const conflitoCabine = primeiroConflito(cabine)
-          if (conflitoCabine) {
-            setAvailability({ status: 'conflict', message: `Existe conflito de ${conflitoCabine.entidade}${conflitoCabine.periodo}. Escolha outro horário.` })
+          const conflitoApresentadora = primeiroConflito(apresentadora)
+          if (conflitoApresentadora) {
+            setAvailability({ status: 'conflict', message: `Existe conflito de ${conflitoApresentadora.entidade}${conflitoApresentadora.periodo}. Escolha outro horário.` })
             return
           }
           if (avisos.some(Boolean)) {
@@ -694,13 +661,10 @@ export function AgendarLiveModal({
             return
           }
           if (checagens.length > 0) {
-            // /agenda/conflitos só enxerga a apresentadora escalar do evento —
-            // turno de OUTRO evento não aparece aqui. Prometer "disponível"
-            // seria mentira; quem confere de verdade é o PUT ao salvar.
-            setAvailability({ status: 'partial', message: 'Cabine livre no período. Não foi possível verificar cada turno contra outros revezamentos — o backend confere ao salvar.' })
+            setAvailability({ status: 'partial', message: 'Não foi possível verificar cada turno contra outros revezamentos — o backend confere ao salvar.' })
             return
           }
-          setAvailability({ status: 'available', message: 'Horário disponível para os vínculos selecionados.' })
+          setAvailability({ status: 'available', message: 'Horário disponível para a apresentadora selecionada.' })
         })
         .catch(() => {
           if (!cancelled) setAvailability({ status: 'error', message: 'Não foi possível verificar disponibilidade agora. O backend ainda validará ao salvar.' })
@@ -711,7 +675,7 @@ export function AgendarLiveModal({
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [editingEventId, form.apresentadora_id, form.cabine_id, form.data, form.hora_fim, form.hora_inicio, form.turnos, open])
+  }, [editingEventId, form.apresentadora_id, form.data, form.hora_fim, form.hora_inicio, form.turnos, open])
 
   function setField(key: AgendaFormTextKey, value: string) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -813,13 +777,6 @@ export function AgendarLiveModal({
     setAccount(option.value)
   }
 
-  function onCabineLookupChange(value: string) {
-    setCabineLookup(value)
-    const option = findLookupOption(cabineOptions, value)
-    if (option) setField('cabine_id', option.value)
-    else if (!value.trim()) setField('cabine_id', '')
-  }
-
   /**
    * Segundo passo do salvamento: o evento já existe, agora vão os turnos.
    * Nunca deixa o operador achar que gravou: falhou, o modal fica aberto com o
@@ -852,10 +809,6 @@ export function AgendarLiveModal({
       setAvailability({ status: 'conflict', message: 'O horário final precisa ser depois do início.' })
       return
     }
-    if (mode === 'now' && !form.cabine_id) {
-      setAvailability({ status: 'conflict', message: 'Selecione uma cabine da lista antes de iniciar.' })
-      return
-    }
     if (mode === 'now' && !form.apresentadora_id) {
       setAvailability({ status: 'conflict', message: 'Selecione uma apresentadora da lista antes de iniciar.' })
       return
@@ -872,7 +825,6 @@ export function AgendarLiveModal({
     const turnos = montarPayloadTurnos({ data: form.data, turnos: form.turnos })
     // Há o que gravar OU o que desfazer na sub-rota de turnos.
     const precisaGravarTurnos = mode === 'edit' ? turnos.length > 0 || eventoTemTurnos : turnos.length >= 2
-    const cabineNumero = cabineOptions.find((o) => o.value === form.cabine_id)?.label ?? `Cabine ${form.cabine_id}`
     const contaNome = accountLookup.trim() || ''
     const formattedDate = new Intl.DateTimeFormat('pt-BR', {
       day: '2-digit',
@@ -883,7 +835,6 @@ export function AgendarLiveModal({
 
     if (mode === 'now') {
       onStartNow?.({
-        cabine_id: form.cabine_id,
         ...(form.marca_id ? { marca_id: form.marca_id } : {}),
         ...(form.cliente_id ? { cliente_id: form.cliente_id } : {}),
         apresentadora_id: form.apresentadora_id,
@@ -891,14 +842,14 @@ export function AgendarLiveModal({
         tipo: form.live_tipo,
         previsto_fim: dataFim,
       })
-      toast.push(`Live iniciada na ${cabineNumero}${contaNome ? ` · ${contaNome}` : ''}`, 'success')
+      toast.push(`Live iniciada${contaNome ? ` · ${contaNome}` : ''}`, 'success')
       return
     }
 
     const recorrencia = recurrencePayload(form)
     const payload = {
       tipo: form.tipo,
-      cabine_id: form.cabine_id || null,
+      cabine_id: null,
       marca_id: form.tipo === 'bloqueio_manutencao' ? null : form.marca_id || null,
       cliente_id: form.tipo === 'bloqueio_manutencao' ? null : form.cliente_id || null,
       // Com revezamento o escalar vira espelho da principal, pela mesma regra do
@@ -917,7 +868,7 @@ export function AgendarLiveModal({
 
     if (mode === 'edit' && event) {
       const id = asString(event.id, '')
-      const sucesso = `Agendamento atualizado — ${cabineNumero}${contaNome ? ` · ${contaNome}` : ''} em ${formattedDate}`
+      const sucesso = `Agendamento atualizado${contaNome ? ` · ${contaNome}` : ''} em ${formattedDate}`
       const resultado = onUpdate?.(id, payload)
       if (!isPromiseLike(resultado)) {
         // Chamador sem Promise não deixa o segundo passo acontecer. Havendo
@@ -946,7 +897,7 @@ export function AgendarLiveModal({
       return
     }
 
-    const sucesso = `${cabineNumero} reservada${contaNome ? ` para ${contaNome}` : ''} em ${formattedDate}`
+    const sucesso = `Agendamento confirmado${contaNome ? ` para ${contaNome}` : ''} em ${formattedDate}`
 
     // O POST desta abertura já passou e só o PUT dos turnos falhou: reenviar tem
     // que CONSERTAR o evento existente, nunca criar um segundo na mesma cabine.
@@ -1027,7 +978,7 @@ export function AgendarLiveModal({
     <Modal
       open={open}
       title={title}
-      subtitle={mode === 'now' ? 'Confirme quem entra no ar e em qual cabine.' : 'Organize a operação; os demais detalhes ficam disponíveis abaixo.'}
+      subtitle={mode === 'now' ? 'Confirme marca e apresentadora antes de iniciar.' : 'Organize a operação; os demais detalhes ficam disponíveis abaixo.'}
       size="lg"
       onClose={closeGuard.requestClose}
       closeDisabled={salvando}
@@ -1047,7 +998,7 @@ export function AgendarLiveModal({
       )}
     >
       <form id={formId} className="space-y-0" onSubmit={onSubmit}>
-        <ModalSection title="Dados da operação" description="Defina a marca, o horário, a cabine e quem apresenta.">
+        <ModalSection title="Dados da operação" description="Defina a marca, o horário e quem apresenta.">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Tipo do evento</span>
@@ -1085,20 +1036,6 @@ export function AgendarLiveModal({
                 ) : null}
               </label>
             ) : null}
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">Cabine</span>
-              <input
-                className="design-input mt-2 h-11 w-full px-4"
-                list="agenda-cabine-options"
-                value={cabineLookup}
-                onChange={(item) => onCabineLookupChange(item.target.value)}
-                placeholder="Buscar cabine"
-                required={mode === 'now'}
-              />
-              <datalist id="agenda-cabine-options">
-                {cabineOptions.map((option) => <option key={option.value} value={option.label} />)}
-              </datalist>
-            </label>
             <label className="block">
               <span className="text-sm font-semibold text-ink">Data</span>
               <input className="design-input mt-2 h-11 w-full px-3" type="date" value={form.data} onChange={(item) => setField('data', item.target.value)} required />

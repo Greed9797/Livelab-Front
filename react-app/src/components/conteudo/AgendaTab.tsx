@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   CalendarDays,
   CheckCircle2,
@@ -30,6 +31,8 @@ import { asString, formatDate } from '../../utils/format'
 import { resolveMarcaCor, textColorOn } from '../../utils/brandColor'
 import { isSyntheticLiveEvent } from '../../pages/ConteudoPage'
 import { getBrandImage } from '../../utils/favicon'
+import { getCabines } from '../../services/domain'
+import { QK } from '../../services/query-keys'
 import type { Cabine, JsonRecord } from '../../types/models'
 import type { UseMutationResult } from '@tanstack/react-query'
 
@@ -117,7 +120,6 @@ export interface AgendaTabProps {
   agendaDate: string
   agendaView: AgendaView
   agendaRows: JsonRecord[]
-  activeCabines: Cabine[]
   marcaRows: JsonRecord[]
   clienteRows: JsonRecord[]
   apresentadoraRows: JsonRecord[]
@@ -143,9 +145,17 @@ export interface AgendaTabProps {
 }
 
 export function AgendaTab(props: AgendaTabProps) {
+  const cabinesQuery = useQuery({ queryKey: QK.cabines, queryFn: getCabines })
+  const activeCabines = useMemo(
+    () => (cabinesQuery.data ?? []).filter((cabine) => {
+      const row = cabine as unknown as JsonRecord
+      return row.ativo !== false && asString(row.status, '') !== 'inativa'
+    }) as Cabine[],
+    [cabinesQuery.data],
+  )
   const {
-    agendaDate, agendaView, agendaRows, activeCabines, marcaRows, clienteRows, apresentadoraRows,
-    agendaModalMode, selectedAgendaEvent, requestedDate, requestedCabineId,
+    agendaDate, agendaView, agendaRows, marcaRows, clienteRows, apresentadoraRows,
+    agendaModalMode, selectedAgendaEvent, requestedDate,
     createAgendaMutation, updateAgendaMutation, deleteAgendaMutation,
     onAgendaDateChange, onAgendaViewChange, onOpenCreateAgendaModal, onOpenEditAgendaModal,
     onOpenRegisterResult, onCloseAgendaModal, onCreateAgenda, onUpdateAgenda, onDeleteAgenda,
@@ -307,8 +317,6 @@ export function AgendaTab(props: AgendaTabProps) {
         mode={agendaModalMode ?? 'create'}
         event={selectedAgendaEvent}
         defaultDate={requestedDate || agendaDate}
-        defaultCabineId={requestedCabineId}
-        cabines={activeCabines}
         marcas={marcaRows}
         clientes={clienteRows}
         apresentadoras={apresentadoraRows}

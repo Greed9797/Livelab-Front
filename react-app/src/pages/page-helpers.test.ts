@@ -105,7 +105,7 @@ describe('normalizeHome', () => {
       'GMV / live',
       'GMV / hora',
       'Vídeos gravados',
-      'Cabines em live',
+      'Lives ao vivo',
     ])
     expect(data.metrics.some((metric) => metric.label === 'GMV do mês')).toBe(false)
     expect(data.liveNow).toHaveLength(1)
