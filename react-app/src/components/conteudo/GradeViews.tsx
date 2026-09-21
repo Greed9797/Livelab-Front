@@ -157,6 +157,89 @@ export function GradeSemanaView({
 
 // ── Visão Mês — calendário 6×7 com chips de marca por dia ──────────────────
 
+export function GradeSemanaDayList({
+  dias,
+  today,
+  onOpenDia,
+}: {
+  dias: GradeDia[]
+  today: string
+  onOpenDia: (data: string) => void
+}) {
+  return (
+    <div className="space-y-4 md:hidden">
+      {dias.map((dia) => {
+        const celulas = [...dia.celulas].sort((a, b) => asString(a.hora_inicio).localeCompare(asString(b.hora_inicio)))
+        return (
+          <section key={dia.data} className="rounded-2xl border border-line bg-surface">
+            <button
+              type="button"
+              onClick={() => onOpenDia(dia.data)}
+              className={`flex w-full min-h-11 items-center justify-between gap-3 px-4 py-3 text-left ${dia.data === today ? 'bg-brand-soft' : ''}`}
+            >
+              <span className="text-sm font-bold capitalize text-ink">{dayLabel(dia.data)}</span>
+              <span className="text-xs text-ink-muted">{celulas.length} {celulas.length === 1 ? 'slot' : 'slots'}</span>
+            </button>
+            {celulas.length === 0 ? (
+              <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">Sem programação</p>
+            ) : (
+              <ul className="divide-y divide-line border-t border-line">
+                {celulas.map((celula) => {
+                  const cor = resolveMarcaCor(celula.marca_cor, celula.marca_id)
+                  return (
+                    <li key={gradeCellKey(celula.cabine_id, celula.hora_inicio)} className="px-4 py-3">
+                      <p className="text-sm font-semibold text-ink">{celula.marca_nome}</p>
+                      <p className="mt-1 text-xs text-ink-muted">
+                        {celula.hora_inicio}–{celula.hora_fim}
+                        {celula.cabine_numero != null ? ` · Cabine ${celula.cabine_numero}` : ''}
+                        {celula.apresentadora_nome ? ` · ${celula.apresentadora_nome}` : ''}
+                      </p>
+                      <span className="mt-2 inline-block h-1.5 w-8 rounded-full" style={{ background: cor ?? 'var(--border)' }} aria-hidden="true" />
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+export function GradeDiaMobileList({
+  celulas,
+}: {
+  celulas: GradeCelula[]
+}) {
+  const sorted = [...celulas].sort((a, b) => asString(a.hora_inicio).localeCompare(asString(b.hora_inicio)))
+  if (sorted.length === 0) {
+    return <p className="md:hidden rounded-2xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-muted">Sem programação neste dia.</p>
+  }
+  return (
+    <ul className="divide-y divide-line rounded-2xl border border-line bg-surface md:hidden">
+      {sorted.map((celula) => {
+        const cor = resolveMarcaCor(celula.marca_cor, celula.marca_id)
+        return (
+          <li key={gradeCellKey(celula.cabine_id, celula.hora_inicio)} className="px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink">{celula.marca_nome}</p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  {celula.hora_inicio}–{celula.hora_fim}
+                  {celula.cabine_numero != null ? ` · Cabine ${celula.cabine_numero}` : ''}
+                </p>
+                {celula.apresentadora_nome ? <p className="mt-1 text-xs text-ink-muted">{celula.apresentadora_nome}</p> : null}
+              </div>
+              <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ background: cor ?? 'var(--border)' }} aria-hidden="true" />
+            </div>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 export function GradeMesView({
   monthDays,
   monthRef,

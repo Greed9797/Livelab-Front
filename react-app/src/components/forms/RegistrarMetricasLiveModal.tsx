@@ -337,7 +337,7 @@ export function RegistrarMetricasLiveModal({
         <Button type="button" variant="secondary" disabled={isSaving} onClick={closeGuard.requestClose}>Cancelar</Button>
         <Button type="submit" form={formId} icon={CheckCircle2} disabled={agendaBrandUnavailable} isLoading={isSaving}>{submitLabel}</Button>
       </>}>
-      <form id={formId} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={onSubmit}>
+      <form id={formId} className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" onSubmit={onSubmit}>
         <label className="block">
           <span className="text-sm font-semibold text-ink">Tipo</span>
           <select className="design-input mt-2 h-11 w-full px-4" value={form.tipo} onChange={(event) => setType(event.target.value)} required disabled={preserveAgendaBrand}>
@@ -366,7 +366,7 @@ export function RegistrarMetricasLiveModal({
           <span className="text-sm font-semibold text-ink">Data</span>
           <input className="design-input mt-2 h-11 w-full px-3" type="date" value={form.data} onChange={(event) => setField('data', event.target.value)} required />
         </label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="text-sm font-semibold text-ink">Início</span>
             <input className="design-input mt-2 h-11 w-full px-3" type="time" value={form.hora_inicio} onChange={(event) => setField('hora_inicio', event.target.value)} required />
