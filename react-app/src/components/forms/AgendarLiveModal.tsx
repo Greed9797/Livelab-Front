@@ -9,6 +9,7 @@ import { PresenterSelect } from './PresenterSelect'
 import { useToast } from '../ui/Toast'
 import { extractErrorMessage } from '../../services/api'
 import { getAgendaConflitos, putAgendaTurnos } from '../../services/domain'
+import { makeAgendaDateTime } from './sao-paulo-offset'
 import { asArray, asNumber, asString } from '../../utils/format'
 import { presenterProfileId } from '../../utils/presenters'
 import { isOperationalBrand, isOperationalClient, isOperationalPresenter } from '../../utils/operational-status'
@@ -307,7 +308,7 @@ function dateWithHourOffset(hours: number) {
 }
 
 function makeDateTime(date: string, time: string) {
-  return `${date}T${time}:00-03:00`
+  return makeAgendaDateTime(date, time)
 }
 
 function toDateInput(value: unknown) {

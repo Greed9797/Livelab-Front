@@ -37,6 +37,7 @@ import { AgendarLiveModal } from '../forms/AgendarLiveModal'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { AgendaAvailabilityPanel } from './AgendaAvailabilityPanel'
 import { summarizeAgendaAvailability } from './agendaAvailability'
+import { AGENDA_TRUNCATED_MESSAGE } from '../../services/agenda-list'
 
 type GradeView = 'dia' | 'semana' | 'mes'
 
@@ -225,20 +226,22 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, catalogs
   const celulasVisiveis = editPadrao ? padraoDoDow : dias.flatMap((d) => d.celulas)
   const legenda = marcasPresentes(celulasVisiveis)
   const availabilityDay = completeDias.find((dia) => dia.data === selectedAvailabilityDate) ?? null
+  const agendaEventos = agendaAvailability.data?.eventos
+  const agendaTruncated = agendaAvailability.data?.truncated === true
   const availabilitySummary = useMemo(() => {
-    if (!agendaAvailability.data || !selectedAvailabilityDate || !availabilityDay) return null
+    if (!agendaEventos || !selectedAvailabilityDate || !availabilityDay) return null
     return summarizeAgendaAvailability({
       date: selectedAvailabilityDate,
       gradeCells: availabilityDay.celulas,
-      agendaRows: agendaAvailability.data,
+      agendaRows: agendaEventos,
       marcaRows,
       apresentadoraRows,
     })
-  }, [agendaAvailability.data, apresentadoraRows, availabilityDay, marcaRows, selectedAvailabilityDate])
+  }, [agendaEventos, apresentadoraRows, availabilityDay, marcaRows, selectedAvailabilityDate])
   const availabilityState = (agendaAvailability.isPending || grade.isPending || (!catalogsReady && !catalogsError))
     ? 'loading'
     : agendaAvailability.isError || grade.isError || grade.isPlaceholderData || catalogsError || !availabilityDay
-      || (agendaAvailability.data?.length ?? 0) >= 500 || availabilitySummary?.hasUnknownSchedule
+      || agendaTruncated || (agendaEventos?.length ?? 0) >= 500 || availabilitySummary?.hasUnknownSchedule
       ? 'incomplete'
       : 'ready'
 
@@ -421,6 +424,9 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, catalogs
             onOpenDia={(d) => { setDate(d); setView('dia') }}
           />
         )}
+        {!editPadrao && agendaTruncated ? (
+          <p role="status" className="mb-3 text-sm font-semibold text-ink">{AGENDA_TRUNCATED_MESSAGE}</p>
+        ) : null}
         {!editPadrao ? (
           <AgendaAvailabilityPanel
             date={selectedAvailabilityDate}
