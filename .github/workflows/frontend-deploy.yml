@@ -36,7 +36,9 @@ name: Frontend Deploy (Vercel)
 
 on:
   push:
-    branches: [migration/react-vercel]
+    branches:
+      - migration/react-vercel
+      - feat/multi-apresentadora-agenda
   workflow_dispatch:
 
 # Um deploy por vez; push novo cancela o anterior ainda em fila.
