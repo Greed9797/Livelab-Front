@@ -1,4 +1,5 @@
 import type { AgendaTurno, Cabine, JsonRecord, Lead, LiveAtual, Period } from '../types/models'
+import { unwrapAgendaList, type AgendaList } from './agenda-list'
 import { api, apiDelete, apiGet, apiGetBlob, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
 
@@ -199,8 +200,8 @@ export function deleteMarca(id: string) {
   return apiDelete(`/marcas/${id}`)
 }
 
-export function getAgenda(params: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord[]>('/agenda', params)
+export function getAgenda(params: Record<string, unknown> = {}): Promise<AgendaList> {
+  return apiGet<unknown>('/agenda', params).then(unwrapAgendaList)
 }
 
 // ── Grade visual (grade_padrao + grade_excecoes) ──────────────────────────

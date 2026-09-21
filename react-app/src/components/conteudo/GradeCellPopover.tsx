@@ -6,6 +6,7 @@ import { Button } from '../ui/Button'
 import { UnsavedChangesNotice } from '../ui/UnsavedChangesNotice'
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges'
 import { getAgenda } from '../../services/domain'
+import { AGENDA_TRUNCATED_MESSAGE } from '../../services/agenda-list'
 import { asArray, asString } from '../../utils/format'
 import { isOperationalBrand, isOperationalPresenter } from '../../utils/operational-status'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
@@ -158,8 +159,9 @@ export function GradeCellPopover({
   const subtitulo = target.data
     ? `Ajuste válido apenas em ${target.data.split('-').reverse().join('/')}`
     : 'Editando o padrão semanal — repete toda semana'
+  const agendaEventos = agendaQuery.data?.eventos ?? []
   const lives = target.data
-    ? eventosNoSlot(agendaQuery.data ?? [], { data: target.data, horaInicio: target.horaInicio, horaFim: target.horaFim })
+    ? eventosNoSlot(agendaEventos, { data: target.data, horaInicio: target.horaInicio, horaFim: target.horaFim })
     : []
   const marcasDisponiveis = marcas.filter((marca) => isOperationalBrand(marca) || asString(marca.id) === marcaId)
   const apresentadorasDisponiveis = apresentadoras.filter((apresentadora) => isOperationalPresenter(apresentadora) || asString(apresentadora.id) === apresentadoraId)
@@ -212,6 +214,9 @@ export function GradeCellPopover({
       {target.data && onAgendarLive ? (
         <div className="mt-5 border-t border-line pt-5">
           <p className="text-sm font-semibold text-ink">Lives agendadas neste horário</p>
+          {agendaQuery.data?.truncated ? (
+            <p role="status" className="mt-2 text-sm font-semibold text-ink">{AGENDA_TRUNCATED_MESSAGE}</p>
+          ) : null}
           {agendaQuery.isLoading ? (
             <p className="mt-2 text-sm text-ink-muted">Carregando agendamentos…</p>
           ) : agendaQuery.error ? (

@@ -20,7 +20,8 @@ describe('AgendarLiveModal source contract', () => {
 
   it('builds agenda timestamps in Sao Paulo time instead of browser local time', () => {
     expect(source).toContain('getSaoPauloDateInput')
-    expect(source).toContain("return `${date}T${time}:00-03:00`")
+    expect(source).toContain('makeAgendaDateTime')
+    expect(source).not.toContain('T${time}:00-03:00')
   })
 
   it('preserva a conta e a apresentadora legadas ao editar fora do catálogo ativo', () => {

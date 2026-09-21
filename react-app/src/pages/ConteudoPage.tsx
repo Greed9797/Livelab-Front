@@ -448,7 +448,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   const cabineRows = cabines.data ?? []
   const activeCabines = cabineRows.filter((c) => (c as unknown as JsonRecord).ativo !== false && asString(c.status, '') !== 'inativa')
   const agendaRows = legacyAgendaEnabled
-    ? mergeAgendaWithLiveFallbacks(agenda.data ?? [], legacyLives.data ?? [], cabineRows as unknown as JsonRecord[], range)
+    ? mergeAgendaWithLiveFallbacks(agenda.data?.eventos ?? [], legacyLives.data ?? [], cabineRows as unknown as JsonRecord[], range)
     : []
   const marcaRows = marcas.data ?? []
   const clienteRows = clientes.data ?? []
@@ -465,7 +465,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   const marcaFilterOptions = marcaRows.map((m) => ({ id: asString(m.id, ''), nome: asString(m.nome, 'Sem nome') })).filter((m) => m.id)
   const apresentadoraFilterOptions = apresentadoraRows.map((a) => ({ id: asString(a.id, ''), nome: asString(a.nome, 'Sem nome') })).filter((a) => a.id)
   const contextAgendaEvent = livesDeepLink.agendaId
-    ? (contextAgenda.data ?? []).find((event) => asString(event.id, '') === livesDeepLink.agendaId) ?? null
+    ? (contextAgenda.data?.eventos ?? []).find((event) => asString(event.id, '') === livesDeepLink.agendaId) ?? null
     : null
 
   function openEditAgendaModal(event: JsonRecord) {
@@ -515,6 +515,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
           agendaDate={agendaDate}
           agendaView={agendaView}
           agendaRows={agendaRows}
+          agendaTruncated={agenda.data?.truncated === true}
           activeCabines={activeCabines}
           marcaRows={marcaRows}
           clienteRows={clienteRows}
@@ -537,7 +538,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
           // revezamento dentro do modal. Com mutate o turno era descartado calado.
           onCreateAgenda={(payload) => createAgendaMutation.mutateAsync(payload)}
           onUpdateAgenda={(id, payload) => updateAgendaMutation.mutateAsync({ id, payload })}
-          onDeleteAgenda={(id, modoRecorrencia) => deleteAgendaMutation.mutate({ id, modoRecorrencia })}
+          onDeleteAgenda={(id, modoRecorrencia) => deleteAgendaMutation.mutateAsync({ id, modoRecorrencia })}
         />
       ) : null}
 

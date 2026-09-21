@@ -27,6 +27,8 @@ import {
   weekDays,
 } from '../../pages/conteudo-helpers'
 import { asString, formatDate } from '../../utils/format'
+import { extractErrorMessage } from '../../services/api'
+import { AGENDA_TRUNCATED_MESSAGE } from '../../services/agenda-list'
 import { resolveMarcaCor, textColorOn } from '../../utils/brandColor'
 import { isSyntheticLiveEvent } from '../../pages/ConteudoPage'
 import { getBrandImage } from '../../utils/favicon'
@@ -117,6 +119,7 @@ export interface AgendaTabProps {
   agendaDate: string
   agendaView: AgendaView
   agendaRows: JsonRecord[]
+  agendaTruncated?: boolean
   activeCabines: Cabine[]
   marcaRows: JsonRecord[]
   clienteRows: JsonRecord[]
@@ -139,12 +142,12 @@ export interface AgendaTabProps {
   // executar o segundo passo do revezamento e os turnos somem em silêncio.
   onCreateAgenda: (payload: JsonRecord) => Promise<JsonRecord | null | undefined | void>
   onUpdateAgenda: (id: string, payload: JsonRecord) => Promise<unknown>
-  onDeleteAgenda: (id: string, modoRecorrencia: string) => void
+  onDeleteAgenda: (id: string, modoRecorrencia: string) => void | Promise<unknown>
 }
 
 export function AgendaTab(props: AgendaTabProps) {
   const {
-    agendaDate, agendaView, agendaRows, activeCabines, marcaRows, clienteRows, apresentadoraRows,
+    agendaDate, agendaView, agendaRows, agendaTruncated = false, activeCabines, marcaRows, clienteRows, apresentadoraRows,
     agendaModalMode, selectedAgendaEvent, requestedDate, requestedCabineId,
     createAgendaMutation, updateAgendaMutation, deleteAgendaMutation,
     onAgendaDateChange, onAgendaViewChange, onOpenCreateAgendaModal, onOpenEditAgendaModal,
@@ -199,8 +202,13 @@ export function AgendaTab(props: AgendaTabProps) {
   function drawerDelete() {
     if (!drawer) return
     if (!window.confirm('Cancelar este agendamento?')) return
-    onDeleteAgenda(asString(drawer.id), 'apenas_este')
-    setDrawer(null)
+    const pendingId = asString(drawer.id)
+    // 409 (live ainda aberta) rejeita: o evento continua na grade e no drawer.
+    void Promise.resolve(onDeleteAgenda(pendingId, 'apenas_este'))
+      .then(() => {
+        setDrawer((current) => (current && asString(current.id) === pendingId ? null : current))
+      })
+      .catch(() => undefined)
   }
   function drawerRegister() {
     if (!drawer) return
@@ -270,6 +278,14 @@ export function AgendaTab(props: AgendaTabProps) {
         </CardHeader>
 
         <CardBody>
+          {agendaTruncated ? (
+            <p role="status" className="mb-3 text-sm font-semibold text-ink">{AGENDA_TRUNCATED_MESSAGE}</p>
+          ) : null}
+          {deleteAgendaMutation.error && agendaModalMode == null ? (
+            <p role="alert" className="mb-3 rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">
+              {extractErrorMessage(deleteAgendaMutation.error)}
+            </p>
+          ) : null}
           {agendaView === 'semana' ? (
             <WeekView week={week} today={today} rows={rows} cellMin={cellMin} chipH={chipH} onOpen={openDrawer} />
           ) : agendaView === 'dia' ? (
@@ -299,6 +315,7 @@ export function AgendaTab(props: AgendaTabProps) {
           onEdit={drawerEdit}
           onDelete={drawerDelete}
           onRegister={drawerRegister}
+          deleteError={deleteAgendaMutation.error ? extractErrorMessage(deleteAgendaMutation.error) : null}
         />
       ) : null}
 
@@ -319,7 +336,7 @@ export function AgendaTab(props: AgendaTabProps) {
         onUpdate={onUpdateAgenda}
         onDelete={(id, modoRecorrencia) => {
           if (!window.confirm('Cancelar este agendamento?')) return
-          onDeleteAgenda(id, modoRecorrencia)
+          void Promise.resolve(onDeleteAgenda(id, modoRecorrencia)).catch(() => undefined)
         }}
       />
     </section>
@@ -534,13 +551,14 @@ function DrawerField({ icon: Icon, label, value }: { icon: typeof Clock; label: 
 }
 
 function EventDrawer({
-  event, onClose, onEdit, onDelete, onRegister,
+  event, onClose, onEdit, onDelete, onRegister, deleteError,
 }: {
   event: JsonRecord
   onClose: () => void
   onEdit: () => void
   onDelete: () => void
   onRegister: () => void
+  deleteError?: string | null
 }) {
   const cor = eventCor(event)
   const synthetic = isSyntheticLiveEvent(event)
@@ -569,7 +587,11 @@ function EventDrawer({
             {isLiveOnAir(event) ? <TikTokLiveButton username={event.tiktok_username} compact /> : null}
           </div>
         </div>
-        <div className="flex gap-2.5 border-t border-line px-6 py-5">
+        <div className="border-t border-line px-6 py-5">
+          {deleteError ? (
+            <p role="alert" className="mb-3 rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">{deleteError}</p>
+          ) : null}
+          <div className="flex gap-2.5">
           {isPastRegisterable(event) ? (
             <Button variant="secondary" icon={CheckCircle2} onClick={onRegister}>Resultado</Button>
           ) : null}
@@ -579,6 +601,7 @@ function EventDrawer({
               <Trash2 className="h-4 w-4" /> Excluir
             </button>
           ) : null}
+          </div>
         </div>
       </aside>
     </>
