@@ -474,13 +474,13 @@ class _OperacionalTab extends ConsumerWidget {
           ]),
         ),
         const SizedBox(height: 22),
-        // Fluxo de caixa
+        // GMV do dia
         _cardShell(
           t,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _blockHeader(t, 'Fluxo de Caixa — período atual'),
+              _blockHeader(t, 'GMV do dia'),
               fluxoAsync.when(
                 loading: () => const SkeletonList(itemCount: 1, itemHeight: 90),
                 error: (e, _) => _errorBox(t, e),
@@ -603,7 +603,7 @@ class _FluxoCaixaPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('GMV DAS LIVES',
+                  Text('GMV do dia',
                       style: TextStyle(
                         color: t.textMuted,
                         fontSize: 10,

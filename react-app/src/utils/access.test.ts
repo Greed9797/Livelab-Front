@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { canWriteMarcas, menuForUser, needsClientOnboarding, roleLabel, routeForRole } from './access'
+import { canAprovarComissoes, canWriteMarcas, financeRoles, financeiroPageRoles, menuForUser, needsClientOnboarding, roleLabel, routeForRole } from './access'
 import type { User } from '../types/models'
 
 const baseUser: User = {
@@ -72,8 +72,14 @@ describe('menuForUser', () => {
     expect(masterMenu).toContain('/master')
     expect(masterMenu).toContain('/clientes')
     expect(masterMenu).not.toContain('/cliente')
-    expect(masterMenu).not.toContain('/financeiro')
+    expect(masterMenu).toContain('/financeiro')
     expect(masterMenu).toContain('/financeiro/comissoes/regras')
+    expect(financeRoles).not.toContain('franqueador_master')
+    expect(financeiroPageRoles).toContain('franqueador_master')
+    expect(canAprovarComissoes('franqueador_master')).toBe(true)
+    expect(canAprovarComissoes('franqueado')).toBe(true)
+    expect(canAprovarComissoes('financeiro_readonly')).toBe(false)
+    expect(canAprovarComissoes('gerente')).toBe(false)
     expect(clientMenu).toContain('/cliente')
     expect(clientMenu).toContain('/cliente/conteudo')
     expect(clientMenu).toContain('/cliente/configuracoes')
@@ -115,7 +121,12 @@ describe('organização do menu sem ampliar permissões', () => {
       const items = menuForUser({ ...baseUser, papel })
       expect(items.at(-1)?.label).toBe('Configurações')
       expect(items.at(-1)?.placement).toBe('footer')
-      expect(items.filter(item => item.label === 'Financeiro').length).toBeLessThanOrEqual(1)
+      const financePaths = items.filter(item => item.label === 'Financeiro').map(item => item.path)
+      if (papel === 'franqueador_master') {
+        expect(financePaths).toEqual(expect.arrayContaining(['/financeiro', '/financeiro/comissoes/regras']))
+      } else {
+        expect(financePaths.length).toBeLessThanOrEqual(1)
+      }
       expect(items.some(item => item.label === 'Comissões')).toBe(false)
     }
   })

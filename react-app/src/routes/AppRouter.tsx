@@ -4,7 +4,7 @@ import { LoadingState } from '../components/ui/States'
 import { ErrorBoundary } from '../components/ui/ErrorBoundary'
 import { UnsavedChangesProvider } from '../components/ui/UnsavedChangesProvider'
 import { Shell } from '../components/layout/Shell'
-import { cabineRoles, clienteRoles, commercialRoles, configuracoesRoles, financeRoles, internalRoles, masterRoles, opsRoles } from '../utils/access'
+import { cabineRoles, clienteRoles, commercialRoles, configuracoesRoles, financeRoles, financeiroPageRoles, internalRoles, masterRoles, opsRoles } from '../utils/access'
 import { ProtectedRoute } from './ProtectedRoute'
 import { LegacyPageRedirect } from './LegacyPageRedirect'
 import { LoginPage } from '../pages/LoginPage'
@@ -113,7 +113,7 @@ function RouterApplication() {
               <Route path="/analytics-dashboard" element={<Suspense fallback={<PageFallback />}><AnalyticsPage /></Suspense>} />
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={financeRoles} />}>
+            <Route element={<ProtectedRoute allowedRoles={financeiroPageRoles} />}>
               <Route path="/financeiro" element={<Suspense fallback={<PageFallback />}><FinanceiroPage /></Suspense>} />
             </Route>
 

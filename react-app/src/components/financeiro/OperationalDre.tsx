@@ -53,18 +53,38 @@ function CostGroupDetail({ group }: { group: OperationalDreCostGroup }) {
   )
 }
 
+function livesSemApuracaoCount(value: unknown): number {
+  const count = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN
+  if (!Number.isInteger(count) || count <= 0) return 0
+  return count
+}
+
+function livesSemApuracaoText(count: number): string {
+  if (count === 1) return '1 live encerrada ainda sem apuração'
+  return `${count} lives encerradas ainda sem apuração`
+}
+
 export function OperationalDre({ data }: { data: JsonRecord }) {
+  const semApuracao = livesSemApuracaoCount(data.lives_sem_apuracao)
+  const semApuracaoNotice = semApuracao > 0 ? (
+    <p className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning-soft)] px-4 py-3 text-sm text-ink" role="status">
+      {livesSemApuracaoText(semApuracao)}
+    </p>
+  ) : null
   const dre = buildOperationalDre(data)
   if (!dre) {
     return (
-      <Card>
-        <CardBody>
-          <EmptyState
-            title="Detalhamento operacional indisponível"
-            description="A resposta não trouxe todos os lançamentos ou totais do período. Nenhum valor foi assumido como zero."
-          />
-        </CardBody>
-      </Card>
+      <div className="space-y-4">
+        {semApuracaoNotice}
+        <Card>
+          <CardBody>
+            <EmptyState
+              title="Detalhamento operacional indisponível"
+              description="A resposta não trouxe todos os lançamentos ou totais do período. Nenhum valor foi assumido como zero."
+            />
+          </CardBody>
+        </Card>
+      </div>
     )
   }
 
@@ -74,6 +94,7 @@ export function OperationalDre({ data }: { data: JsonRecord }) {
     && dre.custos.grupos.length === 0
   return (
     <section className="space-y-4" aria-label="DRE operacional">
+      {semApuracaoNotice}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard metric={{ label: 'Receita total', value: formatMoney(dre.receita.total, true), hint: `${countLabel(dre.receita.marcas.length, 'marca')}`, tone: 'success' }} icon={TrendingUp} />
         <MetricCard metric={{ label: 'Despesas totais', value: formatMoney(dre.totalDespesas, true), hint: `${countLabel(dre.apresentadoras.pessoas.length, 'apresentadora')} + ${countLabel(dre.custos.grupos.reduce((total, group) => total + group.itens.length, 0), 'lançamento')}`, tone: 'warning' }} icon={TrendingDown} />
