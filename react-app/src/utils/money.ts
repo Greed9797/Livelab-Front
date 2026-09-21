@@ -25,7 +25,13 @@ function toFiniteNumber(value: unknown): number | null {
   if (!cleaned || cleaned === '-' || cleaned === ',' || cleaned === '.') return 0
 
   let normalized = cleaned
-  if (cleaned.includes(',')) {
+  if (cleaned.includes(',') && cleaned.includes('.')) {
+    const lastComma = cleaned.lastIndexOf(',')
+    const lastDot = cleaned.lastIndexOf('.')
+    normalized = lastDot > lastComma
+      ? cleaned.replace(/,/g, '')
+      : cleaned.replace(/\./g, '').replace(',', '.')
+  } else if (cleaned.includes(',')) {
     normalized = cleaned.replace(/\./g, '').replace(',', '.')
   } else if (cleaned.includes('.')) {
     const parts = cleaned.split('.')

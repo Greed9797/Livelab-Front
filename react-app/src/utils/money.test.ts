@@ -9,6 +9,9 @@ describe('money utilities', () => {
     ['1.142,50', 1142.5],
     ['R$ 1.142,50', 1142.5],
     ['1142.00', 1142],
+    ['1432,50', 1432.5],
+    ['10,50', 10.5],
+    ['1,234.56', 1234.56],
   ])('parses %s as decimal reais', (input, expected) => {
     expect(parseBRMoneyToDecimal(input)).toBe(expected)
   })
