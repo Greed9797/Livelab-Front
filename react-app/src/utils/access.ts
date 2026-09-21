@@ -74,6 +74,14 @@ export const financeRoles: Role[] = [
   'auditor',
 ]
 
+// Página /financeiro. O master entra aqui e não no array financeRoles: aquele
+// conjunto é a equipe financeira e outras rotas reutilizam.
+export const financeiroPageRoles: Role[] = [...financeRoles, 'franqueador_master']
+
+export function canAprovarComissoes(papel?: string | null): boolean {
+  return papel === 'franqueador_master' || papel === 'franqueado'
+}
+
 export const opsRoles: Role[] = [
   'franqueado',
   'gerente',
@@ -236,8 +244,7 @@ export const menuItems: MenuItem[] = [
   { label: 'Minhas lives', path: '/minhas-lives', icon: MonitorPlay, roles: ['apresentador', 'apresentadora'] },
   // Analytics standalone — mesmos roles da rota /analytics-dashboard no AppRouter.
   { label: 'Analytics', path: '/analytics-dashboard', icon: ChartSpline, roles: [...masterRoles, ...financeRoles, ...commercialRoles] },
-  { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
-  // Master mantém apenas o acesso já existente às regras, sem ganhar consultas financeiras.
+  { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeiroPageRoles },
   { label: 'Financeiro', path: '/financeiro/comissoes/regras', icon: CircleDollarSign, roles: ['franqueador_master'] },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora'] },
   { label: 'Ranking', path: '/ranking/apresentadoras', icon: Trophy, roles: opsRoles },

@@ -78,6 +78,17 @@ describe('OperationalDre', () => {
     expect(html).not.toContain('R$ 0,00')
   })
 
+  it('shows closed lives still missing apuração and hides the note at zero', () => {
+    const withGap = renderToStaticMarkup(<OperationalDre data={{ ...data, lives_sem_apuracao: 2 }} />)
+    expect(withGap).toContain('2 lives encerradas ainda sem apuração')
+    expect(withGap).toContain('-R$ 2.425,00')
+
+    const withoutGap = renderToStaticMarkup(<OperationalDre data={{ ...data, lives_sem_apuracao: 0 }} />)
+    expect(withoutGap).not.toContain('lives encerradas ainda sem apuração')
+    expect(withoutGap).not.toContain('live encerrada ainda sem apuração')
+    expect(withoutGap).toContain('-R$ 2.425,00')
+  })
+
   it('explains a valid period with no financial movement', () => {
     const html = renderToStaticMarkup(
       <OperationalDre data={{ entradas: [], saidas: [], totais: { entradas: 0, despesas_fixas: 0, despesas_variaveis: 0, resultado: 0 } }} />,

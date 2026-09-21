@@ -5,6 +5,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { PageHeader } from '../components/ui/PageHeader'
 import { MetricCard } from '../components/ui/MetricCard'
 import { OperationalDre } from '../components/financeiro/OperationalDre'
+import { ComissoesPendentes, notifyReprocessar } from '../components/financeiro/ComissoesPendentes'
+import { useToast } from '../components/ui/Toast'
 import { PeriodRangeControl } from '../components/forms/PeriodRangeControl'
 import { CadastroQuickEdit } from '../components/forms/CadastroQuickEdit'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
@@ -107,6 +109,7 @@ export function FinanceiroPage() {
   const [exportingComissoes, setExportingComissoes] = useState(false)
   const [comissoesExportError, setComissoesExportError] = useState('')
   const client = useQueryClient()
+  const toast = useToast()
 
   const operacional = useQuery({ queryKey: QK.financeiroOperacional(pk), queryFn: () => getFinanceiroOperacional(fp), enabled: !isCliente && tab === 'operacional', placeholderData: keepPreviousData })
   const faturamento = useQuery({ queryKey: QK.financeiroFaturamento(pk), queryFn: () => getFinanceiroFaturamento(fp), enabled: !isCliente, placeholderData: keepPreviousData })
@@ -141,16 +144,20 @@ export function FinanceiroPage() {
   })
   const reprocessar = useMutation({
     mutationFn: reprocessarComissoes,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      notifyReprocessar((message, variant) => toast.push(message, variant), { data })
       void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
       void client.invalidateQueries({ queryKey: QK.comissoesApresentadoras })
+      void client.invalidateQueries({ queryKey: QK.comissoesPendentes })
       void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
+    },
+    onError: (error) => {
+      notifyReprocessar((message, variant) => toast.push(message, variant), { error })
     },
   })
   const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
-  // Regras ficam em uma rota própria e administrativa. Não usar podeReprocessar
-  // aqui: master não pertence a financeRoles e não pode montar esta página nem
-  // disparar as queries financeiras só para alcançar as regras.
+  // O botão de regras desta aba continua só com o franqueado. O master abre
+  // /financeiro e alcança as regras pelo item de menu.
   const podeConfigurarComissoes = user?.papel === 'franqueado'
   // financeiro_readonly e auditor alcançam /financeiro só para consultar — sem form de custos.
   const podeEscrever = canWrite(user)
@@ -383,6 +390,7 @@ export function FinanceiroPage() {
 
       {tab === 'comissoes' ? (
         <>
+          <ComissoesPendentes papel={user?.papel} />
           {comissoesMarcas.isLoading ? (
             <LoadingState />
           ) : comissoesMarcas.isError ? (
@@ -411,37 +419,10 @@ export function FinanceiroPage() {
                   <CardBody className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold text-ink">Corrigir cálculo pendente</p>
-                      <p className="mt-0.5 text-xs text-ink-muted">Recalcula lives encerradas com GMV sem comissão e mostra as que ainda precisam de ajuste no cadastro.</p>
+                      <p className="mt-0.5 text-xs text-ink-muted">Cria a apuração das lives encerradas sem venda e recalcula quando o GMV da venda diverge. Comissão zero com o mesmo GMV permanece.</p>
                     </div>
                     <Button onClick={() => reprocessar.mutate()} isLoading={reprocessar.isPending}>Recalcular comissões agora</Button>
                   </CardBody>
-                  {reprocessar.isError ? (
-                    <CardBody className="border-t border-line">
-                      <p className="rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{extractErrorMessage(reprocessar.error)}</p>
-                    </CardBody>
-                  ) : null}
-                  {reprocessar.data ? (
-                    <CardBody className="space-y-2 border-t border-line text-sm">
-                      <p className="text-ink">
-                        <span className="font-bold text-[var(--success)]">{asNumber(reprocessar.data.recalculadas_com_comissao)}</span> live(s) recalculada(s) com comissão
-                        {' · '}{asNumber(reprocessar.data.lives_sem_comissao_encontradas)} sem comissão encontradas
-                      </p>
-                      {asArray<JsonRecord>(reprocessar.data.ainda_zeradas).length ? (
-                        <div className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-ink">
-                          <p className="mb-1 font-semibold text-[var(--warning)]">Ainda zeradas (precisa ajuste de cadastro):</p>
-                          <ul className="space-y-0.5">
-                            {asArray<JsonRecord>(reprocessar.data.ainda_zeradas).map((l) => (
-                              <li key={asString(l.live_id)}>
-                                {asString(l.nome)} · {asString(l.dia)} · GMV {formatMoney(l.gmv)} — <span className="text-ink-muted">{asString(l.motivo)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-ink-muted">Nenhuma live ficou sem comissão após o recálculo.</p>
-                      )}
-                    </CardBody>
-                  ) : null}
                 </Card>
               ) : null}
               <details className="group rounded-2xl border border-line bg-surface">
