@@ -37,17 +37,49 @@ function currentMonth() {
   return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date())
 }
 
-function initialForm(): CondicaoForm {
+export function initialForm(): CondicaoForm {
   return {
     competencia: currentMonth(),
-    fixo_mensal: '0',
-    comissao_franquia_pct: '0',
-    comissao_franqueadora_pct: '0',
+    fixo_mensal: '',
+    comissao_franquia_pct: '',
+    comissao_franqueadora_pct: '',
     tipo_cobranca: 'fixo_mais_comissao',
     fixo_confirmado: false,
     comissao_confirmada: false,
     motivo: '',
   }
+}
+
+function readMoney(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed || !/\d/.test(trimmed)) return null
+  const parsed = parseBRMoneyToDecimal(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function readPercent(value: string): number | null {
+  const trimmed = value.trim().replace(',', '.')
+  if (!trimmed) return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/** Campo vazio não vira 0. Zero explícito só segue com o checkbox de confirmação. */
+export function condicaoSubmitError(form: CondicaoForm): string | null {
+  const fixo = readMoney(form.fixo_mensal)
+  const franquia = readPercent(form.comissao_franquia_pct)
+  const franqueadora = readPercent(form.comissao_franqueadora_pct)
+  if (fixo === null || franquia === null || franqueadora === null) return 'informe o valor'
+  if (fixo === 0 && !form.fixo_confirmado) return 'Confirme o valor zero.'
+  if ((franquia === 0 || franqueadora === 0) && !form.comissao_confirmada) return 'Confirme o valor zero.'
+  return null
+}
+
+export function submitMarcaCondicao(form: CondicaoForm, send: (payload: JsonRecord) => void): string | null {
+  const error = condicaoSubmitError(form)
+  if (error) return error
+  send(buildMarcaCondicaoProposal(form))
+  return null
 }
 
 function numberValue(value: unknown) {
@@ -92,9 +124,9 @@ function conditionValue(condition: JsonRecord | null | undefined, key: string) {
 export function buildMarcaCondicaoProposal(form: CondicaoForm): JsonRecord {
   return {
     inicio_vigencia: form.competencia,
-    fixo_mensal: parseBRMoneyToDecimal(form.fixo_mensal),
-    comissao_franquia_pct: Number(form.comissao_franquia_pct || 0),
-    comissao_franqueadora_pct: Number(form.comissao_franqueadora_pct || 0),
+    fixo_mensal: readMoney(form.fixo_mensal),
+    comissao_franquia_pct: readPercent(form.comissao_franquia_pct),
+    comissao_franqueadora_pct: readPercent(form.comissao_franqueadora_pct),
     tipo_cobranca: form.tipo_cobranca,
     fixo_confirmado: form.fixo_confirmado,
     comissao_confirmada: form.comissao_confirmada,
@@ -179,6 +211,13 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
     setError(null)
   }
 
+  function rejectIncompleteCondicao() {
+    const message = condicaoSubmitError(form)
+    if (!message) return false
+    setError(message)
+    return true
+  }
+
   function cancelEditor() {
     setEditorOpen(false)
     setPreviewData(null)
@@ -235,7 +274,7 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
             <label className="block sm:col-span-2"><span className="text-sm font-semibold text-ink">Motivo da alteração</span><textarea aria-label="Motivo da alteração" className="design-input mt-2 min-h-20 w-full px-4 py-3" maxLength={255} value={form.motivo} onChange={(event) => setField('motivo', event.target.value)} placeholder="Ex.: novo contrato a partir de setembro" /></label>
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2"><label className="flex items-start gap-2 text-sm text-ink"><input type="checkbox" className="mt-1 h-4 w-4 accent-brand" checked={form.fixo_confirmado} onChange={(event) => setField('fixo_confirmado', event.target.checked)} /><span>Confirmo o valor fixo para esta competência.</span></label><label className="flex items-start gap-2 text-sm text-ink"><input type="checkbox" className="mt-1 h-4 w-4 accent-brand" checked={form.comissao_confirmada} onChange={(event) => setField('comissao_confirmada', event.target.checked)} /><span>Confirmo as comissões para esta competência.</span></label></div>
-          {previewData ? <div className="mt-5 rounded-2xl border border-brand/30 bg-brand-soft p-4"><div className="flex items-center gap-2 text-sm font-bold text-ink"><Pencil aria-hidden="true" className="h-4 w-4" />Prévia antes de confirmar</div><div className="mt-3 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-line bg-surface p-3"><p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Antes</p><p className="mt-2 text-sm text-ink">{conditionSummary(previous)}</p></div><div className="rounded-xl border border-brand/30 bg-surface p-3"><p className="text-xs font-semibold uppercase tracking-wide text-brand">Depois · {monthLabel(proposal.inicio_vigencia)}</p><p className="mt-2 text-sm text-ink">{conditionSummary(proposal)}</p></div></div><p className="mt-3 text-xs text-ink-muted">Impacto no intervalo: {numberValue(impact.movimentos_abertos)} movimentos abertos · {numberValue(impact.movimentos_fechados)} fechados · GMV aberto {formatMoney(impact.gmv_aberto)}.</p><div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="primary" isLoading={confirmMutation.isPending} onClick={() => confirmMutation.mutate()}>Confirmar condição</Button><Button type="button" variant="secondary" onClick={() => { setPreviewData(null); idempotencyKeyRef.current = null }}>Voltar e editar</Button></div></div> : <Button type="button" className="mt-5" isLoading={previewMutation.isPending} onClick={() => previewMutation.mutate()}>Revisar impacto</Button>}
+          {previewData ? <div className="mt-5 rounded-2xl border border-brand/30 bg-brand-soft p-4"><div className="flex items-center gap-2 text-sm font-bold text-ink"><Pencil aria-hidden="true" className="h-4 w-4" />Prévia antes de confirmar</div><div className="mt-3 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-line bg-surface p-3"><p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Antes</p><p className="mt-2 text-sm text-ink">{conditionSummary(previous)}</p></div><div className="rounded-xl border border-brand/30 bg-surface p-3"><p className="text-xs font-semibold uppercase tracking-wide text-brand">Depois · {monthLabel(proposal.inicio_vigencia)}</p><p className="mt-2 text-sm text-ink">{conditionSummary(proposal)}</p></div></div><p className="mt-3 text-xs text-ink-muted">Impacto no intervalo: {numberValue(impact.movimentos_abertos)} movimentos abertos · {numberValue(impact.movimentos_fechados)} fechados · GMV aberto {formatMoney(impact.gmv_aberto)}.</p><div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="primary" isLoading={confirmMutation.isPending} onClick={() => { if (rejectIncompleteCondicao()) return; confirmMutation.mutate() }}>Confirmar condição</Button><Button type="button" variant="secondary" onClick={() => { setPreviewData(null); idempotencyKeyRef.current = null }}>Voltar e editar</Button></div></div> : <Button type="button" className="mt-5" isLoading={previewMutation.isPending} onClick={() => { if (rejectIncompleteCondicao()) return; previewMutation.mutate() }}>Revisar impacto</Button>}
           {error ? <p role="alert" className="mt-3 rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
           <p className="mt-3 text-xs text-ink-muted">Revisão atual: {expectedRevision}. A confirmação verifica se outra pessoa alterou a marca desde a prévia.</p>
         </CardBody></Card>

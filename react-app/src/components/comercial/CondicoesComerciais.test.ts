@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildMarcaCondicaoProposal } from './CondicoesComerciais'
+import { buildMarcaCondicaoProposal, initialForm, submitMarcaCondicao } from './CondicoesComerciais'
 import { commercialConfigCodes, commercialConfigSummary } from '../../utils/comercial-config'
+import type { JsonRecord } from '../../types/models'
 
 describe('condições comerciais temporais', () => {
   it('renderiza somente os códigos canônicos de pendência recebidos do backend', () => {
@@ -28,5 +29,62 @@ describe('condições comerciais temporais', () => {
       comissao_franqueadora_pct: 2, tipo_cobranca: 'fixo_mais_comissao',
       fixo_confirmado: true, comissao_confirmada: true, origem: 'gestao', motivo: 'Novo contrato',
     })
+  })
+
+  it('começa com fixo e comissões vazios, sem zero inventado', () => {
+    const form = initialForm()
+    expect(form.fixo_mensal).toBe('')
+    expect(form.comissao_franquia_pct).toBe('')
+    expect(form.comissao_franqueadora_pct).toBe('')
+  })
+
+  it('não chama a API quando um valor numérico está vazio', () => {
+    const calls: JsonRecord[] = []
+    const error = submitMarcaCondicao({
+      ...initialForm(),
+      fixo_mensal: '1.200,00',
+      comissao_franquia_pct: '8',
+      comissao_franqueadora_pct: '',
+    }, (payload) => { calls.push(payload) })
+
+    expect(error).toBe('informe o valor')
+    expect(calls).toEqual([])
+  })
+
+  it('envia zero numérico só com o checkbox de confirmação', () => {
+    const calls: JsonRecord[] = []
+    const blocked = submitMarcaCondicao({
+      ...initialForm(),
+      fixo_mensal: '0',
+      comissao_franquia_pct: '0',
+      comissao_franqueadora_pct: '0',
+      fixo_confirmado: false,
+      comissao_confirmada: false,
+    }, (payload) => { calls.push(payload) })
+    expect(blocked).toBe('Confirme o valor zero.')
+    expect(calls).toEqual([])
+
+    const error = submitMarcaCondicao({
+      ...initialForm(),
+      fixo_mensal: '0,00',
+      comissao_franquia_pct: '0',
+      comissao_franqueadora_pct: '0',
+      fixo_confirmado: true,
+      comissao_confirmada: true,
+      motivo: 'Contrato zerado',
+    }, (payload) => { calls.push(payload) })
+
+    expect(error).toBeNull()
+    expect(calls).toEqual([{
+      inicio_vigencia: initialForm().competencia,
+      fixo_mensal: 0,
+      comissao_franquia_pct: 0,
+      comissao_franqueadora_pct: 0,
+      tipo_cobranca: 'fixo_mais_comissao',
+      fixo_confirmado: true,
+      comissao_confirmada: true,
+      origem: 'gestao',
+      motivo: 'Contrato zerado',
+    }])
   })
 })
