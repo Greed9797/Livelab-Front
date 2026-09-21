@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { confirmMarcaCondicao, createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getMarcaCondicoes, getVideos, iniciarLive, previewMarcaCondicao, publishLive, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
+import { confirmMarcaCondicao, createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getMarcaCondicoes, getVideos, iniciarLive, previewMarcaCondicao, publishLive, type LiveResumoDiaResponse, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -113,7 +113,7 @@ describe('domain live operations', () => {
   })
 
   it('loads daily summary for lives via /lives/resumo-dia', async () => {
-    vi.mocked(apiGet).mockResolvedValue({ data: '2026-09-11', texto_whatsapp: '...' })
+    vi.mocked(apiGet).mockResolvedValue({ data: '2026-09-11', texto_whatsapp: '...' } as LiveResumoDiaResponse)
 
     await getLivesResumoDia({ data: '2026-09-11' })
 

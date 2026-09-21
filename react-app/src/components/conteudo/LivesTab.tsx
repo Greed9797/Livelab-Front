@@ -31,7 +31,7 @@ import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { officialLiveGmv } from '../../utils/live-gmv'
-import { getLiveUnionCapabilities, getLivesResumoDia } from '../../services/domain'
+import { getLiveUnionCapabilities, getLivesResumoDia, type LiveResumoDiaResponse } from '../../services/domain'
 import {
   calcDuration,
   classifyLivePendings,
@@ -168,7 +168,9 @@ export function groupLivesBySaoPauloDay(lives: JsonRecord[]) {
     .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
 }
 
-type LivesResumoDiaFetcher = typeof getLivesResumoDia
+type LivesResumoDiaFetcher = (
+  params: { data: string; status?: string },
+) => Promise<Pick<LiveResumoDiaResponse, 'texto_whatsapp'>>
 
 /** Server `texto_whatsapp` only — no client fallback (see LIV-1). */
 export async function fetchDaySummaryWhatsAppText(
