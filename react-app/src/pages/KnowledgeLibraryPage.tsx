@@ -24,9 +24,12 @@ import {
   getTrainingLesson,
   getTrainingTrails,
   removeTrainingBookmark,
+  startTrainingLesson,
   trainingLessonPath,
   trainingLessonToMaterial,
   type TrainingLesson,
+  type TrainingLessonDetail,
+  type TrainingUpdate,
 } from '../services/training'
 
 const KnowledgeEditor = lazy(() => import('../components/knowledge/KnowledgeEditor').then((module) => ({ default: module.KnowledgeEditor })))
@@ -38,6 +41,19 @@ type LibrarySource = 'all' | 'unit' | 'network'
 type LearnerTab = 'home' | 'trails' | 'library' | 'updates' | 'saved'
 
 function isManager(role?: string) { return Boolean(role && MANAGERS.has(role)) }
+
+function staleUpdateForLesson(lesson: TrainingLessonDetail, updates: TrainingUpdate[]): TrainingUpdate | null {
+  const lessonStamp = Date.parse(lesson.updated_at || lesson.published_at || '')
+  const lessonSlug = lesson.source?.slug
+  for (const item of updates) {
+    const matches = item.lesson_id === lesson.id || (lessonSlug && item.source?.slug === lessonSlug)
+    if (!matches) continue
+    const updateStamp = Date.parse(item.published_at || item.effective_on || '')
+    if (!Number.isFinite(updateStamp)) continue
+    if (!Number.isFinite(lessonStamp) || updateStamp > lessonStamp) return item
+  }
+  return null
+}
 function materialRef(material: KnowledgeMaterial) { return asString(material.slug) || asString(material.id) }
 function globalType(row: Record<string, unknown>): KnowledgeMaterial['material_type'] {
   if (asString(row.video_provider) && asString(row.video_provider) !== 'none') return 'video'
@@ -97,16 +113,34 @@ export function KnowledgeLibraryPage() {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
   const [learnerFilters, setLearnerFilters] = useState<TrainingFilters>(emptyTrainingFilters)
   const articleHeading = useRef<HTMLHeadingElement>(null)
+  const saveIdempotencyKeyRef = useRef<string | null>(null)
+  const lessonStartedRef = useRef<Set<string>>(new Set())
   const client = useQueryClient()
+  const homeRole = learnerFilters.role || undefined
   const articleRef = params.get('material') ?? ''
   const globalArticleRef = params.get('artigo') ?? ''
   const filters = useMemo(() => ({ q: search.trim() || undefined, category_slug: categoryOrigin === 'local' ? category || undefined : undefined, material_type: type || undefined, status: manager && admin ? status : 'published', page: 1, page_size: 48 }), [admin, category, categoryOrigin, manager, search, status, type])
   const catalogTab = !lessonId && (tab === 'trails' || tab === 'library' || Boolean(trailSlug))
-  const trainingHome = useQuery({ queryKey: QK.trainingHome(tenantId), queryFn: () => getTrainingHome(), enabled: Boolean(tenantId && !admin && !articleRef && !globalArticleRef && !lessonId) })
+  const trainingHome = useQuery({
+    queryKey: QK.trainingHome(tenantId, homeRole),
+    queryFn: () => getTrainingHome(homeRole ? { role: homeRole } : {}),
+    enabled: Boolean(tenantId && !admin && !articleRef && !globalArticleRef),
+  })
   const homeHasStarter = Boolean(trainingHome.data?.starter_trail || trainingHome.data?.start_here)
   const trainingTrails = useQuery({ queryKey: QK.trainingTrails(tenantId), queryFn: getTrainingTrails, enabled: Boolean(tenantId && !admin && (catalogTab || (trainingHome.isSuccess && !homeHasStarter))) })
   const trainingBookmarks = useQuery({ queryKey: QK.trainingBookmarks(tenantId, user?.id), queryFn: getTrainingBookmarks, enabled: Boolean(tenantId && !admin && tab === 'saved') })
-  const trainingLesson = useQuery({ queryKey: QK.trainingLesson(tenantId, lessonId ?? ''), queryFn: () => getTrainingLesson(lessonId!), enabled: Boolean(tenantId && lessonId) })
+  const trainingLesson = useQuery({
+    queryKey: QK.trainingLesson(tenantId, lessonId ?? ''),
+    queryFn: async () => {
+      const id = lessonId!
+      if (!lessonStartedRef.current.has(id)) {
+        await startTrainingLesson(id)
+        lessonStartedRef.current.add(id)
+      }
+      return getTrainingLesson(id, false)
+    },
+    enabled: Boolean(tenantId && lessonId),
+  })
   const categories = useQuery({ queryKey: QK.knowledgeUnitCategories(tenantId), queryFn: manager ? getKnowledgeUnitCategoriesForManagement : getKnowledgeUnitCategories, enabled: Boolean(tenantId && (admin || editorOpen || categoryModalOpen)) })
   const materials = useQuery({ queryKey: QK.knowledgeUnitMaterials(tenantId, filters), queryFn: () => getKnowledgeUnitMaterials(filters), enabled: Boolean(tenantId && (admin || articleRef)) })
   const globalCategories = useQuery({ queryKey: QK.knowledgeGlobalCategories(tenantId), queryFn: getKnowledgeCategories, enabled: Boolean(tenantId && admin) })
@@ -119,11 +153,24 @@ export function KnowledgeLibraryPage() {
   const editCategory = useMutation({ mutationFn: ({ id, name }: { id: string; name: string }) => updateKnowledgeUnitCategory(id, { name }), onSuccess: () => { void client.invalidateQueries({ queryKey: QK.knowledgeUnitCategories(tenantId) }) } })
   const toggleCategory = useMutation({ mutationFn: (category: KnowledgeCategory) => updateKnowledgeUnitCategory(category.id, { is_active: category.is_active === false }), onSuccess: () => { void client.invalidateQueries({ queryKey: QK.knowledgeUnitCategories(tenantId) }) } })
   const reorderCategories = useMutation({ mutationFn: reorderKnowledgeUnitCategories, onSuccess: () => { void client.invalidateQueries({ queryKey: QK.knowledgeUnitCategories(tenantId) }) } })
+  function ensureSaveIdempotencyKey() {
+    if (!saveIdempotencyKeyRef.current) {
+      saveIdempotencyKeyRef.current = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`
+    }
+    return saveIdempotencyKeyRef.current
+  }
+
+  function resetSaveIdempotencyKey() {
+    saveIdempotencyKeyRef.current = null
+  }
+
   const saveMaterial = useMutation({
     mutationFn: async ({ payload, attachment }: { payload: KnowledgeMaterialInput; attachment: File | null }) => {
       const saved = editingId
         ? await updateKnowledgeUnitMaterial(editingId, { ...payload, expected_revision: editDetail.data?.revision ?? 1 })
-        : await createKnowledgeUnitMaterial(payload, crypto.randomUUID())
+        : await createKnowledgeUnitMaterial(payload, ensureSaveIdempotencyKey())
       let attachmentError: string | undefined
       if (attachment) {
         try { await uploadKnowledgeUnitAttachment(saved.id, attachment) }
@@ -132,6 +179,7 @@ export function KnowledgeLibraryPage() {
       return { material: { ...saved, video_url: payload.video_url }, attachmentError }
     },
     onSuccess: ({ material }) => {
+      resetSaveIdempotencyKey()
       void client.invalidateQueries({ queryKey: QK.knowledgeUnitMaterials(tenantId) })
       void client.invalidateQueries({ queryKey: QK.knowledgeUnitMaterial(tenantId, materialRef(material)) })
     },
@@ -217,8 +265,9 @@ export function KnowledgeLibraryPage() {
       return next
     })
   }
-  function openNew() { setEditingId(''); setEditorOpen(true) }
+  function openNew() { resetSaveIdempotencyKey(); setEditingId(''); setEditorOpen(true) }
   function openEdit(material: KnowledgeMaterial) {
+    resetSaveIdempotencyKey()
     setEditingId(materialRef(material))
     setEditorOpen(true)
     setParams((current) => {
@@ -228,7 +277,7 @@ export function KnowledgeLibraryPage() {
       return next
     })
   }
-  function closeEditor() { setEditorOpen(false); setEditingId('') }
+  function closeEditor() { resetSaveIdempotencyKey(); setEditorOpen(false); setEditingId('') }
   const openAttachment = useCallback(async (materialId: string, attachment: { id: string }) => {
     const result = await getKnowledgeUnitAttachment(materialId, attachment.id)
     if (!safeExternalUrl(result.url)) throw new Error('Link do PDF indisponível')
@@ -271,6 +320,16 @@ export function KnowledgeLibraryPage() {
         ? unitSource.data
         : networkSource.data ? asGlobalMaterial(networkSource.data) : undefined
     )
+    const staleUpdate = trainingHome.data
+      ? staleUpdateForLesson(trainingLesson.data, trainingHome.data.updates)
+      : null
+    const staleBanner = staleUpdate ? {
+      title: staleUpdate.title,
+      onOpen: () => {
+        if (staleUpdate.lesson_id) navigate(trainingLessonPath(trainingLesson.data.trail.slug, staleUpdate.lesson_id))
+        else if (staleUpdate.official_url) navigate(staleUpdate.official_url)
+      },
+    } : null
     return (
       <>
         <Suspense fallback={<LoadingState label="Abrindo aula" />}>
@@ -279,6 +338,7 @@ export function KnowledgeLibraryPage() {
             material={sourceMaterial}
             manager={manager && (sourceRef?.kind === 'unit_material' || sourceRef?.origin === 'unidade')}
             headingRef={articleHeading}
+            staleUpdate={staleBanner}
             onBack={closeLesson}
             onOpen={(id) => navigate(trainingLessonPath(trainingLesson.data.trail.slug, id))}
             onEdit={sourceRef?.kind === 'unit_material' || sourceRef?.origin === 'unidade'
@@ -292,11 +352,8 @@ export function KnowledgeLibraryPage() {
               })
               : undefined}
             onCopyLink={async () => { await navigator.clipboard.writeText(window.location.href) }}
-            onComplete={() => {
-              void completeLesson.mutateAsync(trainingLesson.data.id).then((result) => {
-                if (result.resume_path) navigate(result.resume_path)
-              })
-            }}
+            onComplete={() => completeLesson.mutateAsync(trainingLesson.data.id)}
+            onFollowResume={(path) => navigate(path)}
             onBookmark={() => { void toggleBookmark.mutateAsync(trainingLesson.data) }}
             onOpenAttachment={sourceRef?.kind === 'unit_material' || sourceRef?.origin === 'unidade' ? (id, attachment) => { void openAttachment(id, attachment) } : undefined}
           />
@@ -336,7 +393,14 @@ export function KnowledgeLibraryPage() {
               onOpen={() => undefined}
               onEdit={articleRef ? () => openEdit(adminMaterial) : undefined}
               onCopyLink={articleRef ? async () => { await navigator.clipboard.writeText(window.location.href) } : undefined}
-              onComplete={() => undefined}
+              onComplete={async () => ({
+                lesson_id: adminMaterial.id,
+                started_at: null,
+                last_opened_at: null,
+                completed_at: null,
+                next_lesson_id: null,
+                resume_path: null,
+              })}
               onBookmark={() => undefined}
               onOpenAttachment={articleRef ? (id, attachment) => { void openAttachment(id, attachment) } : undefined}
             />

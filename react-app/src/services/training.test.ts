@@ -1,11 +1,35 @@
-import { describe, expect, it } from 'vitest'
-import { trainingLessonPath, trainingLessonToMaterial, type TrainingLesson } from './training'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { apiGet, apiPost } from './api'
+import { getTrainingLesson, startTrainingLesson, trainingLessonPath, trainingLessonToMaterial, type TrainingLesson } from './training'
+
+vi.mock('./api', () => ({
+  apiGet: vi.fn(),
+  apiPost: vi.fn(),
+}))
 
 const baseLesson = (): TrainingLesson => ({
   id: 'lesson-1',
   title: 'Hook dos 30 segundos',
   progress: { state: 'not_started', started_at: null, last_opened_at: null, completed_at: null },
   source: { kind: 'unit_material', id: 'mat-1', slug: 'hook-30s', origin: 'unidade' },
+})
+
+beforeEach(() => {
+  vi.mocked(apiGet).mockReset()
+  vi.mocked(apiPost).mockReset()
+})
+
+describe('training lesson fetch', () => {
+  it('requests GET with start=false by default and uses POST /start separately', async () => {
+    vi.mocked(apiPost).mockResolvedValue({ lesson_id: 'lesson-1', started_at: '2026-09-20T12:00:00.000Z', last_opened_at: null, completed_at: null })
+    vi.mocked(apiGet).mockResolvedValue({ id: 'lesson-1', title: 'Aula', progress: { state: 'in_progress', started_at: null, last_opened_at: null, completed_at: null }, trail: { slug: 'trail', title: 'Trilha' }, module: { title: 'Módulo' }, resume_path: '/conhecimento', outline: [] })
+
+    await startTrainingLesson('lesson-1')
+    await getTrainingLesson('lesson-1')
+
+    expect(apiPost).toHaveBeenCalledWith('/training/lessons/lesson-1/start')
+    expect(apiGet).toHaveBeenCalledWith('/training/lessons/lesson-1', { start: 'false' })
+  })
 })
 
 describe('training resume path', () => {

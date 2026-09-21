@@ -106,7 +106,7 @@ export function KnowledgeEditor({ open, material, categories, onClose, onSave }:
     setError('')
     setSaving(true)
     try {
-      const result = await onSave({
+      const payload: KnowledgeMaterialInput = {
         ...form,
         titulo: form.titulo.trim(),
         excerpt: form.excerpt?.trim() || null,
@@ -125,7 +125,11 @@ export function KnowledgeEditor({ open, material, categories, onClose, onSave }:
         audience_role: form.audience_role || null,
         topic: form.topic || null,
         platform: form.platform || null,
-      }, file)
+      }
+      if (material?.status === 'published') {
+        delete payload.status
+      }
+      const result = await onSave(payload, file)
       const next = formFromMaterial(result.material)
       setForm(next)
       setFile(null)
@@ -183,7 +187,11 @@ export function KnowledgeEditor({ open, material, categories, onClose, onSave }:
           {preview ? <article aria-label="Prévia do material" className="mt-2 min-h-48 rounded-xl border border-line bg-surface-muted p-4 text-sm leading-7 text-ink [&_a]:text-brand [&_a]:underline [&_h1]:mt-5 [&_h1]:text-2xl [&_h2]:mt-5 [&_h2]:text-xl [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-xl [&_pre]:bg-surface [&_pre]:p-3 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: sanitizeKnowledgeMarkdown(form.content_markdown) }} /> : <><div className="mt-2 flex flex-wrap gap-1 rounded-t-xl border border-b-0 border-line bg-surface-muted p-2"><Button type="button" size="icon" variant="ghost" aria-label="Negrito" title="Negrito" onClick={() => toolbar('**')}>B</Button><Button type="button" size="icon" variant="ghost" aria-label="Itálico" title="Itálico" onClick={() => toolbar('*')}>I</Button><Button type="button" size="icon" variant="ghost" aria-label="Título" title="Título" onClick={() => toolbar('## ', '')}>H</Button><Button type="button" size="icon" variant="ghost" aria-label="Lista" title="Lista" onClick={() => toolbar('- ', '')}>•</Button><Button type="button" size="icon" variant="ghost" aria-label="Link" title="Link" onClick={() => toolbar('[', '](https://)')}><Link2 className="h-4 w-4" /></Button></div><textarea id="knowledge-markdown" className="design-input min-h-56 w-full rounded-t-none px-3 py-3 font-mono text-sm" value={form.content_markdown ?? ''} onChange={(event) => update('content_markdown', event.target.value)} placeholder="Escreva o playbook em Markdown..." /></>}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-2 text-sm font-semibold text-ink">Status<select className="design-input h-11 px-3" value={form.status} onChange={(event) => update('status', event.target.value as KnowledgeMaterialStatus)}><option value="draft">Rascunho</option><option value="published">Publicado</option><option value="archived">Arquivado</option></select></label>
+          {material?.status === 'published' ? (
+            <label className="grid gap-2 text-sm font-semibold text-ink">Status<input className="design-input h-11 px-3" value="Publicado" disabled readOnly aria-readonly="true" /></label>
+          ) : (
+            <label className="grid gap-2 text-sm font-semibold text-ink">Status<select className="design-input h-11 px-3" value={form.status ?? 'draft'} onChange={(event) => update('status', event.target.value as KnowledgeMaterialStatus)}><option value="draft">Rascunho</option><option value="archived">Arquivado</option></select></label>
+          )}
           <label className="grid gap-2 text-sm font-semibold text-ink">Anexo PDF <span className="text-xs font-normal text-ink-muted">Até 10 MB; o upload só ocorre ao salvar um material.</span><input className="design-input h-11 px-3 py-2 text-sm" type="file" accept="application/pdf,.pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
         </div>
         <p className="flex items-start gap-2 text-xs text-ink-muted"><FilePlus2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />O servidor valida o conteúdo e as URLs. Scripts, HTML ativo e embeds arbitrários são bloqueados.</p>

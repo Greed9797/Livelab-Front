@@ -12,7 +12,7 @@ import type { Session, User } from '../types/models'
 //     Same-Site + CORS + backend BFF para emitir o cookie — mudança de arquitetura.
 //
 // Mitigações atuais (não eliminam o risco, apenas reduzem):
-//   1. Access token de curta duração (15min via JWT_EXPIRES_IN).
+//   1. Access token de curta duração (60min via JWT_EXPIRES_IN).
 //   2. token_version no banco invalida tokens comprometidos via /redefinir-senha.
 //   3. (PENDENTE) O SPA ainda NÃO possui CSP próprio. O helmet protege apenas as
 //      respostas da API backend — não o HTML servido pela Vercel. Adicionar CSP

@@ -8,13 +8,10 @@ export type TrainingTopic = 'live' | 'shop' | 'ads' | 'conteudo' | 'politicas'
 export type TrainingPlatform = 'tiktok'
 export type TrainingFormat = KnowledgeMaterial['material_type']
 export type TrainingOrigin = 'unit' | 'network'
-export type LessonProgressStatus = 'not_started' | 'in_progress' | 'completed'
 export type Freshness = 'novo' | 'atualizado' | null
 
 export const STARTER_TRAIL_ID = 'primeira-live-que-converte'
 export const STARTER_TRAIL_TITLE = 'Primeira Live que converte'
-const PROGRESS_PREFIX = 'livelab.knowledge.progress.'
-const PROGRESS_VERSION = 1
 
 const ROLE_ALIASES: Record<string, TrainingRole> = {
   apresentadora: 'apresentadora',
@@ -78,20 +75,6 @@ export const FORMAT_LABEL: Record<TrainingFormat, string> = {
   video: 'Vídeo',
   document: 'Documento',
   link: 'Link',
-}
-
-export interface LearnerLessonState {
-  material_id: string
-  started_at: string | null
-  completed_at: string | null
-  last_opened_at: string | null
-  bookmarked: boolean
-}
-
-export interface LearnerProgressContract {
-  version: number
-  last_opened_id: string | null
-  lessons: Record<string, LearnerLessonState>
 }
 
 export interface CatalogLesson {
@@ -391,107 +374,6 @@ export function updateLessons(lessons: CatalogLesson[]): CatalogLesson[] {
   return lessons
     .filter((lesson) => lesson.material.status === 'published' && lesson.freshness)
     .sort((left, right) => Date.parse(right.updatedAt ?? right.publishedAt ?? '') - Date.parse(left.updatedAt ?? left.publishedAt ?? ''))
-}
-
-function emptyContract(): LearnerProgressContract {
-  return { version: PROGRESS_VERSION, last_opened_id: null, lessons: {} }
-}
-
-function lessonState(materialId: string, current?: LearnerLessonState): LearnerLessonState {
-  return current ?? { material_id: materialId, started_at: null, completed_at: null, last_opened_at: null, bookmarked: false }
-}
-
-export function progressStatus(state?: LearnerLessonState): LessonProgressStatus {
-  if (state?.completed_at) return 'completed'
-  if (state?.started_at) return 'in_progress'
-  return 'not_started'
-}
-
-const memoryProgress = new Map<string, string>()
-
-function progressKey(userId: string) {
-  return `${PROGRESS_PREFIX}${userId}`
-}
-
-function readProgressRaw(userId: string): string | null {
-  const key = progressKey(userId)
-  if (typeof localStorage !== 'undefined') return localStorage.getItem(key)
-  return memoryProgress.get(key) ?? null
-}
-
-export function readLearnerProgress(userId: string): LearnerProgressContract {
-  if (!userId) return emptyContract()
-  try {
-    const raw = readProgressRaw(userId)
-    if (!raw) return emptyContract()
-    const parsed = JSON.parse(raw) as LearnerProgressContract
-    if (!parsed || parsed.version !== PROGRESS_VERSION || typeof parsed.lessons !== 'object') return emptyContract()
-    return { version: PROGRESS_VERSION, last_opened_id: parsed.last_opened_id ?? null, lessons: parsed.lessons ?? {} }
-  } catch {
-    return emptyContract()
-  }
-}
-
-export function writeLearnerProgress(userId: string, contract: LearnerProgressContract) {
-  if (!userId) return
-  const key = progressKey(userId)
-  const value = JSON.stringify({ ...contract, version: PROGRESS_VERSION })
-  if (typeof localStorage !== 'undefined') localStorage.setItem(key, value)
-  else memoryProgress.set(key, value)
-}
-
-export function clearLearnerProgress(userId: string) {
-  const key = progressKey(userId)
-  if (typeof localStorage !== 'undefined') localStorage.removeItem(key)
-  memoryProgress.delete(key)
-}
-
-function updateLesson(userId: string, materialId: string, patch: (current: LearnerLessonState) => LearnerLessonState, lastOpened = false): LearnerProgressContract {
-  const current = readLearnerProgress(userId)
-  const next: LearnerProgressContract = {
-    ...current,
-    last_opened_id: lastOpened ? materialId : current.last_opened_id,
-    lessons: { ...current.lessons, [materialId]: patch(lessonState(materialId, current.lessons[materialId])) },
-  }
-  writeLearnerProgress(userId, next)
-  return next
-}
-
-export function markLessonOpened(userId: string, materialId: string, at = new Date().toISOString()): LearnerProgressContract {
-  return updateLesson(userId, materialId, (current) => ({
-    ...current,
-    started_at: current.started_at ?? at,
-    last_opened_at: at,
-  }), true)
-}
-
-export function markLessonComplete(userId: string, materialId: string, at = new Date().toISOString()): LearnerProgressContract {
-  return updateLesson(userId, materialId, (current) => ({
-    ...current,
-    started_at: current.started_at ?? at,
-    last_opened_at: current.last_opened_at ?? at,
-    completed_at: current.completed_at ?? at,
-  }))
-}
-
-export function toggleLessonBookmark(userId: string, materialId: string): LearnerProgressContract {
-  return updateLesson(userId, materialId, (current) => ({ ...current, bookmarked: !current.bookmarked }))
-}
-
-export function trailProgress(trail: TrainingTrail, progress: LearnerProgressContract): { completed: number; total: number; percent: number } {
-  const total = trail.lessonIds.length
-  const completed = trail.lessonIds.filter((id) => progress.lessons[id]?.completed_at).length
-  return { completed, total, percent: total ? Math.round((completed / total) * 100) : 0 }
-}
-
-export function continueLesson(lessons: CatalogLesson[], trail: TrainingTrail, progress: LearnerProgressContract): CatalogLesson | null {
-  const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]))
-  if (progress.last_opened_id) {
-    const opened = byId.get(progress.last_opened_id)
-    if (opened && !progress.lessons[opened.id]?.completed_at) return opened
-  }
-  const nextRequired = trail.lessonIds.find((id) => !progress.lessons[id]?.completed_at)
-  return (nextRequired ? byId.get(nextRequired) : null) ?? lessons.find((lesson) => lesson.material.status === 'published') ?? null
 }
 
 export function nextTrailLesson(currentId: string, trail: TrainingTrail, lessons: CatalogLesson[]): CatalogLesson | null {

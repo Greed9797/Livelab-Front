@@ -1,5 +1,6 @@
 import { Bookmark, Check, ChevronLeft, Edit3, ExternalLink, Link2 } from 'lucide-react'
 import { useState } from 'react'
+import { useToast } from '../ui/Toast'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, CardBody, CardHeader } from '../ui/Card'
@@ -8,7 +9,7 @@ import { KnowledgeVideoEmbed } from './KnowledgeVideoEmbed'
 import { safeExternalUrl, type KnowledgeAttachment, type KnowledgeMaterial } from '../../services/knowledge'
 import { sanitizeKnowledgeMarkdown } from '../../services/knowledge-markdown'
 import { FORMAT_LABEL, LEVEL_LABEL, TOPIC_LABEL, formatDuration } from '../../services/knowledge-training'
-import type { TrainingLesson, TrainingLessonDetail } from '../../services/training'
+import type { TrainingCompleteResponse, TrainingLesson, TrainingLessonDetail } from '../../services/training'
 import { formatDate } from '../../utils/format'
 import clsx from 'clsx'
 
@@ -23,6 +24,7 @@ export function KnowledgeLessonPage({
   onEdit,
   onCopyLink,
   onComplete,
+  onFollowResume,
   onBookmark,
   onOpenAttachment,
 }: {
@@ -35,11 +37,15 @@ export function KnowledgeLessonPage({
   onOpen: (lessonId: string) => void
   onEdit?: () => void
   onCopyLink?: () => Promise<void> | void
-  onComplete: () => void
+  onComplete: () => Promise<TrainingCompleteResponse>
+  onFollowResume?: (path: string) => void
   onBookmark: () => void
   onOpenAttachment?: (materialId: string, attachment: { id: string }) => void
 }) {
+  const toast = useToast()
   const [copied, setCopied] = useState(false)
+  const [resumePath, setResumePath] = useState<string | null>(null)
+  const [completing, setCompleting] = useState(false)
   const source = material ? safeExternalUrl(material.external_url) : null
   const html = sanitizeKnowledgeMarkdown(material?.content_markdown)
   const rawAttachments = material?.attachments ?? material?.anexos
@@ -65,6 +71,25 @@ export function KnowledgeLessonPage({
     await onCopyLink()
     setCopied(true)
     window.setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function handleComplete() {
+    if (status === 'completed' || completing) return
+    setCompleting(true)
+    try {
+      const result = await onComplete()
+      toast.push('Aula marcada como concluída.', 'success')
+      if (result.resume_path) setResumePath(result.resume_path)
+    } catch {
+      toast.push('Não foi possível concluir a aula.', 'error')
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  function originBadge() {
+    if (lesson.content_available === false || !lesson.source?.origin) return 'Conteúdo pendente'
+    return lesson.source.origin === 'unidade' ? 'Unidade' : 'Rede'
   }
 
   return (
@@ -150,10 +175,11 @@ export function KnowledgeLessonPage({
               {requiredTotal ? ` · Trilha ${completedRequired}/${requiredTotal}` : ''}
             </p>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant={status === 'completed' ? 'secondary' : 'primary'} icon={Check} onClick={onComplete} disabled={status === 'completed'}>
+              <Button type="button" variant={status === 'completed' ? 'secondary' : 'primary'} icon={Check} onClick={() => void handleComplete()} disabled={status === 'completed' || completing} isLoading={completing}>
                 {status === 'completed' ? 'Concluída' : 'Marcar como concluída'}
               </Button>
-              {next ? <Button type="button" variant="secondary" onClick={() => onOpen(next.id)}>Próxima: {next.title}</Button> : null}
+              {resumePath ? <Button type="button" variant="secondary" onClick={() => onFollowResume?.(resumePath)}>Ir para a próxima</Button> : null}
+              {!resumePath && next ? <Button type="button" variant="secondary" onClick={() => onOpen(next.id)}>Próxima: {next.title}</Button> : null}
             </div>
           </div>
           {lesson.outline.length ? (
@@ -180,7 +206,7 @@ export function KnowledgeLessonPage({
               </ol>
             </details>
           ) : null}
-          <Badge tone="neutral">{lesson.source?.origin === 'unidade' ? 'Unidade' : 'Rede'}</Badge>
+          <Badge tone="neutral">{originBadge()}</Badge>
         </CardBody>
       </Card>
     </div>

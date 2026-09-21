@@ -19,6 +19,7 @@ import {
   type TrainingRole,
   type TrainingTopic,
 } from '../../services/knowledge-training'
+import { safeExternalUrl } from '../../services/knowledge'
 import type { TrainingHome, TrainingLesson, TrainingTrail, TrainingUpdate } from '../../services/training'
 import { formatDate } from '../../utils/format'
 
@@ -88,9 +89,10 @@ function FilterFields({ filters, onChange }: { filters: TrainingFilters; onChang
   )
 }
 
-function UpdateCard({ item, onOpen }: { item: TrainingUpdate; onOpen: () => void }) {
-  return (
-    <button type="button" onClick={onOpen} className="block w-full rounded-2xl border border-line bg-surface p-4 text-left">
+function UpdateCard({ item, onOpen }: { item: TrainingUpdate; onOpen?: () => void }) {
+  const actionable = Boolean(item.lesson_id || item.source?.slug)
+  const body = (
+    <>
       <p className="text-xs font-bold uppercase text-ink-muted">
         {item.kind === 'atualizado' || item.freshness === 'atualizado' ? 'Atualizado' : item.kind === 'atualizacao' ? 'Atualização' : 'Novo'}
         {item.published_at || item.effective_on ? ` · ${formatDate(item.effective_on || item.published_at || undefined)}` : ''}
@@ -102,6 +104,15 @@ function UpdateCard({ item, onOpen }: { item: TrainingUpdate; onOpen: () => void
         Vigência {formatDate(item.effective_on || item.published_at || undefined)}
         · Função {item.audience_roles?.[0] ? (ROLE_LABEL[item.audience_roles[0] as TrainingRole] || item.audience_roles[0]) : 'equipe'}
       </p>
+      {!actionable ? <p className="mt-2 text-xs font-semibold text-ink-muted">Card informativo — sem aula vinculada.</p> : null}
+    </>
+  )
+  if (!actionable) {
+    return <div className="rounded-2xl border border-line bg-surface p-4">{body}</div>
+  }
+  return (
+    <button type="button" onClick={onOpen} className="block w-full rounded-2xl border border-line bg-surface p-4 text-left">
+      {body}
     </button>
   )
 }
@@ -169,7 +180,20 @@ export function KnowledgeLearnerHome({
   const filtered = catalog.filter((lesson) => matchesLesson(lesson, filters, search))
   const selectedFilters = activeFilterCount(filters)
   const resume = continueLesson || (starter?.modules?.[0]?.lessons?.[0] ?? null)
+  const resumeCoverUrl = resume ? safeExternalUrl(resume.cover_image_url) : null
   const roleLabel = ROLE_LABEL[home.audience as TrainingRole] || home.audience
+
+  function openUpdate(item: TrainingUpdate) {
+    if (item.lesson_id) {
+      onOpen({
+        id: item.lesson_id,
+        title: item.title,
+        progress: { state: 'not_started', started_at: null, last_opened_at: null, completed_at: null },
+      }, starter?.slug)
+      return
+    }
+    if (item.official_url) onOpenPath(item.official_url)
+  }
 
   return (
     <div className="space-y-6">
@@ -204,8 +228,8 @@ export function KnowledgeLearnerHome({
             <Card>
               <CardBody className="flex flex-col gap-4 lg:flex-row lg:items-center">
                 <button type="button" onClick={() => (home.resume.path ? onOpenPath(home.resume.path) : onOpen(resume, starter?.slug))} className="relative aspect-video w-full overflow-hidden rounded-2xl bg-surface-muted lg:max-w-sm">
-                  {resume.cover_image_url
-                    ? <img src={resume.cover_image_url} alt="" className="h-full w-full object-cover" />
+                  {resumeCoverUrl
+                    ? <img src={resumeCoverUrl} alt="" className="h-full w-full object-cover" />
                     : <div className="flex h-full items-end bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_42%,#1a120e),#1f1814)] p-4 text-sm font-bold text-white">{resume.title}</div>}
                 </button>
                 <div className="min-w-0 flex-1 space-y-2">
@@ -263,7 +287,7 @@ export function KnowledgeLearnerHome({
             <SectionHeader title="Novidades e atualizações" action="Ver todas" onAction={() => onTab('updates')} />
             {home.updates.length
               ? home.updates.slice(0, 3).map((item) => (
-                <UpdateCard key={item.id} item={item} onOpen={() => item.lesson_id ? onOpen({ id: item.lesson_id, title: item.title, progress: { state: 'not_started', started_at: null, last_opened_at: null, completed_at: null } }, starter?.slug) : undefined} />
+                <UpdateCard key={item.id} item={item} onOpen={() => openUpdate(item)} />
               ))
               : <p className="text-sm text-ink-muted">Nenhuma atualização datada neste mês. Datas vêm de publicação ou revisão real.</p>}
           </section>
@@ -309,7 +333,7 @@ export function KnowledgeLearnerHome({
         <div className="space-y-3">
           {home.updates.length
             ? home.updates.map((item) => (
-              <UpdateCard key={item.id} item={item} onOpen={() => item.lesson_id ? onOpen({ id: item.lesson_id, title: item.title, progress: { state: 'not_started', started_at: null, last_opened_at: null, completed_at: null } }, starter?.slug) : undefined} />
+              <UpdateCard key={item.id} item={item} onOpen={() => openUpdate(item)} />
             ))
             : <EmptyState title="Sem atualizações datadas" description="Materiais sem data de publicação ou revisão não entram como novidade." />}
         </div>

@@ -229,10 +229,14 @@ export function knowledgeVideoEmbed(material: Pick<KnowledgeMaterial, 'video_pro
   return null
 }
 
+const LOCAL_HTTP_HOSTS = new Set(['localhost', '127.0.0.1'])
+
 export function safeExternalUrl(value: unknown): string | null {
   if (typeof value !== 'string' || !value.trim()) return null
   try {
     const url = new URL(value)
-    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null
+    if (url.protocol === 'https:') return url.href
+    if (url.protocol === 'http:' && LOCAL_HTTP_HOSTS.has(url.hostname.toLowerCase())) return url.href
+    return null
   } catch { return null }
 }
