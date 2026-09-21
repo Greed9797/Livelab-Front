@@ -227,8 +227,8 @@ export function getTrainingStarter() {
   return apiGet<TrainingTrail>('/training/starter')
 }
 
-export function getTrainingLesson(id: string, start = true) {
-  return apiGet<TrainingLessonDetail>(`/training/lessons/${encodeURIComponent(id)}`, start ? undefined : { start: 'false' })
+export function getTrainingLesson(id: string, start = false) {
+  return apiGet<TrainingLessonDetail>(`/training/lessons/${encodeURIComponent(id)}`, start ? { start: 'true' } : { start: 'false' })
 }
 
 export function startTrainingLesson(id: string) {

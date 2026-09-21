@@ -3,8 +3,11 @@ import { knowledgeVideoEmbed, safeExternalUrl, videoUrlFromKnowledgeMaterial } f
 import { sanitizeKnowledgeMarkdown } from './knowledge-markdown'
 
 describe('knowledge external URLs', () => {
-  it('allows only absolute HTTP(S) links', () => {
+  it('allows HTTPS and local HTTP only', () => {
     expect(safeExternalUrl('https://example.com/manual')).toBe('https://example.com/manual')
+    expect(safeExternalUrl('http://example.com/manual')).toBeNull()
+    expect(safeExternalUrl('http://localhost:3000/docs')).toBe('http://localhost:3000/docs')
+    expect(safeExternalUrl('http://127.0.0.1/manual')).toBe('http://127.0.0.1/manual')
     expect(safeExternalUrl('javascript:alert(1)')).toBeNull()
     expect(safeExternalUrl('data:text/html,x')).toBeNull()
     expect(safeExternalUrl('/relative')).toBeNull()

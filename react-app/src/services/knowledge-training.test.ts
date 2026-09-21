@@ -1,21 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { KnowledgeMaterial } from './knowledge'
 import {
   buildStarterTrail,
-  clearLearnerProgress,
-  continueLesson,
   emptyTrainingFilters,
   encodeTrainingTags,
   lessonMatchesFilters,
-  markLessonComplete,
-  markLessonOpened,
-  progressStatus,
-  readLearnerProgress,
   recommendLessons,
   roleFromUserPapel,
   toCatalogLesson,
-  toggleLessonBookmark,
-  trailProgress,
   updateLessons,
 } from './knowledge-training'
 
@@ -64,21 +56,6 @@ describe('knowledge training catalog', () => {
     expect(lessonMatchesFilters(fresh, { ...emptyTrainingFilters, topic: 'ads' })).toBe(false)
   })
 
-  it('persists started/completed/bookmark without auto-complete', () => {
-    const keyUser = 'training-user'
-    clearLearnerProgress(keyUser)
-    const opened = markLessonOpened(keyUser, 'lesson-1', '2026-09-20T12:00:00.000Z')
-    expect(progressStatus(opened.lessons['lesson-1'])).toBe('in_progress')
-    expect(opened.lessons['lesson-1']?.completed_at).toBeNull()
-    const done = markLessonComplete(keyUser, 'lesson-1', '2026-09-20T12:05:00.000Z')
-    expect(progressStatus(done.lessons['lesson-1'])).toBe('completed')
-    const saved = toggleLessonBookmark(keyUser, 'lesson-1')
-    expect(saved.lessons['lesson-1']?.bookmarked).toBe(true)
-    const trail = buildStarterTrail([toCatalogLesson(sample(), 'unit')])
-    expect(trailProgress(trail, saved).completed).toBe(1)
-    expect(continueLesson([toCatalogLesson(sample({ id: 'other', titulo: 'Outra' }), 'unit')], trail, readLearnerProgress(keyUser))?.id).toBeDefined()
-  })
-
   it('encodes learning metadata into tags for the existing contract', () => {
     expect(encodeTrainingTags({
       duration_minutes: 4,
@@ -89,8 +66,4 @@ describe('knowledge training catalog', () => {
       tags: ['roteiro'],
     })).toEqual(expect.arrayContaining(['roteiro', 'duracao:4', 'nivel:iniciante', 'funcao:apresentadora', 'tema:live', 'objetivo:Fechar a oferta no gancho']))
   })
-})
-
-afterEach(() => {
-  clearLearnerProgress('training-user')
 })

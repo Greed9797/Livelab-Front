@@ -1,14 +1,21 @@
 import { Bookmark } from 'lucide-react'
 import { Badge } from '../ui/Badge'
+import { safeExternalUrl } from '../../services/knowledge'
 import { FORMAT_LABEL, LEVEL_LABEL, TOPIC_LABEL, formatDuration } from '../../services/knowledge-training'
 import type { TrainingLesson } from '../../services/training'
 import clsx from 'clsx'
 
 const FORMAT_FALLBACK: Record<string, string> = { ...FORMAT_LABEL, checklist: 'Checklist' }
 
+function originBadge(lesson: TrainingLesson) {
+  if (lesson.content_available === false || !lesson.source?.origin) return 'Conteúdo pendente'
+  return lesson.source.origin === 'unidade' ? 'Unidade' : 'Rede'
+}
+
 function Cover({ lesson }: { lesson: TrainingLesson }) {
-  if (lesson.cover_image_url) {
-    return <img src={lesson.cover_image_url} alt="" className="h-full w-full object-cover" />
+  const coverUrl = safeExternalUrl(lesson.cover_image_url)
+  if (coverUrl) {
+    return <img src={coverUrl} alt="" className="h-full w-full object-cover" />
   }
   return (
     <div className="flex h-full w-full items-end bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_42%,#1a120e),#1f1814)] p-3">
@@ -34,6 +41,7 @@ export function KnowledgeLessonCard({
 }) {
   const duration = formatDuration(lesson.duration_minutes && lesson.duration_minutes > 0 ? lesson.duration_minutes : null)
   const status = lesson.progress?.state ?? 'not_started'
+  const progressPct = typeof lesson.progress_pct === 'number' ? lesson.progress_pct : null
   const topic = lesson.topics?.[0]
   const objective = lesson.objectives?.[0] || lesson.outcome || lesson.excerpt || 'Aula da Base de treinamento TikTok.'
   return (
@@ -55,12 +63,12 @@ export function KnowledgeLessonCard({
             {lesson.difficulty ? <span>{LEVEL_LABEL[lesson.difficulty as keyof typeof LEVEL_LABEL] || lesson.difficulty}</span> : null}
             {topic ? <span>{TOPIC_LABEL[topic as keyof typeof TOPIC_LABEL] || topic}</span> : null}
             <span>{FORMAT_FALLBACK[lesson.format ?? ''] || 'Aula'}</span>
-            <Badge tone="neutral">{lesson.source?.origin === 'unidade' ? 'Unidade' : 'Rede'}</Badge>
+            <Badge tone="neutral">{originBadge(lesson)}</Badge>
           </div>
           <p className="text-xs font-semibold text-ink" aria-live="polite">{statusLabel(status)}</p>
-          {status !== 'not_started' ? (
+          {progressPct !== null ? (
             <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted" aria-hidden="true">
-              <div className={clsx('h-full rounded-full bg-brand', status === 'completed' ? 'w-full' : 'w-1/3')} />
+              <div className="h-full rounded-full bg-brand" style={{ width: `${Math.min(100, Math.max(0, progressPct))}%` }} />
             </div>
           ) : null}
         </div>
