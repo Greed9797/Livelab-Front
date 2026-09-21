@@ -1,7 +1,16 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { DEFAULT_LIVE_COLUMNS, LIVE_COLUMN_OPTIONS, buildLivesGridTemplate, gmvPorHora, groupLivesBySaoPauloDay, type LiveColumnKey } from './LivesTab'
+import {
+  DEFAULT_LIVE_COLUMNS,
+  LIVE_COLUMN_OPTIONS,
+  buildLivesGridTemplate,
+  fetchDaySummaryWhatsAppText,
+  gmvPorHora,
+  groupLivesBySaoPauloDay,
+  runCopyDaySummaryAction,
+  type LiveColumnKey,
+} from './LivesTab'
 import { dateRangeToWindow, isValidCustomDateRange } from './live-date-range'
 
 describe('LivesTab custom date range', () => {
@@ -88,5 +97,70 @@ describe('LivesTab agrupamento por dia operacional', () => {
     ])
     expect(groups.find((group) => group.dateKey === '2026-09-07')?.label).toContain('7')
     expect(groups.find((group) => group.dateKey === '1970-01-01')).toMatchObject({ label: 'Sem data' })
+  })
+})
+
+describe('LivesTab copiar resumo do dia', () => {
+  it('uses server texto_whatsapp when the API succeeds', async () => {
+    const text = await fetchDaySummaryWhatsAppText('2026-09-11', async () => ({
+      texto_whatsapp: 'Resumo oficial do servidor',
+    }))
+    expect(text).toBe('Resumo oficial do servidor')
+  })
+
+  it('does not copy or toast success when the API fails', async () => {
+    const writeClipboard = vi.fn()
+    const toastSuccess = vi.fn()
+    const toastError = vi.fn()
+
+    const result = await runCopyDaySummaryAction('2026-09-11', {
+      fetchResumo: async () => {
+        throw new Error('network')
+      },
+      writeClipboard,
+      toastSuccess,
+      toastError,
+    })
+
+    expect(result).toBe('error')
+    expect(writeClipboard).not.toHaveBeenCalled()
+    expect(toastSuccess).not.toHaveBeenCalled()
+    expect(toastError).toHaveBeenCalledWith('Não foi possível copiar o resumo do dia.')
+  })
+
+  it('does not fall back when texto_whatsapp is empty', async () => {
+    const writeClipboard = vi.fn()
+    const toastSuccess = vi.fn()
+    const toastError = vi.fn()
+
+    const result = await runCopyDaySummaryAction('2026-09-11', {
+      fetchResumo: async () => ({ texto_whatsapp: '   ' }),
+      writeClipboard,
+      toastSuccess,
+      toastError,
+    })
+
+    expect(result).toBe('error')
+    expect(writeClipboard).not.toHaveBeenCalled()
+    expect(toastSuccess).not.toHaveBeenCalled()
+    expect(toastError).toHaveBeenCalledWith('Não foi possível copiar o resumo do dia.')
+  })
+
+  it('copies server text on success', async () => {
+    const writeClipboard = vi.fn()
+    const toastSuccess = vi.fn()
+    const toastError = vi.fn()
+
+    const result = await runCopyDaySummaryAction('2026-09-11', {
+      fetchResumo: async () => ({ texto_whatsapp: 'Texto do dia' }),
+      writeClipboard,
+      toastSuccess,
+      toastError,
+    })
+
+    expect(result).toBe('ok')
+    expect(writeClipboard).toHaveBeenCalledWith('Texto do dia')
+    expect(toastSuccess).toHaveBeenCalledWith('Resumo do dia copiado para o WhatsApp!')
+    expect(toastError).not.toHaveBeenCalled()
   })
 })

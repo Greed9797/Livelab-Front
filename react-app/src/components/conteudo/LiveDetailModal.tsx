@@ -20,9 +20,11 @@ export function buildReport(live: JsonRecord): string {
   const nome = asString(live.marca_nome ?? live.cliente_nome, '')
   const inicio = live.iniciado_em ? new Date(live.iniciado_em as string) : null
   if (!inicio || Number.isNaN(inicio.getTime())) return ''
-  const data = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(
-    inicio,
-  )
+  const data = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  }).format(inicio)
   const hFim = fmtTime(live.encerrado_em)
   const { text: duracao } = calcDuration(live)
   const presenters = livePresenterNames(live)
