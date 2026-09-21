@@ -175,8 +175,8 @@ export function KpiStrip({ raw, loading = false, mesExibido, meses, onMesAnterio
 
   return (
     <section className="overflow-x-auto rounded-[var(--radius-panel)] border border-line bg-surface shadow-[var(--shadow-card)]" aria-label="Indicadores do mês">
-      <div className="grid grid-cols-2 items-stretch xl:flex">
-        <div className="col-span-2 flex min-w-0 items-center justify-between gap-2 px-4 py-3 xl:min-w-[260px]">
+      <div className="grid grid-cols-1 items-stretch sm:grid-cols-2 xl:flex">
+        <div className="col-span-1 flex min-w-0 items-center justify-between gap-2 px-4 py-3 sm:col-span-2 xl:min-w-[260px]">
           <button type="button" aria-label="Mês anterior" onClick={onMesAnterior} className="grid h-8 w-8 place-items-center rounded-[var(--radius-pill)] text-ink-muted hover:bg-surface-muted"><ChevronLeft className="h-4 w-4" /></button>
           <select aria-label="Filtrar por mês" value={mesExibido} onChange={(event) => onMesChange(event.target.value)} className="min-w-[170px] appearance-none bg-transparent text-[15px] font-bold text-ink focus:outline-none">
             {meses.map((mes) => <option key={mes} value={mes}>{monthLabel(mes)}</option>)}

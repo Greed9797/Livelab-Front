@@ -281,14 +281,24 @@ export function AgendaTab(props: AgendaTabProps) {
 
         <CardBody>
           {agendaView === 'semana' ? (
-            <WeekView week={week} today={today} rows={rows} cellMin={cellMin} chipH={chipH} onOpen={openDrawer} />
+            <>
+              <AgendaWeekDayList week={week} today={today} rows={rows} onOpen={openDrawer} />
+              <div className="hidden md:block">
+                <WeekView week={week} today={today} rows={rows} cellMin={cellMin} chipH={chipH} onOpen={openDrawer} />
+              </div>
+            </>
           ) : agendaView === 'dia' ? (
-            <DayView
-              agendaDate={agendaDate}
-              activeCabines={activeCabines}
-              rows={rows}
-              onOpenEvent={openDrawer}
-            />
+            <>
+              <AgendaDayEventList agendaDate={agendaDate} rows={rows} onOpen={openDrawer} />
+              <div className="hidden md:block">
+                <DayView
+                  agendaDate={agendaDate}
+                  activeCabines={activeCabines}
+                  rows={rows}
+                  onOpenEvent={openDrawer}
+                />
+              </div>
+            </>
           ) : (
             <MonthView
               monthCells={monthCells}
@@ -331,6 +341,93 @@ export function AgendaTab(props: AgendaTabProps) {
         }}
       />
     </section>
+  )
+}
+
+function AgendaWeekDayList({
+  week, today, rows, onOpen,
+}: {
+  week: string[]
+  today: string
+  rows: JsonRecord[]
+  onOpen: (e: JsonRecord) => void
+}) {
+  return (
+    <div className="space-y-4 md:hidden">
+      {week.map((day, index) => {
+        const evs = dedupSorted(rows.filter((e) => eventIntersectsSaoPauloDate(e, day)))
+        return (
+          <section key={day} className="rounded-2xl border border-line bg-surface">
+            <div className={`px-4 py-3 ${day === today ? 'bg-brand-soft' : ''}`}>
+              <p className="text-xs font-black uppercase tracking-[0.08em] text-ink-muted">{DOW[index]}</p>
+              <p className="text-sm font-bold text-ink">{ddmm(day)}</p>
+            </div>
+            {evs.length === 0 ? (
+              <p className="border-t border-line px-4 py-3 text-sm text-ink-muted">folga</p>
+            ) : (
+              <ul className="divide-y divide-line border-t border-line">
+                {evs.map((event) => (
+                  <li key={asString(event.id)}>
+                    <button
+                      type="button"
+                      onClick={() => onOpen(event)}
+                      className="flex w-full min-h-11 items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-muted"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink">{eventTitle(event)}</p>
+                        <p className="mt-1 text-xs text-ink-muted">
+                          {formatSaoPauloTime(event.data_inicio)}–{formatSaoPauloTime(event.data_fim)}
+                          {cabineLabel(event) ? ` · ${cabineLabel(event)}` : ''}
+                        </p>
+                      </div>
+                      <Badge tone={statusTone(asString(event.status))}>{asString(event.status, '—')}</Badge>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+function AgendaDayEventList({
+  agendaDate, rows, onOpen,
+}: {
+  agendaDate: string
+  rows: JsonRecord[]
+  onOpen: (e: JsonRecord) => void
+}) {
+  const evs = dedupSorted(rows.filter((e) => eventIntersectsSaoPauloDate(e, agendaDate)))
+  if (evs.length === 0) {
+    return <p className="md:hidden rounded-2xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-muted">Nenhum evento neste dia.</p>
+  }
+  return (
+    <ul className="divide-y divide-line rounded-2xl border border-line bg-surface md:hidden">
+      {evs.map((event) => (
+        <li key={asString(event.id)}>
+          <button
+            type="button"
+            onClick={() => onOpen(event)}
+            className="flex w-full min-h-11 items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-muted"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">{eventTitle(event)}</p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {formatSaoPauloTime(event.data_inicio)}–{formatSaoPauloTime(event.data_fim)}
+                {cabineLabel(event) ? ` · ${cabineLabel(event)}` : ''}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <Badge tone={statusTone(asString(event.status))}>{asString(event.status, '—')}</Badge>
+              {isLiveOnAir(event) ? <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--danger)]" title="Ao vivo" /> : null}
+            </div>
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }
 

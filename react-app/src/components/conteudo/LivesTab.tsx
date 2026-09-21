@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Calendar,
@@ -269,6 +269,46 @@ function doExportCSV(lives: JsonRecord[]) {
 }
 
 // ─── small sub-components ──────────────────────────────────────────────────
+
+function LiveMobileCard({
+  marca,
+  horaInicio,
+  horaFim,
+  gmv,
+  status,
+  onOpen,
+}: {
+  marca: string
+  horaInicio: string
+  horaFim: string
+  gmv: number
+  status: unknown
+  onOpen: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="lives-mobile-card"
+      onClick={onOpen}
+      aria-label={`Abrir live de ${marca} às ${horaInicio}`}
+    >
+      <div className="lives-mobile-card__head">
+        <span className="lives-mobile-card__marca">{marca || '—'}</span>
+        <StatusBadge status={status} />
+      </div>
+      <dl className="lives-mobile-card__meta">
+        <div>
+          <dt>Horário</dt>
+          <dd>{horaInicio} → {horaFim}</dd>
+        </div>
+        <div>
+          <dt>GMV</dt>
+          <dd className="num">{formatMoney(gmv)}</dd>
+        </div>
+      </dl>
+    </button>
+  )
+}
 
 function StatusBadge({ status }: { status: unknown }) {
   const s = asString(status, 'rascunho').toLowerCase()
@@ -1164,6 +1204,7 @@ export function LivesTab({
       >
         {/* Sticky thead */}
         <div
+          className="lives-table-head"
           style={{
             display: 'grid',
             gridTemplateColumns: gridCols,
@@ -1433,8 +1474,8 @@ export function LivesTab({
                         : ''
 
                     return (
+                      <Fragment key={liveId || rowIdx}>
                       <div
-                        key={liveId || rowIdx}
                         className="lives-table-row"
                         style={{
                           display: 'grid',
@@ -1802,6 +1843,15 @@ export function LivesTab({
                           ) : null}
                         </div>
                       </div>
+                      <LiveMobileCard
+                        marca={clientName}
+                        horaInicio={fmtTime(live.iniciado_em)}
+                        horaFim={fmtTime(live.encerrado_em)}
+                        gmv={gmv}
+                        status={live.status_publicacao}
+                        onOpen={() => onOpenLiveDetail(live)}
+                      />
+                      </Fragment>
                     )
                   })}
               </div>

@@ -2,6 +2,46 @@
   display: none;
 }
 
+.lives-mobile-card {
+  display: none;
+}
+
+.lives-mobile-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lives-mobile-card__marca {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.lives-mobile-card__meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.lives-mobile-card__meta dt {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.lives-mobile-card__meta dd {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .lives-pending-panel {
   display: flex;
   align-items: center;
@@ -148,13 +188,31 @@
   .lives-pending-panel__clear {
     margin-left: 0;
   }
-  /* Desktop keeps `overflow: clip` so its sticky header remains viewport-bound.
-     On touch the compact Abrir action is already visible; this scroll only exposes
-     secondary columns and the existing kebab actions. */
+
+  .lives-table-head,
+  .lives-table-row {
+    display: none !important;
+  }
+
   .lives-table-scroll {
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible !important;
+  }
+
+  .lives-mobile-card {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    padding: 14px 16px;
+    border: 0;
+    border-bottom: 1px solid var(--hairline);
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .lives-mobile-card:active {
+    background: var(--bg-elev-2);
   }
 
   .lives-mobile-open {
