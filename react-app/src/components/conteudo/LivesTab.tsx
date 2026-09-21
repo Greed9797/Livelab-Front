@@ -32,7 +32,6 @@ import { asNumber, asString, formatMoney } from '../../utils/format'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { officialLiveGmv } from '../../utils/live-gmv'
 import { getLiveUnionCapabilities, getLivesResumoDia } from '../../services/domain'
-import { buildClientResumoDiaText } from './live-resumo-dia'
 import {
   calcDuration,
   classifyLivePendings,
@@ -167,6 +166,41 @@ export function groupLivesBySaoPauloDay(lives: JsonRecord[]) {
   return [...map.entries()]
     .map(([dateKey, { label, lives }]) => ({ dateKey, label, lives }))
     .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+}
+
+type LivesResumoDiaFetcher = typeof getLivesResumoDia
+
+/** Server `texto_whatsapp` only — no client fallback (see LIV-1). */
+export async function fetchDaySummaryWhatsAppText(
+  dateKey: string,
+  fetchResumo: LivesResumoDiaFetcher = getLivesResumoDia,
+): Promise<string> {
+  const res = await fetchResumo({ data: dateKey })
+  const text = typeof res?.texto_whatsapp === 'string' ? res.texto_whatsapp.trim() : ''
+  if (!text) {
+    throw new Error('DAY_SUMMARY_UNAVAILABLE')
+  }
+  return text
+}
+
+export async function runCopyDaySummaryAction(
+  dateKey: string,
+  deps: {
+    fetchResumo: LivesResumoDiaFetcher
+    writeClipboard: (text: string) => Promise<void>
+    toastSuccess: (message: string) => void
+    toastError: (message: string) => void
+  },
+): Promise<'ok' | 'error'> {
+  try {
+    const text = await fetchDaySummaryWhatsAppText(dateKey, deps.fetchResumo)
+    await deps.writeClipboard(text)
+    deps.toastSuccess('Resumo do dia copiado para o WhatsApp!')
+    return 'ok'
+  } catch {
+    deps.toastError('Não foi possível copiar o resumo do dia.')
+    return 'error'
+  }
 }
 
 function doExportCSV(lives: JsonRecord[]) {
@@ -577,34 +611,21 @@ export function LivesTab({
     })
   }
 
-  async function handleCopyDaySummary(dateKey: string, lives: JsonRecord[]) {
-    try {
-      setCopyingDayKey(dateKey)
-      let text = ''
-      try {
-        const res = await getLivesResumoDia({ data: dateKey })
-        if (res && res.texto_whatsapp) {
-          text = res.texto_whatsapp
-        }
-      } catch {
-        text = buildClientResumoDiaText(lives, dateKey)
-      }
-
-      if (!text) {
-        text = buildClientResumoDiaText(lives, dateKey)
-      }
-
-      await navigator.clipboard.writeText(text)
+  async function handleCopyDaySummary(dateKey: string) {
+    setCopyingDayKey(dateKey)
+    const result = await runCopyDaySummaryAction(dateKey, {
+      fetchResumo: getLivesResumoDia,
+      writeClipboard: (text) => navigator.clipboard.writeText(text),
+      toastSuccess: (message) => toast.push(message, 'success'),
+      toastError: (message) => toast.push(message, 'error'),
+    })
+    if (result === 'ok') {
       setCopiedDayKey(dateKey)
-      toast.push('Resumo do dia copiado para o WhatsApp!', 'success')
       setTimeout(() => {
         setCopiedDayKey((prev) => (prev === dateKey ? null : prev))
       }, 2500)
-    } catch {
-      toast.push('Não foi possível copiar o resumo.', 'error')
-    } finally {
-      setCopyingDayKey((prev) => (prev === dateKey ? null : prev))
     }
+    setCopyingDayKey((prev) => (prev === dateKey ? null : prev))
   }
 
   // Close overlay menus on outside click
@@ -1287,7 +1308,7 @@ export function LivesTab({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
-                        void handleCopyDaySummary(group.dateKey, group.lives)
+                        void handleCopyDaySummary(group.dateKey)
                       }}
                       disabled={copyingDayKey === group.dateKey}
                       title="Copiar resumo do dia para o WhatsApp"
