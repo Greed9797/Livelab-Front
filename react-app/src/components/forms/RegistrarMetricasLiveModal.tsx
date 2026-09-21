@@ -13,7 +13,7 @@ import { officialLiveGmv } from '../../utils/live-gmv'
 import { formatBRLWithoutSymbol } from '../../utils/money'
 import { buildFunilPayload, buildManualLivePayload, type ManualLiveForm, validateManualCounterInput } from '../../utils/live-manual'
 import { isOperationalBrand, isOperationalClient } from '../../utils/operational-status'
-import type { Cabine, JsonRecord } from '../../types/models'
+import type { JsonRecord } from '../../types/models'
 
 export type RegistrarMetricasLiveMode = 'manual' | 'edit' | 'result'
 
@@ -25,7 +25,6 @@ type MetricsForm = ManualLiveForm & {
 }
 
 const emptyForm: MetricsForm = {
-  cabine_id: '',
   cliente_id: '',
   marca_id: '',
   apresentador_id: '',
@@ -94,7 +93,6 @@ function liveTypeFromMarca(marca?: JsonRecord): 'cliente' | 'afiliado' | 'teste'
 function formFromLive(live: JsonRecord): MetricsForm {
   return {
     ...emptyForm,
-    cabine_id: asString(live.cabine_id, ''),
     cliente_id: asString(live.cliente_id, ''),
     marca_id: asString(live.marca_id, ''),
     apresentador_id: asString(live.apresentadora_id ?? live.apresentador_id, ''),
@@ -127,7 +125,6 @@ function formFromAgendaEvent(event: JsonRecord, marcas: JsonRecord[]): MetricsFo
   const marca = marcas.find((item) => asString(item.id, '') === marcaId)
   return {
     ...emptyForm,
-    cabine_id: asString(event.cabine_id, ''),
     cliente_id: asString(event.cliente_id ?? marca?.cliente_id, ''),
     marca_id: marcaId,
     apresentador_id: asString(event.apresentadora_id, ''),
@@ -145,7 +142,6 @@ export function RegistrarMetricasLiveModal({
   mode,
   live,
   agendaEvent,
-  cabines,
   marcas,
   marcaLoading = false,
   marcaError = false,
@@ -164,7 +160,6 @@ export function RegistrarMetricasLiveModal({
   mode: RegistrarMetricasLiveMode
   live?: JsonRecord | null
   agendaEvent?: JsonRecord | null
-  cabines: Cabine[]
   marcas: JsonRecord[]
   marcaLoading?: boolean
   marcaError?: boolean
@@ -343,13 +338,6 @@ export function RegistrarMetricasLiveModal({
         <Button type="submit" form={formId} icon={CheckCircle2} disabled={agendaBrandUnavailable} isLoading={isSaving}>{submitLabel}</Button>
       </>}>
       <form id={formId} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={onSubmit}>
-        <label className="block">
-          <span className="text-sm font-semibold text-ink">Cabine</span>
-          <select className="design-input mt-2 h-11 w-full px-4" value={form.cabine_id} onChange={(event) => setField('cabine_id', event.target.value)} required>
-            <option value="">Selecione uma cabine</option>
-            {cabines.map((cabine) => <option key={cabine.id} value={cabine.id}>Cabine {asString(cabine.numero)}</option>)}
-          </select>
-        </label>
         <label className="block">
           <span className="text-sm font-semibold text-ink">Tipo</span>
           <select className="design-input mt-2 h-11 w-full px-4" value={form.tipo} onChange={(event) => setType(event.target.value)} required disabled={preserveAgendaBrand}>

@@ -9,7 +9,6 @@ import { ModalSection } from '../ui/ModalSection'
 import { MoneyInput } from '../ui/MoneyInput'
 import { extractErrorMessage } from '../../services/api'
 import {
-  getCabines,
   getClientes,
   getMarcas,
   updateLive,
@@ -22,10 +21,7 @@ import { QK, invalidateOperational } from '../../services/query-keys'
 import type { JsonRecord } from '../../types/models'
 import { isOperationalBrand, isOperationalClient } from '../../utils/operational-status'
 
-type LookupOption = { value: string; label: string }
-
 type EditForm = {
-  cabine_id: string
   cliente_id: string
   marca_id: string
   gestor_id: string
@@ -56,7 +52,6 @@ type EditForm = {
 }
 
 const emptyForm: EditForm = {
-  cabine_id: '',
   cliente_id: '',
   marca_id: '',
   gestor_id: '',
@@ -140,12 +135,6 @@ export function presenterDisplayName(row: JsonRecord): string {
 
 export function hasUnsavedLiveChanges<T extends object>(form: T, prefill: T): boolean {
   return (Object.keys(form) as Array<keyof T>).some((key) => form[key] !== prefill[key])
-}
-
-function toLookupOptions(rows: JsonRecord[], labelKey = 'nome'): LookupOption[] {
-  return rows
-    .map((r) => ({ value: asString(r.id), label: asString(r[labelKey] ?? r.nome ?? r.email, '—') }))
-    .filter((o) => o.value)
 }
 
 function toDateInput(value: unknown): string {
@@ -275,15 +264,13 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
   const initializedLiveRef = useRef('')
   const [error, setError] = useState<string | null>(null)
 
-  const [cabinesQuery, clientesQuery, marcasQuery] = useQueries({
+  const [clientesQuery, marcasQuery] = useQueries({
     queries: [
-      { queryKey: QK.cabines, queryFn: getCabines, staleTime: 15_000, enabled: open },
       { queryKey: QK.clientes('live-edit'), queryFn: () => getClientes(), enabled: open },
       { queryKey: QK.marcas('live-edit'), queryFn: () => getMarcas({ status: 'ativa' }), enabled: open },
     ],
   })
 
-  const cabineOptions = useMemo(() => toLookupOptions(asArray(cabinesQuery.data) as JsonRecord[], 'numero'), [cabinesQuery.data])
   const clienteRows = useMemo(() => asArray<JsonRecord>(clientesQuery.data), [clientesQuery.data])
   const marcaRows = useMemo(() => asArray<JsonRecord>(marcasQuery.data), [marcasQuery.data])
   const accountOptions = useMemo(() => liveAccountOptions(marcaRows, clienteRows, { marcaId: form.marca_id, clienteId: form.cliente_id, historicalName: asString(live?.marca_nome ?? live?.cliente_nome, '') }), [clienteRows, form.cliente_id, form.marca_id, live?.cliente_nome, live?.marca_nome, marcaRows])
@@ -299,7 +286,6 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     if (initializedLiveRef.current === liveKey) return
     initializedLiveRef.current = liveKey
     const prefill: EditForm = {
-      cabine_id: asString(live.cabine_id, ''),
       cliente_id: asString(live.cliente_id, ''),
       marca_id: asString(live.marca_id, ''),
       gestor_id: asString(live.gestor_id, ''),
@@ -393,8 +379,6 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
       }
     }
 
-    // cabine_id nunca pode ser null (live sempre tem cabine) — só envia se preenchido e mudou.
-    if (form.cabine_id && form.cabine_id !== asString(live.cabine_id, '')) payload.cabine_id = form.cabine_id
     setIfChanged('cliente_id', form.cliente_id, live.cliente_id)
     setIfChanged('marca_id', form.marca_id, live.marca_id)
     setIfChanged('gestor_id', form.gestor_id, live.gestor_id)
@@ -450,15 +434,8 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
       )}
     >
       <form id={formId} onSubmit={onSubmit} className="space-y-5">
-        <ModalSection title="Dados da live" description="Defina onde, para quem e com quem a live acontece.">
+        <ModalSection title="Dados da live" description="Defina para quem e com quem a live acontece.">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">Cabine</span>
-              <select className="design-input mt-2 h-11 w-full px-3" value={form.cabine_id} onChange={(e) => setField('cabine_id', e.target.value)}>
-                <option value="">Selecione uma cabine</option>
-                {cabineOptions.map((o) => <option key={o.value} value={o.value}>Cabine {o.label}</option>)}
-              </select>
-            </label>
             <label className="block">
               <span className="text-sm font-semibold text-ink">Marca ou cliente</span>
               <select className="design-input mt-2 h-11 w-full px-3" value={accountValue} onChange={(e) => setAccount(e.target.value)}>

@@ -26,7 +26,6 @@ import {
   encerrarLive,
   getAgenda,
   getApresentadoras,
-  getCabines,
   getClientes,
   getLivePorId,
   getLives,
@@ -94,13 +93,12 @@ export function isSyntheticLiveEvent(item: JsonRecord) {
   return item._source === 'live_orphan'
 }
 
-function buildLiveAgendaFallback(live: JsonRecord, cabines: JsonRecord[]): JsonRecord | null {
+function buildLiveAgendaFallback(live: JsonRecord): JsonRecord | null {
   const inicio = liveStartDate(live)
   const fim = liveEndDate(live)
   const liveId = asString(live.id, '')
   if (!liveId || !inicio || !fim || fim <= inicio) return null
   const cabineId = asString(live.cabine_id, '')
-  const cabine = cabines.find((item) => asString(item.id, '') === cabineId)
   return {
     _source: 'live_orphan',
     id: `live:${liveId}`,
@@ -115,9 +113,9 @@ function buildLiveAgendaFallback(live: JsonRecord, cabines: JsonRecord[]): JsonR
     marca_logo_url: live.marca_logo_url,
     marca_site: live.marca_site,
     cliente_nome: live.cliente_nome,
-    cabine_id: cabineId,
-    cabine_numero: live.cabine_numero ?? cabine?.numero,
-    cabine_nome: live.cabine_nome ?? (cabine ? `Cabine ${asString(cabine.numero, '')}` : undefined),
+    cabine_id: cabineId || undefined,
+    cabine_numero: live.cabine_numero,
+    cabine_nome: live.cabine_nome,
     apresentadora_nome: live.apresentadora_nome ?? live.apresentador_nome,
     tiktok_username: live.tiktok_username,
     observacoes: 'Live registrada sem evento de agenda vinculado.',
@@ -127,7 +125,6 @@ function buildLiveAgendaFallback(live: JsonRecord, cabines: JsonRecord[]): JsonR
 function mergeAgendaWithLiveFallbacks(
   agendaRows: JsonRecord[],
   livesRows: JsonRecord[],
-  cabines: JsonRecord[],
   range: { start: string; end: string },
 ) {
   const linkedLiveIds = new Set(agendaRows.map((e) => asString(e.live_id, '')).filter(Boolean))
@@ -143,7 +140,7 @@ function mergeAgendaWithLiveFallbacks(
       const end = liveEndDate(live)
       return Boolean(start && end && start < rangeEnd && end > rangeStart)
     })
-    .map((live) => buildLiveAgendaFallback(live, cabines))
+    .map((live) => buildLiveAgendaFallback(live))
     .filter((event): event is JsonRecord => Boolean(event))
   return [...agendaRows, ...fallbacks]
 }
@@ -257,9 +254,6 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
     enabled: legacyAgendaEnabled,
     placeholderData: (prev) => prev,
   })
-  // O formulário de métricas pode abrir a partir da lista de Lives; mantemos as
-  // cabines pré-carregadas para ele nunca parecer sem opções em rede lenta.
-  const cabines = useQuery({ queryKey: ['cabines'], queryFn: getCabines })
   const legacyLives = useQuery({
     queryKey: ['lives', 'encerrada'],
     queryFn: () => getLives({ status: 'encerrada', limit: 200 }),
@@ -435,20 +429,13 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
     return livesItems.find((live) => asString(live.id, '') === id) ?? selectedLiveRecord
   }, [livesItems, selectedLiveRecord, selectedLiveRemota.data])
 
-  // As cabines definem a matriz visível da Grade; aguardá-las evita uma tela vazia
-  // que parece não haver cabines. Agenda e o top-200 seguem exclusivos do rollback.
-  const isLoading = tab === 'agenda' && (cabines.isLoading || (legacyAgendaEnabled && agenda.isLoading))
-  const error = tab === 'agenda' ? (cabines.error ?? (legacyAgendaEnabled ? agenda.error : null)) : null
+  const isLoading = tab === 'agenda' && legacyAgendaEnabled && agenda.isLoading
+  const error = tab === 'agenda' && legacyAgendaEnabled ? agenda.error : null
   if (isLoading) return <LoadingState />
-  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => {
-    void cabines.refetch()
-    if (legacyAgendaEnabled) void agenda.refetch()
-  }} />
+  if (error) return <ErrorState message={extractErrorMessage(error)} onRetry={() => { if (legacyAgendaEnabled) void agenda.refetch() }} />
 
-  const cabineRows = cabines.data ?? []
-  const activeCabines = cabineRows.filter((c) => (c as unknown as JsonRecord).ativo !== false && asString(c.status, '') !== 'inativa')
   const agendaRows = legacyAgendaEnabled
-    ? mergeAgendaWithLiveFallbacks(agenda.data ?? [], legacyLives.data ?? [], cabineRows as unknown as JsonRecord[], range)
+    ? mergeAgendaWithLiveFallbacks(agenda.data ?? [], legacyLives.data ?? [], range)
     : []
   const marcaRows = marcas.data ?? []
   const clienteRows = clientes.data ?? []
@@ -492,7 +479,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
     <div className="space-y-6">
       <PageHeader
         title={tab === 'agenda' ? 'Agenda' : 'Lives'}
-        subtitle={tab === 'agenda' ? 'Programação das cabines e apresentadoras.' : 'Resultados, registros e métricas das lives.'}
+        subtitle={tab === 'agenda' ? 'Programação de lives e apresentadoras.' : 'Resultados, registros e métricas das lives.'}
       />
 
       {tab === 'agenda' && !USE_LEGACY_AGENDA ? (
@@ -500,7 +487,6 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
           key={`${requestedDate}:${livesMarcaId}`}
           initialDate={requestedDate}
           initialMarcaId={livesMarcaId}
-          activeCabines={activeCabines as unknown as JsonRecord[]}
           marcaRows={marcaRows}
           apresentadoraRows={apresentadoraRows}
           catalogsReady={!marcas.isPending && !marcas.isPlaceholderData && !apresentadoras.isPending && !apresentadoras.isPlaceholderData}
@@ -515,7 +501,6 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
           agendaDate={agendaDate}
           agendaView={agendaView}
           agendaRows={agendaRows}
-          activeCabines={activeCabines}
           marcaRows={marcaRows}
           clienteRows={clienteRows}
           apresentadoraRows={apresentadoraRows}
@@ -687,7 +672,6 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
         mode={metricsModalMode ?? 'manual'}
         live={selectedLiveRecord}
         agendaEvent={metricsAgendaEvent}
-        cabines={activeCabines}
         marcas={metricsMarcaMissing && metricsMarca.data ? [...marcaRows, metricsMarca.data] : marcaRows}
         marcaLoading={marcas.isPending || (metricsMarcaMissing && metricsMarca.isFetching)}
         marcaError={metricsMarcaMissing && metricsMarca.isError}

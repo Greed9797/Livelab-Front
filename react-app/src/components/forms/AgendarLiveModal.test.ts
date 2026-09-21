@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest'
 describe('AgendarLiveModal source contract', () => {
   const source = readFileSync(new URL('./AgendarLiveModal.tsx', import.meta.url), 'utf8')
 
-  it('offers lookup helpers for account and cabine and uses the shared presenter selector', () => {
+  it('offers lookup helpers for account and uses the shared presenter selector', () => {
     expect(source).toContain('function AccountCombobox')
     expect(source).toContain('onAccountOptionSelect')
     expect(source).toContain('accountInvalid')
-    expect(source).toContain('list="agenda-cabine-options"')
+    expect(source).not.toContain('list="agenda-cabine-options"')
     expect(source).toContain('<PresenterSelect')
   })
 

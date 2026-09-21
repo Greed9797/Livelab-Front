@@ -1,5 +1,5 @@
 import { Users, Clock } from 'lucide-react'
-import type { Cabine } from '../../types/models'
+import type { JsonRecord } from '../../types/models'
 import { asNumber, asString } from '../../utils/format'
 import { TikTokLiveButton } from '../ui/TikTokLiveButton'
 
@@ -18,28 +18,26 @@ function fmtBRL(v: number): string {
 }
 
 interface AoVivoPanelProps {
-  liveCabines: Cabine[]
+  lives: JsonRecord[]
 }
 
-export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
-  const totalGmv = liveCabines.reduce((s, c) => s + asNumber(c.gmv_atual), 0)
-  const totalViewers = liveCabines.reduce((s, c) => s + asNumber(c.viewer_count), 0)
+export function AoVivoPanel({ lives }: AoVivoPanelProps) {
+  const totalGmv = lives.reduce((s, live) => s + asNumber(live.gmv_atual), 0)
+  const totalViewers = lives.reduce((s, live) => s + asNumber(live.viewer_count), 0)
 
   return (
     <div
       className="flex flex-col rounded-xl overflow-hidden"
       style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)' }}
     >
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
         <h3 className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
           <span style={{ color: 'var(--live)' }}>●</span>
-          Ao vivo agora · {liveCabines.length}
+          Ao vivo agora · {lives.length}
         </h3>
       </div>
 
-      {/* Summary */}
-      {liveCabines.length > 0 && (
+      {lives.length > 0 && (
         <div
           className="flex items-center gap-5 px-4 py-3"
           style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-elev-2)' }}
@@ -69,24 +67,23 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
         </div>
       )}
 
-      {/* List */}
-      {liveCabines.length === 0 ? (
+      {lives.length === 0 ? (
         <div className="flex flex-1 items-center justify-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>
           Nenhuma live ativa no momento
         </div>
       ) : (
         <div className="flex flex-col divide-y" style={{ '--tw-divide-opacity': 1, borderColor: 'var(--border)' } as React.CSSProperties}>
-          {liveCabines.map((cab) => {
-            const nome = asString(cab.apresentador_nome ?? cab.cliente_nome, 'Apresentadora')
+          {lives.map((live) => {
+            const liveId = asString(live.id ?? live.live_atual_id, '')
+            const nome = asString(live.apresentador_nome ?? live.apresentadora_nome, 'Apresentadora')
             const ini = initials(nome)
-            const gmv = asNumber(cab.gmv_atual)
-            const viewers = asNumber(cab.viewer_count)
-            const elapsed = asNumber((cab as { duracao_min?: number }).duracao_min)
-            const cabNum = asNumber(cab.numero)
-            const cabLabel = cabNum > 0 ? `C-${String(cabNum).padStart(2, '0')}` : 'Cabine'
+            const gmv = asNumber(live.gmv_atual)
+            const viewers = asNumber(live.viewer_count)
+            const elapsed = asNumber(live.duracao_min)
+            const marca = asString(live.cliente_nome ?? live.marca_nome, nome)
 
             return (
-              <div key={cab.id} className="flex items-center gap-3 px-4 py-3">
+              <div key={liveId || marca} className="flex items-center gap-3 px-4 py-3">
                 <div className="relative shrink-0">
                   <div
                     className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold"
@@ -106,13 +103,7 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {asString(cab.cliente_nome, nome)}
-                    </span>
-                    <span
-                      className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium"
-                      style={{ background: 'var(--bg-elev-3)', color: 'var(--text-muted)' }}
-                    >
-                      {cabLabel}
+                      {marca}
                     </span>
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
@@ -143,7 +134,7 @@ export function AoVivoPanel({ liveCabines }: AoVivoPanelProps) {
                     parcial
                   </div>
                 </div>
-                <TikTokLiveButton username={(cab as Cabine & { tiktok_username?: string }).tiktok_username} compact />
+                <TikTokLiveButton username={live.tiktok_username as string | undefined} compact />
               </div>
             )
           })}
