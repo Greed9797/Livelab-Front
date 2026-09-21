@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildAtivoUpdatePayload, normalizarBusca, statusLabel } from './ComercialPage'
+import { buildAfiliadoCreatePayload, buildAtivoUpdatePayload, normalizarBusca, statusLabel } from './ComercialPage'
+
+const FINANCE_KEYS = ['comissao_franquia_pct', 'comissao_franqueadora_pct', 'valor_fixo_minimo', 'tipo_cobranca'] as const
+
+function expectSemFinanceiro(payload: Record<string, unknown>) {
+  for (const key of FINANCE_KEYS) expect(payload).not.toHaveProperty(key)
+}
 
 describe('ComercialPage — busca e status', () => {
   it('normaliza busca sem acento e caixa', () => {
@@ -43,7 +49,7 @@ describe('ComercialPage — busca e status', () => {
     expect(payload).not.toHaveProperty('tipo_cobranca')
   })
 
-  it('mantém condições no PATCH de marca, que é o editor financeiro legado', () => {
+  it('não envia colunas financeiras no PATCH de marca', () => {
     const payload = buildAtivoUpdatePayload('marca', {
       nome: 'Afiliada',
       status: 'ativa',
@@ -57,11 +63,38 @@ describe('ComercialPage — busca e status', () => {
     })
 
     expect(payload).toMatchObject({
-      comissao_franquia_pct: 8,
-      comissao_franqueadora_pct: 2,
-      valor_fixo_minimo: 1200,
+      nome: 'Afiliada',
+      status: 'ativa',
+      data_inicio: '2026-09-01',
+      data_fim: null,
+      logo_url: null,
+    })
+    expectSemFinanceiro(payload)
+  })
+
+  it('o create de afiliado não envia comissão nem as outras colunas financeiras', () => {
+    const payload = buildAfiliadoCreatePayload({
+      nome: 'Loja',
+      responsavel: 'Ana',
+      whatsapp: '47999999999',
+      email: 'ana@loja.test',
+      tiktok_username: 'loja',
+      logo_url: '',
+      cor: '',
+      observacoes: 'nota',
+      comissao_franquia_pct: '8',
+      comissao_franqueadora_pct: '2',
+      valor_fixo_minimo: '1.200,00',
       tipo_cobranca: 'fixo_mais_comissao',
     })
+
+    expect(payload).toMatchObject({
+      nome: 'Loja',
+      tipo: 'afiliada',
+      status: 'ativa',
+      observacoes: 'Responsável: Ana\nWhatsApp: 47999999999\nE-mail: ana@loja.test\nnota',
+    })
+    expectSemFinanceiro(payload)
   })
 
   it('mantém o lápis com ação de edição separada do clique da linha', async () => {

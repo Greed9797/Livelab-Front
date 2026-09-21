@@ -18,7 +18,7 @@ import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
 import { BriefingSection } from '../components/comercial/BriefingSection'
 import { CondicoesComerciais } from '../components/comercial/CondicoesComerciais'
 import { useToast } from '../components/ui/Toast'
-import { normalizeMoneyInputText, parseBRMoneyToDecimal } from '../utils/money'
+import { normalizeMoneyInputText } from '../utils/money'
 import { extractBrandColor, resolveMarcaCor } from '../utils/brandColor'
 import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getMarcaOperacional, getMarcas, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -94,14 +94,41 @@ const emptyAfiliadoForm = {
   email: '',
   tiktok_username: '',
   logo_url: '',
-  comissao_franquia_pct: '',
   cor: '', // '' = automática (extraída do logo ao salvar, senão hash)
   observacoes: '',
 }
 
+type AfiliadoCreateInput = typeof emptyAfiliadoForm & {
+  comissao_franquia_pct?: unknown
+  comissao_franqueadora_pct?: unknown
+  valor_fixo_minimo?: unknown
+  tipo_cobranca?: unknown
+}
+
 /**
- * Monta o PATCH do modal de edição. Cadastro de cliente e condições comerciais têm ciclos de
- * vida diferentes: até a API temporal existir, salvar o primeiro não pode sobrescrever a segunda.
+ * Create de afiliado é só identidade. Condição financeira entra depois, no editor temporal.
+ * Campos financeiros no objeto de entrada são ignorados de propósito.
+ */
+export function buildAfiliadoCreatePayload(form: AfiliadoCreateInput, cor?: string): JsonRecord {
+  return {
+    nome: form.nome,
+    tipo: 'afiliada',
+    status: 'ativa',
+    tiktok_username: form.tiktok_username || undefined,
+    logo_url: form.logo_url || undefined,
+    ...(cor ? { cor } : {}),
+    observacoes: [
+      form.responsavel ? `Responsável: ${form.responsavel}` : '',
+      form.whatsapp ? `WhatsApp: ${form.whatsapp}` : '',
+      form.email ? `E-mail: ${form.email}` : '',
+      form.observacoes,
+    ].filter(Boolean).join('\n') || undefined,
+  }
+}
+
+/**
+ * Monta o PATCH do modal de edição. Cadastro e condições comerciais têm ciclos de vida
+ * diferentes: salvar identidade não pode reenviar comissão, fixo ou tipo de cobrança.
  */
 export function buildAtivoUpdatePayload(kind: 'cliente' | 'marca', form: JsonRecord, cor?: string | null): JsonRecord {
   if (kind === 'cliente') {
@@ -117,10 +144,6 @@ export function buildAtivoUpdatePayload(kind: 'cliente' | 'marca', form: JsonRec
   return {
     nome: asString(form.nome, ''),
     status: asString(form.status, 'ativa') === 'ativo' ? 'ativa' : asString(form.status, 'ativa'),
-    comissao_franquia_pct: Number(asString(form.comissao_franquia_pct, '0') || 0),
-    comissao_franqueadora_pct: Number(asString(form.comissao_franqueadora_pct, '0') || 0),
-    valor_fixo_minimo: parseBRMoneyToDecimal(asString(form.valor_fixo_minimo, '0')),
-    tipo_cobranca: asString(form.tipo_cobranca, 'fixo_mais_comissao'),
     data_inicio: asString(form.data_inicio, '') || null,
     data_fim: asString(form.data_fim, '') || null,
     logo_url: asString(form.logo_url, '') || null,
@@ -530,23 +553,7 @@ export function ComercialPage() {
     // Cor: manual vence; sem manual, tenta extrair do logo (falha = sem cor, hash cobre).
     let cor: string | undefined = afiliadoForm.cor || undefined
     if (!cor && afiliadoForm.logo_url) cor = (await extractBrandColor(afiliadoForm.logo_url)) ?? undefined
-    afiliadoMutation.mutate({
-      nome: afiliadoForm.nome,
-      tipo: 'afiliada',
-      status: 'ativa',
-      tiktok_username: afiliadoForm.tiktok_username || undefined,
-      logo_url: afiliadoForm.logo_url || undefined,
-      ...(cor ? { cor } : {}),
-      // Comissão tem coluna própria (comissao_franquia_pct); não vai mais em observações.
-      ...(afiliadoForm.comissao_franquia_pct !== '' ? { comissao_franquia_pct: Number(afiliadoForm.comissao_franquia_pct) } : {}),
-      // Responsável/WhatsApp/E-mail não têm coluna em marcas — permanecem em observações.
-      observacoes: [
-        afiliadoForm.responsavel ? `Responsável: ${afiliadoForm.responsavel}` : '',
-        afiliadoForm.whatsapp ? `WhatsApp: ${afiliadoForm.whatsapp}` : '',
-        afiliadoForm.email ? `E-mail: ${afiliadoForm.email}` : '',
-        afiliadoForm.observacoes,
-      ].filter(Boolean).join('\n') || undefined,
-    })
+    afiliadoMutation.mutate(buildAfiliadoCreatePayload(afiliadoForm, cor))
   }
 
   async function onAtivoSubmit(event: FormEvent<HTMLFormElement>) {
@@ -917,19 +924,6 @@ export function ComercialPage() {
           <label className="block"><span className="text-sm font-medium text-ink">WhatsApp</span><input aria-label="WhatsApp" className="design-input mt-1 h-11 w-full px-4" placeholder="WhatsApp" value={afiliadoForm.whatsapp} onChange={(event) => setAfiliadoField('whatsapp', event.target.value)} /></label>
           <label className="block"><span className="text-sm font-medium text-ink">E-mail</span><input aria-label="E-mail" className="design-input mt-1 h-11 w-full px-4" placeholder="E-mail" type="email" value={afiliadoForm.email} onChange={(event) => setAfiliadoField('email', event.target.value)} /></label>
           <label className="block"><span className="text-sm font-medium text-ink">TikTok username</span><input className="design-input mt-1 h-11 w-full px-4" placeholder="TikTok username" value={afiliadoForm.tiktok_username} onChange={(event) => setAfiliadoField('tiktok_username', event.target.value.replace(/@/g, ''))} /></label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-ink">Comissão Franquia (%)</span>
-            <input
-              className="design-input h-11 w-full px-4"
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              placeholder="Comissão Franquia (%)"
-              value={afiliadoForm.comissao_franquia_pct}
-              onChange={(event) => setAfiliadoField('comissao_franquia_pct', event.target.value)}
-            />
-          </label>
           <div className="md:col-span-2">
             <ImagePicker
               label="Imagem da marca"
