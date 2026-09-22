@@ -13,6 +13,7 @@ import {
   deleteGradeExcecao,
   deleteGradePadraoCell,
   getAgenda,
+  getCabines,
   getClientes,
   getGrade,
   getGradePadrao,
@@ -22,7 +23,8 @@ import {
 } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
 import { asString } from '../../utils/format'
-import type { Cabine, JsonRecord } from '../../types/models'
+import { QK } from '../../services/query-keys'
+import type { JsonRecord } from '../../types/models'
 import {
   marcasPresentes,
   gradeDateFromLink,
@@ -73,7 +75,6 @@ function formatShortDate(dataISO: string) {
 }
 
 interface GradeTabProps {
-  activeCabines: JsonRecord[]
   marcaRows: JsonRecord[]
   apresentadoraRows: JsonRecord[]
   catalogsReady: boolean
@@ -85,7 +86,7 @@ interface GradeTabProps {
   initialMarcaId?: string
 }
 
-export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, catalogsReady, catalogsError, onRetryCatalogs, canWrite = true, initialDate = '', initialMarcaId = '' }: GradeTabProps) {
+export function GradeTab({ marcaRows, apresentadoraRows, catalogsReady, catalogsError, onRetryCatalogs, canWrite = true, initialDate = '', initialMarcaId = '' }: GradeTabProps) {
   const [view, setView] = useState<GradeView>('dia')
   const [date, setDate] = useState(() => gradeDateFromLink(initialDate, todayISO()))
   const [filtroMarca, setFiltroMarca] = useState(initialMarcaId)
@@ -101,10 +102,13 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, catalogs
   const [agendaModal, setAgendaModal] = useState<{ mode: 'create' | 'edit'; evento: JsonRecord | null } | null>(null)
   const client = useQueryClient()
 
-  const cabinesOrdenadas = useMemo(
-    () => [...activeCabines].sort((a, b) => Number(a.numero ?? 0) - Number(b.numero ?? 0)),
-    [activeCabines],
-  )
+  const cabinesQuery = useQuery({ queryKey: QK.cabines, queryFn: getCabines })
+  const cabinesOrdenadas = useMemo(() => {
+    const rows = (cabinesQuery.data ?? []) as unknown as JsonRecord[]
+    return rows
+      .filter((cabine) => cabine.ativo !== false && asString(cabine.status, '') !== 'inativa')
+      .sort((a, b) => Number(a.numero ?? 0) - Number(b.numero ?? 0))
+  }, [cabinesQuery.data])
 
   const range = useMemo(() => {
     const days = view === 'dia' ? [date] : view === 'semana' ? weekDays(date) : monthGridDays(date)
@@ -459,11 +463,9 @@ export function GradeTab({ activeCabines, marcaRows, apresentadoraRows, catalogs
         // O slot clicado é o contexto: data, cabine, faixa de horário e a marca
         // que o template já reserva ali.
         defaultDate={popoverTarget?.data}
-        defaultCabineId={popoverTarget?.cabineId}
         defaultHoraInicio={popoverTarget?.horaInicio}
         defaultHoraFim={popoverTarget?.horaFim}
         defaultMarcaId={popoverTarget?.celula?.marca_id}
-        cabines={cabinesOrdenadas as unknown as Cabine[]}
         marcas={marcaRows}
         clientes={clientes.data ?? []}
         apresentadoras={apresentadoraRows}

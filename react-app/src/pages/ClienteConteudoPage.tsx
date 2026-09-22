@@ -72,7 +72,6 @@ export function ClienteConteudoPage() {
                 data={lives}
                 columns={[
                   { key: 'iniciado_em', header: 'Data', render: (l) => formatDate(asString(l.iniciado_em, '')) },
-                  { key: 'cabine_numero', header: 'Cabine', render: (l) => `Cabine ${asString(l.cabine_numero, '—')}` },
                   { key: 'apresentador_nome', header: 'Apresentador', render: (l) => asString(l.apresentador_nome, '—') },
                   { key: 'gmv', header: 'GMV', align: 'right', render: (l) => formatMoney(l.gmv) },
                   { key: 'pedidos', header: 'Pedidos', align: 'right', render: (l) => asNumber(l.pedidos).toLocaleString('pt-BR') },

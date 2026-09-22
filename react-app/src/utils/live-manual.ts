@@ -2,7 +2,7 @@ import type { JsonRecord } from '../types/models'
 import { parseBRMoneyToDecimal } from './money'
 
 export type ManualLiveForm = {
-  cabine_id: string
+  cabine_id?: string
   cliente_id: string
   marca_id: string
   apresentador_id: string
@@ -122,7 +122,7 @@ function parseManualCounterInternal(cleaned: string): number {
 export function buildManualLivePayload(form: ManualLiveForm): JsonRecord {
   const gmv = parseBRMoneyToDecimal(form.fat_gerado)
   return {
-    cabine_id: form.cabine_id,
+    ...(form.cabine_id ? { cabine_id: form.cabine_id } : {}),
     cliente_id: form.cliente_id || undefined,
     marca_id: form.marca_id || undefined,
     apresentador_id: form.apresentador_id || undefined,

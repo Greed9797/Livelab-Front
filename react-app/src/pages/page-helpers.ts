@@ -156,7 +156,7 @@ export function normalizeHome(raw: JsonRecord) {
       moneyMetric('GMV / live', gmvPorLive, 'média do mês', 'brand'),
       moneyMetric('GMV / hora', gmvPorHora, `${horasLive.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}h em live`, 'success'),
       metric('Vídeos gravados', videosMes.toLocaleString('pt-BR'), 'mês atual', 'info'),
-      metric('Cabines em live', `${asNumber(raw.lives_ativas_agora ?? ocupacao.ao_vivo ?? liveNow.length)} / ${asNumber(ocupacao.operacionais ?? cabines.length)}`, `${asNumber(ocupacao.operacionais ?? cabines.length)} operacionais`, 'neutral'),
+      metric('Lives ao vivo', `${asNumber(raw.lives_ativas_agora ?? ocupacao.ao_vivo ?? liveNow.length)}`, 'agora', 'neutral'),
     ],
     liveNow,
     liveCabines: liveNow,

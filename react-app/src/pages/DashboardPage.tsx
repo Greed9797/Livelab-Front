@@ -16,7 +16,7 @@ import { getGrade, getHomeDashboard } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString } from '../utils/format'
 import { getSaoPauloDateInput } from '../utils/sao-paulo-date'
-import type { Cabine, JsonRecord } from '../types/models'
+import type { JsonRecord } from '../types/models'
 
 /* ── Page header ── */
 function PageHead() {
@@ -168,26 +168,25 @@ export function DashboardPage() {
   const atualizacaoFalhou = homeQuery.isError && Boolean(homeQuery.data)
   // Mês exibido: seleção manual > mes_referencia do backend > mês corrente
   const mesExibido = mesSelecionado ?? asString(raw.mes_referencia, currentMonth).slice(0, 7)
-  const cabines = asArray<Cabine>(raw.cabines)
+  const liveNow = asArray<JsonRecord>(
+    raw.live_now
+    ?? raw.lives_acontecendo_agora
+    ?? asArray<JsonRecord>(raw.cabines).filter((row) => ['ao_vivo', 'live'].includes(asString(row.status)) && asString(row.live_atual_id ?? row.id, '')),
+  )
   const rankingApresentadoras = asArray<JsonRecord>(raw.ranking_apresentadoras_mes)
   const rankingMarcas = asArray<JsonRecord>(raw.ranking_marcas_mes)
 
   // Grade de hoje (mesma fonte da aba Agenda) + legenda por marca
   const celulasHoje = ((gradeQuery.data?.dias ?? []) as unknown as GradeDia[])[0]?.celulas ?? []
   const gradeTemProgramacao = !gradeQuery.isError && celulasHoje.length > 0
-  const cabinesHoje = new Map<string, typeof celulasHoje>()
-  for (const celula of celulasHoje) {
-    const horarios = cabinesHoje.get(celula.cabine_id) ?? []
-    horarios.push(celula)
-    cabinesHoje.set(celula.cabine_id, horarios)
-  }
+  const programacaoHoje = [...celulasHoje].sort((a, b) => asString(a.hora_inicio).localeCompare(asString(b.hora_inicio)))
 
   return (
     <div className="flex flex-col gap-5">
       <PageHead />
       <PendingMetricsNotice rows={[homeQuery.data ?? {}]} />
 
-      <OperationsNow cabines={cabines as unknown as JsonRecord[]} />
+      <OperationsNow lives={liveNow} />
 
       {atualizacaoFalhou ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:color-mix(in_srgb,var(--warning)_32%,transparent)] bg-[var(--warning-soft)] px-4 py-2 text-sm text-ink">
@@ -261,19 +260,27 @@ export function DashboardPage() {
       {gradeTemProgramacao ? <div role="region" aria-label="Agenda de hoje" className="grid min-w-0 grid-cols-1 gap-4">
         <div className="flex min-w-0 flex-col gap-3 rounded-[var(--radius-panel)] p-6" style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h2 className="text-lg font-bold tracking-[-0.015em]" style={{ color: 'var(--text-primary)' }}>Agenda de hoje</h2><p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>Cabines ocupadas em {today.split('-').reverse().slice(0, 2).join('/')}.</p></div>
+            <div><h2 className="text-lg font-bold tracking-[-0.015em]" style={{ color: 'var(--text-primary)' }}>Agenda de hoje</h2><p className="mt-1 text-[13px]" style={{ color: 'var(--text-muted)' }}>Lives programadas em {today.split('-').reverse().slice(0, 2).join('/')}.</p></div>
           </div>
           <div className="divide-y divide-[var(--divider)]">
-            {Array.from(cabinesHoje, ([cabineId, horarios]) => {
-              const marcas = Array.from(new Set(horarios.map(celula => celula.marca_nome)))
-              const apresentadoras = Array.from(new Set(horarios.map(celula => celula.apresentadora_nome ?? 'Apresentadora a definir')))
-              const detalhe = horarios.map(celula => `${celula.hora_inicio}–${celula.hora_fim} · ${celula.marca_nome}`).join(' / ')
-              return <button key={cabineId} type="button" title={detalhe} onClick={() => navigate(`/agenda?${new URLSearchParams({ data: today, ...(marcas.length === 1 ? { marca: horarios[0].marca_id } : {}) })}`)} className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 py-3 text-left hover:bg-surface-muted sm:grid-cols-[100px_minmax(0,1fr)_minmax(0,1fr)_auto]">
-                <span className="text-sm font-semibold text-ink">Cabine {horarios[0].cabine_numero ?? '—'}</span>
-                <span className="truncate text-sm font-semibold text-ink" title={marcas.join(' · ')}>{marcas.join(' · ')}</span>
-                <span className="truncate text-[13px] text-ink-muted" title={apresentadoras.join(' · ')}>{apresentadoras.join(' · ')}</span>
-                <span className="text-xs font-semibold text-ink-muted">{horarios.length === 1 ? `${horarios[0].hora_inicio}–${horarios[0].hora_fim}` : `${horarios.length} horários`}</span>
-              </button>
+            {programacaoHoje.map((celula) => {
+              const marca = asString(celula.marca_nome, 'Marca a definir')
+              const apresentadora = asString(celula.apresentadora_nome, 'Apresentadora a definir')
+              const horario = `${celula.hora_inicio}–${celula.hora_fim}`
+              const detalhe = `${horario} · ${marca}`
+              return (
+                <button
+                  key={`${celula.cabine_id}:${celula.hora_inicio}:${celula.marca_id}`}
+                  type="button"
+                  title={detalhe}
+                  onClick={() => navigate(`/agenda?${new URLSearchParams({ data: today, ...(celula.marca_id ? { marca: asString(celula.marca_id) } : {}) })}`)}
+                  className="grid w-full grid-cols-[minmax(0,1fr)] items-center gap-x-3 gap-y-1 py-3 text-left hover:bg-surface-muted sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+                >
+                  <span className="truncate text-sm font-semibold text-ink" title={marca}>{marca}</span>
+                  <span className="truncate text-[13px] text-ink-muted" title={apresentadora}>{apresentadora}</span>
+                  <span className="text-xs font-semibold text-ink-muted">{horario}</span>
+                </button>
+              )
             })}
           </div>
         </div>
