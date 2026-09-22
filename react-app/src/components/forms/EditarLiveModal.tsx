@@ -435,7 +435,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     >
       <form id={formId} onSubmit={onSubmit} className="space-y-5">
         <ModalSection title="Dados da live" description="Defina para quem e com quem a live acontece.">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Marca ou cliente</span>
               <select className="design-input mt-2 h-11 w-full px-3" value={accountValue} onChange={(e) => setAccount(e.target.value)}>
@@ -480,7 +480,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         </ModalSection>
 
         <ModalSection title="Data e horário" description="Use o horário real de início e término.">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Data</span>
               <input type="date" className="design-input mt-2 h-11 w-full px-3" value={form.data} onChange={(e) => setField('data', e.target.value)} />
@@ -497,7 +497,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         </ModalSection>
 
         <ModalSection title="Resultado da live" description="Registre o resultado principal antes de salvar.">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-sm font-semibold text-ink">GMV faturado</span>
               <MoneyInput
@@ -520,7 +520,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         </ModalSection>
 
         <ModalSection title="Ajustes financeiros" description="Use apenas para correções manuais e investimento em mídia." collapsible>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Pedidos manuais</span>
               <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.manual_orders} onChange={(e) => setField('manual_orders', e.target.value)} />
@@ -533,7 +533,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         </ModalSection>
 
         <ModalSection title="Publicação" description="Controle interno de disponibilidade da live." collapsible>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Status de publicação</span>
               <p className="mt-2 rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-ink">{form.status_publicacao === 'publicado' ? 'Publicado' : form.status_publicacao === 'revisado' ? 'Revisado' : 'Rascunho'}</p>
@@ -543,7 +543,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
         </ModalSection>
 
         <ModalSection title="Métricas do TikTok" description="Métricas complementares importadas ou ajustadas manualmente." collapsible>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Impressões da live</span>
               <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.live_impressions} onChange={(e) => setField('live_impressions', e.target.value)} />
@@ -569,7 +569,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.avg_viewing_duration} onChange={(e) => setField('avg_viewing_duration', e.target.value)} />
             </label>
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Likes</span>
               <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.manual_likes} onChange={(e) => setField('manual_likes', e.target.value)} />

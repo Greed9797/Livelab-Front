@@ -39,6 +39,7 @@ import { metric, moneyMetric } from './page-helpers'
 import { BoletosPanel } from './BoletosPage'
 import { QK } from '../services/query-keys'
 import { financeiroClienteRef } from '../components/financeiro/financeiro-presentation'
+import { formatSaoPauloTime } from '../pages/conteudo-helpers'
 import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
 import type { JsonRecord } from '../types/models'
 
@@ -348,6 +349,8 @@ export function FinanceiroPage() {
           <CardBody>
             <DataTable<JsonRecord>
               data={clientesView}
+              stackOnMobile
+              mobileColumnKeys={['cliente_nome', 'valor', 'lives', 'receita_liquida']}
               onRowClick={(item) => setSelectedCliente(item)}
               columns={[
                 {
@@ -454,6 +457,8 @@ export function FinanceiroPage() {
                   <CardBody>
                     <DataTable<JsonRecord>
                       data={marcasRows}
+                      stackOnMobile
+                      mobileColumnKeys={['marca_nome', 'gmv_total', 'comissao_franquia']}
                       onRowClick={(item) => {
                         const id = asString(item.marca_id ?? item.id, '')
                         if (id) setSelectedCliente({ ...item, tipo_entidade: 'marca' })
@@ -581,8 +586,10 @@ export function FinanceiroPage() {
                   {lives.length ? (
                     <DataTable<JsonRecord>
                       data={lives}
+                      stackOnMobile
+                      mobileColumnKeys={['iniciado_em', 'gmv', 'status', 'apresentadora_nome']}
                       columns={[
-                        { key: 'iniciado_em', header: 'Data', render: (item) => asString(item.iniciado_em).slice(0, 10) },
+                        { key: 'iniciado_em', header: 'Hora', render: (item) => formatSaoPauloTime(item.iniciado_em) },
                         { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, '—') },
                         { key: 'gmv', header: 'GMV', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv)}</span> },
                         { key: 'status', header: 'Status', render: (item) => <Badge tone={asString(item.status) === 'encerrada' ? 'success' : 'neutral'}>{asString(item.status, '—')}</Badge> },

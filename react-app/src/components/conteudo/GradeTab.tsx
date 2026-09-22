@@ -33,7 +33,7 @@ import {
   type GradePadraoCelula,
 } from './gradeUtils'
 import { resolveMarcaCor } from '../../utils/brandColor'
-import { GradeDiaView, GradeMesView, GradeSemanaView } from './GradeViews'
+import { GradeDiaMobileList, GradeDiaView, GradeMesView, GradeSemanaDayList, GradeSemanaView } from './GradeViews'
 import { GradeCellPopover, type GradeCellTarget } from './GradeCellPopover'
 import { AgendarLiveModal } from '../forms/AgendarLiveModal'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
@@ -412,9 +412,19 @@ export function GradeTab({ marcaRows, apresentadoraRows, catalogsReady, catalogs
         ) : editPadrao ? (
           <GradeDiaView celulas={padraoDoDow} cabines={cabinesOrdenadas} onCellClick={onCellClick} marcarExcecoes={false} />
         ) : view === 'dia' ? (
-          <GradeDiaView celulas={gradePorData.get(date) ?? []} cabines={cabinesOrdenadas} onCellClick={onCellClick} />
+          <>
+            <GradeDiaMobileList celulas={gradePorData.get(date) ?? []} />
+            <div className="hidden md:block">
+              <GradeDiaView celulas={gradePorData.get(date) ?? []} cabines={cabinesOrdenadas} onCellClick={onCellClick} />
+            </div>
+          </>
         ) : view === 'semana' ? (
-          <GradeSemanaView dias={dias} today={today} onOpenDia={(d) => { setDate(d); setView('dia') }} />
+          <>
+            <GradeSemanaDayList dias={dias} today={today} onOpenDia={(d) => { setDate(d); setView('dia') }} />
+            <div className="hidden md:block">
+              <GradeSemanaView dias={dias} today={today} onOpenDia={(d) => { setDate(d); setView('dia') }} />
+            </div>
+          </>
         ) : (
           <GradeMesView
             monthDays={monthGridDays(date)}

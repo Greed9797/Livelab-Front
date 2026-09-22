@@ -2,6 +2,7 @@ import { X } from 'lucide-react'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
+import { useVisualViewportKeyboardInset } from '../../hooks/useVisualViewportKeyboardInset'
 
 const FOCUSABLE = 'a[href], button:not([disabled]), summary, textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -104,6 +105,8 @@ export function Modal({
   // Ref evita re-registrar o listener a cada render quando onClose é uma arrow inline.
   const onCloseRef = useRef(onClose)
   onCloseRef.current = () => { if (!closeDisabled) onClose() }
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const keyboardInset = useVisualViewportKeyboardInset(open)
 
   useEffect(() => {
     if (!open) return
@@ -199,16 +202,34 @@ export function Modal({
     }
   }, [open])
 
+  useEffect(() => {
+    if (!open) return
+    const body = bodyRef.current
+    if (!body) return
+    function onFocusIn(event: FocusEvent) {
+      const target = event.target
+      if (!body || !(target instanceof HTMLElement) || !body.contains(target)) return
+      requestAnimationFrame(() => {
+        target.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      })
+    }
+    body.addEventListener('focusin', onFocusIn)
+    return () => body.removeEventListener('focusin', onFocusIn)
+  }, [open])
+
   if (!open) return null
 
   return createPortal(
-    <div ref={layerRef} className="fixed inset-0 z-[80] overflow-hidden bg-black/55 px-3 py-3 backdrop-blur-sm sm:px-5 sm:py-6" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} aria-busy={closeDisabled || undefined}>
-      <div className="flex min-h-full items-center justify-center">
+    <div ref={layerRef} className="fixed inset-0 z-[80] overflow-hidden bg-black/55 px-0 py-0 backdrop-blur-sm sm:px-5 sm:py-6" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} aria-busy={closeDisabled || undefined}>
+      <div
+        className="flex min-h-full items-end justify-center sm:items-center"
+        style={{ paddingBottom: keyboardInset > 0 ? keyboardInset : undefined }}
+      >
         <div
           ref={panelRef}
           tabIndex={-1}
           className={clsx(
-            'flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-[var(--radius-panel)] border border-line bg-surface shadow-[var(--shadow-card-lg)] outline-none sm:max-h-[calc(100dvh-3rem)]',
+            'flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[var(--radius-panel)] border border-line border-b-0 bg-surface shadow-[var(--shadow-card-lg)] outline-none sm:max-h-[calc(100dvh-3rem)] sm:rounded-[var(--radius-panel)] sm:border-b',
             size === 'sm' && 'max-w-lg',
             size === 'md' && 'max-w-2xl',
             size === 'lg' && 'max-w-4xl',
@@ -222,7 +243,7 @@ export function Modal({
             </div>
             <button
               type="button"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-pill)] border border-line bg-surface text-ink-muted transition-colors duration-150 ease-out hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-[var(--radius-pill)] border border-line bg-surface text-ink-muted transition-colors duration-150 ease-out hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
               aria-label="Fechar"
               disabled={closeDisabled}
               onClick={onClose}
@@ -230,7 +251,7 @@ export function Modal({
               <X className="h-[18px] w-[18px]" />
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 scrollbar-thin sm:px-6 sm:py-5">{children}</div>
+          <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 scrollbar-thin sm:px-6 sm:py-5">{children}</div>
           {footer ? <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-line px-4 py-3 sm:px-6 sm:py-4">{footer}</div> : null}
         </div>
       </div>

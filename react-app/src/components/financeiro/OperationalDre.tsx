@@ -95,7 +95,7 @@ export function OperationalDre({ data }: { data: JsonRecord }) {
   return (
     <section className="space-y-4" aria-label="DRE operacional">
       {semApuracaoNotice}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard metric={{ label: 'Receita total', value: formatMoney(dre.receita.total, true), hint: `${countLabel(dre.receita.marcas.length, 'marca')}`, tone: 'success' }} icon={TrendingUp} />
         <MetricCard metric={{ label: 'Despesas totais', value: formatMoney(dre.totalDespesas, true), hint: `${countLabel(dre.apresentadoras.pessoas.length, 'apresentadora')} + ${countLabel(dre.custos.grupos.reduce((total, group) => total + group.itens.length, 0), 'lançamento')}`, tone: 'warning' }} icon={TrendingDown} />
         <MetricCard metric={{ label: 'Resultado operacional', value: formatMoney(dre.resultado, true), hint: 'receita de marcas − todas as despesas', tone: dre.resultado >= 0 ? 'success' : 'danger' }} icon={CircleDollarSign} />

@@ -71,7 +71,7 @@ function PodiumCard({ item, place, subject, valueKey, valueLabel, metaKey, metaL
         border: 'oklch(0.72 0.11 78 / 0.62)',
         badgeText: '#111',
       }
-  const podShift = place === 1 ? '-translate-y-3' : ''
+  const podShift = place === 1 ? 'sm:-translate-y-3' : ''
   const placeLabel = String(place)
 
   return (
@@ -129,17 +129,18 @@ export function RankingPodium({ data, subject, valueKey = 'gmv_total', valueLabe
 
   const top3 = [data[0], data[1], data[2]].filter(Boolean)
   if (top3.length === 0) return null
-  const ordered: Array<{ item: JsonRecord; place: 1 | 2 | 3 } | null> = [
+  const podiumOrder: Array<{ item: JsonRecord; place: 1 | 2 | 3 } | null> = [
     top3[1] ? { item: top3[1], place: 2 } : null,
     top3[0] ? { item: top3[0], place: 1 } : null,
     top3[2] ? { item: top3[2], place: 3 } : null,
   ]
+  const mobileOrder = top3.map((item, idx) => ({ item, place: (idx + 1) as 1 | 2 | 3 }))
 
   return (
     <div className="relative overflow-hidden rounded-[10px] border border-line bg-surface px-5 pb-6 pt-7">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-brand/35" />
-      <div className="relative grid grid-cols-3 items-end gap-3.5">
-        {ordered.map((slot, idx) => slot ? (
+      <div className="relative hidden grid-cols-3 items-end gap-3.5 sm:grid">
+        {podiumOrder.map((slot, idx) => slot ? (
           <PodiumCard
             key={rankingId(slot.item, subject) || String(idx)}
             item={slot.item}
@@ -152,6 +153,20 @@ export function RankingPodium({ data, subject, valueKey = 'gmv_total', valueLabe
           />
         ) : (
           <div key={`empty-${idx}`} />
+        ))}
+      </div>
+      <div className="relative grid grid-cols-1 gap-5 sm:hidden">
+        {mobileOrder.map(({ item, place }) => (
+          <PodiumCard
+            key={rankingId(item, subject) || String(place)}
+            item={item}
+            place={place}
+            subject={subject}
+            valueKey={valueKey}
+            valueLabel={valueLabel}
+            metaKey={metaKey}
+            metaLabel={metaLabel}
+          />
         ))}
       </div>
     </div>

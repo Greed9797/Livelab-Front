@@ -999,7 +999,7 @@ export function AgendarLiveModal({
     >
       <form id={formId} className="space-y-0" onSubmit={onSubmit}>
         <ModalSection title="Dados da operação" description="Defina a marca, o horário e quem apresenta.">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="text-sm font-semibold text-ink">Tipo do evento</span>
               <select className="design-input mt-2 h-11 w-full px-4" value={form.tipo} onChange={(item) => setField('tipo', item.target.value)} disabled={mode === 'now'}>
@@ -1040,7 +1040,7 @@ export function AgendarLiveModal({
               <span className="text-sm font-semibold text-ink">Data</span>
               <input className="design-input mt-2 h-11 w-full px-3" type="date" value={form.data} onChange={(item) => setField('data', item.target.value)} required />
             </label>
-            <div className="grid grid-cols-2 gap-3 md:col-span-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:col-span-2">
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Início</span>
                 <input className="design-input mt-2 h-11 w-full px-3" type="time" value={form.hora_inicio} onChange={(item) => setField('hora_inicio', item.target.value)} required />
@@ -1175,7 +1175,7 @@ export function AgendarLiveModal({
         ) : null}
         </ModalSection>
         <ModalSection title="Detalhes do evento" description="Status, responsável e observações." collapsible defaultOpen={mode === 'edit'}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {mode !== 'now' ? (
               <label className="block">
                 <span className="text-sm font-semibold text-ink">Status</span>
@@ -1202,7 +1202,7 @@ export function AgendarLiveModal({
         </ModalSection>
         {mode !== 'now' ? (
           <ModalSection title="Recorrência" description="Use somente para repetir esta reserva." collapsible defaultOpen={recorrenciaAtiva}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block md:col-span-2">
               <span className="text-sm font-semibold text-ink">Recorrência</span>
               <select className="design-input mt-2 h-11 w-full px-4" value={form.recorrencia_tipo} onChange={(item) => setRecurrenceType(item.target.value)} disabled={mode === 'edit' || revezamentoAtivo}>
