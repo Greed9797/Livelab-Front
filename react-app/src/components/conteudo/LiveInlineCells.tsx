@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, Edit2, X } from 'lucide-react'
 import { formatMoney } from '../../utils/format'
+import { parseManualCounterToInt, validateManualCounterInput } from '../../utils/live-manual'
 import { parseBRMoneyToDecimal } from '../../utils/money'
 import type { JsonRecord } from '../../types/models'
 import type { LiveFilterOption } from './live-helpers'
@@ -178,7 +179,12 @@ export function InlinePedidosCell({
     setError(false)
   }
   async function commit() {
-    const n = Math.trunc(Number(value.replace(/[^\d]/g, '')))
+    const counterError = validateManualCounterInput(value)
+    if (counterError) {
+      setError(true)
+      return
+    }
+    const n = parseManualCounterToInt(value)
     if (!Number.isFinite(n) || n < 0) {
       setError(true)
       return

@@ -11,7 +11,7 @@ import { extractErrorMessage } from '../../services/api'
 import { asString } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
 import { formatBRLWithoutSymbol } from '../../utils/money'
-import { buildFunilPayload, buildManualLivePayload, type ManualLiveForm } from '../../utils/live-manual'
+import { buildFunilPayload, buildManualLivePayload, type ManualLiveForm, validateManualCounterInput } from '../../utils/live-manual'
 import { isOperationalBrand, isOperationalClient } from '../../utils/operational-status'
 import type { Cabine, JsonRecord } from '../../types/models'
 
@@ -180,6 +180,7 @@ export function RegistrarMetricasLiveModal({
   onCloseLive?: (id: string, payload: JsonRecord) => void
 }) {
   const [form, setForm] = useState<MetricsForm>(emptyForm)
+  const [validationError, setValidationError] = useState<string | null>(null)
   const initialFormRef = useRef<MetricsForm>(emptyForm)
   const initializedRef = useRef('')
   const resolvedAgendaBrandRef = useRef(false)
@@ -214,6 +215,7 @@ export function RegistrarMetricasLiveModal({
       : { ...emptyForm, data: today() }
     initialFormRef.current = next
     setForm(next)
+    setValidationError(null)
   }, [agendaEvent, live, marcas, mode, open])
 
   const preserveAgendaBrand = mode === 'result' && Boolean(agendaEvent?.marca_id)
@@ -289,9 +291,26 @@ export function RegistrarMetricasLiveModal({
     return payload
   }
 
+  const counterFieldKeys: Array<keyof MetricsForm> = [
+    'qtd_pedidos', 'live_impressions', 'product_impressions', 'product_clicks',
+    'manual_views', 'new_followers', 'avg_viewing_duration', 'manual_likes',
+    'manual_comments', 'manual_shares', 'manual_diamonds',
+  ]
+
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (isSaving || agendaBrandUnavailable) return
+
+    for (const key of counterFieldKeys) {
+      const raw = asString(form[key], '')
+      if (!raw.trim()) continue
+      const counterError = validateManualCounterInput(raw)
+      if (counterError) {
+        setValidationError(counterError)
+        return
+      }
+    }
+    setValidationError(null)
     if (mode === 'edit' && live && onUpdateLive) {
       onUpdateLive(asString(live.id, ''), buildUpdatePayload())
       return
@@ -318,6 +337,7 @@ export function RegistrarMetricasLiveModal({
           {marcaLoading ? 'Carregando a marca desta reserva…' : 'Não foi possível carregar a marca desta reserva. Tente novamente ou confira o agendamento.'}
           {marcaError && onRetryMarca ? <Button type="button" variant="secondary" onClick={onRetryMarca}>Tentar novamente</Button> : null}
         </div> : null}
+        {validationError ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">{validationError}</p> : null}
         {error ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">{extractErrorMessage(error)}</p> : null}
         <Button type="button" variant="secondary" disabled={isSaving} onClick={closeGuard.requestClose}>Cancelar</Button>
         <Button type="submit" form={formId} icon={CheckCircle2} disabled={agendaBrandUnavailable} isLoading={isSaving}>{submitLabel}</Button>

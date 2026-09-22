@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildManualLivePayload } from './live-manual'
+import { buildManualLivePayload, parseManualCounterToInt, validateManualCounterInput } from './live-manual'
 
 const baseForm = {
   cabine_id: 'cabine-1',
@@ -67,6 +67,16 @@ describe('buildManualLivePayload', () => {
       manual_likes: 10500,
       manual_comments: 1250,
     })
+  })
+
+  it('rejects decimal comma in pedidos (12,5) on create', () => {
+    expect(validateManualCounterInput('12,5')).toMatch(/inteiro/)
+    expect(() => buildManualLivePayload({ ...baseForm, qtd_pedidos: '12,5' })).toThrow()
+  })
+
+  it('rejects 10,50 in pedidos — must not become 1050', () => {
+    expect(validateManualCounterInput('10,50')).toMatch(/inteiro/)
+    expect(parseManualCounterToInt('10,500')).toBe(10500)
   })
 
   it('sends TikTok funnel metrics as integers and ads cost as decimal money', () => {

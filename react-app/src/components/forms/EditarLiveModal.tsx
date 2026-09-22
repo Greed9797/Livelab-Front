@@ -14,8 +14,10 @@ import {
   getMarcas,
   updateLive,
 } from '../../services/domain'
-import { asArray, asNumber, asString, formatPercent } from '../../utils/format'
+import { asArray, asString, formatPercent } from '../../utils/format'
 import { officialLiveGmvRaw } from '../../utils/live-gmv'
+import { parseManualCounterToInt, validateManualCounterInput } from '../../utils/live-manual'
+import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../../utils/money'
 import { QK, invalidateOperational } from '../../services/query-keys'
 import type { JsonRecord } from '../../types/models'
 import { isOperationalBrand, isOperationalClient } from '../../utils/operational-status'
@@ -197,6 +199,21 @@ const CAMPOS_NUMERICOS: Array<[keyof EditForm, string]> = [
 
 const CAMPOS_DINHEIRO = new Set<string>(['fat_gerado', 'manual_gmv', 'ads_cost'])
 
+const CAMPOS_CONTADOR: Array<keyof EditForm> = [
+  'qtd_pedidos', 'manual_orders', 'manual_views', 'manual_likes', 'manual_comments',
+  'manual_shares', 'manual_diamonds', 'live_impressions', 'product_impressions',
+  'product_clicks', 'avg_viewing_duration', 'new_followers',
+]
+
+function campoNumericoMudou(formKey: keyof EditForm, raw: string, prefillRaw: string): boolean {
+  if (raw === prefillRaw) return false
+  if (raw === '') return false
+  if (CAMPOS_DINHEIRO.has(formKey)) {
+    return parseBRMoneyToDecimal(raw) !== parseBRMoneyToDecimal(prefillRaw)
+  }
+  return parseManualCounterToInt(raw) !== parseManualCounterToInt(prefillRaw)
+}
+
 /**
  * Monta a parte numérica do PATCH, enviando SÓ o que o usuário alterou em relação ao
  * formulário como ele nasceu.
@@ -214,9 +231,10 @@ export function montarCamposNumericos(form: EditForm, prefill: EditForm, temAdsG
   for (const [formKey, payloadKey] of CAMPOS_NUMERICOS) {
     const raw = form[formKey]
     if (raw === '') continue
-    if (raw === prefill[formKey]) continue
-    const value = asNumber(raw)
-    out[payloadKey] = CAMPOS_DINHEIRO.has(payloadKey) ? value : Math.trunc(value)
+    if (!campoNumericoMudou(formKey, raw, prefill[formKey])) continue
+    out[payloadKey] = CAMPOS_DINHEIRO.has(payloadKey)
+      ? parseBRMoneyToDecimal(raw)
+      : parseManualCounterToInt(raw)
   }
 
   // Espelha os dois campos de GMV quando só um foi editado.
@@ -293,8 +311,8 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
       data: toDateInput(live.iniciado_em ?? live.data),
       hora_inicio: toTimeInput(live.iniciado_em),
       hora_fim: toTimeInput(live.encerrado_em ?? live.previsto_fim),
-      fat_gerado: asString(officialLiveGmvRaw(live), ''),
-      manual_gmv: asString(live.manual_gmv, ''),
+      fat_gerado: formatBRLWithoutSymbol(officialLiveGmvRaw(live)),
+      manual_gmv: formatBRLWithoutSymbol(officialLiveGmvRaw(live)),
       qtd_pedidos: asString(live.manual_orders ?? live.qtd_pedidos ?? live.final_orders_count, ''),
       manual_orders: asString(live.manual_orders, ''),
       manual_views: asString(live.manual_views, ''),
@@ -328,6 +346,10 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     setForm((current) => ({ ...current, [key]: value }))
   }
 
+  function setGmv(value: string) {
+    setForm((current) => ({ ...current, fat_gerado: value, manual_gmv: value }))
+  }
+
   function setAccount(value: string) {
     const selection = liveAccountSelection(value, marcaRows)
     if (selection) setForm((current) => ({ ...current, ...selection }))
@@ -351,6 +373,16 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     if (form.hora_inicio && form.hora_fim && form.hora_fim <= form.hora_inicio) {
       setError('O término deve ser depois do início.')
       return
+    }
+
+    for (const key of CAMPOS_CONTADOR) {
+      const raw = form[key]
+      if (!raw.trim()) continue
+      const counterError = validateManualCounterInput(raw)
+      if (counterError) {
+        setError(counterError)
+        return
+      }
     }
 
     const payload: JsonRecord = {}
@@ -494,7 +526,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               <MoneyInput
                 className="design-input mt-2 h-11 w-full px-3"
                 value={form.fat_gerado}
-                onChange={(v) => setField('fat_gerado', v)}
+                onChange={(v) => setGmv(v)}
               />
               {gmvVeioDoTikTok ? (
                 <span className="mt-1 block text-[11px] leading-tight text-ink-muted">
@@ -512,10 +544,6 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
 
         <ModalSection title="Ajustes financeiros" description="Use apenas para correções manuais e investimento em mídia." collapsible>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">GMV manual</span>
-              <MoneyInput className="design-input mt-2 h-11 w-full px-3" value={form.manual_gmv} onChange={(v) => setField('manual_gmv', v)} />
-            </label>
             <label className="block">
               <span className="text-sm font-semibold text-ink">Pedidos manuais</span>
               <input type="text" inputMode="numeric" className="design-input mt-2 h-11 w-full px-3" value={form.manual_orders} onChange={(e) => setField('manual_orders', e.target.value)} />

@@ -64,10 +64,28 @@ describe('montarCamposNumericos — não regravar dinheiro que ninguém tocou', 
     expect(montarCamposNumericos(atual, prefill).fat_gerado).toBe(1432.5)
   })
 
-  it('trunca os contadores, que são inteiros', () => {
+  it('aceita GMV digitado com vírgula brasileira (1432,50)', () => {
+    const prefill = form({ fat_gerado: '1.000,00', manual_gmv: '1.000,00' })
+    const atual = form({ fat_gerado: '1432,50', manual_gmv: '1432,50' })
+    expect(montarCamposNumericos(atual, prefill)).toEqual({ fat_gerado: 1432.5, manual_gmv: 1432.5 })
+  })
+
+  it('blur só com formatação pt-BR não entra no PATCH (mesmo valor numérico)', () => {
+    const prefill = form({ fat_gerado: '1432.5', manual_gmv: '1432.5' })
+    const atual = form({ fat_gerado: '1.432,50', manual_gmv: '1.432,50' })
+    expect(montarCamposNumericos(atual, prefill)).toEqual({})
+  })
+
+  it('rejeita pedidos com vírgula decimal no payload (12,5)', () => {
+    const prefill = form({ qtd_pedidos: '10' })
+    const atual = form({ qtd_pedidos: '12,5' })
+    expect(() => montarCamposNumericos(atual, prefill)).toThrow()
+  })
+
+  it('envia contadores apenas como inteiros quando o valor numérico mudou', () => {
     const prefill = form({ manual_likes: '10' })
-    const atual = form({ manual_likes: '10.9' })
-    expect(montarCamposNumericos(atual, prefill).manual_likes).toBe(10)
+    const atual = form({ manual_likes: '11' })
+    expect(montarCamposNumericos(atual, prefill).manual_likes).toBe(11)
   })
 
   it('só o campo alterado entra no payload, mesmo com vários preenchidos', () => {
