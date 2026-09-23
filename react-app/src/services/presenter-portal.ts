@@ -161,15 +161,31 @@ export function approvePresenterSubmission(id: string, payload: ({ live_id: stri
   return apiPost(`/lives/submissoes-apresentadoras/${encodeURIComponent(id)}/aprovar`, payload)
 }
 
+export type BatchApproveSubmissionRef = {
+  id: string
+  live_oficial_id?: string
+  apresentadora_nome?: string | null
+  marca_nome?: string | null
+  iniciado_em?: string | null
+  reason?: string
+  error?: string
+  conflito?: boolean
+}
+
 export type BatchApprovePresenterSubmissionsResult = {
-  data: string
-  approved: Array<{ id: string; live_oficial_id: string }>
-  skipped: Array<{ id: string; reason?: string }>
-  failed: Array<{ id: string; error: string }>
+  data?: string
+  approved: BatchApproveSubmissionRef[]
+  skipped: BatchApproveSubmissionRef[]
+  skipped_conflito?: BatchApproveSubmissionRef[]
+  failed: BatchApproveSubmissionRef[]
 }
 
 export function batchApprovePresenterSubmissionsForDay(data: string) {
   return apiPost<BatchApprovePresenterSubmissionsResult>('/lives/submissoes-apresentadoras/aprovar-dia', { data })
+}
+
+export function approvePresenterSubmissionsWithoutConflict(ids: string[]) {
+  return apiPost<BatchApprovePresenterSubmissionsResult>('/lives/submissoes-apresentadoras/aprovar-sem-conflito', { ids })
 }
 
 export function returnPresenterSubmission(id: string, motivo: string, arquivar = false, versao_esperada?: number) {

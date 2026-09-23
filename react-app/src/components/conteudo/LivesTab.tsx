@@ -23,6 +23,7 @@ import {
   GitMerge,
 } from 'lucide-react'
 import { Button } from '../ui/Button'
+import { Modal } from '../ui/Modal'
 import { BotBadge } from '../ui/BotBadge'
 import { ErrorState, LoadingState } from '../ui/States'
 import { useToast } from '../ui/Toast'
@@ -32,6 +33,10 @@ import { asNumber, asString, formatMoney } from '../../utils/format'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { officialLiveGmv } from '../../utils/live-gmv'
 import { getLiveUnionCapabilities, getLivesResumoDia, type LiveResumoDiaResponse } from '../../services/domain'
+import { extractErrorMessage } from '../../services/api'
+import { approvePresenterSubmissionsWithoutConflict, type BatchApprovePresenterSubmissionsResult, type BatchApproveSubmissionRef } from '../../services/presenter-portal'
+import { invalidateOperational } from '../../services/query-keys'
+import { groupSubmissionTitle, splitPendingGroupSubmissions } from './group-approve'
 import {
   calcDuration,
   classifyLivePendings,
@@ -52,7 +57,7 @@ import { LiveMergeModal } from './LiveMergeModal'
 import type { DateRange } from './live-date-range'
 import './LivesTab.css'
 import type { JsonRecord } from '../../types/models'
-import { useQuery, type UseMutationResult } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type UseMutationResult } from '@tanstack/react-query'
 
 // ─── colunas opcionais ─────────────────────────────────────────────────────
 // A tabela nasce enxuta (Horário, Live, Duração, GMV, GMV/h, Pedidos, Comissão, Apresentadora,
@@ -93,6 +98,12 @@ export function buildLivesGridTemplate(visiveis: ReadonlySet<LiveColumnKey>, wit
 }
 
 /** GMV por hora registrada; null quando não há duração ou GMV para dividir. */
+function approveResultLine(item: BatchApproveSubmissionRef): string {
+  const nome = [item.apresentadora_nome, item.marca_nome].filter(Boolean).join(' · ') || `${item.id.slice(0, 8)}…`
+  const detail = item.reason || item.error
+  return detail ? `${nome} — ${detail}` : nome
+}
+
 export function gmvPorHora(gmv: number, mins: number): number | null {
   if (!(mins > 0) || !(gmv > 0)) return null
   return gmv / (mins / 60)
@@ -619,8 +630,24 @@ export function LivesTab({
   const todayIso = localIsoDate(new Date())
 
   const toast = useToast()
+  const queryClient = useQueryClient()
   const [copiedDayKey, setCopiedDayKey] = useState<string | null>(null)
   const [copyingDayKey, setCopyingDayKey] = useState<string | null>(null)
+  const [groupApproveConfirm, setGroupApproveConfirm] = useState<{ dateKey: string; label: string; ids: string[]; limpos: number; conflitos: string[] } | null>(null)
+  const [groupApproveResult, setGroupApproveResult] = useState<BatchApprovePresenterSubmissionsResult | null>(null)
+  const groupApprove = useMutation({
+    mutationFn: (ids: string[]) => approvePresenterSubmissionsWithoutConflict(ids),
+    onSuccess: (result) => {
+      setGroupApproveConfirm(null)
+      setGroupApproveResult(result)
+      invalidateOperational(queryClient)
+      if (result.failed.length === 0 && result.approved.length > 0) toast.push(`${result.approved.length} envio(s) aprovado(s).`, 'success')
+    },
+    onError: (error) => {
+      setGroupApproveConfirm(null)
+      toast.push(extractErrorMessage(error), 'error')
+    },
+  })
   const [selectedLiveIds, setSelectedLiveIds] = useState<Set<string>>(new Set())
   const [mergeOpen, setMergeOpen] = useState(false)
   const selectedLiveIdList = useMemo(() => [...selectedLiveIds], [selectedLiveIds])
@@ -1265,6 +1292,8 @@ export function LivesTab({
             const h = Math.floor(totalMins / 60)
             const m = totalMins % 60
 
+            const groupSubmissions = onReviewSubmission ? splitPendingGroupSubmissions(group.lives) : null
+
             return (
               <div key={group.dateKey}>
                 {/* Day header */}
@@ -1346,7 +1375,43 @@ export function LivesTab({
                   </div>
 
                   {/* Day header actions: Copiar resumo + GMV pill */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {groupSubmissions && groupSubmissions.pending.length > 0 ? (
+                      <button
+                        type="button"
+                        data-testid="approve-group-without-conflict"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          groupApprove.reset()
+                          setGroupApproveConfirm({
+                            dateKey: group.dateKey,
+                            label: group.label,
+                            ids: groupSubmissions.pending.map((live) => asString(live.submissao_id)),
+                            limpos: groupSubmissions.limpos.length,
+                            conflitos: groupSubmissions.conflitos.map((live) => groupSubmissionTitle(live)),
+                          })
+                        }}
+                        disabled={groupApprove.isPending}
+                        title="Aprova os envios deste grupo que não têm conflito. Os demais continuam na lista."
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 12px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: 'var(--primary)',
+                          background: 'var(--primary-soft)',
+                          border: '1px solid var(--primary)',
+                          borderRadius: 8,
+                          cursor: groupApprove.isPending ? 'wait' : 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <Check style={{ width: 13, height: 13 }} />
+                        <span>{groupSubmissions.limpos.length > 0 ? `Aprovar ${groupSubmissions.limpos.length} sem conflito` : 'Aprovar sem conflito'}</span>
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1977,6 +2042,76 @@ export function LivesTab({
         </div>,
         document.body,
       ) : null}
+
+      <Modal
+        open={Boolean(groupApproveConfirm)}
+        size="sm"
+        title="Aprovar envios sem conflito"
+        subtitle={groupApproveConfirm ? (groupApproveConfirm.limpos > 0 ? `Confirmar ${groupApproveConfirm.limpos} envio(s) sem conflito em ${groupApproveConfirm.label}. Cabine não será atribuída.` : `Nenhum envio sem conflito em ${groupApproveConfirm.label}.`) : undefined}
+        onClose={() => setGroupApproveConfirm(null)}
+        closeDisabled={groupApprove.isPending}
+        footer={(
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={() => setGroupApproveConfirm(null)} disabled={groupApprove.isPending}>Cancelar</Button>
+            <Button
+              icon={Check}
+              isLoading={groupApprove.isPending}
+              disabled={!groupApproveConfirm?.limpos || groupApproveConfirm.ids.length === 0}
+              onClick={() => { if (groupApproveConfirm?.ids.length) groupApprove.mutate(groupApproveConfirm.ids) }}
+            >
+              {groupApproveConfirm?.limpos ? `Confirmar ${groupApproveConfirm.limpos}` : 'Nada a aprovar'}
+            </Button>
+          </div>
+        )}
+      >
+        <div className="grid gap-3 text-sm text-ink-muted">
+          <p>Cada envio sem conflito vira uma live histórica. Um erro não desfaz os que já foram aprovados.</p>
+          {groupApproveConfirm?.conflitos.length ? (
+            <div>
+              <p className="font-semibold text-ink">Ficam de fora por conflito ({groupApproveConfirm.conflitos.length})</p>
+              <ul className="mt-1 list-disc pl-5">
+                {groupApproveConfirm.conflitos.map((nome, index) => <li key={`${index}:${nome}`}>{nome}</li>)}
+              </ul>
+              <p className="mt-2">Esses continuam na lista para revisar um a um.</p>
+            </div>
+          ) : (
+            <p>Nenhum envio deste grupo está marcado como conflito.</p>
+          )}
+        </div>
+      </Modal>
+      <Modal
+        open={Boolean(groupApproveResult)}
+        size="sm"
+        title="Resultado da aprovação do grupo"
+        subtitle={groupApproveResult ? `${groupApproveResult.approved.length} aprovado(s) · ${(groupApproveResult.skipped_conflito ?? []).length} com conflito · ${groupApproveResult.failed.length} falha(s)` : undefined}
+        onClose={() => setGroupApproveResult(null)}
+        footer={<Button onClick={() => setGroupApproveResult(null)}>Fechar</Button>}
+      >
+        {groupApproveResult ? (
+          <div className="grid gap-4 text-sm">
+            <div>
+              <p className="font-semibold text-ink">Aprovados ({groupApproveResult.approved.length})</p>
+              {groupApproveResult.approved.length ? <ul className="mt-1 list-disc pl-5 text-ink-muted">{groupApproveResult.approved.map((item) => <li key={item.id}>{approveResultLine(item)}</li>)}</ul> : <p className="mt-1 text-ink-muted">Nenhum.</p>}
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Com conflito ({(groupApproveResult.skipped_conflito ?? []).length})</p>
+              {(groupApproveResult.skipped_conflito ?? []).length ? <ul className="mt-1 list-disc pl-5 text-ink-muted">{(groupApproveResult.skipped_conflito ?? []).map((item) => <li key={item.id}>{approveResultLine(item)}</li>)}</ul> : <p className="mt-1 text-ink-muted">Nenhum.</p>}
+            </div>
+            {groupApproveResult.failed.length ? (
+              <div role="alert">
+                <p className="font-semibold text-[var(--danger)]">Falhas ({groupApproveResult.failed.length})</p>
+                <ul className="mt-1 list-disc pl-5 text-[var(--danger)]">{groupApproveResult.failed.map((item) => <li key={item.id}>{approveResultLine(item)}</li>)}</ul>
+              </div>
+            ) : null}
+            {groupApproveResult.skipped.some((item) => !item.conflito) ? (
+              <div>
+                <p className="font-semibold text-ink">Ignorados</p>
+                <ul className="mt-1 list-disc pl-5 text-ink-muted">{groupApproveResult.skipped.filter((item) => !item.conflito).map((item) => <li key={item.id}>{approveResultLine(item)}</li>)}</ul>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </Modal>
 
       <LiveMergeModal
         open={mergeOpen}
