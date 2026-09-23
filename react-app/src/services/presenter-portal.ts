@@ -180,12 +180,17 @@ export type BatchApprovePresenterSubmissionsResult = {
   failed: BatchApproveSubmissionRef[]
 }
 
+// O axios compartilhado corta em 15s. Um dia (~20 lives) fica acima disso mesmo
+// depois do lote ir em uma ida ao banco por envio, e abaixo do corte de 5 min
+// do proxy da Railway. Só estas duas chamadas usam o limite maior.
+export const TIMEOUT_APROVACAO_LOTE_MS = 90_000
+
 export function batchApprovePresenterSubmissionsForDay(data: string) {
-  return apiPost<BatchApprovePresenterSubmissionsResult>('/lives/submissoes-apresentadoras/aprovar-dia', { data })
+  return apiPost<BatchApprovePresenterSubmissionsResult>('/lives/submissoes-apresentadoras/aprovar-dia', { data }, { timeout: TIMEOUT_APROVACAO_LOTE_MS })
 }
 
 export function approvePresenterSubmissionsWithoutConflict(ids: string[]) {
-  return apiPost<BatchApprovePresenterSubmissionsResult>('/lives/submissoes-apresentadoras/aprovar-sem-conflito', { ids })
+  return apiPost<BatchApprovePresenterSubmissionsResult>('/lives/submissoes-apresentadoras/aprovar-sem-conflito', { ids }, { timeout: TIMEOUT_APROVACAO_LOTE_MS })
 }
 
 export function returnPresenterSubmission(id: string, motivo: string, arquivar = false, versao_esperada?: number) {
