@@ -78,6 +78,16 @@ describe('LivesTab colunas configuráveis', () => {
   })
 })
 
+describe('LivesTab aprovar grupo sem conflito', () => {
+  const source = readFileSync(new URL('./LivesTab.tsx', import.meta.url), 'utf8')
+
+  it('mostra a ação no cabeçalho do grupo, sem depender de filtro de um único dia', () => {
+    expect(source).toContain('data-testid="approve-group-without-conflict"')
+    expect(source).toContain('splitPendingGroupSubmissions(group.lives)')
+    expect(source).not.toContain('batchApproveDate')
+  })
+})
+
 describe('LivesTab agrupamento por dia operacional', () => {
   it('mantém no mesmo dia de São Paulo lives antes e depois da virada UTC', () => {
     const groups = groupLivesBySaoPauloDay([
