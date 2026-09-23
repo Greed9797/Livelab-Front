@@ -340,6 +340,21 @@ test('aceita zero nas métricas declaradas e bloqueia contagens fora do limite',
   expect(write?.body).toMatchObject({ gmv_declarado: '0.00', pedidos_declarados: 0, live_impressions_declaradas: 0, manual_views_declaradas: 0 })
 })
 
+test('gestor aprova envio sem escolher cabine', async ({ page }) => {
+  const calls = await setup(page, 'franqueado')
+  await page.goto('/lives')
+  await page.getByRole('button', { name: 'Validar live' }).click()
+  const modal = page.getByRole('dialog')
+  await modal.getByRole('combobox', { name: 'Marca', exact: true }).selectOption(brand)
+  await modal.getByLabel('GMV oficial', { exact: true }).fill('150')
+  await modal.getByLabel('Pedidos oficiais', { exact: true }).fill('1')
+  await modal.getByRole('button', { name: 'Criar live histórica' }).click()
+  await expect(modal).not.toBeVisible()
+  const approval = calls.find(call => call.path.endsWith('/aprovar'))
+  expect(approval?.body).toMatchObject({ marca_id: brand, gmv_oficial: '150.00', pedidos_oficiais: 1 })
+  expect(approval?.body).not.toHaveProperty('cabine_id')
+})
+
 test('gestor confirma valores oficiais antes de criar a live', async ({ page }, info) => {
   const calls = await setup(page, 'franqueado')
   await page.goto('/lives')
