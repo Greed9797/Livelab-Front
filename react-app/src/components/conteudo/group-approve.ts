@@ -7,14 +7,10 @@ export function isPendingGroupSubmission(live: JsonRecord): boolean {
     && asString(live.submissao_id, '') !== ''
 }
 
-export function groupSubmissionTitle(live: JsonRecord): string {
-  const nome = [asString(live.apresentadora_nome, ''), asString(live.marca_nome, '')].filter(Boolean).join(' · ')
-  return nome || asString(live.submissao_id, 'Envio')
-}
-
 export function splitPendingGroupSubmissions(lives: JsonRecord[]) {
   const pending = lives.filter(isPendingGroupSubmission)
-  const conflitos = pending.filter((live) => live.em_conciliacao === true)
-  const limpos = pending.filter((live) => live.em_conciliacao !== true)
-  return { pending, conflitos, limpos }
+  // O lote manda todos os pendentes. "Em conciliação", mesma marca no dia e
+  // cabine vazia não são conflito: o servidor só pula sobreposição real da
+  // apresentadora e devolve esses envios em skipped_conflito.
+  return { pending, conflitos: [] as JsonRecord[], limpos: pending }
 }

@@ -36,7 +36,7 @@ import { getLiveUnionCapabilities, getLivesResumoDia, type LiveResumoDiaResponse
 import { extractErrorMessage } from '../../services/api'
 import { approvePresenterSubmissionsWithoutConflict, type BatchApprovePresenterSubmissionsResult, type BatchApproveSubmissionRef } from '../../services/presenter-portal'
 import { invalidateOperational } from '../../services/query-keys'
-import { groupSubmissionTitle, splitPendingGroupSubmissions } from './group-approve'
+import { splitPendingGroupSubmissions } from './group-approve'
 import {
   calcDuration,
   classifyLivePendings,
@@ -633,7 +633,7 @@ export function LivesTab({
   const queryClient = useQueryClient()
   const [copiedDayKey, setCopiedDayKey] = useState<string | null>(null)
   const [copyingDayKey, setCopyingDayKey] = useState<string | null>(null)
-  const [groupApproveConfirm, setGroupApproveConfirm] = useState<{ dateKey: string; label: string; ids: string[]; limpos: number; conflitos: string[] } | null>(null)
+  const [groupApproveConfirm, setGroupApproveConfirm] = useState<{ dateKey: string; label: string; ids: string[]; limpos: number } | null>(null)
   const [groupApproveResult, setGroupApproveResult] = useState<BatchApprovePresenterSubmissionsResult | null>(null)
   const groupApprove = useMutation({
     mutationFn: (ids: string[]) => approvePresenterSubmissionsWithoutConflict(ids),
@@ -1388,11 +1388,10 @@ export function LivesTab({
                             label: group.label,
                             ids: groupSubmissions.pending.map((live) => asString(live.submissao_id)),
                             limpos: groupSubmissions.limpos.length,
-                            conflitos: groupSubmissions.conflitos.map((live) => groupSubmissionTitle(live)),
                           })
                         }}
                         disabled={groupApprove.isPending}
-                        title="Aprova os envios deste grupo que não têm conflito. Os demais continuam na lista."
+                        title="Aprova os envios pendentes deste grupo. Só fica de fora a apresentadora que já tem live oficial neste horário."
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -2047,7 +2046,7 @@ export function LivesTab({
         open={Boolean(groupApproveConfirm)}
         size="sm"
         title="Aprovar envios sem conflito"
-        subtitle={groupApproveConfirm ? (groupApproveConfirm.limpos > 0 ? `Confirmar ${groupApproveConfirm.limpos} envio(s) sem conflito em ${groupApproveConfirm.label}. Cabine não será atribuída.` : `Nenhum envio sem conflito em ${groupApproveConfirm.label}.`) : undefined}
+        subtitle={groupApproveConfirm ? (groupApproveConfirm.limpos > 0 ? `Confirmar ${groupApproveConfirm.limpos} envio(s) pendente(s) em ${groupApproveConfirm.label}. Cabine não será atribuída.` : `Nenhum envio pendente em ${groupApproveConfirm.label}.`) : undefined}
         onClose={() => setGroupApproveConfirm(null)}
         closeDisabled={groupApprove.isPending}
         footer={(
@@ -2065,18 +2064,8 @@ export function LivesTab({
         )}
       >
         <div className="grid gap-3 text-sm text-ink-muted">
-          <p>Cada envio sem conflito vira uma live histórica. Um erro não desfaz os que já foram aprovados.</p>
-          {groupApproveConfirm?.conflitos.length ? (
-            <div>
-              <p className="font-semibold text-ink">Ficam de fora por conflito ({groupApproveConfirm.conflitos.length})</p>
-              <ul className="mt-1 list-disc pl-5">
-                {groupApproveConfirm.conflitos.map((nome, index) => <li key={`${index}:${nome}`}>{nome}</li>)}
-              </ul>
-              <p className="mt-2">Esses continuam na lista para revisar um a um.</p>
-            </div>
-          ) : (
-            <p>Nenhum envio deste grupo está marcado como conflito.</p>
-          )}
+          <p>Cada envio pendente vira uma live histórica, inclusive em conciliação e sem cabine. Um erro não desfaz os que já foram aprovados.</p>
+          <p>Fica de fora só a apresentadora que já tem live oficial neste horário. O resultado lista esses envios e eles continuam na lista.</p>
         </div>
       </Modal>
       <Modal
