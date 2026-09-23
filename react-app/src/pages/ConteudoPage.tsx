@@ -263,6 +263,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   // Lista da aba "Lives realizadas" — paginada e filtrada server-side (separada da
   // query `lives` acima, que segue completa para alimentar a Agenda e o lookup por ?live=).
   const livesWindow = dateRangeToWindow(livesDateRange, livesCustomFrom, livesCustomTo)
+  const batchApproveSubmissionDate = livesWindow.data_inicio && livesWindow.data_inicio === livesWindow.data_fim ? livesWindow.data_inicio : undefined
   const livesList = useQuery({
     queryKey: ['lives', 'list', livesStatus, livesDateRange, livesCustomFrom, livesCustomTo, livesMarcaId, livesApresentadoraId, livesCabineId, livesQ, livesPage, livesLimit],
     queryFn: () => getLivesPaginado({
@@ -528,7 +529,8 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
 
       {tab === 'lives' ? (
         <Suspense fallback={<LoadingState />}>
-        {submissionReview ? <PresenterSubmissionQueue key={`${submissionReview.item.id}:${submissionReview.mode}`} initialSubmission={submissionReview.item} initialMode={submissionReview.mode} onCloseReview={() => setSubmissionReview(null)} /> : null}
+        {submissionReview ? <PresenterSubmissionQueue key={`${submissionReview.item.id}:${submissionReview.mode}`} initialSubmission={submissionReview.item} initialMode={submissionReview.mode} onCloseReview={() => setSubmissionReview(null)} batchApproveDate={batchApproveSubmissionDate} /> : null}
+        {canReviewPresenterSubmissions && !submissionReview ? <PresenterSubmissionQueue batchApproveDate={batchApproveSubmissionDate} /> : null}
         <LivesTab
           onReviewSubmission={canReviewPresenterSubmissions ? (item, mode) => setSubmissionReview({ item: { ...item, id: String(item.submissao_id), status: item.revisao_status } as PresenterReviewSubmission, mode }) : undefined}
           canWrite={podeEscrever}
