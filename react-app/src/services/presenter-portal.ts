@@ -157,7 +157,7 @@ export function getPresenterLiveLinkCandidates(submissionId: string, page = 0) {
   return apiGet<{ items: PresenterLiveLinkCandidate[]; total: number; page: number; limit: number }>(`/lives/submissoes-apresentadoras/${encodeURIComponent(submissionId)}/candidatas-vinculo?page=${page}`)
 }
 
-export function approvePresenterSubmission(id: string, payload: ({ live_id: string } | { marca_id: string; cabine_id: string; iniciado_em: string; encerrado_em: string; gmv_oficial: string; pedidos_oficiais: number; live_impressions_oficiais?: number; manual_views_oficiais?: number }) & { versao_esperada?: number; motivo_revisao?: string }) {
+export function approvePresenterSubmission(id: string, payload: ({ live_id: string } | { marca_id: string; cabine_id?: string | null; iniciado_em: string; encerrado_em: string; gmv_oficial: string; pedidos_oficiais: number; live_impressions_oficiais?: number; manual_views_oficiais?: number }) & { versao_esperada?: number; motivo_revisao?: string }) {
   return apiPost(`/lives/submissoes-apresentadoras/${encodeURIComponent(id)}/aprovar`, payload)
 }
 
