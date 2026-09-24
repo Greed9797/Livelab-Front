@@ -255,6 +255,27 @@ function Avatar({ row, index }: { row: PresenterRow; index: number }) {
   )
 }
 
+function PresenterRankLine({ row, index }: { row: PresenterRow; index: number }) {
+  return (
+    <div className="relative flex h-16 items-center gap-2.5 px-3.5 lg:hidden" style={{ borderTop: index === 0 ? 'none' : '1px solid var(--divider)' }}>
+      <span className="w-5 shrink-0 text-center text-[13px] font-bold" style={{ color: index === 0 ? 'var(--primary)' : 'var(--text-muted)' }}>{index + 1}</span>
+      <span className="grid h-[30px] w-[30px] shrink-0 place-items-center overflow-hidden rounded-[8px] bg-[var(--bg-elev-3)] text-[11px] font-bold text-ink">
+        {row.avatarUrl ? <img src={row.avatarUrl} alt="" className="h-full w-full object-cover" /> : row.initials}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold text-ink">{row.name}</span>
+        <span className="block truncate text-xs text-ink-muted">{row.lives > 0 ? `${row.lives} live${row.lives === 1 ? '' : 's'}` : 'sem lives'}</span>
+      </span>
+      <span className="shrink-0 text-right text-[15px] font-extrabold" style={{ color: row.gmv === 0 ? 'var(--text-faint)' : 'var(--text-primary)' }}>
+        {formatMoney(row.gmv, true)}
+      </span>
+      <span className="absolute inset-x-3.5 bottom-0 h-[3px] bg-[var(--bg-elev-3)]">
+        <span className="absolute inset-y-0 left-0 bg-brand" style={{ width: `${row.progress}%` }} />
+      </span>
+    </div>
+  )
+}
+
 function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; index: number; variant: 'compact' | 'full' }) {
   const tone = positionTone(index)
   const showMeta = row.lives > 0 || row.pedidos > 0
@@ -264,8 +285,10 @@ function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; i
   // (headline), com comissão inline quando cabe. Sem badges/cabine/barra/ratio.
   if (variant === 'compact') {
     return (
+      <>
+      <PresenterRankLine row={row} index={index} />
       <div
-        className="flex min-h-[62px] items-center gap-3 px-5 py-3"
+        className="hidden min-h-[62px] items-center gap-3 px-5 py-3 lg:flex"
         style={{
           borderTop: index === 0 ? 'none' : '1px solid var(--divider)',
           background: 'transparent',
@@ -288,14 +311,17 @@ function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; i
           {formatMoney(row.gmv, true)}
         </p>
       </div>
+      </>
     )
   }
 
   const gridClass = 'md:grid-cols-[44px_minmax(230px,1.2fr)_minmax(220px,1fr)_110px_120px]'
 
   return (
+    <>
+    <PresenterRankLine row={row} index={index} />
     <div
-      className={`grid gap-4 px-4 py-4 md:items-center ${gridClass}`}
+      className={`hidden gap-4 px-4 py-4 md:items-center lg:grid ${gridClass}`}
       style={{
         borderTop: index === 0 ? 'none' : '1px solid var(--divider)',
         background: tone.row,
@@ -368,6 +394,7 @@ function PresenterLeaderboardRow({ row, index, variant }: { row: PresenterRow; i
         <p className="text-[9px] text-ink-muted/70">fixo + variável</p>
       </div>
     </div>
+    </>
   )
 }
 
@@ -385,17 +412,17 @@ export function PresenterLeaderboard({
 
   return (
     <section
-      className="overflow-hidden rounded-xl"
+      className="board-card overflow-hidden rounded-xl"
       style={{
         background: 'var(--bg-elev-1)',
         border: '1px solid var(--border)',
         boxShadow: 'var(--shadow-card)',
       }}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 px-7 py-6" style={{ borderBottom: '1px solid var(--divider)' }}>
-        <div>
-          <h2 className="text-lg font-bold tracking-[-0.015em] text-ink">{title}</h2>
-          <p className="mt-1 text-[13px] text-ink-muted">{subtitle}</p>
+      <div className="board-head flex flex-wrap items-start justify-between gap-3 px-7 py-6" style={{ borderBottom: '1px solid var(--divider)' }}>
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-bold tracking-[-0.015em] text-ink max-lg:text-sm">{title}</h2>
+          <p className="board-sub mt-1 text-[13px] text-ink-muted">{subtitle}</p>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
@@ -403,7 +430,7 @@ export function PresenterLeaderboard({
       {presenters.length > 0 || semApresentadora.length > 0 ? (
         <div>
           {variant === 'full' ? (
-            <div className="hidden gap-4 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted md:grid grid-cols-[44px_minmax(230px,1.2fr)_minmax(220px,1fr)_110px_120px]">
+            <div className="hidden gap-4 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted lg:grid grid-cols-[44px_minmax(230px,1.2fr)_minmax(220px,1fr)_110px_120px]">
               <span>RK</span>
               <span>Apresentadora</span>
               <span>GMV · progresso vs líder</span>

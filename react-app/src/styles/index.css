@@ -477,3 +477,78 @@ textarea {
     animation: none !important;
   }
 }
+
+/* Título de página: desktop intacto; tablet 32px; no celular a barra de 56px carrega o contexto. */
+.page-title {
+  color: var(--text-primary);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+
+@media (min-width: 640px) {
+  .page-title {
+    font-size: 42px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .page-title {
+    font-size: 32px;
+    line-height: 1.15;
+  }
+
+  .page-subtitle {
+    display: none;
+  }
+}
+
+@media (max-width: 599px) {
+  .page-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  .gmv-hero {
+    gap: 8px !important;
+    padding: 14px !important;
+    border-radius: 18px;
+    background: var(--bg-elev-1) !important;
+    box-shadow: none !important;
+  }
+
+  .gmv-hero-value {
+    font-size: 32px !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    line-height: 36px !important;
+  }
+
+  .delta-pill {
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  .board-card {
+    border-radius: 18px;
+    box-shadow: none !important;
+  }
+
+  .board-head {
+    padding: 12px 14px !important;
+  }
+
+  .board-sub {
+    display: none;
+  }
+}

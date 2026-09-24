@@ -65,8 +65,9 @@ for (const theme of ['dark', 'light']) {
     const agenda = await page.getByRole('heading', { name: 'Agenda de hoje', exact: true }).boundingBox()
     const attendance = page.getByRole('region', { name: /Assiduidade/ })
     expect(agenda!.y).toBeGreaterThan((await attendance.boundingBox())!.y)
-    await expect(page.getByRole('region', { name: 'Agenda de hoje', exact: true }).getByRole('button')).toHaveCount(1)
-    await expect(page.getByRole('region', { name: 'Agenda de hoje', exact: true })).toContainText('2 horários')
+    await expect(page.getByRole('region', { name: 'Agenda de hoje', exact: true }).getByRole('button')).toHaveCount(2)
+    await expect(page.getByRole('region', { name: 'Agenda de hoje', exact: true })).toContainText('09:00–11:00')
+    await expect(page.getByRole('region', { name: 'Agenda de hoje', exact: true })).toContainText('13:00–15:00')
     const fonts = await page.evaluate(async () => {
       await document.fonts.load('500 14px Manrope')
       await document.fonts.ready

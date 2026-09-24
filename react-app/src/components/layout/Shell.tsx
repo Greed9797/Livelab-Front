@@ -7,6 +7,7 @@ import { useThemeStore } from '../../stores/theme-store'
 import { menuForUser, roleLabel } from '../../utils/access'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { CompactChromeProvider, useCompactChrome } from './compact-chrome'
 
 function initials(name?: string) {
   return (name ?? 'LL')
@@ -156,15 +157,41 @@ function Sidebar({
   )
 }
 
+function CompactHeader({ open, onOpen }: { open: boolean; onOpen: () => void }) {
+  const user = useAuthStore((state) => state.user)
+  const chrome = useCompactChrome()
+  const center = chrome?.center ?? chrome?.title
+
+  return (
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-line bg-canvas/95 px-3 backdrop-blur min-[600px]:px-8 lg:hidden">
+      <button
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] text-ink"
+        aria-label="Abrir menu"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={onOpen}
+      >
+        <Menu aria-hidden="true" className="h-5 w-5" />
+      </button>
+      <div className="min-w-0 flex-1 truncate text-center text-[15px] font-bold text-ink">
+        {center}
+      </div>
+      <span className="grid h-11 w-11 shrink-0 place-items-center" aria-hidden="true">
+        <AccountAvatar user={user} className="h-8 w-8" />
+      </span>
+    </header>
+  )
+}
+
 export function Shell() {
   const [open, setOpen] = useState(false)
   const [desktopExpanded, setDesktopExpanded] = useState(() => {
     try { return localStorage.getItem('livelab.sidebar.expanded') === 'true' } catch { return false }
   })
   const theme = useThemeStore((state) => state.resolvedTheme)
-  const user = useAuthStore((state) => state.user)
 
   return (
+    <CompactChromeProvider>
     <div className="livelab-shell min-h-screen" data-theme={theme}>
       <a href="#main-content" className="skip-to-content">Ir para o conteúdo</a>
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block">
@@ -180,31 +207,13 @@ export function Shell() {
       </Modal>
 
       <div className={clsx(desktopExpanded ? 'lg:pl-[248px]' : 'lg:pl-20')}>
-        <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 px-4 py-3 backdrop-blur md:px-7 lg:hidden">
-          <div className="flex items-center justify-between">
-            <button
-              className="grid h-11 w-11 place-items-center rounded-[var(--radius-pill)] border border-line bg-surface text-ink-muted"
-              aria-label="Abrir menu"
-              aria-haspopup="dialog"
-              aria-expanded={open}
-              onClick={() => setOpen(true)}
-            >
-              <Menu aria-hidden="true" className="h-5 w-5" />
-            </button>
-            <div className="flex items-center gap-2">
-              <AccountAvatar user={user} />
-              <div className="text-right">
-                <p className="text-sm font-bold text-ink">{user?.nome ?? 'Livelab'}</p>
-                <p className="text-xs text-ink-muted">{roleLabel(user?.papel)}</p>
-              </div>
-            </div>
-          </div>
-        </header>
+        <CompactHeader open={open} onOpen={() => setOpen(true)} />
 
-        <main id="main-content" tabIndex={-1} className="min-h-screen px-4 py-6 md:px-7 lg:px-8 lg:py-5">
+        <main id="main-content" tabIndex={-1} className="min-h-screen px-3 py-2.5 min-[600px]:px-8 min-[600px]:py-4 lg:px-8 lg:py-5">
           <Outlet />
         </main>
       </div>
     </div>
+    </CompactChromeProvider>
   )
 }
