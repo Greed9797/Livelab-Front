@@ -2,7 +2,10 @@
   display: none;
 }
 
-.lives-mobile-card {
+.lives-mobile-card,
+.lives-envio-mobile,
+.lives-submission__line,
+.lives-action-short {
   display: none;
 }
 
@@ -289,12 +292,122 @@
     font-weight: 700;
   }
 
-  .lives-submission {
-    padding: 8px 14px !important;
+  .lives-envio-mobile {
+    display: block;
   }
 
-  .lives-submission__actions button {
-    min-height: 44px;
+  .lives-envio-desktop {
+    display: none;
+  }
+
+  .lives-envio + .lives-envio {
+    border-top: 1px solid var(--divider, var(--hairline));
+  }
+
+  .lives-envio__line,
+  .lives-submission__line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 54px;
+    min-height: 54px;
+    max-height: 54px;
+    padding: 0 14px;
+    overflow: hidden;
+  }
+
+  .lives-envio__main {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .lives-envio__tail {
+    display: flex;
+    flex: 0 1 auto;
+    align-items: baseline;
+    min-width: 0;
+    max-width: 58%;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .lives-envio__gmv {
+    flex: 0 0 auto;
+  }
+
+  .lives-envio__gmv--zero {
+    color: var(--text-faint);
+  }
+
+  .lives-envio__status {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+  }
+
+  .lives-envio__status--warning { color: var(--warning); }
+  .lives-envio__status--danger { color: var(--danger); }
+  .lives-envio__status--success { color: var(--success); }
+  .lives-envio__status--info,
+  .lives-envio__status--sistema { color: var(--info); }
+  .lives-envio__status--brand { color: var(--primary); }
+  .lives-envio__status--neutral { color: var(--text-muted); }
+
+  .lives-submission {
+    padding: 0 !important;
+  }
+
+  .lives-submission__body {
+    display: none !important;
+  }
+
+  .lives-submission__actions,
+  .lives-envio__actions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px !important;
+    height: 44px;
+    margin: 0 14px 8px !important;
+  }
+
+  .lives-submission__actions button,
+  .lives-envio__actions button {
+    flex: 0 1 auto;
+    width: auto !important;
+    min-width: 44px;
+    max-width: 100%;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px;
+    padding: 0 10px !important;
+    overflow: hidden;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+  }
+
+  .lives-action-long {
+    display: none !important;
+  }
+
+  .lives-action-short {
+    display: inline !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .lives-mobile-card:active {
