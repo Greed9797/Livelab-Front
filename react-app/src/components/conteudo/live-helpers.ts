@@ -9,6 +9,15 @@ export interface LiveFilterOption {
 
 export type LivePendingKind = 'validacao' | 'rascunho' | 'cadastro' | 'metricas' | 'duplicata'
 
+/** Envio que o gestor já devolveu. A apresentadora continua vendo para corrigir. */
+export function isReturnedToPresenter(live: { registro_tipo?: unknown; revisao_status?: unknown }): boolean {
+  return live.registro_tipo === 'submissao' && live.revisao_status === 'devolvida'
+}
+
+export function hideReturnedFromGestorList<T extends { registro_tipo?: unknown; revisao_status?: unknown }>(lives: readonly T[]): T[] {
+  return lives.filter((live) => !isReturnedToPresenter(live))
+}
+
 export interface LivePendingIssue {
   kind: LivePendingKind
   label: string

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { confirmMarcaCondicao, createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getMarcaCondicoes, getVideos, iniciarLive, previewMarcaCondicao, publishLive, type LiveResumoDiaResponse, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
+import { archiveLive, archivePresenterSubmission, confirmMarcaCondicao, createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getMarcaCondicoes, getVideos, iniciarLive, previewMarcaCondicao, publishLive, type LiveResumoDiaResponse, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -183,6 +183,16 @@ describe('domain live operations', () => {
 
     expect(apiPatch).toHaveBeenCalledWith('/lives/live-1', { status_publicacao: 'revisado' })
     expect(apiDelete).toHaveBeenCalledWith('/lives/live-1')
+  })
+
+  it('archives a live and a presenter submission without sending finance fields', async () => {
+    vi.mocked(apiPost).mockResolvedValue({ id: 'live-1' })
+
+    await archiveLive('live-1')
+    await archivePresenterSubmission('sub-1')
+
+    expect(apiPost).toHaveBeenNthCalledWith(1, '/lives/live-1/arquivar', {})
+    expect(apiPost).toHaveBeenNthCalledWith(2, '/lives/submissoes-apresentadoras/sub-1/arquivar', {})
   })
 
   it('soft-deletes users through the usuarios endpoint', async () => {

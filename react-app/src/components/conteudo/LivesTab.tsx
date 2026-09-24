@@ -10,6 +10,7 @@ import {
   Download,
   Edit2,
   ExternalLink,
+  Archive,
   Filter,
   MoreHorizontal,
   Plus,
@@ -43,6 +44,7 @@ import {
   classifyLivePendings,
   filterLivesByPending,
   fmtTime,
+  hideReturnedFromGestorList,
   hasRecordedMetricValue,
   hasRecordedLiveGmv,
   livePresenterCellModel,
@@ -476,6 +478,7 @@ export interface LivesTabProps {
   onMergeCompleted?: (liveId: string, unionId: string) => void
   onUnionChanged?: () => void
   onDeleteLive: (live: JsonRecord) => void
+  onArchiveLive?: (live: JsonRecord) => void
   onCloseLiveModal: () => void
   onCopyLiveReport: (text: string) => void
   onInlineSaveLive?: (liveId: string, payload: JsonRecord) => Promise<unknown>
@@ -551,6 +554,7 @@ export function LivesTab({
   onMergeCompleted,
   onUnionChanged,
   onDeleteLive,
+  onArchiveLive,
   onCloseLiveModal,
   onCopyLiveReport,
   onInlineSaveLive,
@@ -758,10 +762,11 @@ export function LivesTab({
   // Busca/data/marca/apresentadora/status/cabine já vêm filtrados do servidor. A classificação
   // de pendência é deliberadamente local e os números deixam claro que cobrem os resultados
   // carregados desta página, sem sugerir um total que o endpoint não calcula.
+  const gestorLives = useMemo(() => hideReturnedFromGestorList(livesData), [livesData])
   const filteredLives = useMemo(() => {
-    return filterLivesByPending(livesData, pendingFilter, duplicateIdSet)
-  }, [livesData, pendingFilter, duplicateIdSet])
-  const pendingCounts = useMemo(() => summarizeLivePendings(livesData, duplicateIdSet), [livesData, duplicateIdSet])
+    return filterLivesByPending(gestorLives, pendingFilter, duplicateIdSet)
+  }, [gestorLives, pendingFilter, duplicateIdSet])
+  const pendingCounts = useMemo(() => summarizeLivePendings(gestorLives, duplicateIdSet), [gestorLives, duplicateIdSet])
 
   const activeFilterCount =
     (dateRange !== 'todos' ? 1 : 0) +
@@ -829,7 +834,7 @@ export function LivesTab({
   // Paginação server-side
   const pageCount = Math.max(1, Math.ceil(total / Math.max(1, pageSize)))
   const rangeFrom = total === 0 ? 0 : page * pageSize + 1
-  const rangeTo = Math.min(total, page * pageSize + livesData.length)
+  const rangeTo = Math.min(total, page * pageSize + gestorLives.length)
 
   function toggleDay(key: string) {
     setCollapsedDays((prev) => {
@@ -912,7 +917,7 @@ export function LivesTab({
 
       <LivePendingPanel
         counts={pendingCounts}
-        loadedCount={livesData.length}
+        loadedCount={gestorLives.length}
         selected={pendingFilter}
         onSelect={onPendingFilterChange}
         loading={isLoading}
@@ -1546,6 +1551,7 @@ export function LivesTab({
                         {onReviewSubmission ? <div className="mt-3 flex flex-wrap gap-2">
                           <Button onClick={() => onReviewSubmission(live, 'review')}>Validar live</Button>
                           {live.revisao_status === 'pendente' ? <><Button variant="secondary" onClick={() => onReviewSubmission(live, 'link')}>Vincular live existente</Button><Button variant="secondary" onClick={() => onReviewSubmission(live, 'return')}>Devolver</Button></> : null}
+                          {onArchiveLive && canWrite ? <Button variant="secondary" onClick={() => onArchiveLive(live)}>Arquivar</Button> : null}
                         </div> : null}
                       </article>
                     )
@@ -2054,6 +2060,17 @@ export function LivesTab({
               }}
             />
           ) : null}
+          {onArchiveLive && asString(kebabMenu.live.status, '').toLowerCase() !== 'em_andamento' ? (
+            <MenuBtn
+              icon={<Archive style={{ width: 13, height: 13 }} />}
+              label="Arquivar"
+              onClick={() => {
+                const live = kebabMenu.live
+                setKebabMenu(null)
+                onArchiveLive(live)
+              }}
+            />
+          ) : null}
           <hr
             style={{
               border: 'none',
@@ -2158,6 +2175,7 @@ export function LivesTab({
         onEdit={onOpenEditLive}
         onSplitApresentadoras={onSplitApresentadoras}
         onDelete={onDeleteLive}
+        onArchive={onArchiveLive}
         deleteLiveMutation={deleteLiveMutation}
         onUnionChanged={onUnionChanged}
       />

@@ -636,6 +636,14 @@ export function deleteLive(id: string) {
   return apiDelete(`/lives/${id}`)
 }
 
+export function archiveLive(id: string) {
+  return apiPost<JsonRecord>(`/lives/${encodeURIComponent(id)}/arquivar`, {})
+}
+
+export function archivePresenterSubmission(id: string) {
+  return apiPost<JsonRecord>(`/lives/submissoes-apresentadoras/${encodeURIComponent(id)}/arquivar`, {})
+}
+
 export function iniciarLive(payload: JsonRecord) {
   return apiPost<JsonRecord>('/lives', payload)
 }
