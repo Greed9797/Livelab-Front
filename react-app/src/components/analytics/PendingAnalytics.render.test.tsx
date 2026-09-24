@@ -20,7 +20,7 @@ describe('pending analytics disclosure', () => {
   it('keeps collision disclosure visible even without consolidated audience rows', () => {
     const client = new QueryClient()
     client.setQueryData(['funil-analytics', '2026-09-01', '2026-09-30', undefined, undefined], { pendente_aprovacao: true, em_conciliacao: true, gmv_pendente_aprovacao: 50, resumo: { total_lives: 0 }, etapas: [] })
-    const html = renderToStaticMarkup(<QueryClientProvider client={client}><FunilAnalyticsSection from="2026-09-01" to="2026-09-30" /></QueryClientProvider>)
+    const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><FunilAnalyticsSection from="2026-09-01" to="2026-09-30" /></MemoryRouter></QueryClientProvider>)
     expect(html).toContain('Em conciliação')
     expect(html).toContain('50,00')
   })

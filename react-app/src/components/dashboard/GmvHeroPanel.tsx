@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { asNumber, formatMoney } from '../../utils/format'
 import type { JsonRecord } from '../../types/models'
 
@@ -117,16 +118,19 @@ export function getTodaySP(): number {
 
 function DeltaPill({ v }: { v: number }) {
   const pos = v >= 0
+  const signed = `${pos ? '+' : ''}${v.toFixed(1).replace('.', ',')}%`
+  const arrow = `${pos ? '↑' : '↓'}${Math.abs(v).toFixed(1).replace('.', ',')}%`
   return (
     <span
-      className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium num"
+      className="delta-pill num inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-bold"
       style={{
-        background: pos ? 'var(--primary-soft)' : 'var(--danger-soft)',
-        color: pos ? 'var(--primary-text)' : 'var(--danger-text)',
+        background: pos ? 'var(--success-soft)' : 'var(--danger-soft)',
+        color: pos ? 'var(--success)' : 'var(--danger)',
         fontVariantNumeric: 'tabular-nums',
       }}
     >
-      {pos ? '+' : ''}{v.toFixed(1)}%
+      <span className="max-lg:hidden">{signed}</span>
+      <span className="hidden max-lg:inline">{arrow}</span>
     </span>
   )
 }
@@ -187,6 +191,12 @@ function MetaBar({ gmv, meta, diaUtil, diasUteisTotal, ritmo }: MetaBarProps) {
           className="absolute top-[-3px] bottom-[-3px] w-[2px] rounded"
           style={{ right: 0, background: 'var(--text-muted)', opacity: 0.4 }}
         />
+        {ritmoPct > 0 ? (
+          <div
+            className="absolute top-[-2px] bottom-[-2px] w-0.5"
+            style={{ left: `${Math.min(ritmoPct, 100)}%`, background: 'var(--text-primary)' }}
+          />
+        ) : null}
       </div>
 
       {/* row 2 */}
@@ -696,6 +706,125 @@ function DailyChart({ data, mesReferencia }: DailyChartProps) {
   )
 }
 
+function monthAbbrev(mes: string | null): string {
+  if (!mes || !/^\d{4}-\d{2}/.test(mes)) return 'mês'
+  const [year, month] = mes.split('-').map(Number)
+  return new Date(year, month - 1, 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+}
+
+function previousMonthKey(mes: string | null): string | null {
+  if (!mes || !/^\d{4}-\d{2}/.test(mes)) return null
+  const [year, month] = mes.split('-').map(Number)
+  const date = new Date(year, month - 2, 1)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+function sparkPath(points: Array<{ x: number; y: number }>): string {
+  return points.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ')
+}
+
+function MiniChartFrame({
+  testId,
+  line,
+  compare,
+  markerX,
+  peak,
+  peakX,
+  start,
+  end,
+  primaryLabel,
+  compareLabel,
+}: {
+  testId: string
+  line: string
+  compare: string
+  markerX: number | null
+  peak: string
+  peakX: number
+  start: string
+  end: string
+  primaryLabel: string
+  compareLabel: string
+}) {
+  return (
+    <div data-testid={testId}>
+      <div className="relative h-[84px]">
+        <svg viewBox="0 0 100 64" preserveAspectRatio="none" className="absolute inset-x-0 top-0 h-16 w-full" aria-hidden="true">
+          <line x1="0" y1="58" x2="100" y2="58" stroke="var(--border)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          {compare ? <path d={compare} fill="none" stroke="var(--info)" strokeWidth="1.25" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" /> : null}
+          {line ? <path d={line} fill="none" stroke="var(--primary)" strokeWidth="1.75" vectorEffect="non-scaling-stroke" /> : null}
+          {markerX != null ? <line x1={markerX} x2={markerX} y1="6" y2="58" stroke="var(--text-muted)" strokeDasharray="2 3" strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
+        </svg>
+        {peak ? <span className="absolute text-[10px] font-semibold text-ink" style={{ left: `${Math.min(72, Math.max(0, peakX - 6))}%`, top: 0 }}>{peak}</span> : null}
+        <span className="absolute bottom-0 left-0 text-[10px] font-semibold text-[var(--text-faint)]">{start}</span>
+        <span className="absolute bottom-0 right-0 text-[10px] font-semibold text-[var(--text-faint)]">{end}</span>
+      </div>
+      <p className="mt-0.5 flex gap-3 text-[11px] font-semibold text-ink-muted">
+        <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-brand" />{primaryLabel}</span>
+        <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--info)' }} />{compareLabel}</span>
+      </p>
+    </div>
+  )
+}
+
+function MiniDailyChart({ data, mesReferencia }: DailyChartProps) {
+  const todayDia = getTodaySP()
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
+  const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const isCurrentMonth = !mesReferencia || mesReferencia === currentYm
+  const clipped = isCurrentMonth ? data.filter((point) => point.dia <= todayDia) : data
+  const series = clipped.length > 0 ? clipped : data
+  if (series.length === 0) return null
+  const max = Math.max(1, ...series.map((point) => point.gmv), ...data.map((point) => point.prev))
+  const count = Math.max(data.length, 1)
+  const xOf = (dia: number) => ((dia - 1) / Math.max(count - 1, 1)) * 100
+  const yOf = (value: number) => 58 - (value / max) * 50
+  const peak = series.reduce((best, point) => point.gmv > best.gmv ? point : best, series[0])
+  const compare = data.filter((point) => point.prev > 0)
+  return (
+    <MiniChartFrame
+      testId="gmv-chart-daily"
+      line={sparkPath(series.map((point) => ({ x: xOf(point.dia), y: yOf(point.gmv) })))}
+      compare={compare.length > 1 ? sparkPath(compare.map((point) => ({ x: xOf(point.dia), y: yOf(point.prev) }))) : ''}
+      markerX={isCurrentMonth && data.some((point) => point.dia === todayDia) ? xOf(todayDia) : null}
+      peak={peak.gmv > 0 ? fmtCompact(peak.gmv) : ''}
+      peakX={xOf(peak.dia)}
+      start="01"
+      end={String(data[data.length - 1]?.dia ?? count).padStart(2, '0')}
+      primaryLabel={monthAbbrev(mesReferencia)}
+      compareLabel={monthAbbrev(previousMonthKey(mesReferencia))}
+    />
+  )
+}
+
+function MiniIntradayChart({ data }: { data: IntradayPoint[] }) {
+  const max = Math.max(1, ...data.flatMap((point) => [point.v ?? 0, point.prev ?? 0]))
+  const xOf = (index: number) => (index / Math.max(data.length - 1, 1)) * 100
+  const yOf = (value: number) => 58 - (value / max) * 50
+  const current = data.flatMap((point, index) => point.v == null ? [] : [{ x: xOf(index), y: yOf(point.v) }])
+  const previous = data.flatMap((point, index) => point.prev == null ? [] : [{ x: xOf(index), y: yOf(point.prev) }])
+  let nowIndex = -1
+  for (let index = data.length - 1; index >= 0; index -= 1) {
+    if (data[index].v != null) { nowIndex = index; break }
+  }
+  const peakIndex = data.reduce((best, point, index) => (point.v ?? 0) > (data[best].v ?? 0) ? index : best, 0)
+  const peakValue = data[peakIndex]?.v ?? 0
+  return (
+    <MiniChartFrame
+      testId="gmv-chart-intraday"
+      line={sparkPath(current)}
+      compare={previous.length > 1 ? sparkPath(previous) : ''}
+      markerX={nowIndex >= 0 ? xOf(nowIndex) : null}
+      peak={peakValue > 0 ? fmtCompact(peakValue) : ''}
+      peakX={xOf(peakIndex)}
+      start={data[0]?.h?.slice(0, 5) ?? ''}
+      end={data[data.length - 1]?.h?.slice(0, 5) ?? ''}
+      primaryLabel="hoje"
+      compareLabel="anterior"
+    />
+  )
+}
+
 /* ── Main exported component ── */
 
 export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
@@ -813,19 +942,20 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
   // legend: adapts to the chart actually being shown
   const showIntradayLegend = effectiveView === 'hoje'
   const showDailyLegend = effectiveView === 'mes'
+  const compactChart = useMediaQuery('(max-width: 1023px)')
 
   return (
     <div
-      className="relative flex flex-col gap-5 overflow-hidden rounded-[var(--radius-panel)] p-7"
+      className="gmv-hero relative flex flex-col gap-5 overflow-hidden rounded-[var(--radius-panel)] p-7"
       style={{ containerType: 'inline-size', background: 'radial-gradient(640px 320px at 18% 0%, var(--primary-softer), transparent 70%), var(--bg-elev-1)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)' }}
     >
-      {/* header: title + legend */}
-      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-bold tracking-[-0.015em] text-ink">{tituloCard.replace(' — desempenho', '')}</h2>
-          <p className="mt-1 text-[13px] text-ink-muted">{mesReferenciaLabel ?? 'Mês atual'} · dia útil {diaUtil} de {diasUteisTotal}</p>
+      {/* header: title + legend. No compacto o seletor fica na linha do rótulo. */}
+      <div className="flex flex-row items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-bold tracking-[-0.015em] text-ink max-lg:text-sm">{tituloCard.replace(' — desempenho', '')}</h2>
+          <p className="mt-1 text-[13px] text-ink-muted max-lg:hidden">{mesReferenciaLabel ?? 'Mês atual'} · dia útil {diaUtil} de {diasUteisTotal}</p>
         </div>
-        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+        <div className="flex w-auto shrink-0 flex-wrap items-center gap-3">
           {/* segmented toggle: Hoje | Mês (only when a chart can render) */}
           {(hasIntraday || hasDaily) && (
             <div
@@ -840,7 +970,7 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
                 disabled={!hasIntraday}
                 aria-pressed={effectiveView === 'hoje'}
                 hidden={!hasIntraday}
-                className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11px] font-medium transition-colors"
+                className="h-7 rounded-[7px] px-2.5 text-[11px] font-medium transition-colors max-lg:text-xs max-lg:font-semibold"
                 style={{
                   background: effectiveView === 'hoje' ? 'var(--bg-elev-1)' : 'transparent',
                   color: effectiveView === 'hoje' ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -855,7 +985,7 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
                 disabled={!hasDaily}
                 aria-pressed={effectiveView === 'mes'}
                 hidden={!hasDaily}
-                className="rounded-[var(--radius-pill)] px-2 py-0.5 text-[11px] font-medium transition-colors"
+                className="h-7 rounded-[7px] px-2.5 text-[11px] font-medium transition-colors max-lg:text-xs max-lg:font-semibold"
                 style={{
                   background: effectiveView === 'mes' ? 'var(--bg-elev-1)' : 'transparent',
                   color: effectiveView === 'mes' ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -867,39 +997,27 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
             </div>
           )}
           {showIntradayLegend ? (
-            <>
+            <span className="flex items-center gap-3 max-lg:hidden">
               <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                <span
-                  className="inline-block rounded-full"
-                  style={{ width: 8, height: 8, background: 'var(--primary)' }}
-                />
+                <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: 'var(--primary)' }} />
                 Hoje
               </span>
               <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                <span
-                  className="inline-block rounded-full"
-                  style={{ width: 8, height: 8, background: 'var(--text-muted)', opacity: 0.6 }}
-                />
+                <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: 'var(--text-muted)', opacity: 0.6 }} />
                 Mês anterior
               </span>
-            </>
+            </span>
           ) : showDailyLegend ? (
-            <>
+            <span className="flex items-center gap-3 max-lg:hidden">
               <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                <span
-                  className="inline-block rounded-full"
-                  style={{ width: 8, height: 8, background: 'var(--primary)' }}
-                />
+                <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: 'var(--primary)' }} />
                 <span>{mesReferenciaLabel ?? 'Mês atual'}</span>
               </span>
               <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                <span
-                  className="inline-block rounded-full"
-                  style={{ width: 8, height: 8, background: 'var(--text-muted)', opacity: 0.6 }}
-                />
+                <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: 'var(--text-muted)', opacity: 0.6 }} />
                 Mês anterior
               </span>
-            </>
+            </span>
           ) : null}
         </div>
       </div>
@@ -914,7 +1032,7 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
             R$
           </span>
           <span
-            className="num whitespace-nowrap font-extrabold"
+            className="gmv-hero-value num whitespace-nowrap font-extrabold"
             data-testid="gmv-value"
             style={{
               fontSize: `clamp(20px, ${Math.min(12, 145 / (gmv.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).length + 2))}cqi, 68px)`,
@@ -926,11 +1044,12 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
             {gmvExibido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
-        {raw.pendente_aprovacao ? <p className="mt-2 text-sm font-semibold text-[var(--warning)]">{raw.em_conciliacao ? 'Subtotal em conciliação — total consolidado indisponível' : 'GMV provisório — inclui pendentes de aprovação'}</p> : null}
+        {raw.pendente_aprovacao ? <p className="mt-2 text-sm font-semibold text-[var(--warning)] max-lg:hidden">{raw.em_conciliacao ? 'Subtotal em conciliação — total consolidado indisponível' : 'GMV provisório — inclui pendentes de aprovação'}</p> : null}
+        {raw.pendente_aprovacao ? <span className="text-[11px] font-bold text-[var(--warning)] lg:hidden">subtotal</span> : null}
         {delta !== null && !raw.pendente_aprovacao ? (
           <>
             <DeltaPill v={delta} />
-            <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
+            <span className="text-[11px] max-lg:hidden" style={{ color: 'var(--text-faint)' }}>
               vs. mesmo período do mês anterior
             </span>
           </>
@@ -948,7 +1067,11 @@ export function GmvHeroPanel({ raw }: GmvHeroPanelProps) {
 
       {/* Chart driven by the toggle (defaults to 'mes'). Falls back to whichever
           dataset is available; renders nothing if neither qualifies. */}
-      {effectiveView === 'hoje' && intradayData ? (
+      {compactChart && effectiveView === 'hoje' && intradayData ? (
+        <MiniIntradayChart data={intradayData} />
+      ) : compactChart && effectiveView === 'mes' && dailyData ? (
+        <MiniDailyChart data={dailyData} mesReferencia={mesReferencia} />
+      ) : effectiveView === 'hoje' && intradayData ? (
         <IntradayChart data={intradayData} />
       ) : effectiveView === 'mes' && dailyData ? (
         <DailyChart data={dailyData} mesReferencia={mesReferencia} />

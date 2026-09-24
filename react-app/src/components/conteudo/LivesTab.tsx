@@ -1,4 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
+import { compactDuration, compactOperationalDayLabel } from '../../utils/compact-day-label'
 import { createPortal } from 'react-dom'
 import {
   Calendar,
@@ -285,11 +287,20 @@ function doExportCSV(lives: JsonRecord[], capNotice?: string) {
 
 // ─── small sub-components ──────────────────────────────────────────────────
 
+function liveStatusColor(status: unknown): string {
+  const value = asString(status, '').toLowerCase()
+  if (value === 'revisado') return 'var(--info)'
+  if (value === 'publicado' || value === 'publicada') return 'var(--success)'
+  if (value === 'rascunho' || value === 'pendente') return 'var(--warning)'
+  return 'var(--text-muted)'
+}
+
 function LiveMobileCard({
   marca,
   horaInicio,
   horaFim,
   gmv,
+  gmvKnown,
   status,
   onOpen,
 }: {
@@ -297,9 +308,11 @@ function LiveMobileCard({
   horaInicio: string
   horaFim: string
   gmv: number
+  gmvKnown: boolean
   status: unknown
   onOpen: () => void
 }) {
+  const statusLabel = publicationStatusLabel(status)
   return (
     <button
       type="button"
@@ -307,20 +320,16 @@ function LiveMobileCard({
       onClick={onOpen}
       aria-label={`Abrir live de ${marca} às ${horaInicio}`}
     >
-      <div className="lives-mobile-card__head">
+      <span className="lives-mobile-card__main">
         <span className="lives-mobile-card__marca">{marca || '—'}</span>
-        <StatusBadge status={status} />
-      </div>
-      <dl className="lives-mobile-card__meta">
-        <div>
-          <dt>Horário</dt>
-          <dd>{horaInicio} → {horaFim}</dd>
-        </div>
-        <div>
-          <dt>GMV</dt>
-          <dd className="num">{formatMoney(gmv)}</dd>
-        </div>
-      </dl>
+        <span className="lives-mobile-card__meta-line">
+          {horaInicio}–{horaFim}
+          {statusLabel ? <span style={{ color: liveStatusColor(status) }}> · {statusLabel}</span> : null}
+        </span>
+      </span>
+      <span className="lives-mobile-card__value" style={{ color: !gmvKnown || gmv === 0 ? 'var(--text-faint)' : 'var(--text-primary)' }}>
+        {gmvKnown ? formatMoney(gmv) : '—'}
+      </span>
     </button>
   )
 }
@@ -603,6 +612,8 @@ export function LivesTab({
   const [exportingCsv, setExportingCsv] = useState(false)
   const [search, setSearch] = useState(searchQuery)
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
+  const compactLayout = useMediaQuery('(max-width: 1023px)')
+  const didSeedCollapsed = useRef(false)
   const [kebabMenu, setKebabMenu] = useState<{ liveId: string; live: JsonRecord; top: number; left: number } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -806,6 +817,12 @@ export function LivesTab({
     }
   }
 
+  useEffect(() => {
+    if (!compactLayout || didSeedCollapsed.current || dayGroups.length === 0) return
+    didSeedCollapsed.current = true
+    const openKey = dayGroups[0]?.dateKey
+    setCollapsedDays(new Set(dayGroups.map((group) => group.dateKey).filter((key) => key !== openKey)))
+  }, [compactLayout, dayGroups])
   // Pré-computa as agregações por grupo (duração/GMV/publicadas/rascunhos) uma única
   // vez por mudança de `dayGroups`, em vez de recalcular reduce/filter por render
   // dentro do map. Keyed pela própria referência de `group.lives`.
@@ -1337,6 +1354,7 @@ export function LivesTab({
               <div key={group.dateKey}>
                 {/* Day header */}
                 <div
+                  className="lives-day-head"
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '1fr auto',
@@ -1355,6 +1373,7 @@ export function LivesTab({
                     <button
                       type="button"
                       onClick={() => toggleDay(group.dateKey)}
+                      className="lives-day-toggle"
                       style={{
                         width: 18,
                         height: 18,
@@ -1388,7 +1407,8 @@ export function LivesTab({
                           textTransform: 'capitalize',
                         }}
                       >
-                        {group.label}
+                        <span className="lives-day-long">{group.label}</span>
+                        <span className="lives-day-short">{compactOperationalDayLabel(group.dateKey, getSaoPauloDateInput())}</span>
                       </div>
                       <div
                         style={{
@@ -1400,6 +1420,8 @@ export function LivesTab({
                           whiteSpace: 'nowrap',
                         }}
                       >
+                        <span className="lives-day-dur-short">{compactDuration(totalMins)} · {group.lives.length} {group.lives.length === 1 ? 'live' : 'lives'}</span>
+                        <span className="lives-day-dur-long">
                         {group.lives.length} {group.lives.length === 1 ? 'live' : 'lives'}
                         {' · '}
                         {h}h {String(m).padStart(2, '0')}min
@@ -1409,12 +1431,13 @@ export function LivesTab({
                         {rascunhos > 0
                           ? ` · ${rascunhos} rascunho${rascunhos > 1 ? 's' : ''}`
                           : ''}
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Day header actions: Copiar resumo + GMV pill */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <div className="lives-day-actions" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {groupSubmissions && groupSubmissions.pending.length > 0 ? (
                       <button
                         type="button"
@@ -1430,6 +1453,8 @@ export function LivesTab({
                           })
                         }}
                         disabled={groupApprove.isPending}
+                        className="lives-day-action"
+                        aria-label={groupSubmissions.limpos.length > 0 ? `Aprovar ${groupSubmissions.limpos.length} sem conflito` : 'Aprovar sem conflito'}
                         title="Aprova os envios pendentes deste grupo. Só fica de fora a apresentadora que já tem live oficial neste horário."
                         style={{
                           display: 'inline-flex',
@@ -1447,7 +1472,7 @@ export function LivesTab({
                         }}
                       >
                         <Check style={{ width: 13, height: 13 }} />
-                        <span>{groupSubmissions.limpos.length > 0 ? `Aprovar ${groupSubmissions.limpos.length} sem conflito` : 'Aprovar sem conflito'}</span>
+                        <span className="lives-day-action__label">{groupSubmissions.limpos.length > 0 ? `Aprovar ${groupSubmissions.limpos.length} sem conflito` : 'Aprovar sem conflito'}</span>
                       </button>
                     ) : null}
                     <button
@@ -1457,6 +1482,8 @@ export function LivesTab({
                         void handleCopyDaySummary(group.dateKey)
                       }}
                       disabled={copyingDayKey === group.dateKey}
+                      className="lives-day-action"
+                      aria-label="Copiar resumo do dia para o WhatsApp"
                       title="Copiar resumo do dia para o WhatsApp"
                       style={{
                         display: 'inline-flex',
@@ -1480,12 +1507,12 @@ export function LivesTab({
                       {copiedDayKey === group.dateKey ? (
                         <>
                           <Check style={{ width: 13, height: 13 }} />
-                          <span>Copiado!</span>
+                          <span className="lives-day-action__label">Copiado!</span>
                         </>
                       ) : (
                         <>
                           <Copy style={{ width: 13, height: 13 }} />
-                          <span>{copyingDayKey === group.dateKey ? 'Copiando...' : 'Copiar resumo'}</span>
+                          <span className="lives-day-action__label">{copyingDayKey === group.dateKey ? 'Copiando...' : 'Copiar resumo'}</span>
                         </>
                       )}
                     </button>
@@ -1493,6 +1520,7 @@ export function LivesTab({
                     {/* GMV pill */}
                     {(totalGmv > 0 || pendentes) && (
                       <div
+                        className="lives-day-gmv"
                         style={{
                           display: 'flex',
                           alignItems: 'baseline',
@@ -1506,6 +1534,7 @@ export function LivesTab({
                         }}
                       >
                         <span
+                          className="lives-day-gmv__kicker"
                           style={{
                             fontFamily: 'var(--font-sans)',
                             fontSize: 10,
@@ -1517,6 +1546,7 @@ export function LivesTab({
                         >
                           {emConciliacao ? 'Subtotal · em conciliação' : pendentes ? 'GMV provisório' : 'GMV do dia'}
                         </span>
+                        {emConciliacao ? <span className="lives-day-subtotal">subtotal</span> : null}
                         <b
                           style={{
                             color: 'var(--primary)',
@@ -1537,7 +1567,7 @@ export function LivesTab({
                 {!collapsed &&
                   group.lives.map((live, rowIdx) => {
                     if (live.registro_tipo === 'submissao') return (
-                      <article key={String(live.id)} className="border-b border-line p-4" data-testid="presenter-live-record">
+                      <article key={String(live.id)} className="lives-submission border-b border-line p-4" data-testid="presenter-live-record">
                         <div className="flex flex-wrap items-center gap-2 text-sm">
                           <strong className="break-words">{asString(live.marca_nome, 'Marca')} · {asString(live.apresentadora_nome, 'Apresentadora')}</strong>
                           <BotBadge origem={live.origem_dados} />
@@ -1548,7 +1578,7 @@ export function LivesTab({
                         {live.em_conciliacao ? <p className="mt-2 text-sm text-[var(--warning)]">Em conciliação: conferir vínculo antes de consolidar o total.</p> : null}
                         {live.motivo_devolucao ? <p className="mt-2 break-words text-sm">{asString(live.motivo_devolucao)}</p> : null}
                         {live.motivo_contestacao ? <p className="mt-2 break-words text-sm">Contestação: {asString(live.motivo_contestacao)}</p> : null}
-                        {onReviewSubmission ? <div className="mt-3 flex flex-wrap gap-2">
+                        {onReviewSubmission ? <div className="lives-submission__actions mt-3 flex flex-wrap gap-2">
                           <Button onClick={() => onReviewSubmission(live, 'review')}>Validar live</Button>
                           {live.revisao_status === 'pendente' ? <><Button variant="secondary" onClick={() => onReviewSubmission(live, 'link')}>Vincular live existente</Button><Button variant="secondary" onClick={() => onReviewSubmission(live, 'return')}>Devolver</Button></> : null}
                           {onArchiveLive && canWrite ? <Button variant="secondary" onClick={() => onArchiveLive(live)}>Arquivar</Button> : null}
@@ -1952,6 +1982,7 @@ export function LivesTab({
                         horaInicio={fmtTime(live.iniciado_em)}
                         horaFim={fmtTime(live.encerrado_em)}
                         gmv={gmv}
+                        gmvKnown={hasRecordedLiveGmv(live)}
                         status={live.status_publicacao}
                         onOpen={() => onOpenLiveDetail(live)}
                       />

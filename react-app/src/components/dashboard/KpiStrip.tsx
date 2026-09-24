@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { MetricInfo } from '../ui/MetricInfo'
 import { asNumber } from '../../utils/format'
 import type { MetricKey } from '../../utils/metricGlossary'
@@ -21,6 +22,11 @@ function delta(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100
 }
 
+function deltaLabel(d: number): string {
+  const positive = d >= 0
+  return `${positive ? '↑' : '↓'}${Math.abs(d).toFixed(1).replace('.', ',')}%`
+}
+
 function DeltaPill({ d }: { d: number | null }) {
   if (d === null) return <span className="inline-flex h-[22px] items-center rounded-full bg-[var(--bg-elev-3)] px-2 text-xs font-bold text-ink-muted">sem base</span>
   const positive = d >= 0
@@ -28,12 +34,12 @@ function DeltaPill({ d }: { d: number | null }) {
     <span
       className="inline-flex h-[22px] items-center gap-0.5 rounded-full px-2 text-xs font-bold"
       style={{
-        background: positive ? 'var(--primary-soft)' : 'var(--danger-soft)',
-        color: positive ? 'var(--primary-text)' : 'var(--danger-text)',
+        background: positive ? 'var(--success-soft)' : 'var(--danger-soft)',
+        color: positive ? 'var(--success)' : 'var(--danger)',
       }}
     >
       {positive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-      {positive ? '+' : ''}{d.toFixed(1)}%
+      {positive ? '+' : ''}{d.toFixed(1).replace('.', ',')}%
     </span>
   )
 }
@@ -102,6 +108,7 @@ function monthLabel(mesISO: string): string {
 }
 
 export function KpiStrip({ raw, loading = false, mesExibido, meses, onMesAnterior, onMesProximo, onMesChange, proximoDesabilitado }: KpiStripProps) {
+  const compact = useMediaQuery('(max-width: 1023px)')
   // Dois baldes distintos no backend (src/routes/home.js:340-342):
   //   gmv_total_mes = gmv_mes = gmv_lives_mes + gmv_videos_mes   (lives + vídeos)
   //   gmv_lives_mes                                              (só lives)
@@ -173,15 +180,49 @@ export function KpiStrip({ raw, loading = false, mesExibido, meses, onMesAnterio
     },
   ]
 
+  const shown = items.map((item) => ({
+    ...item,
+    value: loading ? '—' : item.value,
+    delta: loading ? null : item.delta,
+  }))
+
   return (
-    <section className="overflow-x-auto rounded-[var(--radius-panel)] border border-line bg-surface shadow-[var(--shadow-card)]" aria-label="Indicadores do mês">
+    <section className="overflow-hidden rounded-[var(--radius-panel)] border border-line bg-surface shadow-[var(--shadow-card)] max-lg:rounded-[18px] max-lg:shadow-none" aria-label="Indicadores do mês">
+      <div className="grid grid-cols-4 max-[359px]:grid-cols-2 lg:hidden">
+        {shown.map((item) => {
+          const faint = item.value === '—' || item.value === '0' || item.value === '0,0'
+          return (
+            <div
+              key={item.label}
+              className="flex min-w-0 flex-col gap-0.5 border-l border-line px-2 py-2.5 first:border-l-0 max-[359px]:nth-[2n+1]:border-l-0 max-[359px]:nth-[n+3]:border-t"
+            >
+              <span className="truncate text-[11px] font-semibold text-ink-muted">{item.label}</span>
+              <span className="truncate text-[18px] font-extrabold leading-[22px]" style={{ color: faint ? 'var(--text-faint)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                {item.prefix ? <span className="mr-0.5 text-[11px] font-semibold text-ink-muted">{item.prefix}</span> : null}
+                {item.value}
+                {item.suffix ? <span className="text-[11px] font-semibold text-ink-muted">{item.suffix}</span> : null}
+              </span>
+              {item.delta === null || item.delta === undefined ? (
+                <span className="text-[11px] font-semibold text-ink-muted">sem base</span>
+              ) : (
+                <span className="text-[11px] font-bold" style={{ color: item.delta >= 0 ? 'var(--success)' : 'var(--danger)' }}>{deltaLabel(item.delta)}</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <div className="hidden lg:block">
       <div className="grid grid-cols-1 items-stretch sm:grid-cols-2 xl:flex">
         <div className="col-span-1 flex min-w-0 items-center justify-between gap-2 px-4 py-3 sm:col-span-2 xl:min-w-[260px]">
           <button type="button" aria-label="Mês anterior" onClick={onMesAnterior} className="grid h-8 w-8 place-items-center rounded-[var(--radius-pill)] text-ink-muted hover:bg-surface-muted"><ChevronLeft className="h-4 w-4" /></button>
-          <select aria-label="Filtrar por mês" value={mesExibido} onChange={(event) => onMesChange(event.target.value)} className="min-w-[170px] appearance-none bg-transparent text-[15px] font-bold text-ink focus:outline-none">
-            {meses.map((mes) => <option key={mes} value={mes}>{monthLabel(mes)}</option>)}
-            {!meses.includes(mesExibido) ? <option value={mesExibido}>{monthLabel(mesExibido)}</option> : null}
-          </select>
+          {compact ? (
+            <span className="min-w-[170px] text-center text-[15px] font-bold text-ink">{monthLabel(mesExibido)}</span>
+          ) : (
+            <select aria-label="Filtrar por mês" value={mesExibido} onChange={(event) => onMesChange(event.target.value)} className="min-w-[170px] appearance-none bg-transparent text-[15px] font-bold text-ink focus:outline-none">
+              {meses.map((mes) => <option key={mes} value={mes}>{monthLabel(mes)}</option>)}
+              {!meses.includes(mesExibido) ? <option value={mesExibido}>{monthLabel(mesExibido)}</option> : null}
+            </select>
+          )}
           <button type="button" aria-label="Próximo mês" disabled={proximoDesabilitado} onClick={onMesProximo} className="grid h-8 w-8 place-items-center rounded-[var(--radius-pill)] text-ink-muted hover:bg-surface-muted disabled:opacity-35"><ChevronRight className="h-4 w-4" /></button>
         </div>
       {items.map((item, index) => (
@@ -195,6 +236,7 @@ export function KpiStrip({ raw, loading = false, mesExibido, meses, onMesAnterio
           align={index % 2 === 1 ? 'right' : 'left'}
         />
       ))}
+      </div>
       </div>
     </section>
   )

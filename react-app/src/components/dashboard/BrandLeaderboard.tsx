@@ -121,10 +121,34 @@ function BrandLogo({ row }: { row: BrandRow }) {
 const GRID = 'md:grid-cols-[44px_minmax(200px,1.1fr)_minmax(220px,1fr)_140px_92px]'
 const GRID_HEAD = 'grid-cols-[44px_minmax(200px,1.1fr)_minmax(220px,1fr)_140px_92px]'
 
+function moneyWithoutCents(value: number): string {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
 function BrandLeaderboardRow({ row, index }: { row: BrandRow; index: number }) {
+  const metaLabel = row.pctMeta == null ? 'sem meta' : `${row.pctMeta.toFixed(0)}% meta`
+  const metaColor = row.pctMeta == null ? 'var(--text-muted)' : row.pctMeta >= 100 ? 'var(--success)' : 'var(--warning)'
   return (
+    <>
+    <div className="relative flex h-16 items-center gap-2.5 px-3.5 lg:hidden" style={{ borderTop: index === 0 ? 'none' : '1px solid var(--divider)' }}>
+      <span className="w-5 shrink-0 text-center text-[13px] font-bold" style={{ color: index === 0 ? 'var(--primary)' : 'var(--text-muted)' }}>{index + 1}</span>
+      <span className="grid h-[30px] w-[30px] shrink-0 place-items-center overflow-hidden rounded-[8px] text-[11px] font-bold" style={{ background: 'var(--bg-elev-3)', color: 'var(--text-primary)' }}>
+        {row.logoUrl ? <img src={row.logoUrl} alt="" className="h-full w-full object-cover" /> : row.initials}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold text-ink">{row.name}</span>
+        <span className="block truncate text-xs text-ink-muted">{row.lives > 0 ? `${row.lives} live${row.lives === 1 ? '' : 's'}` : 'sem lives'}</span>
+      </span>
+      <span className="shrink-0 text-right">
+        <span className="block text-[15px] font-extrabold" style={{ color: row.gmvPorHora === 0 ? 'var(--text-faint)' : 'var(--text-primary)' }}>{moneyWithoutCents(row.gmvPorHora)}/h</span>
+        <span className="block text-[11px] font-bold" style={{ color: metaColor }}>{metaLabel}</span>
+      </span>
+      <span className="absolute inset-x-3.5 bottom-0 h-[3px]" style={{ background: 'var(--bg-elev-3)' }}>
+        <span className="absolute inset-y-0 left-0" style={{ width: `${row.progress}%`, background: 'var(--primary)' }} />
+      </span>
+    </div>
     <div
-      className={`grid gap-4 px-5 py-3 md:items-center ${GRID}`}
+      className={`hidden gap-4 px-5 py-3 md:items-center lg:grid ${GRID}`}
       style={{
         borderTop: index === 0 ? 'none' : '1px solid var(--divider)',
         background: 'transparent',
@@ -177,6 +201,7 @@ function BrandLeaderboardRow({ row, index }: { row: BrandRow; index: number }) {
         <MetaBadge pct={row.pctMeta} />
       </div>
     </div>
+    </>
   )
 }
 
@@ -194,24 +219,24 @@ export function BrandLeaderboard({
 
   return (
     <section
-      className="overflow-hidden rounded-xl"
+      className="board-card overflow-hidden rounded-xl"
       style={{
         background: 'var(--bg-elev-1)',
         border: '1px solid var(--border)',
         boxShadow: 'var(--shadow-card)',
       }}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 px-7 py-6" style={{ borderBottom: '1px solid var(--divider)' }}>
-        <div>
-          <h2 className="text-lg font-bold tracking-[-0.015em] text-ink">{title}</h2>
-          <p className="mt-1 text-[13px] text-ink-muted">{subtitle}</p>
+      <div className="board-head flex flex-wrap items-start justify-between gap-3 px-7 py-6" style={{ borderBottom: '1px solid var(--divider)' }}>
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-bold tracking-[-0.015em] text-ink max-lg:text-sm">{title}</h2>
+          <p className="board-sub mt-1 text-[13px] text-ink-muted">{subtitle}</p>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
 
       {brands.length > 0 ? (
         <div>
-          <div className={`hidden gap-4 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted md:grid ${GRID_HEAD}`}>
+          <div className={`hidden gap-4 px-4 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-ink-muted lg:grid ${GRID_HEAD}`}>
             <span>RK</span>
             <span>Marca</span>
             <span>GMV/h · vs líder</span>
