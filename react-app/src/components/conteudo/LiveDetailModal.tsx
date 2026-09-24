@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Copy, Edit2, GitMerge, RotateCcw, Trash2, Users } from 'lucide-react'
+import { Archive, Copy, Edit2, GitMerge, RotateCcw, Trash2, Users } from 'lucide-react'
 import { useMutation, useQuery, type UseMutationResult } from '@tanstack/react-query'
 import { Modal } from '../ui/Modal'
 import { ModalSection } from '../ui/ModalSection'
@@ -59,6 +59,7 @@ interface LiveDetailModalProps {
   onEdit: (live: JsonRecord) => void
   onSplitApresentadoras: (live: JsonRecord) => void
   onDelete: (live: JsonRecord) => void
+  onArchive?: (live: JsonRecord) => void
   deleteLiveMutation: UseMutationResult<unknown, Error, string>
   onUnionChanged?: () => void
 }
@@ -74,6 +75,7 @@ export function LiveDetailModal({
   onEdit,
   onSplitApresentadoras,
   onDelete,
+  onArchive,
   deleteLiveMutation,
   onUnionChanged,
 }: LiveDetailModalProps) {
@@ -225,6 +227,11 @@ export function LiveDetailModal({
                 <Button variant="secondary" icon={Users} onClick={() => onSplitApresentadoras(live)}>
                   Dividir entre apresentadoras
                 </Button>
+                {onArchive && asString(live.status, '').toLowerCase() !== 'em_andamento' ? (
+                  <Button variant="secondary" icon={Archive} onClick={() => onArchive(live)}>
+                    Arquivar
+                  </Button>
+                ) : null}
                 <Button
                   variant="ghost"
                   className="text-[var(--danger)]"

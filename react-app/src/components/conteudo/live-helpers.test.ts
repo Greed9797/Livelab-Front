@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   classifyLivePendings,
   filterLivesByPending,
+  hideReturnedFromGestorList,
   hasRecordedLiveGmv,
   hasRecordedMetricValue,
   livePresenterCellModel,
@@ -114,6 +115,15 @@ describe('pendências operacionais de lives', () => {
     const duplicateIds = new Set(['b'])
     expect(summarizeLivePendings(lives, duplicateIds)).toEqual({ validacao: 0, rascunho: 1, cadastro: 0, metricas: 0, duplicata: 1 })
     expect(filterLivesByPending(lives, 'duplicata', duplicateIds).map((live) => live.id)).toEqual(['b'])
+  })
+
+  it('tira da lista do gestor o envio já devolvido e mantém o pendente', () => {
+    const lives = [
+      { id: 'pendente', registro_tipo: 'submissao', revisao_status: 'pendente' },
+      { id: 'devolvida', registro_tipo: 'submissao', revisao_status: 'devolvida' },
+      { id: 'oficial', registro_tipo: 'live', revisao_status: 'devolvida' },
+    ]
+    expect(hideReturnedFromGestorList(lives).map((live) => live.id)).toEqual(['pendente', 'oficial'])
   })
 
   it('separa os envios da apresentadora que aguardam validação dos demais rascunhos', () => {

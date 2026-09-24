@@ -19,6 +19,8 @@ import { dateRangeToWindow, isValidCustomDateRange, type DateRange } from '../co
 // Abas pesadas carregadas sob demanda — só baixam o chunk quando a aba é aberta.
 const LivesTab = lazy(() => import('../components/conteudo/LivesTab').then((m) => ({ default: m.LivesTab })))
 import {
+  archiveLive,
+  archivePresenterSubmission,
   createAgendaEvento,
   criarLiveManual,
   deleteAgendaEvento,
@@ -339,7 +341,25 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
     onError: (error) => toast.push(extractErrorMessage(error), 'error'),
   })
   const encerrarLiveMutation = useMutation({ mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => encerrarLive(id, payload), onSuccess: () => { setMetricsModalMode(null); setMetricsAgendaEvent(null); invalidateOperational() } })
-  const deleteLiveMutation = useMutation({ mutationFn: deleteLive, onSuccess: closeLiveRecord })
+  const deleteLiveMutation = useMutation({
+    mutationFn: deleteLive,
+    onSuccess: closeLiveRecord,
+    onError: (error) => toast.push(extractErrorMessage(error), 'error'),
+  })
+  const archiveLiveMutation = useMutation({
+    mutationFn: (live: JsonRecord) => {
+      if (live.registro_tipo === 'submissao') {
+        const raw = asString(live.submissao_id, asString(live.id, ''))
+        return archivePresenterSubmission(raw.replace(/^submissao:/, ''))
+      }
+      return archiveLive(asString(live.id, ''))
+    },
+    onSuccess: () => {
+      closeLiveRecord()
+      toast.push('Arquivada. Saiu da sua lista.', 'success')
+    },
+    onError: (error) => toast.push(extractErrorMessage(error), 'error'),
+  })
   // Rateio da live entre apresentadoras. O backend salva rateio e atribuições/comissões na
   // mesma transação, então a invalidação abaixo nunca expõe uma leitura híbrida.
   const rateioMutation = useMutation({
@@ -590,6 +610,14 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
             const label = asString(live.marca_nome ?? live.cliente_nome ?? live.id, 'live')
             if (!window.confirm(`Excluir a live "${label}"?`)) return
             deleteLiveMutation.mutate(asString(live.id, ''))
+          }}
+          onArchiveLive={(live) => {
+            const label = asString(live.marca_nome ?? live.cliente_nome ?? live.id, 'live')
+            const message = live.registro_tipo === 'submissao'
+              ? `Arquivar o envio "${label}"? Ele sai da sua lista e não volta para correção.`
+              : `Arquivar a live "${label}"? Ela sai da sua lista. O GMV e as comissões já registrados não são apagados nem zerados.`
+            if (!window.confirm(message)) return
+            archiveLiveMutation.mutate(live)
           }}
           onCloseLiveModal={() => {
             dismissedLiveIdRef.current = selectedLiveId
