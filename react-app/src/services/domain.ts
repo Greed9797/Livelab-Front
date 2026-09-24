@@ -1,6 +1,7 @@
 import type { AgendaTurno, Cabine, JsonRecord, Lead, LiveAtual, Period } from '../types/models'
 import { api, apiDelete, apiGet, apiGetBlob, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
+import { fetchAllPaginatedRows } from '../utils/fetchPaginatedExport'
 
 export function getHomeDashboard(params: { mes?: string } = {}) {
   return apiGet<JsonRecord>('/home/dashboard', params.mes ? { mes: params.mes } : undefined)
@@ -483,6 +484,12 @@ export interface LivesPaginadoResponse {
 // Mesmo endpoint de getLives, mas com paginado=1 → { items, total, page, limit }.
 export function getLivesPaginado(params: Record<string, unknown> = {}) {
   return apiGet<LivesPaginadoResponse>('/lives', { ...params, paginado: 1 })
+}
+
+export async function fetchAllLivesPaginado(params: Record<string, unknown> = {}) {
+  return fetchAllPaginatedRows<JsonRecord>((page, limit) =>
+    getLivesPaginado({ ...params, page, limit }),
+  )
 }
 
 export function getLivesDuplicatas() {

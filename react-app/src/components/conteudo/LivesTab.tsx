@@ -32,8 +32,9 @@ import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { officialLiveGmv } from '../../utils/live-gmv'
-import { getLiveUnionCapabilities, getLivesResumoDia, type LiveResumoDiaResponse } from '../../services/domain'
+import { getLiveUnionCapabilities, getLivesResumoDia, fetchAllLivesPaginado, type LiveResumoDiaResponse } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
+import { PAGINATED_EXPORT_ROW_CAP } from '../../utils/fetchPaginatedExport'
 import { approvePresenterSubmissionsWithoutConflict, type BatchApprovePresenterSubmissionsResult, type BatchApproveSubmissionRef } from '../../services/presenter-portal'
 import { invalidateOperational } from '../../services/query-keys'
 import { splitPendingGroupSubmissions } from './group-approve'
@@ -216,7 +217,7 @@ export async function runCopyDaySummaryAction(
   }
 }
 
-function doExportCSV(lives: JsonRecord[]) {
+function doExportCSV(lives: JsonRecord[], capNotice?: string) {
   const header = [
     'ID',
     'Data',
@@ -235,7 +236,8 @@ function doExportCSV(lives: JsonRecord[]) {
     'Comissão',
   ]
   const groups = groupLivesBySaoPauloDay(lives)
-  const rows: string[][] = [header]
+  const rows: string[][] = capNotice ? [[`# ${capNotice}`]] : []
+  rows.push(header)
   for (const g of groups) {
     for (const l of g.lives) {
       const { text: dur, mins } = calcDuration(l)
@@ -518,6 +520,8 @@ export interface LivesTabProps {
   total: number
   onPageChange: (page: number) => void
   onPageSizeChange: (size: number) => void
+  /** Filtros server-side da lista (sem page/limit) — usados na exportação CSV. */
+  livesExportQueryParams: Record<string, unknown>
 }
 
 const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
@@ -589,8 +593,10 @@ export function LivesTab({
   total,
   onPageChange,
   onPageSizeChange,
+  livesExportQueryParams,
 }: LivesTabProps) {
   const [importOpen, setImportOpen] = useState(false)
+  const [exportingCsv, setExportingCsv] = useState(false)
   const [search, setSearch] = useState(searchQuery)
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
   const [kebabMenu, setKebabMenu] = useState<{ liveId: string; live: JsonRecord; top: number; left: number } | null>(null)
@@ -768,6 +774,33 @@ export function LivesTab({
   const clearFilters = onClearFilters
 
   const dayGroups = useMemo(() => groupLivesBySaoPauloDay(filteredLives), [filteredLives])
+
+  async function handleExportCsv() {
+    setExportOpen(false)
+    setExportingCsv(true)
+    try {
+      const { items, capped, total } = await fetchAllLivesPaginado(livesExportQueryParams)
+      const rows = filterLivesByPending(items, pendingFilter, duplicateIdSet)
+      if (rows.length === 0) {
+        toast.push('Nenhuma live para exportar com os filtros atuais.', 'error')
+        return
+      }
+      const capNotice = capped
+        ? `Exportação limitada a ${PAGINATED_EXPORT_ROW_CAP.toLocaleString('pt-BR')} linhas (${total.toLocaleString('pt-BR')} no filtro). Refine os filtros para exportar o restante.`
+        : undefined
+      doExportCSV(rows, capNotice)
+      if (capped) {
+        toast.push(capNotice!, 'warning')
+      } else {
+        toast.push(`${rows.length.toLocaleString('pt-BR')} lives exportadas.`, 'success')
+      }
+    } catch (err) {
+      toast.push(extractErrorMessage(err), 'error')
+    } finally {
+      setExportingCsv(false)
+    }
+  }
+
   // Pré-computa as agregações por grupo (duração/GMV/publicadas/rascunhos) uma única
   // vez por mudança de `dayGroups`, em vez de recalcular reduce/filter por render
   // dentro do map. Keyed pela própria referência de `group.lives`.
@@ -1134,16 +1167,18 @@ export function LivesTab({
         >
           <button
             type="button"
-            style={{ ...tbtn, borderRadius: 'var(--radius-pill) 0 0 var(--radius-pill)', borderRight: 'none', paddingRight: 11 }}
-            onClick={() => doExportCSV(filteredLives)}
+            style={{ ...tbtn, borderRadius: 'var(--radius-pill) 0 0 var(--radius-pill)', borderRight: 'none', paddingRight: 11, opacity: exportingCsv ? 0.6 : 1 }}
+            disabled={exportingCsv}
+            onClick={() => void handleExportCsv()}
           >
             <Download style={{ width: 14, height: 14 }} />
-            Exportar
+            {exportingCsv ? 'Exportando…' : 'Exportar'}
           </button>
           <button
             type="button"
             style={{ ...tbtn, borderRadius: '0 var(--radius-pill) var(--radius-pill) 0', padding: '8px 9px', borderLeft: '1px solid var(--border)' }}
             aria-label="Opções de exportação"
+            disabled={exportingCsv}
             onClick={() => setExportOpen((v) => !v)}
           >
             <ChevronDown style={{ width: 14, height: 14, color: 'var(--text-muted)' }} />
@@ -1155,8 +1190,7 @@ export function LivesTab({
                 label="Exportar como CSV"
                 hint=".csv"
                 onClick={() => {
-                  doExportCSV(filteredLives)
-                  setExportOpen(false)
+                  void handleExportCsv()
                 }}
               />
               <MenuBtn

@@ -264,18 +264,29 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   // query `lives` acima, que segue completa para alimentar a Agenda e o lookup por ?live=).
   const livesWindow = dateRangeToWindow(livesDateRange, livesCustomFrom, livesCustomTo)
   const batchApproveSubmissionDate = livesWindow.data_inicio && livesWindow.data_inicio === livesWindow.data_fim ? livesWindow.data_inicio : undefined
+  const livesListQueryParams = useMemo(() => ({
+    registro: canReviewPresenterSubmissions ? '1' : undefined,
+    status: livesStatus === 'todas' ? undefined : livesStatus,
+    q: livesQ || undefined,
+    ...livesWindow,
+    marca_id: livesMarcaId || undefined,
+    apresentadora_id: livesApresentadoraId || undefined,
+    cabine_id: livesCabineId || undefined,
+  }), [
+    canReviewPresenterSubmissions,
+    livesStatus,
+    livesQ,
+    livesWindow,
+    livesMarcaId,
+    livesApresentadoraId,
+    livesCabineId,
+  ])
   const livesList = useQuery({
     queryKey: ['lives', 'list', livesStatus, livesDateRange, livesCustomFrom, livesCustomTo, livesMarcaId, livesApresentadoraId, livesCabineId, livesQ, livesPage, livesLimit],
     queryFn: () => getLivesPaginado({
-      registro: canReviewPresenterSubmissions ? '1' : undefined,
-      status: livesStatus === 'todas' ? undefined : livesStatus,
+      ...livesListQueryParams,
       page: livesPage,
       limit: livesLimit,
-      q: livesQ || undefined,
-      ...livesWindow,
-      marca_id: livesMarcaId || undefined,
-      apresentadora_id: livesApresentadoraId || undefined,
-      cabine_id: livesCabineId || undefined,
     }),
     enabled: tab === 'lives' && (livesDateRange !== 'custom' || livesCustomRangeValid),
     staleTime: 0,
@@ -569,6 +580,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
           total={livesTotal}
           onPageChange={(page) => setLivesParams({ page: page > 0 ? String(page) : null }, { resetPage: false })}
           onPageSizeChange={(size) => setLivesParams({ pp: size === 25 ? null : String(size) })}
+          livesExportQueryParams={livesListQueryParams}
           liveModalMode={liveModalMode}
           selectedLiveRecord={selectedLiveFresco}
           reportCopied={reportCopied}
