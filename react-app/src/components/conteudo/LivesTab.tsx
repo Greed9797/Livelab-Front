@@ -1566,8 +1566,12 @@ export function LivesTab({
                 {/* Rows */}
                 {!collapsed &&
                   group.lives.map((live, rowIdx) => {
-                    if (live.registro_tipo === 'submissao') return (
+                    if (live.registro_tipo === 'submissao') {
+                      const submissionStatus = live.revisao_status === 'devolvida' ? 'Aguardando correção' : 'Pendente'
+                      const submissionGmv = asNumber(live.gmv)
+                      return (
                       <article key={String(live.id)} className="lives-submission border-b border-line p-4" data-testid="presenter-live-record">
+                        <div className="lives-submission__body">
                         <div className="flex flex-wrap items-center gap-2 text-sm">
                           <strong className="break-words">{asString(live.marca_nome, 'Marca')} · {asString(live.apresentadora_nome, 'Apresentadora')}</strong>
                           <BotBadge origem={live.origem_dados} />
@@ -1578,13 +1582,39 @@ export function LivesTab({
                         {live.em_conciliacao ? <p className="mt-2 text-sm text-[var(--warning)]">Em conciliação: conferir vínculo antes de consolidar o total.</p> : null}
                         {live.motivo_devolucao ? <p className="mt-2 break-words text-sm">{asString(live.motivo_devolucao)}</p> : null}
                         {live.motivo_contestacao ? <p className="mt-2 break-words text-sm">Contestação: {asString(live.motivo_contestacao)}</p> : null}
+                        </div>
+                        <div className="lives-submission__line">
+                          <span className="lives-mobile-card__main">
+                            <span className="lives-mobile-card__marca">{asString(live.marca_nome, 'Marca')} · {asString(live.apresentadora_nome, 'Apresentadora')}</span>
+                            <span className="lives-mobile-card__meta-line">
+                              {fmtTime(live.iniciado_em)}–{fmtTime(live.encerrado_em)}
+                              <span style={{ color: 'var(--warning)' }}> · {submissionStatus}</span>
+                              {live.em_conciliacao ? <span style={{ color: 'var(--warning)' }}> · Em conciliação</span> : null}
+                              {live.motivo_devolucao ? <span> · {asString(live.motivo_devolucao)}</span> : null}
+                              {live.motivo_contestacao ? <span> · Contestação: {asString(live.motivo_contestacao)}</span> : null}
+                            </span>
+                          </span>
+                          <span className="lives-mobile-card__value" style={{ color: submissionGmv === 0 ? 'var(--text-faint)' : 'var(--text-primary)' }}>
+                            {formatMoney(live.gmv)}
+                          </span>
+                        </div>
                         {onReviewSubmission ? <div className="lives-submission__actions mt-3 flex flex-wrap gap-2">
-                          <Button onClick={() => onReviewSubmission(live, 'review')}>Validar live</Button>
-                          {live.revisao_status === 'pendente' ? <><Button variant="secondary" onClick={() => onReviewSubmission(live, 'link')}>Vincular live existente</Button><Button variant="secondary" onClick={() => onReviewSubmission(live, 'return')}>Devolver</Button></> : null}
-                          {onArchiveLive && canWrite ? <Button variant="secondary" onClick={() => onArchiveLive(live)}>Arquivar</Button> : null}
+                          <Button aria-label="Validar live" onClick={() => onReviewSubmission(live, 'review')}>
+                            <span className="lives-action-long">Validar live</span>
+                            <span className="lives-action-short">Validar</span>
+                          </Button>
+                          {live.revisao_status === 'pendente' ? <>
+                            <Button variant="secondary" aria-label="Vincular live existente" onClick={() => onReviewSubmission(live, 'link')}>
+                              <span className="lives-action-long">Vincular live existente</span>
+                              <span className="lives-action-short">Vincular</span>
+                            </Button>
+                            <Button variant="secondary" aria-label="Devolver" onClick={() => onReviewSubmission(live, 'return')}>Devolver</Button>
+                          </> : null}
+                          {onArchiveLive && canWrite ? <Button variant="secondary" aria-label="Arquivar" onClick={() => onArchiveLive(live)}>Arquivar</Button> : null}
                         </div> : null}
                       </article>
-                    )
+                      )
+                    }
                     const liveId = asString(live.id)
                     const { text: durText, mins: durMins } = calcDuration(live)
                     const durPct = Math.min(100, (durMins / MAX_DUR_MINS) * 100)
