@@ -1,5 +1,6 @@
 import type { ChartPoint, JsonRecord, Metric } from '../types/models'
 import { asArray, asNumber, asString, formatMoney, formatPercent, getRecord } from '../utils/format'
+import { countDistinctLives } from '../utils/liveCount'
 
 export function metric(label: string, value: unknown, hint?: string, tone: Metric['tone'] = 'neutral'): Metric {
   return { label, value: String(value ?? '—'), hint, tone }
@@ -89,12 +90,12 @@ export function sumDailyTotals(rows: JsonRecord[]): DailyTotals {
       t.gmv_videos += asNumber(r.gmv_videos)
       t.horas_live += asNumber(r.horas_live)
       t.pedidos += asNumber(r.pedidos ?? r.total_pedidos ?? r.orders)
-      t.total_lives += asNumber(r.total_lives ?? r.lives)
       t.total_videos += asNumber(r.total_videos)
       return t
     },
     { gmv_lives: 0, gmv_videos: 0, horas_live: 0, pedidos: 0, total_lives: 0, total_videos: 0 },
   )
+  acc.total_lives = countDistinctLives(rows)
   const gmv_total = acc.gmv_lives + acc.gmv_videos
   return {
     ...acc,
