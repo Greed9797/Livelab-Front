@@ -302,6 +302,7 @@ function LiveMobileCard({
   gmv,
   gmvKnown,
   status,
+  liveNow = false,
   onOpen,
 }: {
   marca: string
@@ -310,21 +311,23 @@ function LiveMobileCard({
   gmv: number
   gmvKnown: boolean
   status: unknown
+  liveNow?: boolean
   onOpen: () => void
 }) {
   const statusLabel = publicationStatusLabel(status)
   return (
     <button
       type="button"
-      className="lives-mobile-card"
+      className="lives-mobile-card row-hover"
       onClick={onOpen}
       aria-label={`Abrir live de ${marca} às ${horaInicio}`}
     >
       <span className="lives-mobile-card__main">
         <span className="lives-mobile-card__marca">{marca || '—'}</span>
         <span className="lives-mobile-card__meta-line">
+          {liveNow ? <span className="status-dot status-dot--live" aria-hidden="true" /> : null}
           {horaInicio}–{horaFim}
-          {statusLabel ? <span style={{ color: liveStatusColor(status) }}> · {statusLabel}</span> : null}
+          {statusLabel ? <span className="status-badge" style={{ color: liveStatusColor(status) }}> · {statusLabel}</span> : null}
         </span>
       </span>
       <span className="lives-mobile-card__value" style={{ color: !gmvKnown || gmv === 0 ? 'var(--text-faint)' : 'var(--text-primary)' }}>
@@ -352,6 +355,7 @@ function StatusBadge({ status }: { status: unknown }) {
   }
   return (
     <span
+      className="status-badge"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -1354,14 +1358,13 @@ export function LivesTab({
               <div key={group.dateKey}>
                 {/* Day header */}
                 <div
-                  className="lives-day-head"
+                  className="lives-day-head row-hover"
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '1fr auto',
                     gap: 16,
                     alignItems: 'center',
                     padding: '9px 22px',
-                    background: 'var(--bg-elev-2)',
                     borderBottom: '1px solid var(--border)',
                     position: 'sticky',
                     top: 37,
@@ -1570,13 +1573,13 @@ export function LivesTab({
                       const submissionStatus = live.revisao_status === 'devolvida' ? 'Aguardando correção' : 'Pendente'
                       const submissionGmv = asNumber(live.gmv)
                       return (
-                      <article key={String(live.id)} className="lives-submission border-b border-line p-4" data-testid="presenter-live-record">
+                      <article key={String(live.id)} className="lives-submission row-hover border-b border-line p-4" data-testid="presenter-live-record">
                         <div className="lives-submission__body">
                         <div className="flex flex-wrap items-center gap-2 text-sm">
                           <strong className="break-words">{asString(live.marca_nome, 'Marca')} · {asString(live.apresentadora_nome, 'Apresentadora')}</strong>
                           <BotBadge origem={live.origem_dados} />
                           <StatusBadge status="rascunho" />
-                          <span>{live.revisao_status === 'devolvida' ? 'Aguardando correção' : 'Aguardando validação · Pendente aprovação'}</span>
+                          <span className="status-badge">{live.revisao_status === 'pendente' ? <span className="status-dot status-dot--review" aria-hidden="true" /> : null}{live.revisao_status === 'devolvida' ? 'Aguardando correção' : 'Aguardando validação · Pendente aprovação'}</span>
                         </div>
                         <p className="mt-2 text-sm text-ink-muted">{fmtTime(live.iniciado_em)}–{fmtTime(live.encerrado_em)} · GMV {formatMoney(live.gmv)} · {asNumber(live.final_orders_count)} pedidos · Comissão: aguardando validação</p>
                         {live.em_conciliacao ? <p className="mt-2 text-sm text-[var(--warning)]">Em conciliação: conferir vínculo antes de consolidar o total.</p> : null}
@@ -1588,7 +1591,7 @@ export function LivesTab({
                             <span className="lives-mobile-card__marca">{asString(live.marca_nome, 'Marca')} · {asString(live.apresentadora_nome, 'Apresentadora')}</span>
                             <span className="lives-mobile-card__meta-line">
                               {fmtTime(live.iniciado_em)}–{fmtTime(live.encerrado_em)}
-                              <span style={{ color: 'var(--warning)' }}> · {submissionStatus}</span>
+                              <span className="status-badge" style={{ color: 'var(--warning)' }}> · {live.revisao_status === 'pendente' ? <span className="status-dot status-dot--review" aria-hidden="true" /> : null}{submissionStatus}</span>
                               {live.em_conciliacao ? <span style={{ color: 'var(--warning)' }}> · Em conciliação</span> : null}
                               {live.motivo_devolucao ? <span> · {asString(live.motivo_devolucao)}</span> : null}
                               {live.motivo_contestacao ? <span> · Contestação: {asString(live.motivo_contestacao)}</span> : null}
@@ -1629,6 +1632,7 @@ export function LivesTab({
                       : null
                     const isKebabOpen = kebabOpenId === liveId
                     const isEvenRow = rowIdx % 2 === 1
+                    const liveNow = asString(live.status, '').toLowerCase() === 'em_andamento'
                     const unionLocked = isUnionLocked(live)
                     const selectableForMerge = canSelectForMerge(live)
                     const mergeUnavailableReason = unionLocked
@@ -1640,7 +1644,7 @@ export function LivesTab({
                     return (
                       <Fragment key={liveId || rowIdx}>
                       <div
-                        className="lives-table-row"
+                        className={`lives-table-row row-hover${isEvenRow ? ' lives-table-row--alt' : ''}`}
                         style={{
                           display: 'grid',
                           gridTemplateColumns: gridCols,
@@ -1648,12 +1652,9 @@ export function LivesTab({
                           padding: '0 18px 0 22px',
                           minHeight: 52,
                           borderBottom: '1px solid var(--hairline)',
-                          background: isEvenRow ? 'rgba(0,0,0,0.02)' : 'transparent',
                           position: 'relative',
-                          transition: 'background 0.15s',
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--bg-elev-3)'
                           const acts = e.currentTarget.querySelector(
                             '.lives-row-actions',
                           ) as HTMLElement | null
@@ -1664,9 +1665,6 @@ export function LivesTab({
                         }}
                         onMouseLeave={(e) => {
                           if (kebabOpenId !== liveId) {
-                            e.currentTarget.style.background = isEvenRow
-                              ? 'rgba(0,0,0,0.02)'
-                              : 'transparent'
                             const acts = e.currentTarget.querySelector(
                               '.lives-row-actions',
                             ) as HTMLElement | null
@@ -1936,6 +1934,7 @@ export function LivesTab({
 
                         {/* Status */}
                         <div>
+                          {liveNow ? <span className="status-dot status-dot--live" aria-hidden="true" /> : null}
                           <StatusBadge status={live.status_publicacao} />
                           {onPublishLive && !unionLocked && ['rascunho', 'revisado'].includes(asString(live.status_publicacao, 'rascunho')) ? <button type="button" className="block min-h-11 text-xs font-semibold text-[var(--primary)]" onClick={() => onPublishLive(live)}>{live.status_publicacao === 'revisado' ? 'Publicar' : 'Marcar revisada'}</button> : null}
                         </div>
@@ -2014,6 +2013,7 @@ export function LivesTab({
                         gmv={gmv}
                         gmvKnown={hasRecordedLiveGmv(live)}
                         status={live.status_publicacao}
+                        liveNow={liveNow}
                         onOpen={() => onOpenLiveDetail(live)}
                       />
                       </Fragment>

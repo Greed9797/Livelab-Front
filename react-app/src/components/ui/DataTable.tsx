@@ -15,6 +15,7 @@ export function DataTable<T extends object>({
   footer,
   stackOnMobile = false,
   mobileColumnKeys,
+  rowClassName,
 }: {
   columns: TableColumn<T>[]
   data: T[]
@@ -27,6 +28,8 @@ export function DataTable<T extends object>({
   stackOnMobile?: boolean
   /** Colunas exibidas no cartão (padrão: até 4 primeiras). */
   mobileColumnKeys?: string[]
+  /** Classe da linha. Quando definida, substitui o hover padrão da tabela. */
+  rowClassName?: string
 }) {
   if (data.length === 0) return <EmptyState />
 
@@ -115,7 +118,7 @@ export function DataTable<T extends object>({
               <tr
                 key={rowKey ? rowKey(item, index) : index}
                 className={clsx(
-                  'transition hover:bg-surface-muted/70',
+                  rowClassName ?? 'transition hover:bg-surface-muted/70',
                   clickable && 'cursor-pointer focus:bg-surface-muted/70 focus:outline-none',
                 )}
                 {...(clickable

@@ -24,7 +24,7 @@ const ToastContext = createContext<ToastContextValue | null>(null)
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const AUTO_DISMISS_MS = 4000
-const EXIT_ANIMATION_MS = 150
+const EXIT_ANIMATION_MS = 160
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -60,7 +60,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         width: '100%',
         /* A short opacity transition avoids a distracting fixed-position slide. */
         opacity: toast.visible ? 1 : 0,
-        transition: `opacity ${EXIT_ANIMATION_MS}ms ease-out`,
+        transition: 'opacity var(--motion-panel) ease',
       }}
     >
       <span
