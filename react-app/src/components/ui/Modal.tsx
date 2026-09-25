@@ -229,7 +229,7 @@ export function Modal({
           ref={panelRef}
           tabIndex={-1}
           className={clsx(
-            'flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[var(--radius-panel)] border border-line border-b-0 bg-surface shadow-[var(--shadow-card-lg)] outline-none sm:max-h-[calc(100dvh-3rem)] sm:rounded-[var(--radius-panel)] sm:border-b',
+            'motion-panel flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-[var(--radius-panel)] border border-line border-b-0 bg-surface shadow-[var(--shadow-card-lg)] outline-none sm:max-h-[calc(100dvh-3rem)] sm:rounded-[var(--radius-panel)] sm:border-b',
             size === 'sm' && 'max-w-lg',
             size === 'md' && 'max-w-2xl',
             size === 'lg' && 'max-w-4xl',
@@ -243,7 +243,7 @@ export function Modal({
             </div>
             <button
               type="button"
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-[var(--radius-pill)] border border-line bg-surface text-ink-muted transition-colors duration-150 ease-out hover:bg-surface-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
+              className="press row-hover menu-item grid h-11 w-11 shrink-0 place-items-center rounded-[var(--radius-pill)] border border-line bg-surface text-ink-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
               aria-label="Fechar"
               disabled={closeDisabled}
               onClick={onClose}

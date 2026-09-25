@@ -23,7 +23,7 @@ export function Button({
   return (
     <button
       className={clsx(
-        'inline-flex items-center justify-center gap-2 rounded-[var(--radius-pill)] text-sm font-semibold tracking-normal transition-[background-color,border-color,color,box-shadow] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] disabled:pointer-events-none disabled:cursor-not-allowed',
+        'press inline-flex items-center justify-center gap-2 rounded-[var(--radius-pill)] text-sm font-semibold tracking-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] disabled:pointer-events-none disabled:cursor-not-allowed',
         size === 'icon' ? 'h-9 w-9 shrink-0 p-0 [&>svg]:shrink-0' : 'h-[42px] px-4',
         variant === 'primary' && 'bg-button-primary text-button-primary-foreground shadow-button-primary hover:bg-button-primary-hover',
         variant === 'secondary' && 'border border-[var(--border-strong)] bg-[var(--bg-elev-1)] text-ink hover:bg-surface-muted',

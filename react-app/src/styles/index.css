@@ -133,6 +133,9 @@
   --color-ink: var(--text-primary);
   --color-ink-muted: var(--text-muted);
   --color-line: var(--border);
+  --motion-hover: 120ms;
+  --motion-panel: 160ms;
+  --motion-status: 360ms;
 }
 
 * {
@@ -286,7 +289,7 @@ button:disabled {
   -webkit-text-fill-color: var(--text-primary);
   caret-color: var(--primary);
   outline: none;
-  transition: background 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out;
+  transition: background var(--motion-panel) ease, border-color var(--motion-panel) ease, box-shadow var(--motion-panel) ease;
 }
 
 .design-input:hover {
@@ -515,6 +518,105 @@ textarea {
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+  }
+}
+
+/* Hover de linha, press de botão e pulso de status. Sem lift e sem sombra nova. */
+.row-hover {
+  transition: background-color var(--motion-hover) ease, color var(--motion-hover) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .row-hover:hover {
+    background-color: var(--bg-elev-3);
+  }
+
+  .menu-item:hover {
+    color: var(--text-primary);
+  }
+}
+
+button.press {
+  transition:
+    transform var(--motion-hover) ease,
+    background-color var(--motion-hover) ease,
+    border-color var(--motion-hover) ease,
+    color var(--motion-hover) ease;
+}
+
+button.press:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  vertical-align: 1px;
+}
+
+.status-dot--review {
+  color: var(--warning);
+  background: var(--warning);
+}
+
+.status-dot--live {
+  color: var(--live, var(--danger));
+  background: var(--live, var(--danger));
+}
+
+.status-dot--review,
+.status-dot--live {
+  animation: status-dot-pulse 2.4s ease-in-out infinite;
+}
+
+.lives-envio__status,
+.status-badge {
+  transition:
+    color var(--motion-status) ease,
+    background-color var(--motion-status) ease,
+    border-color var(--motion-status) ease;
+}
+
+@keyframes status-dot-pulse {
+  0%,
+  100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.motion-panel {
+  animation: motion-panel-in var(--motion-panel) ease;
+}
+
+@keyframes motion-panel-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 1023px) {
+  button.press:hover,
+  .row-hover:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.press,
+  button.press:active {
+    transform: none;
+  }
+
+  .row-hover {
+    transition: none;
+  }
+
+  .status-dot--review,
+  .status-dot--live,
+  .motion-panel {
+    animation: none;
   }
 }
 

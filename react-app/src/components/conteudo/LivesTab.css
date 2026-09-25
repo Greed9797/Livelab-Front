@@ -9,6 +9,14 @@
   display: none;
 }
 
+.lives-day-head {
+  background: var(--bg-elev-2);
+}
+
+.lives-table-row--alt {
+  background: rgba(0, 0, 0, 0.02);
+}
+
 .lives-mobile-card__marca {
   font-size: 14px;
   font-weight: 700;

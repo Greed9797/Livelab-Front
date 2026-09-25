@@ -110,10 +110,10 @@ function Sidebar({
               aria-label={item.label}
               aria-current={selected ? 'page' : undefined}
               className={clsx(
-                'group relative flex shrink-0 items-center rounded-[var(--radius-control)] text-[14.5px] font-medium transition-colors duration-150',
+                'group relative flex shrink-0 items-center rounded-[var(--radius-control)] text-[14.5px] font-medium',
                 item.placement === 'footer' && 'mt-auto',
                 expanded ? 'h-11 gap-3 px-3' : 'h-11 w-11 justify-center',
-                selected ? 'bg-brand-soft font-semibold text-ink [&>svg]:text-brand' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elev-3)] hover:text-ink',
+                selected ? 'bg-brand-soft font-semibold text-ink [&>svg]:text-brand' : 'menu-item row-hover text-[var(--text-secondary)]',
               )}
             >
               <Icon aria-hidden="true" className="h-5 w-5 shrink-0 stroke-[1.75]" />
