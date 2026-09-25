@@ -13,6 +13,15 @@ describe('brand comparison aggregation', () => {
     })])
   })
 
+  it('counts one shared live once when presenter rows carry the same live id', () => {
+    const rows = aggregateBrandComparison([
+      { marca_id: 'a', marca_nome: 'Marca A', gmv_lives: 60, horas_live: 2, pedidos: 1, total_lives: 1, live_ids: ['live-1'] },
+      { marca_id: 'a', marca_nome: 'Marca A', gmv_lives: 40, horas_live: 2, pedidos: 1, total_lives: 1, live_ids: ['live-1'] },
+    ])
+
+    expect(rows[0]?.totalLives).toBe(1)
+  })
+
   it('preserves a real zero and reports no rate when there are only videos', () => {
     const rows = aggregateBrandComparison([
       { marca_id: 'zero', marca_nome: 'Zero', gmv_lives: 0, gmv_videos: 0, horas_live: 2, pedidos: 0, total_lives: 1 },

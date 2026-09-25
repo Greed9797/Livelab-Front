@@ -1,4 +1,5 @@
 import { asNumber, asString } from './format'
+import { countDistinctLives } from './liveCount'
 import type { JsonRecord } from '../types/models'
 
 export type BrandComparisonSort = 'gmvLives' | 'gmvTotal' | 'gmvHora'
@@ -133,9 +134,11 @@ export function brandLivesDrilldownUrl(marcaId: string | null, period: PreviousP
   return `/lives?${params.toString()}`
 }
 
+type BrandBucket = BrandComparisonRow & { rows: JsonRecord[] }
+
 /** Consolida as linhas diárias já filtradas sem cruzar o período ou a entidade ativa. */
 export function aggregateBrandComparison(rows: JsonRecord[]): BrandComparisonRow[] {
-  const brands = new Map<string, BrandComparisonRow>()
+  const brands = new Map<string, BrandBucket>()
 
   for (const row of rows) {
     const marcaId = asString(row.marca_id).trim() || null
@@ -153,22 +156,27 @@ export function aggregateBrandComparison(rows: JsonRecord[]): BrandComparisonRow
       gmvHora: null,
       pedidos: 0,
       totalLives: 0,
+      rows: [] as JsonRecord[],
     }
 
     current.gmvLives += asNumber(row.gmv_lives)
     current.gmvVideos += asNumber(row.gmv_videos)
     current.horasLive += asNumber(row.horas_live)
     current.pedidos += asNumber(row.pedidos)
-    current.totalLives += asNumber(row.total_lives)
+    current.rows.push(row)
     brands.set(key, current)
   }
 
-  return [...brands.values()].map((brand) => ({
-    ...brand,
-    // Vídeos entram no GMV total, mas não têm horas de live; incluí-los aqui inflaria eficiência.
-    gmvTotal: brand.gmvLives + brand.gmvVideos,
-    gmvHora: brand.horasLive > 0 ? brand.gmvLives / brand.horasLive : null,
-  }))
+  return [...brands.values()].map((brand) => {
+    const { rows: brandRows, ...rest } = brand
+    return {
+      ...rest,
+      totalLives: countDistinctLives(brandRows),
+      // Vídeos entram no GMV total, mas não têm horas de live; incluí-los aqui inflaria eficiência.
+      gmvTotal: brand.gmvLives + brand.gmvVideos,
+      gmvHora: brand.horasLive > 0 ? brand.gmvLives / brand.horasLive : null,
+    }
+  })
 }
 
 export function sortBrandComparison(rows: BrandComparisonRow[], sort: BrandComparisonSort): BrandComparisonRow[] {
