@@ -105,6 +105,15 @@ export const cabineRoles: Role[] = [
   'comercial_readonly',
 ]
 
+// /lives, onde está o Excluir (DELETE /v1/lives/:id). O papel franqueador_master
+// já passa nessa rota no backend; cabineRoles não o inclui, e o guard da página
+// devolvia o gestor master para /master antes do botão. Agenda continua só com
+// a frente de cabine. Apresentadora não entra: ela vê o aviso na própria lista.
+export const livesPageRoles: Role[] = [
+  'franqueador_master',
+  ...cabineRoles.filter((role) => role !== 'apresentador' && role !== 'apresentadora'),
+]
+
 export const clienteRoles: Role[] = ['cliente_parceiro']
 
 /**
@@ -239,7 +248,7 @@ export const menuItems: MenuItem[] = [
   { label: 'Franqueados', path: '/master/franqueados', icon: Store, roles: ['franqueador_master'] },
   { label: 'Clientes', path: '/clientes', icon: UsersRound, roles: [...masterRoles, ...commercialRoles] },
   { label: 'Agenda', path: '/agenda', icon: CalendarDays, roles: cabineRoles.filter((role) => role !== 'apresentador' && role !== 'apresentadora') },
-  { label: 'Lives', path: '/lives', icon: MonitorPlay, roles: cabineRoles.filter((role) => role !== 'apresentador' && role !== 'apresentadora') },
+  { label: 'Lives', path: '/lives', icon: MonitorPlay, roles: livesPageRoles },
   { label: 'Meu desempenho', path: '/minha-home', icon: Home, roles: ['apresentador', 'apresentadora'] },
   { label: 'Minhas lives', path: '/minhas-lives', icon: MonitorPlay, roles: ['apresentador', 'apresentadora'] },
   // Analytics standalone — mesmos roles da rota /analytics-dashboard no AppRouter.
