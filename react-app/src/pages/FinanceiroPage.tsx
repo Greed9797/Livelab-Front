@@ -144,7 +144,7 @@ export function FinanceiroPage() {
     },
   })
   const reprocessar = useMutation({
-    mutationFn: reprocessarComissoes,
+    mutationFn: () => reprocessarComissoes(committed.fim),
     onSuccess: (data) => {
       notifyReprocessar((message, variant) => toast.push(message, variant), { data })
       void client.invalidateQueries({ queryKey: QK.comissoesMarcas })

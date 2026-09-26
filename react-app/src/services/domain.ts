@@ -331,10 +331,10 @@ export function getComissoesMarcas(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/comissoes/marcas', params)
 }
 
-// Cria venda para live encerrada sem linha e recalcula quando o GMV diverge.
-// A resposta traz orfas, divergentes_gmv e ignoradas. Comissão 0 com o mesmo GMV entra em ignoradas.
-export function reprocessarComissoes() {
-  return apiPost<JsonRecord>('/comissoes/reprocessar', {})
+// Cria venda para live encerrada sem linha na competência da tela (YYYY-MM).
+// A API recusa o corpo vazio. A resposta traz orfas, divergentes_gmv e ignoradas.
+export function reprocessarComissoes(mes: string) {
+  return apiPost<JsonRecord>('/comissoes/reprocessar', { mes })
 }
 
 export function listComissoesPendentes() {
