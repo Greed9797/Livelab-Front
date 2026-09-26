@@ -4,7 +4,7 @@ import { LoadingState } from '../components/ui/States'
 import { ErrorBoundary } from '../components/ui/ErrorBoundary'
 import { UnsavedChangesProvider } from '../components/ui/UnsavedChangesProvider'
 import { Shell } from '../components/layout/Shell'
-import { cabineRoles, clienteRoles, commercialRoles, configuracoesRoles, financeRoles, financeiroPageRoles, internalRoles, masterRoles, opsRoles } from '../utils/access'
+import { cabineRoles, clienteRoles, commercialRoles, configuracoesRoles, financeRoles, financeiroPageRoles, internalRoles, livesPageRoles, masterRoles, opsRoles } from '../utils/access'
 import { ProtectedRoute } from './ProtectedRoute'
 import { LegacyPageRedirect } from './LegacyPageRedirect'
 import { LoginPage } from '../pages/LoginPage'
@@ -88,11 +88,14 @@ function RouterApplication() {
 
             <Route element={<ProtectedRoute allowedRoles={cabineRoles.filter((role) => role !== 'apresentador' && role !== 'apresentadora')} />}>
               <Route path="/agenda" element={<Suspense fallback={<PageFallback />}><ConteudoPage key="agenda" view="agenda" /></Suspense>} />
-              <Route path="/lives" element={<Suspense fallback={<PageFallback />}><ConteudoPage key="lives" view="lives" /></Suspense>} />
               <Route path="/conteudo" element={<LegacyPageRedirect to="conteudo" />} />
               <Route path="/cabines" element={<LegacyPageRedirect to="/agenda" />} />
               {/* Compatibilidade dos atalhos antigos de agenda. */}
               <Route path="/agendamentos" element={<LegacyPageRedirect to="/agenda" />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={livesPageRoles} />}>
+              <Route path="/lives" element={<Suspense fallback={<PageFallback />}><ConteudoPage key="lives" view="lives" /></Suspense>} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['apresentador', 'apresentadora']} />}>
