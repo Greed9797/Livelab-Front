@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { payloadFromForm, presenterFormErrors } from './PresenterPortalLivesPage'
+import { completedLiveStatusBits, payloadFromForm, presenterFormErrors, presenterLivesAttention, submissionMobileStatusBits } from './PresenterPortalLivesPage'
 
 describe('payloadFromForm', () => {
   const base = {
@@ -22,5 +22,32 @@ describe('payloadFromForm', () => {
   it('accepts absent optional observation and rejects end before start', () => {
     expect(payloadFromForm({ ...base, observacao: '   ' })).toMatchObject({ observacao: undefined })
     expect(payloadFromForm({ ...base, horaFim: '08:59' })).toBeNull()
+  })
+})
+
+describe('presenter lives mobile status', () => {
+  it('keeps the existing phrases and colors them without a new synonym', () => {
+    expect(completedLiveStatusBits({ uniao_id: 'u1', pendente_aprovacao: true, em_conciliacao: true })).toEqual([
+      { label: 'Transmissão unida · sua participação', tone: 'info' },
+      { label: 'Pendente aprovação · conferir vínculo', tone: 'warning' },
+    ])
+    expect(completedLiveStatusBits({ pendente_aprovacao: true })).toEqual([{ label: 'Pendente aprovação', tone: 'warning' }])
+    expect(submissionMobileStatusBits({ status: 'pendente' })).toEqual([{ label: 'Em revisão', tone: 'warning' }])
+    expect(submissionMobileStatusBits({ status: 'devolvida', arquivamento_status: 'solicitado' })).toEqual([{ label: 'Aguardando sua resposta', tone: 'warning' }])
+    expect(submissionMobileStatusBits({ status: 'devolvida' })).toEqual([{ label: 'Devolvida para ajuste', tone: 'danger' }])
+    expect(submissionMobileStatusBits({ status: 'aprovada', live_oficial_excluida_id: 'live-1', live_oficial_excluida_em: '2026-09-01T00:00:00Z' })).toEqual([
+      { label: 'Aprovada', tone: 'success' },
+      { label: 'Live excluída pelo gestor', tone: 'neutral' },
+    ])
+    expect(submissionMobileStatusBits({ status: 'aprovada', arquivamento_status: 'confirmado' })).toEqual([{ label: 'Arquivado', tone: 'neutral' }])
+    expect(submissionMobileStatusBits({ status: 'cancelada' })).toEqual([{ label: 'Cancelada', tone: 'neutral' }])
+  })
+
+  it('opens the top band only when a response or a correction is waiting', () => {
+    expect(presenterLivesAttention([{ status: 'pendente' }])).toBeNull()
+    expect(presenterLivesAttention([{ status: 'devolvida', arquivamento_status: 'confirmado' }])).toBeNull()
+    expect(presenterLivesAttention([{ status: 'devolvida', arquivamento_status: 'solicitado' }])).toEqual({ label: 'Aguardando sua resposta', tone: 'warning' })
+    expect(presenterLivesAttention([{ status: 'devolvida' }])).toEqual({ label: 'Devolvida para ajuste', tone: 'danger' })
+    expect(presenterLivesAttention([{ status: 'devolvida', arquivamento_status: 'solicitado' }, { status: 'devolvida' }])).toEqual({ label: 'Aguardando sua resposta · Devolvida para ajuste', tone: 'warning' })
   })
 })
