@@ -244,7 +244,7 @@ export function FinanceiroPage() {
     },
   })
   const reprocessar = useMutation({
-    mutationFn: reprocessarComissoes,
+    mutationFn: () => reprocessarComissoes(committed.fim),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
       void client.invalidateQueries({ queryKey: QK.comissoesApresentadoras })
