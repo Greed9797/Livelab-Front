@@ -10,6 +10,11 @@ export function submissionStatusLabel(status: PresenterSubmissionStatus): string
   return ({ pendente: 'Em revisão', devolvida: 'Devolvida para ajuste', aprovada: 'Aprovada', cancelada: 'Cancelada' })[status]
 }
 
+export function submissionOwnerCanCancel(submission: { status: PresenterSubmissionStatus; arquivamento_status?: 'solicitado' | 'confirmado' | null }): boolean {
+  if (submission.arquivamento_status) return false
+  return submission.status === 'pendente' || submission.status === 'devolvida'
+}
+
 export function submissionHasOfficialLiveTombstone(submission: { status: PresenterSubmissionStatus; live_oficial_excluida_id?: string | null; live_oficial_excluida_em?: string | null }): boolean {
   return submission.status === 'aprovada' && Boolean(submission.live_oficial_excluida_id && submission.live_oficial_excluida_em)
 }
