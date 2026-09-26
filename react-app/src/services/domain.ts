@@ -300,8 +300,8 @@ export function getComissoesMarcas(params: Record<string, unknown> = {}) {
 
 // Força AGORA o recálculo das comissões das lives encerradas sem vendas_atribuidas
 // e devolve um diagnóstico das que continuam zeradas (admin).
-export function reprocessarComissoes() {
-  return apiPost<JsonRecord>('/comissoes/reprocessar', {})
+export function reprocessarComissoes(mes: string) {
+  return apiPost<JsonRecord>('/comissoes/reprocessar', { mes })
 }
 
 export function getApresentadoraFaixasComissao(id: string) {
