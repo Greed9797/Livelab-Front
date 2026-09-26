@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { canAprovarComissoes, canWriteMarcas, financeRoles, financeiroPageRoles, menuForUser, needsClientOnboarding, roleLabel, routeForRole } from './access'
+import { canAprovarComissoes, canWrite, canWriteMarcas, financeRoles, financeiroPageRoles, livesPageRoles, menuForUser, needsClientOnboarding, roleLabel, routeForRole } from './access'
 import type { User } from '../types/models'
 
 const baseUser: User = {
@@ -70,6 +70,7 @@ describe('menuForUser', () => {
     const clientMenu = menuForUser({ ...baseUser, papel: 'cliente_parceiro' }).map((item) => item.path)
 
     expect(masterMenu).toContain('/master')
+    expect(masterMenu).toContain('/lives')
     expect(masterMenu).toContain('/clientes')
     expect(masterMenu).not.toContain('/cliente')
     expect(masterMenu).toContain('/financeiro')
@@ -109,6 +110,12 @@ describe('menuForUser', () => {
     expect(presenterMenu).toContain('/minhas-lives')
     expect(presenterMenu).not.toContain('/agenda')
     expect(presenterMenu).not.toContain('/lives')
+    expect(livesPageRoles).toContain('franqueador_master')
+    expect(livesPageRoles).not.toContain('apresentador')
+    expect(livesPageRoles).not.toContain('apresentadora')
+    expect(canWrite({ ...baseUser, papel: 'franqueador_master' })).toBe(true)
+    expect(canWrite({ ...baseUser, papel: 'auditor' })).toBe(false)
+    expect(menuForUser({ ...baseUser, papel: 'auditor' }).map((item) => item.path)).toContain('/lives')
     expect(presenterMenu).not.toContain('/analytics-dashboard')
     expect(presenterMenu).not.toContain('/cabines')
   })
