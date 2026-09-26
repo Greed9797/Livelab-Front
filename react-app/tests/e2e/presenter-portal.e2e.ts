@@ -404,7 +404,22 @@ test('corrige um envio devolvido e só o reenvia por ação explícita', async (
   expect(calls.filter(call => call.method === 'PATCH')).toHaveLength(1)
 })
 
-test('cancela somente o envio devolvido após confirmação', async ({ page }) => {
+test('cancela o envio ainda em revisão após confirmação', async ({ page }) => {
+  const calls = await setup(page, 'apresentadora', 'pendente')
+  await page.goto('/minhas-lives')
+  await expect(page.getByRole('button', { name: 'Corrigir', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Reenviar', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Cancelar envio', exact: true }).click()
+  const modal = page.getByRole('dialog', { name: 'Cancelar envio' })
+  expect(calls.filter(call => call.method === 'DELETE')).toHaveLength(0)
+  await modal.getByRole('button', { name: 'Cancelar envio', exact: true }).click()
+  await expect(modal).not.toBeVisible()
+  await expect(page.getByText('Cancelada', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Cancelar envio', exact: true })).toHaveCount(0)
+  expect(calls.filter(call => call.method === 'DELETE').map(call => call.path)).toEqual([`/v1/portal/apresentadora/submissoes/${submission}`])
+})
+
+test('cancela o envio devolvido após confirmação', async ({ page }) => {
   const calls = await setup(page, 'apresentadora', 'devolvida')
   await page.goto('/minhas-lives')
   await page.getByRole('button', { name: 'Cancelar envio', exact: true }).click()

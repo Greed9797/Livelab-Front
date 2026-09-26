@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { currentMonth, isoFromLocalDateTime, localDateTimeValue, submissionHasOfficialLiveTombstone, submissionStatusLabel, submissionStatusTone } from './presenter-portal'
+import { currentMonth, isoFromLocalDateTime, localDateTimeValue, submissionHasOfficialLiveTombstone, submissionOwnerCanCancel, submissionStatusLabel, submissionStatusTone } from './presenter-portal'
 
 describe('São Paulo portal dates', () => {
   it('uses the operational month at the UTC month boundary', () => {
@@ -24,6 +24,15 @@ describe('presenter portal submission status', () => {
     expect(submissionStatusTone('devolvida')).toBe('danger')
     expect(submissionStatusLabel('aprovada')).toBe('Aprovada')
     expect(submissionStatusTone('cancelada')).toBe('neutral')
+  })
+
+  it('lets the owner cancel her own submission only while it is not approved', () => {
+    expect(submissionOwnerCanCancel({ status: 'pendente' })).toBe(true)
+    expect(submissionOwnerCanCancel({ status: 'devolvida' })).toBe(true)
+    expect(submissionOwnerCanCancel({ status: 'aprovada' })).toBe(false)
+    expect(submissionOwnerCanCancel({ status: 'cancelada' })).toBe(false)
+    expect(submissionOwnerCanCancel({ status: 'devolvida', arquivamento_status: 'solicitado' })).toBe(false)
+    expect(submissionOwnerCanCancel({ status: 'pendente', arquivamento_status: 'confirmado' })).toBe(false)
   })
 
   it('only treats a backend-confirmed pair of tombstone fields as an excluded official live', () => {
