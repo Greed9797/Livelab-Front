@@ -1,0 +1,185 @@
+// Tipos do Financeiro (lançamentos unificados, DRE, fluxo de caixa, custos).
+// Contrato: SPEC_V2 adendo "Onda 2". Todos os campos numéricos passam por
+// normalização defensiva em services/financeiro.ts (o backend pode mandar string).
+
+export type Natureza = 'receita' | 'custo'
+
+export type StatusLancamento = 'previsto' | 'pendente' | 'atrasado' | 'parcial' | 'pago'
+
+export const STATUS_LANCAMENTO: StatusLancamento[] = ['previsto', 'pendente', 'atrasado', 'parcial', 'pago']
+
+export type OrigemLancamento =
+  | 'marca_fixo'
+  | 'marca_comissao'
+  | 'comercial'
+  | 'manual'
+  | 'recorrente'
+  | 'parcela'
+  | 'apresentadora'
+  | 'imposto'
+  | string
+
+export const GRUPOS_CUSTO = [
+  'operacional',
+  'estrutural',
+  'diversos',
+  'investimento',
+  'prolabore',
+  'marketing',
+  'ferramentas',
+  'cartao',
+  'aporte',
+  'outros',
+] as const
+
+export type GrupoCusto = (typeof GRUPOS_CUSTO)[number]
+
+export interface Lancamento {
+  id: string
+  natureza: Natureza
+  origem: OrigemLancamento
+  descricao: string
+  competencia: string // 'YYYY-MM-01'
+  data_vencimento: string | null // 'YYYY-MM-DD'
+  valor_previsto: number
+  valor_pago: number
+  data_pagamento: string | null
+  status: StatusLancamento
+  grupo: string | null
+  componente: string | null // receitas: 'fixo' | 'comissao'
+  marca_id: string | null
+  marca_nome: string | null
+  cliente_id: string | null
+  cliente_nome: string | null
+  apresentadora_id: string | null
+  recorrente_id: string | null
+  parcela_grupo_id: string | null
+  parcela_num: number | null
+  parcelas_total: number | null
+  observacao: string | null
+  virtual: boolean
+}
+
+export interface TotaisNatureza {
+  previsto: number
+  pago: number
+  atrasado: number
+  pendente: number
+}
+
+export interface TotaisLancamentos {
+  receita: TotaisNatureza
+  custo: TotaisNatureza
+  saldo_previsto: number
+  saldo_realizado: number
+}
+
+export interface LancamentosResponse {
+  inicio: string
+  fim: string
+  hoje: string
+  itens: Lancamento[]
+  totais: TotaisLancamentos
+}
+
+export interface LancamentosFiltro {
+  inicio: string // YYYY-MM
+  fim: string // YYYY-MM
+  natureza?: Natureza | ''
+  status?: StatusLancamento | ''
+  grupo?: string
+  q?: string
+}
+
+export interface PrevistoRealizado {
+  previsto: number
+  realizado: number
+}
+
+export interface DreMes {
+  mes: string // YYYY-MM
+  receita: PrevistoRealizado
+  custos: PrevistoRealizado & { por_grupo: Record<string, PrevistoRealizado> }
+  apresentadoras: PrevistoRealizado
+  imposto: PrevistoRealizado & { aliquota: number; base: number }
+  resultado: PrevistoRealizado
+}
+
+export interface DreResponse {
+  inicio: string
+  fim: string
+  meses: DreMes[]
+  totais: Omit<DreMes, 'mes'>
+}
+
+export interface FluxoLinha {
+  chave: string // '5' | '10' | ... | 'cartao'
+  label: string
+  entradas: PrevistoRealizado
+  saidas: PrevistoRealizado
+  saldo: PrevistoRealizado
+  acumulado: PrevistoRealizado
+}
+
+export interface FluxoSerieMes {
+  mes: string // YYYY-MM
+  entradas: PrevistoRealizado
+  saidas: PrevistoRealizado
+  saldo: PrevistoRealizado
+}
+
+export interface FluxoCaixaResponse {
+  mes: string
+  saldo_inicial: number
+  linhas: FluxoLinha[]
+  serie_anual: FluxoSerieMes[]
+  totais: { entradas: PrevistoRealizado; saidas: PrevistoRealizado; saldo: PrevistoRealizado }
+}
+
+export interface FinanceiroConfig {
+  aliquota_imposto_pct: number
+}
+
+export interface CustoRecorrente {
+  id: string
+  nome: string
+  descricao: string | null
+  grupo: string
+  valor: number
+  dia_vencimento: number
+  mes_offset: number
+  inicio: string // YYYY-MM-DD
+  fim: string | null
+  ativo: boolean
+}
+
+export interface BaixaPayload {
+  valor_pago?: number
+  data_pagamento?: string
+}
+
+export interface CustoPontualPayload {
+  descricao: string
+  valor: number
+  grupo: string
+  competencia?: string
+  data_vencimento?: string
+  observacao?: string | null
+  valor_pago?: number | null
+  data_pagamento?: string | null
+}
+
+export interface CustoParceladoPayload {
+  descricao: string
+  parcelas: number
+  valor_total?: number
+  valor_parcela?: number
+  grupo: string
+  competencia?: string
+  data_vencimento?: string
+  observacao?: string | null
+}
+
+export type CustoRecorrentePayload = Omit<CustoRecorrente, 'id'>
+
+export type EscopoExclusao = 'um' | 'grupo' | 'futuras'

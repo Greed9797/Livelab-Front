@@ -31,9 +31,6 @@ export const QK = {
   apresentadoras: (scope?: string) => (scope ? ['apresentadoras', scope] : ['apresentadoras']) as readonly string[],
   leads: ['leads'] as const,
   leadById: (id: string) => ['lead', id] as const,
-  boletos: ['boletos'] as const,
-  boletoDetalhe: (id: string) => ['boleto-detalhe', id] as const,
-  boletoAlertas: ['boletos-alerta'] as const,
   videos: ['videos'] as const,
   apresentadoraFaixas: (id: string) => ['apresentadora-faixas', id] as const,
   apresentadoraFaixasComissao: (id?: string) =>
@@ -56,6 +53,8 @@ export const QK = {
   crmSummary: ['crm-summary'] as const,
   financeiroCustos: (mes?: string) =>
     mes ? ['financeiro-custos', mes] as const : ['financeiro-custos'] as const,
+  financeiroResumo: (key?: string) => (key ? ['financeiro-resumo', key] as const : ['financeiro-resumo'] as const),
+  financeiroFluxo: (key?: string) => (key ? ['financeiro-fluxo', key] as const : ['financeiro-fluxo'] as const),
   financeiroFaturamento: (key?: string) => (key ? ['financeiro-faturamento', key] as const : ['financeiro-faturamento'] as const),
   financeiroOperacional: (key?: string) => (key ? ['financeiro-operacional', key] as const : ['financeiro-operacional'] as const),
   financeiroFranqueadora: (key?: string) => (key ? ['financeiro-franqueadora', key] as const : ['financeiro-franqueadora'] as const),
@@ -175,6 +174,8 @@ export function invalidateOperational(client: QueryClient): void {
     ['comissoes-da-live'],
     ['comissoes-por-live'],
     // financeiro e visões do cliente também consolidam lives
+    [...QK.financeiroResumo()],
+    [...QK.financeiroFluxo()],
     [...QK.financeiroFaturamento()],
     [...QK.financeiroOperacional()],
     [...QK.financeiroFranqueadora()],

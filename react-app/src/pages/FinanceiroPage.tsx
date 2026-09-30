@@ -1,626 +1,288 @@
-import { Building2, CircleDollarSign, Crown, Download, MapPin, Percent, Receipt, TrendingUp, Users, Zap } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { BarChart3, CalendarRange, ListChecks, Percent, Plus, Repeat, Table2, Users, Waves } from 'lucide-react'
+import { useState } from 'react'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
-import { MetricCard } from '../components/ui/MetricCard'
-import { OperationalDre } from '../components/financeiro/OperationalDre'
-import { ComissoesPendentes, notifyReprocessar } from '../components/financeiro/ComissoesPendentes'
-import { useToast } from '../components/ui/Toast'
-import { PeriodRangeControl } from '../components/forms/PeriodRangeControl'
-import { CadastroQuickEdit } from '../components/forms/CadastroQuickEdit'
-import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { DataTable } from '../components/ui/DataTable'
-import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Modal } from '../components/ui/Modal'
-import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
-import { MoneyInput } from '../components/ui/MoneyInput'
-import { createFinanceiroCusto, deleteFinanceiroCusto, exportarComissoesCSV, getClienteOperacional, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroOperacional, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
+import { ErrorState } from '../components/ui/States'
+import { useToast } from '../components/ui/Toast'
+import { MonthSwitcher, Segmented } from '../components/financeiro/primitives'
+import { ResumoCards } from '../components/financeiro/ResumoCards'
+import { FILTRO_VAZIO, type FiltroLocal, LancamentosList } from '../components/financeiro/LancamentosList'
+import { BaixaModal, DesfazerModal, ExcluirModal } from '../components/financeiro/LancamentoModals'
+import { type CustoModalState, CustoFormModal } from '../components/financeiro/CustoFormModal'
+import { RecorrentesPanel } from '../components/financeiro/RecorrentesPanel'
+import { DrePanel } from '../components/financeiro/DrePanel'
+import { FluxoCaixaPanel } from '../components/financeiro/FluxoCaixaPanel'
+import { ImpostoConfigModal } from '../components/financeiro/ImpostoConfigModal'
+import { ComissoesTab, PorClienteTab } from '../components/financeiro/LegacyTabs'
+import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
+import '../components/financeiro/financeiro.css'
+import { useBaixaMutation, useCustoMutations, useFinanceiroConfig, useLancamentos } from '../hooks/useFinanceiro'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
+import type { Lancamento } from '../types/financeiro'
 import { canWrite } from '../utils/access'
-import { asArray, asNumber, asString, formatDate, formatMoney, getRecord } from '../utils/format'
-import { parseBRMoneyToDecimal } from '../utils/money'
-import { downloadCsv } from '../utils/exportCsv'
-import {
-  type PeriodRange,
-  comissoesParams,
-  custosCompetencia,
-  defaultPeriodRange,
-  financeiroParams,
-  isValidPeriodRange,
-  periodKey,
-  periodRangeFromParams,
-  periodRangeLabel,
-  writePeriodRangeToParams,
-} from '../utils/period'
-import { metric, moneyMetric } from './page-helpers'
-import { BoletosPanel } from './BoletosPage'
-import { QK } from '../services/query-keys'
-import { financeiroClienteRef } from '../components/financeiro/financeiro-presentation'
-import { formatSaoPauloTime } from '../pages/conteudo-helpers'
-import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
-import type { JsonRecord } from '../types/models'
+import { hojeSP, isMes, mesAtualSP, mesLabel, totalizar } from '../utils/financeiro'
+import { formatPercent } from '../utils/format'
+import type { PeriodRange } from '../utils/period'
 
-type FinanceiroTab = 'operacional' | 'cliente' | 'comissoes' | 'franqueadora'
+type FinanceiroTab = 'lancamentos' | 'dre' | 'fluxo' | 'recorrentes' | 'cliente' | 'comissoes'
+const TABS: FinanceiroTab[] = ['lancamentos', 'dre', 'fluxo', 'recorrentes', 'cliente', 'comissoes']
 
-const num = (value: unknown) => asNumber(value).toLocaleString('pt-BR')
-const sumBy = (rows: JsonRecord[], ...keys: string[]) =>
-  rows.reduce((total, row) => total + asNumber(keys.map((k) => row[k]).find((v) => v !== undefined)), 0)
-
-const TIPO_LABEL: Record<string, string> = {
-  cliente_ecommerce: 'cliente',
-  cliente: 'cliente',
-  afiliada: 'afiliada',
-  marca: 'marca',
-  sem_marca: 'sem marca',
-}
-function tipoTone(tipo: string): 'brand' | 'info' | 'warning' | 'neutral' {
-  if (tipo === 'cliente_ecommerce') return 'brand'
-  if (tipo === 'afiliada') return 'info'
-  if (tipo === 'marca') return 'warning'
-  return 'neutral'
-}
-
-function TotalsBar({ items }: { items: { label: string; value: string }[] }) {
-  return (
-    <div className="mt-3 flex flex-wrap items-center justify-end gap-x-6 gap-y-1 border-t border-line pt-3 text-sm">
-      {items.map((item) => (
-        <span key={item.label} className="text-ink-muted">
-          {item.label} <span className="num ml-1 font-bold text-ink">{item.value}</span>
-        </span>
-      ))}
-    </div>
-  )
+function isTab(v: string | null): v is FinanceiroTab {
+  return Boolean(v && (TABS as string[]).includes(v))
 }
 
 export function FinanceiroPage() {
   const user = useCurrentUser()
-  const navigate = useNavigate()
-  const isCliente = user?.papel === 'cliente_parceiro'
-  const isMaster = user?.papel === 'franqueador_master'
-  const [params, setParams] = useSearchParams()
-  const requestedTab = params.get('tab')
-  const initialTab: FinanceiroTab = requestedTab === 'cliente' || requestedTab === 'comissoes' ? requestedTab : 'operacional'
-  const [tab, setTab] = useState<FinanceiroTab>(initialTab)
-
-  // Período (mês único ou intervalo) — fonte de edição local + sync URL. Queries usam
-  // o último período VÁLIDO (committed), então digitar fim<início não dispara fetch ruim.
-  const [periodRange, setPeriodRangeState] = useState<PeriodRange>(() => periodRangeFromParams(params))
-  const lastValid = useRef<PeriodRange>(isValidPeriodRange(periodRange) ? periodRange : defaultPeriodRange())
-  if (isValidPeriodRange(periodRange)) lastValid.current = periodRange
-  const committed = lastValid.current
-  const pk = periodKey(committed)
-  const fp = financeiroParams(committed)
-  const cp = comissoesParams(committed)
-
-  function setPeriodRange(next: PeriodRange) {
-    setPeriodRangeState(next)
-    if (isValidPeriodRange(next)) setParams(writePeriodRangeToParams(params, next), { replace: true })
-  }
-
-  const [custo, setCusto] = useState({ descricao: '', valor: '', tipo: 'outros', competencia: custosCompetencia(committed) })
-  // Custos seguem por competência de UM mês — ao mudar o período, acompanham o mês final (editável).
-  useEffect(() => {
-    setCusto((current) => ({ ...current, competencia: custosCompetencia(committed) }))
-  }, [committed.fim])
-
-  const [selectedCliente, setSelectedCliente] = useState<JsonRecord | null>(null)
-  const [exportingComissoes, setExportingComissoes] = useState(false)
-  const [comissoesExportError, setComissoesExportError] = useState('')
-  const client = useQueryClient()
   const toast = useToast()
-
-  const operacional = useQuery({ queryKey: QK.financeiroOperacional(pk), queryFn: () => getFinanceiroOperacional(fp), enabled: !isCliente && tab === 'operacional', placeholderData: keepPreviousData })
-  const faturamento = useQuery({ queryKey: QK.financeiroFaturamento(pk), queryFn: () => getFinanceiroFaturamento(fp), enabled: !isCliente, placeholderData: keepPreviousData })
-  const custos = useQuery({ queryKey: QK.financeiroCustos(custo.competencia), queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
-  const franqueadora = useQuery({ queryKey: QK.financeiroFranqueadora(pk), queryFn: () => getFinanceiroFranqueadora(fp), enabled: isMaster, placeholderData: keepPreviousData })
-  const comissoesMarcas = useQuery({ queryKey: [...QK.comissoesMarcas, pk], queryFn: () => getComissoesMarcas(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
-
-  const { kind: selectedClienteKind, id: selectedClienteId } = financeiroClienteRef(selectedCliente)
-  const selectedClienteDetail = useQuery({
-    // Segue o período do PeriodRangeControl (inicio/fim YYYY-MM) — sem isso o
-    // backend cai no mês corrente e as comissões do modal divergem da tela.
-    queryKey: QK.financeiroClienteOperacional({ clienteKind: selectedClienteKind, clienteId: selectedClienteId, periodo: pk }),
-    enabled: Boolean(selectedClienteId),
-    queryFn: () => selectedClienteKind === 'marca'
-      ? getMarcaOperacional(selectedClienteId, fp)
-      : getClienteOperacional(selectedClienteId, fp),
-  })
-  const createCusto = useMutation({
-    mutationFn: createFinanceiroCusto,
-    onSuccess: () => {
-      setCusto((current) => ({ ...current, descricao: '', valor: '' }))
-      void client.invalidateQueries({ queryKey: QK.financeiroCustos() })
-      void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
-    },
-  })
-  const deleteCusto = useMutation({
-    mutationFn: deleteFinanceiroCusto,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: QK.financeiroCustos() })
-      void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
-    },
-  })
-  const reprocessar = useMutation({
-    mutationFn: () => reprocessarComissoes(committed.fim),
-    onSuccess: (data) => {
-      notifyReprocessar((message, variant) => toast.push(message, variant), { data })
-      void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
-      void client.invalidateQueries({ queryKey: QK.comissoesApresentadoras })
-      void client.invalidateQueries({ queryKey: QK.comissoesPendentes })
-      void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
-    },
-    onError: (error) => {
-      notifyReprocessar((message, variant) => toast.push(message, variant), { error })
-    },
-  })
-  const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
-  // O botão de regras desta aba continua só com o franqueado. O master abre
-  // /financeiro e alcança as regras pelo item de menu.
-  const podeConfigurarComissoes = user?.papel === 'franqueado'
-  // financeiro_readonly e auditor alcançam /financeiro só para consultar — sem form de custos.
+  const [params, setParams] = useSearchParams()
+  const isCliente = user?.papel === 'cliente_parceiro'
   const podeEscrever = canWrite(user)
+  const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
+  const podeConfigurarComissoes = user?.papel === 'franqueado'
+  const navigate = useNavigate()
 
-  const clientesRaw = asArray<JsonRecord>(faturamento.data?.clientes ?? faturamento.data?.por_cliente ?? faturamento.data?.items ?? faturamento.data)
-  const clientes = useMemo(
-    () => [...clientesRaw].sort((a, b) => asNumber(b.gmv_mes ?? b.total) - asNumber(a.gmv_mes ?? a.total)),
-    [clientesRaw],
-  )
-  const clientesView = clientes.slice(0, 100)
-  const custosRows = custos.data ?? []
-  const marcasRows = useMemo(
-    () => [...(comissoesMarcas.data ?? [])].sort((a, b) => asNumber(b.gmv_total) - asNumber(a.gmv_total)),
-    [comissoesMarcas.data],
-  )
-  const franqueadosRows = useMemo(
-    () => [...asArray<JsonRecord>(franqueadora.data?.franqueados)].sort((a, b) => asNumber(b.gmv_total ?? b.gmv) - asNumber(a.gmv_total ?? a.gmv)),
-    [franqueadora.data],
-  )
-  function setCustoField(key: keyof typeof custo, value: string) {
-    setCusto((current) => ({ ...current, [key]: value }))
-  }
+  const paramMes = params.get('mes')
+  const mes = isMes(paramMes) ? paramMes : mesAtualSP()
+  const paramTab = params.get('tab')
+  const tab: FinanceiroTab = isTab(paramTab) ? paramTab : 'lancamentos'
 
-  function onCustoSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    createCusto.mutate({
-      descricao: custo.descricao,
-      valor: parseBRMoneyToDecimal(custo.valor),
-      tipo: custo.tipo,
-      competencia: custo.competencia,
-    })
-  }
+  const [filtro, setFiltro] = useState<FiltroLocal>(FILTRO_VAZIO)
+  const [baixa, setBaixa] = useState<Lancamento | null>(null)
+  const [desfazer, setDesfazer] = useState<Lancamento | null>(null)
+  const [excluir, setExcluir] = useState<Lancamento | null>(null)
+  const [custoModal, setCustoModal] = useState<CustoModalState | null>(null)
+  const [impostoOpen, setImpostoOpen] = useState(false)
 
-  function switchTab(next: FinanceiroTab) {
-    setTab(next)
-    const nextParams = new URLSearchParams(params)
-    if (next === 'cliente' || next === 'comissoes') nextParams.set('tab', next)
-    else nextParams.delete('tab')
-    setParams(nextParams, { replace: true })
-  }
+  const lancamentos = useLancamentos({ inicio: mes, fim: mes }, !isCliente)
+  const config = useFinanceiroConfig(!isCliente)
+  const baixaMut = useBaixaMutation()
+  const custos = useCustoMutations()
 
-  // Mesmo CSV de comissões do Analytics — aqui porque o Financeiro é o dono das
-  // tabelas de comissão; `cp` normaliza mes/data_inicio/data_fim no backend.
-  async function exportComissoesCsv() {
-    setExportingComissoes(true)
-    try {
-      const blob = await exportarComissoesCSV(cp)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `comissoes-${committed.inicio}_${committed.fim}.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      setComissoesExportError('')
-    } catch (err) {
-      setComissoesExportError(extractErrorMessage(err))
-    } finally {
-      setExportingComissoes(false)
+  function updateParams(patch: Record<string, string | null>) {
+    const next = new URLSearchParams(params)
+    for (const [k, v] of Object.entries(patch)) {
+      if (v == null) next.delete(k)
+      else next.set(k, v)
     }
+    setParams(next, { replace: true })
   }
 
-  function exportClientesCsv() {
-    downloadCsv(`faturamento-por-cliente-${committed.inicio}_${committed.fim}.csv`, clientes, [
-      { key: 'nome', header: 'nome', value: (row) => asString(row.cliente_nome ?? row.nome) },
-      { key: 'tipo_operacional', header: 'tipo' },
-      { key: 'nicho', header: 'nicho' },
-      { key: 'gmv_mes', header: 'faturamento', value: (row) => asNumber(row.gmv_mes ?? row.total) },
-      { key: 'receita_liquida', header: 'receita_liquida', value: (row) => asNumber(row.receita_liquida) },
-      { key: 'lives_mes', header: 'lives', value: (row) => asNumber(row.lives_mes ?? row.total_lives) },
-      { key: 'videos_mes', header: 'videos', value: (row) => asNumber(row.videos_mes) },
-    ])
+  if (isCliente) return <Navigate to="/cliente/financeiro" replace />
+
+  const data = lancamentos.data
+  const itens = data?.itens ?? []
+  const totais = data?.totais ?? totalizar([])
+  const hoje = data?.hoje ?? hojeSP()
+  const atrasadosCount = itens.filter((l) => l.status === 'atrasado').length
+  const periodo: PeriodRange = { mode: 'single', inicio: mes, fim: mes }
+  const aliquota = config.data?.aliquota_imposto_pct
+
+  function toastOk(msg: string, variant: 'success' | 'error' = 'success') {
+    toast.push(msg, variant)
   }
 
-  if (isCliente) return <BoletosPanel />
+  function confirmarBaixa(payload: { valor_pago: number; data_pagamento: string }) {
+    if (!baixa) return
+    const entrada = baixa.natureza === 'receita'
+    baixaMut.mutate(
+      { lancamento: baixa, acao: 'pagar', payload },
+      {
+        onSuccess: () => {
+          setBaixa(null)
+          toastOk(payload.valor_pago < baixa.valor_previsto ? 'Pagamento parcial registrado.' : entrada ? 'Marcado como recebido.' : 'Marcado como pago.')
+        },
+      },
+    )
+  }
 
-  const royaltiesConfigurados = asNumber(franqueadora.data?.total_royalties) > 0
+  function confirmarDesfazer() {
+    if (!desfazer) return
+    baixaMut.mutate(
+      { lancamento: desfazer, acao: 'desfazer' },
+      {
+        onSuccess: () => {
+          setDesfazer(null)
+          toastOk('Baixa desfeita.')
+        },
+      },
+    )
+  }
+
+  const tabs = [
+    { value: 'lancamentos' as const, label: 'Lançamentos', icon: <ListChecks className="h-4 w-4" /> },
+    { value: 'dre' as const, label: 'DRE', icon: <Table2 className="h-4 w-4" /> },
+    { value: 'fluxo' as const, label: 'Fluxo de caixa', icon: <Waves className="h-4 w-4" /> },
+    { value: 'recorrentes' as const, label: 'Recorrentes', icon: <Repeat className="h-4 w-4" /> },
+    { value: 'cliente' as const, label: 'Por cliente', icon: <Users className="h-4 w-4" /> },
+    { value: 'comissoes' as const, label: 'Comissões', icon: <BarChart3 className="h-4 w-4" /> },
+  ]
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Resumo da unidade"
-        subtitle={`Período: ${periodRangeLabel(committed)} · Receita, despesas e pendências.`}
-        actions={<PeriodRangeControl value={periodRange} onChange={setPeriodRange} />}
+        title="Financeiro"
+        subtitle={`${mesLabel(mes).replace(/^./, (c) => c.toUpperCase())} · o que entra, o que sai e o que está vencendo.`}
+        actions={
+          <>
+            <MonthSwitcher value={mes} onChange={(v) => updateParams({ mes: v === mesAtualSP() ? null : v })} />
+            <Button variant="secondary" icon={Percent} onClick={() => setImpostoOpen(true)} title="Alíquota de imposto">
+              Imposto {aliquota != null ? formatPercent(aliquota) : ''}
+            </Button>
+            {podeEscrever ? (
+              <Button icon={Plus} onClick={() => setCustoModal({ kind: 'novo', modo: 'pontual' })}>
+                Novo custo
+              </Button>
+            ) : null}
+          </>
+        }
       />
 
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
-        {[
-          ['operacional', CircleDollarSign, 'Operacional'],
-          ['cliente', Users, 'Por cliente'],
-          ['comissoes', Percent, 'Comissões'],
-          ...(isMaster ? [['franqueadora', Crown, 'Franqueadora']] : []),
-        ].map(([key, Icon, label]) => (
-          <button
-            key={String(key)}
-            type="button"
-            aria-pressed={tab === key}
-            className={tab === key ? 'inline-flex h-10 items-center gap-2 rounded-[var(--radius-pill)] bg-button-primary px-4 text-sm font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20' : 'inline-flex h-10 items-center gap-2 rounded-[var(--radius-pill)] px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20'}
-            onClick={() => switchTab(key as FinanceiroTab)}
-          >
-            <Icon className="h-4 w-4" />
-            {label as string}
-          </button>
-        ))}
-      </div>
+      <Segmented<FinanceiroTab>
+        label="Seções do financeiro"
+        value={tab}
+        onChange={(v) => updateParams({ tab: v === 'lancamentos' ? null : v })}
+        options={tabs}
+      />
 
-      {tab === 'operacional' ? (
-        <>
-          <section className="space-y-4" aria-labelledby="resultado-operacional-title">
-            <div className="rounded-2xl border border-line bg-surface-muted/50 p-4 sm:p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">DRE financeiro</p>
-              <h2 id="resultado-operacional-title" className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">Resultado operacional completo</h2>
-              <p className="mt-1 max-w-3xl text-sm text-ink-muted">Receitas de marcas menos toda a remuneração conhecida e os custos manuais do período. O resultado pode ser negativo.</p>
-            </div>
-            {operacional.data ? (
-              <OperationalDre data={operacional.data} />
-            ) : operacional.isLoading ? (
-              <LoadingState label="Calculando resultado operacional" />
-            ) : operacional.isError ? (
-              <ErrorState message={extractErrorMessage(operacional.error)} onRetry={() => void operacional.refetch()} />
-            ) : null}
-          </section>
-          <section>
-            <Card>
-              <CardHeader>
-                <p className="text-base font-bold text-ink">Custos da competência</p>
-                <p className="mt-1 text-xs text-ink-muted">Lançamentos de um mês — independem do intervalo selecionado acima.</p>
-              </CardHeader>
-              <CardBody className="space-y-3">
-                {podeEscrever ? (
-                <form className="grid gap-3" onSubmit={onCustoSubmit}>
-                  <label className="grid gap-2 text-sm font-semibold text-ink">Descrição do custo<input className="design-input h-11 w-full px-4" value={custo.descricao} onChange={(event) => setCustoField('descricao', event.target.value)} required /></label>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <label className="grid gap-2 text-sm font-semibold text-ink">Valor<MoneyInput className="design-input h-11 w-full px-4" value={custo.valor} onChange={(rawValue) => setCustoField('valor', rawValue)} required /></label>
-                    <label className="grid gap-2 text-sm font-semibold text-ink">Categoria<select className="design-input h-11 w-full px-4" value={custo.tipo} onChange={(event) => setCustoField('tipo', event.target.value)}>
-                      {['aluguel', 'salario', 'energia', 'internet', 'outros'].map((tipo) => <option key={tipo} value={tipo}>{tipo}</option>)}
-                    </select></label>
-                    <label className="grid gap-2 text-sm font-semibold text-ink">Competência<input className="design-input h-11 w-full px-4" type="month" value={custo.competencia} onChange={(event) => setCustoField('competencia', event.target.value)} required /></label>
-                  </div>
-                  {createCusto.isError || custos.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createCusto.error ?? custos.error)}</p> : null}
-                  <Button type="submit" icon={Receipt} isLoading={createCusto.isPending}>Adicionar custo</Button>
-                </form>
-                ) : null}
-                <div className="space-y-2 border-t border-line pt-3">
-                  {custosRows.length === 0 ? (
-                    <EmptyState title="Sem custos no mês" description="Nenhum custo lançado para a competência selecionada." />
-                  ) : null}
-                  {custosRows.map((item) => {
-                    const Icon = item.tipo === 'aluguel' ? Building2 : item.tipo === 'salario' ? Users : item.tipo === 'energia' ? Zap : Receipt
-                    return (
-                      <div key={asString(item.id)} className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><Icon className="h-4 w-4" /></span>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-ink">{asString(item.descricao)}</p>
-                            <p className="text-xs text-ink-muted">{asString(item.tipo)} · {formatDate(asString(item.competencia, ''))}</p>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="num text-sm font-bold text-ink">{formatMoney(item.valor, true)}</span>
-                          {podeEscrever ? (
-                            <Button variant="ghost" disabled={deleteCusto.isPending} onClick={() => void deleteCusto.mutate(asString(item.id, ''))}>Excluir</Button>
-                          ) : null}
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {deleteCusto.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(deleteCusto.error)}</p> : null}
-                </div>
-              </CardBody>
-            </Card>
-          </section>
-        </>
-      ) : null}
-
-      {tab === 'cliente' ? (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-base font-bold text-ink">Faturamento por cliente</p>
-                <p className="mt-1 text-xs text-ink-muted">Participação da carteira no GMV da unidade no período. Clique numa linha para abrir o detalhe. {clientes.length > 100 ? `Mostrando top 100 de ${num(clientes.length)}.` : ''}</p>
-              </div>
-              {clientes.length ? <Button variant="secondary" icon={Download} onClick={exportClientesCsv}>Exportar CSV</Button> : null}
-            </div>
-          </CardHeader>
-          <CardBody>
-            <DataTable<JsonRecord>
-              data={clientesView}
-              stackOnMobile
-              mobileColumnKeys={['cliente_nome', 'valor', 'lives', 'receita_liquida']}
-              onRowClick={(item) => setSelectedCliente(item)}
-              columns={[
-                {
-                  key: 'cliente_nome',
-                  header: 'Cliente',
-                  render: (item) => (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-ink">{asString(item.cliente_nome ?? item.nome)}</span>
-                      <Badge tone={tipoTone(asString(item.tipo_operacional))}>{TIPO_LABEL[asString(item.tipo_operacional)] ?? asString(item.tipo_operacional, 'cliente')}</Badge>
-                    </div>
-                  ),
-                },
-                { key: 'nicho', header: 'Nicho', render: (item) => asString(item.nicho ?? item.segmento) },
-                { key: 'valor', header: 'Faturamento', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_mes ?? item.valor ?? item.faturamento ?? item.total ?? item.gmv_total)}</span> },
-                { key: 'receita_liquida', header: 'Receita LiveLab', align: 'right', render: (item) => <span className="num">{formatMoney(item.receita_liquida)}</span> },
-                { key: 'lives', header: 'Lives', align: 'right', render: (item) => <span className="num">{num(item.lives_mes ?? item.lives ?? item.total_lives)}</span> },
-                { key: 'videos', header: 'Vídeos', align: 'right', render: (item) => <span className="num">{num(item.videos_mes ?? item.quantidade_videos)}</span> },
-                {
-                  key: 'gmv_live',
-                  header: 'GMV/live',
-                  align: 'right',
-                  render: (item) => {
-                    const lives = asNumber(item.lives_mes ?? item.lives ?? item.total_lives)
-                    return <span className="num">{lives > 0 ? formatMoney(asNumber(item.gmv_mes ?? item.total) / lives) : '—'}</span>
-                  },
-                },
-              ]}
+      {tab === 'lancamentos' ? (
+        lancamentos.isError && !data ? (
+          <ErrorState message={extractErrorMessage(lancamentos.error)} onRetry={() => void lancamentos.refetch()} />
+        ) : lancamentos.isLoading && !data ? (
+          <LancamentosSkeleton />
+        ) : (
+          <div className="space-y-5">
+            <ResumoCards
+              totais={totais}
+              atrasadosCount={atrasadosCount}
+              atrasadosAtivo={filtro.status === 'atrasado'}
+              onFiltrarAtrasados={() => setFiltro((f) => ({ ...f, status: f.status === 'atrasado' ? '' : 'atrasado' }))}
             />
-            {clientesView.length ? (
-              <TotalsBar
-                items={[
-                  { label: 'Total faturamento', value: formatMoney(sumBy(clientes, 'gmv_mes', 'total')) },
-                  { label: 'Total receita LiveLab', value: formatMoney(sumBy(clientes, 'receita_liquida')) },
-                ]}
-              />
-            ) : null}
-          </CardBody>
-        </Card>
-      ) : null}
-
-      {tab === 'comissoes' ? (
-        <>
-          <ComissoesPendentes papel={user?.papel} />
-          {comissoesMarcas.isLoading ? (
-            <LoadingState />
-          ) : comissoesMarcas.isError ? (
-            <ErrorState
-              message={extractErrorMessage(comissoesMarcas.error)}
-              onRetry={() => {
-                void comissoesMarcas.refetch()
+            <LancamentosList
+              itens={itens}
+              hoje={hoje}
+              filtro={filtro}
+              onFiltro={setFiltro}
+              podeEscrever={podeEscrever}
+              isFetching={lancamentos.isFetching}
+              onBaixar={(l) => {
+                baixaMut.reset()
+                setBaixa(l)
+              }}
+              onDesfazer={(l) => {
+                baixaMut.reset()
+                setDesfazer(l)
+              }}
+              onEditar={(l) => setCustoModal({ kind: 'editar-lancamento', lancamento: l })}
+              onExcluir={(l) => {
+                custos.excluir.reset()
+                setExcluir(l)
               }}
             />
-          ) : (
-            <section className="space-y-4">
-              <section className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5" aria-labelledby="comissoes-periodo-title">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Apuração</p>
-                  <h2 id="comissoes-periodo-title" className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">Comissões do período</h2>
-                  <p className="mt-1 max-w-2xl text-sm text-ink-muted">Apuração por apresentadora e marca no período selecionado.</p>
-                </div>
-                {podeConfigurarComissoes ? (
-                  <Button type="button" variant="secondary" icon={Percent} onClick={() => navigate({ pathname: '/financeiro/comissoes/regras', search: params.toString() })}>
-                    Regras de comissão
-                  </Button>
-                ) : null}
-              </section>
-              {podeReprocessar ? (
-                <Card>
-                  <CardBody className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-ink">Corrigir cálculo pendente</p>
-                      <p className="mt-0.5 text-xs text-ink-muted">Cria a apuração das lives encerradas sem venda e recalcula quando o GMV da venda diverge. Comissão zero com o mesmo GMV permanece.</p>
-                    </div>
-                    <Button onClick={() => reprocessar.mutate()} isLoading={reprocessar.isPending}>Recalcular comissões agora</Button>
-                  </CardBody>
-                </Card>
-              ) : null}
-              <details className="group rounded-2xl border border-line bg-surface">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
-                  <span>Como este valor é calculado</span>
-                  <span className="text-xs font-normal text-ink-muted">expandir</span>
-                </summary>
-                <p className="border-t border-line px-4 py-3 text-xs text-ink-muted">
-                  Lives de sábado ou domingo usam 2%. Dias úteis e vídeos seguem as faixas mensais, o vínculo com a marca e, quando não houver regra específica, a escada padrão.
-                </p>
-              </details>
-
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                {comissoesExportError ? (
-                  <p className="text-sm font-medium text-[var(--danger)]">{comissoesExportError}</p>
-                ) : null}
-                <Button type="button" variant="secondary" icon={Download} onClick={exportComissoesCsv} isLoading={exportingComissoes}>
-                  Exportar comissões (CSV)
-                </Button>
-              </div>
-
-              <section className="grid gap-4 xl:grid-cols-2">
-                <PresenterSettlement mes={committed.fim.slice(0, 7)} />
-                <Card>
-                  <CardHeader>
-                    <p className="text-base font-bold text-ink">Receita calculada por marca</p>
-                    <p className="mt-1 text-xs text-ink-muted">Comissão e fixo por marca, cliente ou afiliada. Abra uma linha para consultar a composição.</p>
-                  </CardHeader>
-                  <CardBody>
-                    <DataTable<JsonRecord>
-                      data={marcasRows}
-                      stackOnMobile
-                      mobileColumnKeys={['marca_nome', 'gmv_total', 'comissao_franquia']}
-                      onRowClick={(item) => {
-                        const id = asString(item.marca_id ?? item.id, '')
-                        if (id) setSelectedCliente({ ...item, tipo_entidade: 'marca' })
-                      }}
-                      columns={[
-                        { key: 'marca_nome', header: 'Marca', render: (item) => (
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-ink">{asString(item.marca_nome ?? item.nome)}</span>
-                            <Badge tone={asString(item.marca_tipo ?? item.tipo) === 'afiliada' ? 'info' : 'brand'}>{asString(item.marca_tipo ?? item.tipo, 'cliente')}</Badge>
-                          </div>
-                        ) },
-                        { key: 'gmv_total', header: 'GMV base', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_total)}</span> },
-                        { key: 'comissao_apresentadoras', header: 'Apresentadores', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_apresentadoras)}</span> },
-                        { key: 'comissao_fixo', header: 'Fixo', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_fixo)}</span> },
-                        { key: 'comissao_franquia', header: 'Franquia', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_franquia)}</span> },
-                      ]}
-                    />
-                    {marcasRows.length ? <TotalsBar items={[{ label: 'Total franquia', value: formatMoney(sumBy(marcasRows, 'comissao_franquia')) }]} /> : null}
-                  </CardBody>
-                </Card>
-              </section>
-            </section>
-          )}
-        </>
+          </div>
+        )
       ) : null}
 
-      {tab === 'franqueadora' ? (
-        <>
-          {franqueadora.isLoading && !franqueadora.data ? (
-            <LoadingState />
-          ) : franqueadora.isError ? (
-            <ErrorState message={extractErrorMessage(franqueadora.error)} onRetry={() => void franqueadora.refetch()} />
-          ) : (
-            <>
-              <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <MetricCard metric={moneyMetric('GMV da rede', franqueadora.data?.total_gmv, 'gross merchandise value', 'brand')} icon={CircleDollarSign} />
-                <MetricCard
-                  metric={royaltiesConfigurados
-                    ? moneyMetric('Royalties', franqueadora.data?.total_royalties, 'taxa arrecadada no período', 'success')
-                    : metric('Royalties', 'Não configurado', '% de royalties ainda não definido', 'neutral')}
-                  icon={TrendingUp}
-                />
-                <MetricCard metric={metric('Franqueados', asNumber(franqueadora.data?.total_franqueados), 'unidades ativas', 'neutral')} icon={Building2} />
-              </section>
+      {tab === 'dre' ? <DrePanel key={mes.slice(0, 4)} mes={mes} /> : null}
 
-              <Card>
-                <CardHeader>
-                  <p className="text-base font-bold text-ink">Desempenho por franqueado</p>
-                  <p className="mt-1 text-xs text-ink-muted">GMV, lives e royalties de cada unidade no período.</p>
-                </CardHeader>
-                <CardBody>
-                  <DataTable<JsonRecord>
-                    data={franqueadosRows}
-                    columns={[
-                      {
-                        key: 'nome',
-                        header: 'Franqueado',
-                        render: (item) => (
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-ink">{asString(item.franqueado_nome ?? item.nome)}</span>
-                            {asString(item.uf, '') ? <Badge tone="neutral">{asString(item.uf)}</Badge> : null}
-                          </div>
-                        ),
-                      },
-                      { key: 'cidade', header: 'Cidade', render: (item) => <span className="inline-flex items-center gap-1 text-ink-muted"><MapPin className="h-3.5 w-3.5" />{asString(item.cidade)}</span> },
-                      { key: 'plano', header: 'Plano', render: (item) => asString(item.plano, '—') },
-                      { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_total ?? item.gmv)}</span> },
-                      { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => <span className="num">{num(item.total_lives)}</span> },
-                      { key: 'royalties_estimados', header: 'Royalties', align: 'right', render: (item) => <span className="num" title="Estimado — % configurável">{royaltiesConfigurados ? formatMoney(item.royalties_estimados) : '—'}</span> },
-                    ]}
-                  />
-                  {franqueadosRows.length ? (
-                    <TotalsBar
-                      items={[
-                        { label: 'Total GMV', value: formatMoney(sumBy(franqueadosRows, 'gmv_total', 'gmv')) },
-                        ...(royaltiesConfigurados ? [{ label: 'Total royalties', value: formatMoney(sumBy(franqueadosRows, 'royalties_estimados')) }] : []),
-                      ]}
-                    />
-                  ) : null}
-                </CardBody>
-              </Card>
-            </>
-          )}
-        </>
+      {tab === 'fluxo' ? <FluxoCaixaPanel mes={mes} itensMes={itens} /> : null}
+
+      {tab === 'recorrentes' ? (
+        <RecorrentesPanel
+          mes={mes}
+          podeEscrever={podeEscrever}
+          onNovo={() => setCustoModal({ kind: 'novo', modo: 'recorrente' })}
+          onEditar={(r) => setCustoModal({ kind: 'editar-recorrente', recorrente: r })}
+          onToast={toastOk}
+        />
       ) : null}
 
-      <Modal
-        open={Boolean(selectedCliente)}
-        title={`${selectedClienteKind === 'marca' ? 'Marca' : 'Cliente'}: ${asString(selectedCliente?.marca_nome ?? selectedCliente?.nome, '—')}`}
-        subtitle="GMV, comissão, sessões de live e vídeos do período selecionado."
-        size="xl"
-        onClose={() => setSelectedCliente(null)}
-      >
-        {selectedClienteDetail.isLoading ? <LoadingState label="Carregando histórico" /> : null}
-        {selectedClienteDetail.isError ? <ErrorState message={extractErrorMessage(selectedClienteDetail.error)} onRetry={() => void selectedClienteDetail.refetch()} /> : null}
-        {selectedClienteDetail.data ? (() => {
-          const m = getRecord(selectedClienteDetail.data.metrics)
-          const cadastro = getRecord(selectedClienteDetail.data.marca ?? selectedClienteDetail.data.cliente)
-          const lives = asArray<JsonRecord>(selectedClienteDetail.data.lives)
-          const vendas = asArray<JsonRecord>(selectedClienteDetail.data.vendas_atribuidas)
-          const comissao = asNumber(m.comissao_franquia) + asNumber(m.comissao_franqueadora)
-          return (
-            <div className="space-y-4">
-              <CadastroQuickEdit
-                kind={selectedClienteKind}
-                record={cadastro}
-                onSaved={() => {
-                  void client.invalidateQueries({ queryKey: QK.financeiroClienteOperacional({ clienteKind: selectedClienteKind, clienteId: selectedClienteId }) })
-                  void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
-                  void client.invalidateQueries({ queryKey: QK.financeiroFaturamento() })
-                }}
-              />
-              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {[
-                  moneyMetric('GMV no período', m.gmv_mes, 'lives + vídeos', 'brand'),
-                  moneyMetric('Comissão de franquia', comissao, 'franquia + franqueadora', 'success'),
-                  metric('Lives', m.total_lives ?? 0, 'no período', 'neutral'),
-                  metric('Vídeos', m.total_videos ?? 0, 'no período', 'info'),
-                ].map((item, index) => <MetricCard key={item.label} metric={item} icon={[CircleDollarSign, Percent, Users, Receipt][index]} />)}
-              </section>
+      {tab === 'cliente' ? <PorClienteTab periodo={periodo} /> : null}
 
-              <Card>
-                <CardHeader><p className="text-base font-bold text-ink">Sessões de live</p></CardHeader>
-                <CardBody>
-                  {lives.length ? (
-                    <DataTable<JsonRecord>
-                      data={lives}
-                      stackOnMobile
-                      mobileColumnKeys={['iniciado_em', 'gmv', 'status', 'apresentadora_nome']}
-                      columns={[
-                        { key: 'iniciado_em', header: 'Hora', render: (item) => formatSaoPauloTime(item.iniciado_em) },
-                        { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, '—') },
-                        { key: 'gmv', header: 'GMV', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv)}</span> },
-                        { key: 'status', header: 'Status', render: (item) => <Badge tone={asString(item.status) === 'encerrada' ? 'success' : 'neutral'}>{asString(item.status, '—')}</Badge> },
-                      ]}
-                    />
-                  ) : (
-                    <EmptyState title="Sem lives no período" description="Nenhuma live encerrada para este cadastro no período selecionado." />
-                  )}
-                </CardBody>
-              </Card>
-
-              {vendas.length ? (
-                <Card>
-                  <CardHeader><p className="text-base font-bold text-ink">Comissões atribuídas</p></CardHeader>
-                  <CardBody>
-                    <DataTable<JsonRecord>
-                      data={vendas}
-                      columns={[
-                        { key: 'data', header: 'Data', render: (item) => asString(item.data).slice(0, 10) },
-                        { key: 'origem', header: 'Origem', render: (item) => asString(item.origem) },
-                        { key: 'gmv', header: 'GMV', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv)}</span> },
-                        { key: 'comissao_franquia', header: 'Comissão franquia', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_franquia)}</span> },
-                      ]}
-                    />
-                  </CardBody>
-                </Card>
-              ) : null}
+      {tab === 'comissoes' ? (
+        <div className="space-y-4">
+          <section className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5">
+            <div>
+              <h2 className="text-xl font-bold tracking-[-0.02em] text-ink">Comissões do período</h2>
+              <p className="mt-1 max-w-2xl text-sm text-ink-muted">Apuração por apresentadora e marca no período selecionado.</p>
             </div>
+            {podeConfigurarComissoes ? (
+              <Button type="button" variant="secondary" icon={Percent} onClick={() => navigate({ pathname: '/financeiro/comissoes/regras', search: params.toString() })}>
+                Regras de comissão
+              </Button>
+            ) : null}
+          </section>
+          <PresenterSettlement mes={mes} />
+          <section className="space-y-3">
+            <p className="text-base font-bold text-ink">Receita calculada por marca</p>
+            <ComissoesTab periodo={periodo} podeReprocessar={podeReprocessar} />
+          </section>
+        </div>
+      ) : null}
+
+      <BaixaModal
+        lancamento={baixa}
+        onClose={() => setBaixa(null)}
+        onConfirm={confirmarBaixa}
+        isPending={baixaMut.isPending}
+        error={baixaMut.error ? extractErrorMessage(baixaMut.error) : null}
+      />
+      <DesfazerModal
+        lancamento={desfazer}
+        onClose={() => setDesfazer(null)}
+        onConfirm={confirmarDesfazer}
+        isPending={baixaMut.isPending}
+        error={baixaMut.error ? extractErrorMessage(baixaMut.error) : null}
+      />
+      <ExcluirModal
+        key={excluir?.id ?? 'none'}
+        lancamento={excluir}
+        onClose={() => setExcluir(null)}
+        isPending={custos.excluir.isPending}
+        error={custos.excluir.error ? extractErrorMessage(custos.excluir.error) : null}
+        onConfirm={(escopo) =>
+          excluir &&
+          custos.excluir.mutate(
+            { id: excluir.id, escopo },
+            {
+              onSuccess: () => {
+                setExcluir(null)
+                toastOk('Custo excluído.')
+              },
+            },
           )
-        })() : null}
-      </Modal>
+        }
+      />
+      <CustoFormModal state={custoModal} mes={mes} onClose={() => setCustoModal(null)} onSaved={(msg) => toastOk(msg)} />
+      <ImpostoConfigModal
+        open={impostoOpen}
+        atual={aliquota ?? 10}
+        podeEscrever={podeEscrever}
+        onClose={() => setImpostoOpen(false)}
+        onSaved={(msg) => toastOk(msg)}
+      />
+    </div>
+  )
+}
+
+function LancamentosSkeleton() {
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Carregando lançamentos">
+      <div className="grid gap-4 lg:grid-cols-[1.05fr_2fr]">
+        <div className="h-52 animate-pulse rounded-[18px] bg-surface-muted" />
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface-muted" />
+          ))}
+        </div>
+      </div>
+      <div className="design-card space-y-3 p-5">
+        <CalendarRange className="h-5 w-5 text-ink-muted" aria-hidden />
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="h-12 animate-pulse rounded-xl bg-surface-muted" />
+        ))}
+      </div>
     </div>
   )
 }
