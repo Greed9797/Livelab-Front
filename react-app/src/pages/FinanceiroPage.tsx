@@ -1,860 +1,268 @@
-import { AlertTriangle, Building2, CircleDollarSign, Crown, Download, MapPin, Percent, Receipt, TrendingUp, Users, Zap } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { BarChart3, CalendarRange, ListChecks, Percent, Plus, Repeat, Table2, Users, Waves } from 'lucide-react'
+import { useState } from 'react'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
-import { MetricCard } from '../components/ui/MetricCard'
-import { MetricInfo } from '../components/ui/MetricInfo'
-import { LinePanel } from '../components/charts/Charts'
-import { ReceitaWaterfall } from '../components/charts/ReceitaWaterfall'
-import { FinanceiroHeroPanel } from '../components/dashboard/FinanceiroHeroPanel'
-import { PeriodRangeControl } from '../components/forms/PeriodRangeControl'
-import { CadastroQuickEdit } from '../components/forms/CadastroQuickEdit'
-import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { DataTable } from '../components/ui/DataTable'
-import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-import { Modal } from '../components/ui/Modal'
-import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
-import { MoneyInput } from '../components/ui/MoneyInput'
-import { createFinanceiroCusto, deleteFinanceiroCusto, exportarComissoesCSV, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroCustos, getFinanceiroFaturamento, getFinanceiroFluxo, getFinanceiroOperacional, getFinanceiroResumo, getFinanceiroFranqueadora, getMarcaOperacional, reprocessarComissoes } from '../services/domain'
+import { ErrorState } from '../components/ui/States'
+import { useToast } from '../components/ui/Toast'
+import { MonthSwitcher, Segmented } from '../components/financeiro/primitives'
+import { ResumoCards } from '../components/financeiro/ResumoCards'
+import { FILTRO_VAZIO, type FiltroLocal, LancamentosList } from '../components/financeiro/LancamentosList'
+import { BaixaModal, DesfazerModal, ExcluirModal } from '../components/financeiro/LancamentoModals'
+import { type CustoModalState, CustoFormModal } from '../components/financeiro/CustoFormModal'
+import { RecorrentesPanel } from '../components/financeiro/RecorrentesPanel'
+import { DrePanel } from '../components/financeiro/DrePanel'
+import { FluxoCaixaPanel } from '../components/financeiro/FluxoCaixaPanel'
+import { ImpostoConfigModal } from '../components/financeiro/ImpostoConfigModal'
+import { ComissoesTab, PorClienteTab } from '../components/financeiro/LegacyTabs'
+import '../components/financeiro/financeiro.css'
+import { useBaixaMutation, useCustoMutations, useFinanceiroConfig, useLancamentos } from '../hooks/useFinanceiro'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
+import type { Lancamento } from '../types/financeiro'
 import { canWrite } from '../utils/access'
-import { asArray, asNumber, asString, formatDate, formatMoney, formatPercent, getRecord } from '../utils/format'
-import { parseBRMoneyToDecimal } from '../utils/money'
-import { downloadCsv } from '../utils/exportCsv'
-import {
-  type PeriodRange,
-  comissoesParams,
-  custosCompetencia,
-  defaultPeriodRange,
-  financeiroParams,
-  isValidPeriodRange,
-  periodKey,
-  periodRangeFromParams,
-  periodRangeLabel,
-  previousPeriodRange,
-  writePeriodRangeToParams,
-} from '../utils/period'
-import { historyPoints, metric, moneyMetric } from './page-helpers'
-import { BoletosPanel } from './BoletosPage'
-import { QK } from '../services/query-keys'
-import type { MetricKey } from '../utils/metricGlossary'
-import type { JsonRecord } from '../types/models'
+import { hojeSP, isMes, mesAtualSP, mesLabel, totalizar } from '../utils/financeiro'
+import { formatPercent } from '../utils/format'
+import type { PeriodRange } from '../utils/period'
 
-type FinanceiroTab = 'operacional' | 'cliente' | 'comissoes' | 'franqueadora'
+type FinanceiroTab = 'lancamentos' | 'dre' | 'fluxo' | 'recorrentes' | 'cliente' | 'comissoes'
+const TABS: FinanceiroTab[] = ['lancamentos', 'dre', 'fluxo', 'recorrentes', 'cliente', 'comissoes']
 
-const num = (value: unknown) => asNumber(value).toLocaleString('pt-BR')
-const sumBy = (rows: JsonRecord[], ...keys: string[]) =>
-  rows.reduce((total, row) => total + asNumber(keys.map((k) => row[k]).find((v) => v !== undefined)), 0)
-
-// 'YYYY-MM-DD' → 'DD/MM' para o eixo X do fluxo de caixa (premium > ISO cru).
-function dmLabel(value: string): string {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  return match ? `${match[3]}/${match[2]}` : value
-}
-
-const TIPO_LABEL: Record<string, string> = {
-  cliente_ecommerce: 'e-commerce',
-  afiliada: 'afiliada',
-  marca: 'marca',
-  sem_marca: 'sem marca',
-}
-function tipoTone(tipo: string): 'brand' | 'info' | 'warning' | 'neutral' {
-  if (tipo === 'cliente_ecommerce') return 'brand'
-  if (tipo === 'afiliada') return 'info'
-  if (tipo === 'marca') return 'warning'
-  return 'neutral'
-}
-
-// ── Resultado operacional (GET /financeiro/operacional) ─────────────────────
-
-const OPERACIONAL_CATEGORIA_LABEL: Record<string, string> = {
-  comissao_franquia: 'Comissão de franquia',
-  fixo_marca: 'Fixo de marca',
-  comissao_apresentadora: 'Comissão apresentadora',
-  fixo_apresentadora: 'Fixo apresentadora',
-  custo_manual: 'Custo manual',
-}
-
-/** Memória de cálculo do lançamento em texto legível. */
-function memoriaText(categoria: string, memoria: JsonRecord): string {
-  switch (categoria) {
-    case 'comissao_franquia':
-      return `GMV ${formatMoney(memoria.gmv)} × ${formatPercent(memoria.pct_medio)} médio · ${num(memoria.lives)} lives`
-    case 'fixo_marca': {
-      const meses = asNumber(memoria.meses_ativos) || 1
-      return `Fixo mensal da marca, somado 1× por mês com atividade${meses > 1 ? ` · ${meses} meses ativos` : ''}`
-    }
-    case 'comissao_apresentadora':
-      return `GMV atribuído ${formatMoney(memoria.gmv_atribuido)} × ${formatPercent(memoria.pct_medio)} médio`
-    case 'fixo_apresentadora':
-      return 'Fixo mensal de apresentadora ativa (valor cadastrado, com teto padrão)'
-    case 'custo_manual':
-      return `Custo lançado manualmente · tipo ${asString(memoria.tipo, 'outros')}`
-    default:
-      return ''
-  }
-}
-
-function ResultadoOperacional({ data }: { data: JsonRecord }) {
-  const totais = getRecord(data.totais)
-  const resultado = asNumber(totais.resultado)
-  const lancamentos: (JsonRecord & { _entrada: boolean })[] = [
-    ...asArray<JsonRecord>(data.entradas).map((l) => ({ ...l, _entrada: true })),
-    ...asArray<JsonRecord>(data.saidas).map((l) => ({ ...l, _entrada: false })),
-  ]
-  lancamentos.sort((a, b) => asNumber(b.valor) - asNumber(a.valor))
-
-  return (
-    <section className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard metric={moneyMetric('Entradas', totais.entradas, 'comissão de franquia + fixos de marca', 'success')} icon={TrendingUp} />
-        <MetricCard metric={moneyMetric('Despesas fixas', totais.despesas_fixas, 'fixos de apresentadoras + custos fixos', 'warning')} icon={Building2} />
-        <MetricCard metric={moneyMetric('Despesas variáveis e comissões', totais.despesas_variaveis, 'comissões de apresentadoras + custos variáveis', 'warning')} icon={Percent} />
-        <MetricCard metric={moneyMetric('Resultado líquido', totais.resultado, 'entradas − despesas', resultado >= 0 ? 'success' : 'danger')} icon={CircleDollarSign} />
-      </div>
-      <Card>
-        <CardHeader>
-          <p className="text-base font-bold text-ink">Resultado operacional — lançamentos</p>
-          <p className="mt-1 text-xs text-ink-muted">Comissões e fixos entram automaticamente; custos manuais somam às saídas. Clique num lançamento para ver a memória de cálculo.</p>
-        </CardHeader>
-        {lancamentos.length === 0 ? (
-          <CardBody>
-            <EmptyState title="Sem lançamentos" description="Nenhuma comissão, fixo ou custo no período selecionado." />
-          </CardBody>
-        ) : (
-          <div>
-            {lancamentos.map((l, index) => (
-              <details key={`${asString(l.categoria)}-${index}`} className="border-b border-line last:border-b-0">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-2.5 hover:bg-surface-muted md:px-6">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Badge tone={l._entrada ? 'success' : 'danger'}>{l._entrada ? 'Entrada' : 'Saída'}</Badge>
-                    <span className="truncate text-sm font-semibold text-ink">{asString(l.descricao)}</span>
-                    <span className="hidden shrink-0 text-xs text-ink-muted sm:inline">{OPERACIONAL_CATEGORIA_LABEL[asString(l.categoria)] ?? asString(l.categoria)}</span>
-                  </div>
-                  <span className={`num shrink-0 text-sm font-bold ${l._entrada ? 'text-[var(--success)]' : 'text-ink'}`}>
-                    {l._entrada ? '+' : '−'} {formatMoney(l.valor, true)}
-                  </span>
-                </summary>
-                <p className="bg-surface-muted px-5 py-2 text-xs text-ink-muted md:px-6">{memoriaText(asString(l.categoria), getRecord(l.memoria))}</p>
-              </details>
-            ))}
-          </div>
-        )}
-        <p className="border-t border-line px-5 py-3 text-xs text-ink-muted md:px-6">
-          Supervisor e demais integrantes da equipe ainda não têm remuneração cadastrada no sistema — lance esses salários como custo manual (tipo salário).
-        </p>
-      </Card>
-    </section>
-  )
-}
-
-function TotalsBar({ items }: { items: { label: string; value: string }[] }) {
-  return (
-    <div className="mt-3 flex flex-wrap items-center justify-end gap-x-6 gap-y-1 border-t border-line pt-3 text-sm">
-      {items.map((item) => (
-        <span key={item.label} className="text-ink-muted">
-          {item.label} <span className="num ml-1 font-bold text-ink">{item.value}</span>
-        </span>
-      ))}
-    </div>
-  )
+function isTab(v: string | null): v is FinanceiroTab {
+  return Boolean(v && (TABS as string[]).includes(v))
 }
 
 export function FinanceiroPage() {
   const user = useCurrentUser()
-  const navigate = useNavigate()
-  const isCliente = user?.papel === 'cliente_parceiro'
-  const isMaster = user?.papel === 'franqueador_master'
+  const toast = useToast()
   const [params, setParams] = useSearchParams()
-  const requestedTab = params.get('tab')
-  const initialTab: FinanceiroTab = requestedTab === 'cliente' || requestedTab === 'comissoes' ? requestedTab : 'operacional'
-  const [tab, setTab] = useState<FinanceiroTab>(initialTab)
-
-  // Período (mês único ou intervalo) — fonte de edição local + sync URL. Queries usam
-  // o último período VÁLIDO (committed), então digitar fim<início não dispara fetch ruim.
-  const [periodRange, setPeriodRangeState] = useState<PeriodRange>(() => periodRangeFromParams(params))
-  const lastValid = useRef<PeriodRange>(isValidPeriodRange(periodRange) ? periodRange : defaultPeriodRange())
-  if (isValidPeriodRange(periodRange)) lastValid.current = periodRange
-  const committed = lastValid.current
-  const prevPeriod = previousPeriodRange(committed)
-  const pk = periodKey(committed)
-  const fp = financeiroParams(committed)
-  const cp = comissoesParams(committed)
-
-  function setPeriodRange(next: PeriodRange) {
-    setPeriodRangeState(next)
-    if (isValidPeriodRange(next)) setParams(writePeriodRangeToParams(params, next), { replace: true })
-  }
-
-  const [custo, setCusto] = useState({ descricao: '', valor: '', tipo: 'outros', competencia: custosCompetencia(committed) })
-  // Custos seguem por competência de UM mês — ao mudar o período, acompanham o mês final (editável).
-  useEffect(() => {
-    setCusto((current) => ({ ...current, competencia: custosCompetencia(committed) }))
-  }, [committed.fim])
-
-  const [selectedCliente, setSelectedCliente] = useState<JsonRecord | null>(null)
-  const [exportingComissoes, setExportingComissoes] = useState(false)
-  const [comissoesExportError, setComissoesExportError] = useState('')
-  const client = useQueryClient()
-
-  const resumo = useQuery({ queryKey: QK.financeiroResumo(pk), queryFn: () => getFinanceiroResumo(fp), enabled: !isCliente, placeholderData: keepPreviousData })
-  const resumoPrev = useQuery({ queryKey: QK.financeiroResumo(`${periodKey(prevPeriod)}:prev`), queryFn: () => getFinanceiroResumo(financeiroParams(prevPeriod)), enabled: !isCliente && tab === 'operacional', placeholderData: keepPreviousData })
-  const fluxo = useQuery({ queryKey: QK.financeiroFluxo(pk), queryFn: () => getFinanceiroFluxo(fp), enabled: !isCliente, placeholderData: keepPreviousData })
-  const operacional = useQuery({ queryKey: QK.financeiroOperacional(pk), queryFn: () => getFinanceiroOperacional(fp), enabled: !isCliente && tab === 'operacional', placeholderData: keepPreviousData })
-  const faturamento = useQuery({ queryKey: QK.financeiroFaturamento(pk), queryFn: () => getFinanceiroFaturamento(fp), enabled: !isCliente, placeholderData: keepPreviousData })
-  const custos = useQuery({ queryKey: QK.financeiroCustos(custo.competencia), queryFn: () => getFinanceiroCustos({ mes: custo.competencia }), enabled: !isCliente })
-  const franqueadora = useQuery({ queryKey: QK.financeiroFranqueadora(pk), queryFn: () => getFinanceiroFranqueadora(fp), enabled: isMaster, placeholderData: keepPreviousData })
-  const comissoesApresentadoras = useQuery({ queryKey: [...QK.comissoesApresentadoras, pk], queryFn: () => getComissoesApresentadoras(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
-  const comissoesMarcas = useQuery({ queryKey: [...QK.comissoesMarcas, pk], queryFn: () => getComissoesMarcas(cp), enabled: !isCliente && tab === 'comissoes', placeholderData: keepPreviousData })
-
-  const selectedTipo = asString(selectedCliente?.tipo_operacional ?? selectedCliente?.tipo_entidade)
-  const selectedClienteKind = selectedTipo === 'afiliada' || selectedTipo === 'marca' || asString(selectedCliente?.tipo_entidade) === 'marca' ? 'marca' : 'cliente'
-  const selectedClienteId = selectedClienteKind === 'marca'
-    ? asString(selectedCliente?.marca_id ?? selectedCliente?.id, '')
-    : asString(selectedCliente?.cliente_id ?? selectedCliente?.id, '')
-  const selectedClienteDetail = useQuery({
-    // Segue o período do PeriodRangeControl (inicio/fim YYYY-MM) — sem isso o
-    // backend cai no mês corrente e as comissões do modal divergem da tela.
-    queryKey: QK.financeiroClienteOperacional({ clienteKind: selectedClienteKind, clienteId: selectedClienteId, periodo: pk }),
-    enabled: Boolean(selectedClienteId),
-    queryFn: () => selectedClienteKind === 'marca'
-      ? getMarcaOperacional(selectedClienteId, fp)
-      : getClienteOperacional(selectedClienteId, fp),
-  })
-  const createCusto = useMutation({
-    mutationFn: createFinanceiroCusto,
-    onSuccess: () => {
-      setCusto((current) => ({ ...current, descricao: '', valor: '' }))
-      void client.invalidateQueries({ queryKey: QK.financeiroCustos() })
-      void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
-      void client.invalidateQueries({ queryKey: QK.financeiroFluxo() })
-      void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
-    },
-  })
-  const deleteCusto = useMutation({
-    mutationFn: deleteFinanceiroCusto,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: QK.financeiroCustos() })
-      void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
-      void client.invalidateQueries({ queryKey: QK.financeiroFluxo() })
-      void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
-    },
-  })
-  const reprocessar = useMutation({
-    mutationFn: reprocessarComissoes,
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
-      void client.invalidateQueries({ queryKey: QK.comissoesApresentadoras })
-      void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
-      void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
-    },
-  })
-  const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
-  // financeiro_readonly e auditor alcançam /financeiro só para consultar — sem form de custos.
+  const isCliente = user?.papel === 'cliente_parceiro'
   const podeEscrever = canWrite(user)
+  const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
 
-  const raw = resumo.data ?? {}
-  const clientesRaw = asArray<JsonRecord>(faturamento.data?.clientes ?? faturamento.data?.por_cliente ?? faturamento.data?.items ?? faturamento.data)
-  const clientes = useMemo(
-    () => [...clientesRaw].sort((a, b) => asNumber(b.gmv_mes ?? b.total) - asNumber(a.gmv_mes ?? a.total)),
-    [clientesRaw],
-  )
-  const clientesView = clientes.slice(0, 100)
-  const custosRows = custos.data ?? []
-  const apresentadorasRows = useMemo(
-    () => [...(comissoesApresentadoras.data ?? [])].sort((a, b) => asNumber(b.comissao_apresentadora ?? b.comissao_total) - asNumber(a.comissao_apresentadora ?? a.comissao_total)),
-    [comissoesApresentadoras.data],
-  )
-  const marcasRows = useMemo(
-    () => [...(comissoesMarcas.data ?? [])].sort((a, b) => asNumber(b.gmv_total) - asNumber(a.gmv_total)),
-    [comissoesMarcas.data],
-  )
-  const franqueadosRows = useMemo(
-    () => [...asArray<JsonRecord>(franqueadora.data?.franqueados)].sort((a, b) => asNumber(b.gmv_total ?? b.gmv) - asNumber(a.gmv_total ?? a.gmv)),
-    [franqueadora.data],
-  )
-  const comissaoFaltante = asNumber(raw.comissao_faltante_count ?? raw.comissoes_sem_config)
+  const paramMes = params.get('mes')
+  const mes = isMes(paramMes) ? paramMes : mesAtualSP()
+  const paramTab = params.get('tab')
+  const tab: FinanceiroTab = isTab(paramTab) ? paramTab : 'lancamentos'
 
-  const comissaoFixo = asNumber(raw.fixo_mensal)
-  const comissaoHint = comissaoFixo > 0
-    ? `receita LiveLab · inclui ${formatMoney(raw.fixo_mensal)} fixo`
-    : 'receita LiveLab, antes dos custos'
-  const metrics = [
-    moneyMetric('GMV total', raw.gmv_total ?? raw.fat_bruto, 'lives + vídeos do período', 'brand'),
-    moneyMetric('Comissão de franquia', raw.receita_liquida, comissaoHint, 'success'),
-    moneyMetric('Custos reais', raw.total_custos ?? 0, 'lançados na competência', 'warning'),
-    metric('Comissão ausente', comissaoFaltante, 'lives com GMV sem comissão', comissaoFaltante > 0 ? 'danger' : 'neutral'),
-  ]
-  const metricIcons = [CircleDollarSign, Percent, Receipt, AlertTriangle]
-  const metricKeys: MetricKey[] = [
-    'financeiro.gmv_total',
-    'financeiro.receita_liquida',
-    'financeiro.total_custos',
-    'financeiro.comissao_faltante',
-  ]
-  // "Neste período": reaproveita a memória de cálculo que /financeiro/resumo já
-  // devolve (gmv_lives, gmv_videos, fixo_mensal). Mostrar o número real que o
-  // backend usou vale mais que repetir a fórmula genérica. Custos e comissão
-  // ausente não têm decomposição no payload → só o glossário.
-  const comissaoVariavel = asNumber(raw.receita_liquida) - comissaoFixo
-  const metricDetails: (string | undefined)[] = [
-    `${formatMoney(raw.gmv_total ?? raw.fat_bruto)} = lives ${formatMoney(raw.gmv_lives)} (${num(raw.total_lives)}) + vídeos ${formatMoney(raw.gmv_videos)} (${num(raw.total_videos)})`,
-    comissaoFixo > 0
-      ? `${formatMoney(raw.receita_liquida)} = variável ${formatMoney(comissaoVariavel)} + fixo mensal ${formatMoney(comissaoFixo)}`
-      : `${formatMoney(raw.receita_liquida)} — só comissão variável; nenhuma marca com fixo mensal no período`,
-    undefined,
-    undefined,
-  ]
+  const [filtro, setFiltro] = useState<FiltroLocal>(FILTRO_VAZIO)
+  const [baixa, setBaixa] = useState<Lancamento | null>(null)
+  const [desfazer, setDesfazer] = useState<Lancamento | null>(null)
+  const [excluir, setExcluir] = useState<Lancamento | null>(null)
+  const [custoModal, setCustoModal] = useState<CustoModalState | null>(null)
+  const [impostoOpen, setImpostoOpen] = useState(false)
 
-  const fluxoItems = historyPoints(fluxo.data?.items ?? fluxo.data?.fluxo ?? fluxo.data?.history)
-    .map((point) => ({ ...point, label: dmLabel(point.label) }))
-  const hasFluxo = fluxoItems.some((item) => asNumber(item.value) !== 0 || asNumber(item.secondary) !== 0)
+  const lancamentos = useLancamentos({ inicio: mes, fim: mes }, !isCliente)
+  const config = useFinanceiroConfig(!isCliente)
+  const baixaMut = useBaixaMutation()
+  const custos = useCustoMutations()
 
-  function setCustoField(key: keyof typeof custo, value: string) {
-    setCusto((current) => ({ ...current, [key]: value }))
-  }
-
-  function onCustoSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    createCusto.mutate({
-      descricao: custo.descricao,
-      valor: parseBRMoneyToDecimal(custo.valor),
-      tipo: custo.tipo,
-      competencia: custo.competencia,
-    })
-  }
-
-  function switchTab(next: FinanceiroTab) {
-    setTab(next)
-    const nextParams = new URLSearchParams(params)
-    if (next === 'cliente' || next === 'comissoes') nextParams.set('tab', next)
-    else nextParams.delete('tab')
-    setParams(nextParams, { replace: true })
-  }
-
-  // Mesmo CSV de comissões do Analytics — aqui porque o Financeiro é o dono das
-  // tabelas de comissão; `cp` normaliza mes/data_inicio/data_fim no backend.
-  async function exportComissoesCsv() {
-    setExportingComissoes(true)
-    try {
-      const blob = await exportarComissoesCSV(cp)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `comissoes-${committed.inicio}_${committed.fim}.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      setComissoesExportError('')
-    } catch (err) {
-      setComissoesExportError(extractErrorMessage(err))
-    } finally {
-      setExportingComissoes(false)
+  function updateParams(patch: Record<string, string | null>) {
+    const next = new URLSearchParams(params)
+    for (const [k, v] of Object.entries(patch)) {
+      if (v == null) next.delete(k)
+      else next.set(k, v)
     }
+    setParams(next, { replace: true })
   }
 
-  function exportClientesCsv() {
-    downloadCsv(`faturamento-por-cliente-${committed.inicio}_${committed.fim}.csv`, clientes, [
-      { key: 'nome', header: 'nome', value: (row) => asString(row.cliente_nome ?? row.nome) },
-      { key: 'tipo_operacional', header: 'tipo' },
-      { key: 'nicho', header: 'nicho' },
-      { key: 'gmv_mes', header: 'faturamento', value: (row) => asNumber(row.gmv_mes ?? row.total) },
-      { key: 'receita_liquida', header: 'receita_liquida', value: (row) => asNumber(row.receita_liquida) },
-      { key: 'lives_mes', header: 'lives', value: (row) => asNumber(row.lives_mes ?? row.total_lives) },
-      { key: 'videos_mes', header: 'videos', value: (row) => asNumber(row.videos_mes) },
-    ])
+  if (isCliente) return <Navigate to="/cliente/financeiro" replace />
+
+  const data = lancamentos.data
+  const itens = data?.itens ?? []
+  const totais = data?.totais ?? totalizar([])
+  const hoje = data?.hoje ?? hojeSP()
+  const atrasadosCount = itens.filter((l) => l.status === 'atrasado').length
+  const periodo: PeriodRange = { mode: 'single', inicio: mes, fim: mes }
+  const aliquota = config.data?.aliquota_imposto_pct
+
+  function toastOk(msg: string, variant: 'success' | 'error' = 'success') {
+    toast.push(msg, variant)
   }
 
-  if (isCliente) return <BoletosPanel />
+  function confirmarBaixa(payload: { valor_pago: number; data_pagamento: string }) {
+    if (!baixa) return
+    const entrada = baixa.natureza === 'receita'
+    baixaMut.mutate(
+      { lancamento: baixa, acao: 'pagar', payload },
+      {
+        onSuccess: () => {
+          setBaixa(null)
+          toastOk(payload.valor_pago < baixa.valor_previsto ? 'Pagamento parcial registrado.' : entrada ? 'Marcado como recebido.' : 'Marcado como pago.')
+        },
+      },
+    )
+  }
 
-  if (resumo.isError) return <ErrorState message={extractErrorMessage(resumo.error)} onRetry={() => void resumo.refetch()} />
-  if (resumo.isLoading && !resumo.data) return <LoadingState />
+  function confirmarDesfazer() {
+    if (!desfazer) return
+    baixaMut.mutate(
+      { lancamento: desfazer, acao: 'desfazer' },
+      {
+        onSuccess: () => {
+          setDesfazer(null)
+          toastOk('Baixa desfeita.')
+        },
+      },
+    )
+  }
 
-  const royaltiesConfigurados = asNumber(franqueadora.data?.total_royalties) > 0
+  const tabs = [
+    { value: 'lancamentos' as const, label: 'Lançamentos', icon: <ListChecks className="h-4 w-4" /> },
+    { value: 'dre' as const, label: 'DRE', icon: <Table2 className="h-4 w-4" /> },
+    { value: 'fluxo' as const, label: 'Fluxo de caixa', icon: <Waves className="h-4 w-4" /> },
+    { value: 'recorrentes' as const, label: 'Recorrentes', icon: <Repeat className="h-4 w-4" /> },
+    { value: 'cliente' as const, label: 'Por cliente', icon: <Users className="h-4 w-4" /> },
+    { value: 'comissoes' as const, label: 'Comissões', icon: <BarChart3 className="h-4 w-4" /> },
+  ]
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Financeiro"
-        accent="Resumo"
+        accent="Caixa"
         title="da unidade"
-        subtitle={`Período: ${periodRangeLabel(committed)} · Receita, fluxo de caixa e pendências.`}
-        actions={<PeriodRangeControl value={periodRange} onChange={setPeriodRange} />}
+        subtitle={`${mesLabel(mes).replace(/^./, (c) => c.toUpperCase())} · o que entra, o que sai e o que está vencendo.`}
+        actions={
+          <>
+            <MonthSwitcher value={mes} onChange={(v) => updateParams({ mes: v === mesAtualSP() ? null : v })} />
+            <Button variant="secondary" icon={Percent} onClick={() => setImpostoOpen(true)} title="Alíquota de imposto">
+              Imposto {aliquota != null ? formatPercent(aliquota) : ''}
+            </Button>
+            {podeEscrever ? (
+              <Button icon={Plus} onClick={() => setCustoModal({ kind: 'novo', modo: 'pontual' })}>
+                Novo custo
+              </Button>
+            ) : null}
+          </>
+        }
       />
 
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
-        {[
-          ['operacional', CircleDollarSign, 'Operacional'],
-          ['cliente', Users, 'Por cliente'],
-          ['comissoes', Percent, 'Comissões'],
-          ...(isMaster ? [['franqueadora', Crown, 'Franqueadora']] : []),
-        ].map(([key, Icon, label]) => (
-          <button
-            key={String(key)}
-            className={tab === key ? 'inline-flex h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white' : 'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted'}
-            onClick={() => switchTab(key as FinanceiroTab)}
-          >
-            <Icon className="h-4 w-4" />
-            {label as string}
-          </button>
-        ))}
-      </div>
+      <Segmented<FinanceiroTab>
+        label="Seções do financeiro"
+        value={tab}
+        onChange={(v) => updateParams({ tab: v === 'lancamentos' ? null : v })}
+        options={tabs}
+      />
 
-      {tab === 'operacional' ? (
-        <>
-          <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-            <FinanceiroHeroPanel raw={raw} prev={resumoPrev.data} />
-            <ReceitaWaterfall
-              gmvTotal={raw.gmv_total ?? raw.fat_bruto}
-              comissao={raw.receita_liquida}
-              fixo={raw.fixo_mensal}
-              custos={raw.total_custos}
-              resultado={raw.fat_liquido}
+      {tab === 'lancamentos' ? (
+        lancamentos.isError && !data ? (
+          <ErrorState message={extractErrorMessage(lancamentos.error)} onRetry={() => void lancamentos.refetch()} />
+        ) : lancamentos.isLoading && !data ? (
+          <LancamentosSkeleton />
+        ) : (
+          <div className="space-y-5">
+            <ResumoCards
+              totais={totais}
+              atrasadosCount={atrasadosCount}
+              atrasadosAtivo={filtro.status === 'atrasado'}
+              onFiltrarAtrasados={() => setFiltro((f) => ({ ...f, status: f.status === 'atrasado' ? '' : 'atrasado' }))}
             />
-          </section>
-
-          {/* Resultado operacional — entradas × saídas automáticas com memória por lançamento */}
-          {operacional.data ? (
-            <ResultadoOperacional data={operacional.data} />
-          ) : operacional.isLoading ? (
-            <LoadingState label="Calculando resultado operacional" />
-          ) : operacional.isError ? (
-            <ErrorState message={extractErrorMessage(operacional.error)} onRetry={() => void operacional.refetch()} />
-          ) : null}
-
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {metrics.map((item, index) => (
-              // MetricCard é compartilhado por várias telas e não expõe slot de
-              // ajuda; o ícone é ancorado no canto inferior direito do card (o
-              // superior direito já é do ícone da métrica). Absoluto = não empurra.
-              <div key={item.label} className="relative">
-                <MetricCard metric={item} icon={metricIcons[index]} />
-                <span className="absolute bottom-5 right-5">
-                  <MetricInfo metric={metricKeys[index]} detail={metricDetails[index]} align="right" />
-                </span>
-              </div>
-            ))}
-          </section>
-
-          {/* Memória de cálculo — transparência: de onde vem cada número (fonte: lives + vídeos) */}
-          <details className="group rounded-2xl border border-line bg-surface">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
-              <span>Memória de cálculo — de onde vêm os números</span>
-              <span className="text-xs font-normal text-ink-muted">expandir</span>
-            </summary>
-            <div className="space-y-2 border-t border-line px-4 py-3 text-sm text-ink-muted">
-              <p>
-                <span className="font-semibold text-ink">GMV bruto {formatMoney(raw.gmv_total)}</span>
-                {' = '}Lives {formatMoney(raw.gmv_lives)} ({num(raw.total_lives)} lives) + Vídeos {formatMoney(raw.gmv_videos)} ({num(raw.total_videos)} vídeos)
-              </p>
-              <p>
-                <span className="font-semibold text-[var(--success)]">Comissão de franquia {formatMoney(raw.receita_liquida)}</span>
-                {' = '}Σ comissão calculada das lives (GMV × % da marca){asNumber(raw.fixo_mensal) > 0 ? <> {' + '}fixo mensal {formatMoney(raw.fixo_mensal)}</> : null} — receita da LiveLab, <span className="font-semibold">antes</span> dos custos
-              </p>
-              <p>
-                <span className="font-semibold text-ink">Resultado líquido {formatMoney(raw.fat_liquido)}</span>
-                {' = '}comissão de franquia {formatMoney(raw.receita_liquida)} − custos {formatMoney(raw.total_custos)}
-              </p>
-              <p className="text-xs">
-                Comissão de franquia = <span className="num">Σ(GMV × % da marca)</span> por live <span className="num">+ fixo mensal</span> das marcas (somado uma vez por mês com atividade).
-                Fonte do GMV: tabela <code>lives</code> (Conteúdo/Operacional) + <code>video_registros</code>.
-              </p>
-              {comissaoFaltante > 0 ? (
-                <p className="rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-[var(--danger)]">
-                  ⚠ {comissaoFaltante} live(s) com GMV mas sem comissão calculada — marca/apresentadora não resolvida. Financeiro × Comissões não batem até ajustar o cadastro.
-                </p>
-              ) : null}
-            </div>
-          </details>
-
-          <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
-            {hasFluxo ? (
-              <LinePanel title="Fluxo de caixa" subtitle="Entradas (GMV) vs. saídas (custos) por dia" data={fluxoItems} secondary />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <p className="text-base font-bold text-ink">Fluxo de caixa</p>
-                </CardHeader>
-                <CardBody>
-                  <EmptyState title="Sem dados de fluxo" description="Nenhuma entrada ou custo real lançado no período." />
-                </CardBody>
-              </Card>
-            )}
-            <Card>
-              <CardHeader>
-                <p className="text-base font-bold text-ink">Custos da competência</p>
-                <p className="mt-1 text-xs text-ink-muted">Lançamentos de um mês — independem do intervalo selecionado acima.</p>
-              </CardHeader>
-              <CardBody className="space-y-3">
-                {podeEscrever ? (
-                <form className="grid gap-3" onSubmit={onCustoSubmit}>
-                  <input className="design-input h-11 w-full px-4" placeholder="Descrição" value={custo.descricao} onChange={(event) => setCustoField('descricao', event.target.value)} required />
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <MoneyInput className="design-input h-11 w-full px-4" placeholder="Valor" value={custo.valor} onChange={(rawValue) => setCustoField('valor', rawValue)} required />
-                    <select className="design-input h-11 w-full px-4" value={custo.tipo} onChange={(event) => setCustoField('tipo', event.target.value)}>
-                      {['aluguel', 'salario', 'energia', 'internet', 'outros'].map((tipo) => <option key={tipo} value={tipo}>{tipo}</option>)}
-                    </select>
-                    <input className="design-input h-11 w-full px-4" type="month" value={custo.competencia} onChange={(event) => setCustoField('competencia', event.target.value)} required />
-                  </div>
-                  {createCusto.isError || custos.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(createCusto.error ?? custos.error)}</p> : null}
-                  <Button type="submit" icon={Receipt} isLoading={createCusto.isPending}>Adicionar custo</Button>
-                </form>
-                ) : null}
-                <div className="space-y-2 border-t border-line pt-3">
-                  {custosRows.length === 0 ? (
-                    <EmptyState title="Sem custos no mês" description="Nenhum custo lançado para a competência selecionada." />
-                  ) : null}
-                  {custosRows.map((item) => {
-                    const Icon = item.tipo === 'aluguel' ? Building2 : item.tipo === 'salario' ? Users : item.tipo === 'energia' ? Zap : Receipt
-                    return (
-                      <div key={asString(item.id)} className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><Icon className="h-4 w-4" /></span>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-ink">{asString(item.descricao)}</p>
-                            <p className="text-xs text-ink-muted">{asString(item.tipo)} · {formatDate(asString(item.competencia, ''))}</p>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="num text-sm font-bold text-ink">{formatMoney(item.valor, true)}</span>
-                          {podeEscrever ? (
-                            <Button variant="ghost" disabled={deleteCusto.isPending} onClick={() => void deleteCusto.mutate(asString(item.id, ''))}>Excluir</Button>
-                          ) : null}
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {deleteCusto.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(deleteCusto.error)}</p> : null}
-                </div>
-              </CardBody>
-            </Card>
-          </section>
-        </>
-      ) : null}
-
-      {tab === 'cliente' ? (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-base font-bold text-ink">Faturamento por cliente</p>
-                <p className="mt-1 text-xs text-ink-muted">Participação da carteira no GMV da unidade no período. Clique numa linha para abrir o detalhe. {clientes.length > 100 ? `Mostrando top 100 de ${num(clientes.length)}.` : ''}</p>
-              </div>
-              {clientes.length ? <Button variant="secondary" icon={Download} onClick={exportClientesCsv}>Exportar CSV</Button> : null}
-            </div>
-          </CardHeader>
-          <CardBody>
-            <DataTable<JsonRecord>
-              data={clientesView}
-              onRowClick={(item) => setSelectedCliente(item)}
-              columns={[
-                {
-                  key: 'cliente_nome',
-                  header: 'Cliente',
-                  render: (item) => (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-ink">{asString(item.cliente_nome ?? item.nome)}</span>
-                      <Badge tone={tipoTone(asString(item.tipo_operacional))}>{TIPO_LABEL[asString(item.tipo_operacional)] ?? asString(item.tipo_operacional, 'cliente')}</Badge>
-                    </div>
-                  ),
-                },
-                { key: 'nicho', header: 'Nicho', render: (item) => asString(item.nicho ?? item.segmento) },
-                { key: 'valor', header: 'Faturamento', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_mes ?? item.valor ?? item.faturamento ?? item.total ?? item.gmv_total)}</span> },
-                { key: 'receita_liquida', header: 'Receita LiveLab', align: 'right', render: (item) => <span className="num">{formatMoney(item.receita_liquida)}</span> },
-                { key: 'lives', header: 'Lives', align: 'right', render: (item) => <span className="num">{num(item.lives_mes ?? item.lives ?? item.total_lives)}</span> },
-                { key: 'videos', header: 'Vídeos', align: 'right', render: (item) => <span className="num">{num(item.videos_mes ?? item.quantidade_videos)}</span> },
-                {
-                  key: 'gmv_live',
-                  header: 'GMV/live',
-                  align: 'right',
-                  render: (item) => {
-                    const lives = asNumber(item.lives_mes ?? item.lives ?? item.total_lives)
-                    return <span className="num">{lives > 0 ? formatMoney(asNumber(item.gmv_mes ?? item.total) / lives) : '—'}</span>
-                  },
-                },
-              ]}
-            />
-            {clientesView.length ? (
-              <TotalsBar
-                items={[
-                  { label: 'Total faturamento', value: formatMoney(sumBy(clientes, 'gmv_mes', 'total')) },
-                  { label: 'Total receita LiveLab', value: formatMoney(sumBy(clientes, 'receita_liquida')) },
-                ]}
-              />
-            ) : null}
-          </CardBody>
-        </Card>
-      ) : null}
-
-      {tab === 'comissoes' ? (
-        <>
-          {comissoesApresentadoras.isLoading || comissoesMarcas.isLoading ? (
-            <LoadingState />
-          ) : comissoesApresentadoras.isError || comissoesMarcas.isError ? (
-            <ErrorState
-              message={extractErrorMessage(comissoesApresentadoras.error ?? comissoesMarcas.error)}
-              onRetry={() => {
-                void comissoesApresentadoras.refetch()
-                void comissoesMarcas.refetch()
+            <LancamentosList
+              itens={itens}
+              hoje={hoje}
+              filtro={filtro}
+              onFiltro={setFiltro}
+              podeEscrever={podeEscrever}
+              isFetching={lancamentos.isFetching}
+              onBaixar={(l) => {
+                baixaMut.reset()
+                setBaixa(l)
+              }}
+              onDesfazer={(l) => {
+                baixaMut.reset()
+                setDesfazer(l)
+              }}
+              onEditar={(l) => setCustoModal({ kind: 'editar-lancamento', lancamento: l })}
+              onExcluir={(l) => {
+                custos.excluir.reset()
+                setExcluir(l)
               }}
             />
-          ) : (
-            <section className="space-y-4">
-              {podeReprocessar ? (
-                <Card>
-                  <CardBody className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-ink">Comissão zerada numa live que tem GMV?</p>
-                      <p className="mt-0.5 text-xs text-ink-muted">Recalcula agora as lives encerradas sem comissão (não espera os 10 min) e lista as que continuarem zeradas e por quê.</p>
-                    </div>
-                    <Button onClick={() => reprocessar.mutate()} isLoading={reprocessar.isPending}>Recalcular comissões agora</Button>
-                  </CardBody>
-                  {reprocessar.isError ? (
-                    <CardBody className="border-t border-line">
-                      <p className="rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{extractErrorMessage(reprocessar.error)}</p>
-                    </CardBody>
-                  ) : null}
-                  {reprocessar.data ? (
-                    <CardBody className="space-y-2 border-t border-line text-sm">
-                      <p className="text-ink">
-                        <span className="font-bold text-[var(--success)]">{asNumber(reprocessar.data.recalculadas_com_comissao)}</span> live(s) recalculada(s) com comissão
-                        {' · '}{asNumber(reprocessar.data.lives_sem_comissao_encontradas)} sem comissão encontradas
-                      </p>
-                      {asArray<JsonRecord>(reprocessar.data.ainda_zeradas).length ? (
-                        <div className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-ink">
-                          <p className="mb-1 font-semibold text-[var(--warning)]">Ainda zeradas (precisa ajuste de cadastro):</p>
-                          <ul className="space-y-0.5">
-                            {asArray<JsonRecord>(reprocessar.data.ainda_zeradas).map((l) => (
-                              <li key={asString(l.live_id)}>
-                                {asString(l.nome)} · {asString(l.dia)} · GMV {formatMoney(l.gmv)} — <span className="text-ink-muted">{asString(l.motivo)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-ink-muted">Nenhuma live ficou zerada. ✅</p>
-                      )}
-                    </CardBody>
-                  ) : null}
-                </Card>
-              ) : null}
-              <details className="group rounded-2xl border border-line bg-surface">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink">
-                  <span>Regras de comissão</span>
-                  <span className="text-xs font-normal text-ink-muted">expandir</span>
-                </summary>
-                <p className="border-t border-line px-4 py-3 text-xs text-ink-muted">
-                  Live em sábado ou domingo usa 2%. Dias úteis e vídeos seguem as faixas mensais, com vínculo de marca e escada padrão como fallback.
-                </p>
-              </details>
-
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                {comissoesExportError ? (
-                  <p className="text-sm font-medium text-[var(--danger)]">{comissoesExportError}</p>
-                ) : null}
-                <Button type="button" variant="secondary" icon={Download} onClick={exportComissoesCsv} isLoading={exportingComissoes}>
-                  Exportar comissões (CSV)
-                </Button>
-              </div>
-
-              <section className="grid gap-4 xl:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <p className="text-base font-bold text-ink">Comissão por apresentador</p>
-                    <p className="mt-1 text-xs text-ink-muted">GMV base, vídeos e lives incluídos no cálculo. Clique numa linha para ver o detalhe e o histórico.</p>
-                  </CardHeader>
-                  <CardBody>
-                    <DataTable<JsonRecord>
-                      data={apresentadorasRows}
-                      onRowClick={(item) => {
-                        const id = asString(item.apresentadora_id ?? item.id, '')
-                        if (id) navigate(`/apresentadoras/${id}`)
-                      }}
-                      columns={[
-                        { key: 'apresentadora_nome', header: 'Apresentador', render: (item) => asString(item.apresentadora_nome ?? item.nome, 'Sem apresentador') },
-                        { key: 'gmv_total', header: 'GMV base', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_total)}</span> },
-                        { key: 'gmv_videos', header: 'Vídeos', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_videos)}</span> },
-                        { key: 'registros', header: 'Registros', align: 'right', render: (item) => <span className="num">{num(item.registros)}</span> },
-                        { key: 'comissao_apresentadora', header: 'Comissão', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_apresentadora ?? item.comissao_total)}</span> },
-                      ]}
-                    />
-                    {apresentadorasRows.length ? <TotalsBar items={[{ label: 'Total comissão', value: formatMoney(sumBy(apresentadorasRows, 'comissao_apresentadora', 'comissao_total')) }]} /> : null}
-                  </CardBody>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <p className="text-base font-bold text-ink">Comissão por marca</p>
-                    <p className="mt-1 text-xs text-ink-muted">Valores por marca, cliente ou afiliada. Clique numa linha para abrir o detalhe.</p>
-                  </CardHeader>
-                  <CardBody>
-                    <DataTable<JsonRecord>
-                      data={marcasRows}
-                      onRowClick={(item) => {
-                        const id = asString(item.marca_id ?? item.id, '')
-                        if (id) setSelectedCliente({ ...item, tipo_entidade: 'marca' })
-                      }}
-                      columns={[
-                        { key: 'marca_nome', header: 'Marca', render: (item) => (
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-ink">{asString(item.marca_nome ?? item.nome)}</span>
-                            <Badge tone={asString(item.marca_tipo ?? item.tipo) === 'afiliada' ? 'info' : 'brand'}>{asString(item.marca_tipo ?? item.tipo, 'cliente')}</Badge>
-                          </div>
-                        ) },
-                        { key: 'gmv_total', header: 'GMV base', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_total)}</span> },
-                        { key: 'comissao_apresentadoras', header: 'Apresentadores', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_apresentadoras)}</span> },
-                        { key: 'comissao_fixo', header: 'Fixo', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_fixo)}</span> },
-                        { key: 'comissao_franquia', header: 'Franquia', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_franquia)}</span> },
-                      ]}
-                    />
-                    {marcasRows.length ? <TotalsBar items={[{ label: 'Total franquia', value: formatMoney(sumBy(marcasRows, 'comissao_franquia')) }]} /> : null}
-                  </CardBody>
-                </Card>
-              </section>
-            </section>
-          )}
-        </>
+          </div>
+        )
       ) : null}
 
-      {tab === 'franqueadora' ? (
-        <>
-          {franqueadora.isLoading && !franqueadora.data ? (
-            <LoadingState />
-          ) : franqueadora.isError ? (
-            <ErrorState message={extractErrorMessage(franqueadora.error)} onRetry={() => void franqueadora.refetch()} />
-          ) : (
-            <>
-              <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <MetricCard metric={moneyMetric('GMV da rede', franqueadora.data?.total_gmv, 'gross merchandise value', 'brand')} icon={CircleDollarSign} />
-                <MetricCard
-                  metric={royaltiesConfigurados
-                    ? moneyMetric('Royalties', franqueadora.data?.total_royalties, 'taxa arrecadada no período', 'success')
-                    : metric('Royalties', 'Não configurado', '% de royalties ainda não definido', 'neutral')}
-                  icon={TrendingUp}
-                />
-                <MetricCard metric={metric('Franqueados', asNumber(franqueadora.data?.total_franqueados), 'unidades ativas', 'neutral')} icon={Building2} />
-              </section>
+      {tab === 'dre' ? <DrePanel key={mes.slice(0, 4)} mes={mes} /> : null}
 
-              <Card>
-                <CardHeader>
-                  <p className="text-base font-bold text-ink">Desempenho por franqueado</p>
-                  <p className="mt-1 text-xs text-ink-muted">GMV, lives e royalties de cada unidade no período.</p>
-                </CardHeader>
-                <CardBody>
-                  <DataTable<JsonRecord>
-                    data={franqueadosRows}
-                    columns={[
-                      {
-                        key: 'nome',
-                        header: 'Franqueado',
-                        render: (item) => (
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-ink">{asString(item.franqueado_nome ?? item.nome)}</span>
-                            {asString(item.uf, '') ? <Badge tone="neutral">{asString(item.uf)}</Badge> : null}
-                          </div>
-                        ),
-                      },
-                      { key: 'cidade', header: 'Cidade', render: (item) => <span className="inline-flex items-center gap-1 text-ink-muted"><MapPin className="h-3.5 w-3.5" />{asString(item.cidade)}</span> },
-                      { key: 'plano', header: 'Plano', render: (item) => asString(item.plano, '—') },
-                      { key: 'gmv_total', header: 'GMV', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_total ?? item.gmv)}</span> },
-                      { key: 'total_lives', header: 'Lives', align: 'right', render: (item) => <span className="num">{num(item.total_lives)}</span> },
-                      { key: 'royalties_estimados', header: 'Royalties', align: 'right', render: (item) => <span className="num" title="Estimado — % configurável">{royaltiesConfigurados ? formatMoney(item.royalties_estimados) : '—'}</span> },
-                    ]}
-                  />
-                  {franqueadosRows.length ? (
-                    <TotalsBar
-                      items={[
-                        { label: 'Total GMV', value: formatMoney(sumBy(franqueadosRows, 'gmv_total', 'gmv')) },
-                        ...(royaltiesConfigurados ? [{ label: 'Total royalties', value: formatMoney(sumBy(franqueadosRows, 'royalties_estimados')) }] : []),
-                      ]}
-                    />
-                  ) : null}
-                </CardBody>
-              </Card>
-            </>
-          )}
-        </>
+      {tab === 'fluxo' ? <FluxoCaixaPanel mes={mes} itensMes={itens} /> : null}
+
+      {tab === 'recorrentes' ? (
+        <RecorrentesPanel
+          mes={mes}
+          podeEscrever={podeEscrever}
+          onNovo={() => setCustoModal({ kind: 'novo', modo: 'recorrente' })}
+          onEditar={(r) => setCustoModal({ kind: 'editar-recorrente', recorrente: r })}
+          onToast={toastOk}
+        />
       ) : null}
 
-      <Modal
-        open={Boolean(selectedCliente)}
-        title={`${selectedClienteKind === 'marca' ? 'Marca' : 'Cliente'}: ${asString(selectedCliente?.marca_nome ?? selectedCliente?.nome, '—')}`}
-        subtitle="GMV, comissão, sessões de live e vídeos do período selecionado."
-        size="xl"
-        onClose={() => setSelectedCliente(null)}
-      >
-        {selectedClienteDetail.isLoading ? <LoadingState label="Carregando histórico" /> : null}
-        {selectedClienteDetail.isError ? <ErrorState message={extractErrorMessage(selectedClienteDetail.error)} onRetry={() => void selectedClienteDetail.refetch()} /> : null}
-        {selectedClienteDetail.data ? (() => {
-          const m = getRecord(selectedClienteDetail.data.metrics)
-          const cadastro = getRecord(selectedClienteDetail.data.marca ?? selectedClienteDetail.data.cliente)
-          const lives = asArray<JsonRecord>(selectedClienteDetail.data.lives)
-          const vendas = asArray<JsonRecord>(selectedClienteDetail.data.vendas_atribuidas)
-          const comissao = asNumber(m.comissao_franquia) + asNumber(m.comissao_franqueadora)
-          return (
-            <div className="space-y-4">
-              <CadastroQuickEdit
-                kind={selectedClienteKind}
-                record={cadastro}
-                onSaved={() => {
-                  void client.invalidateQueries({ queryKey: QK.financeiroClienteOperacional({ clienteKind: selectedClienteKind, clienteId: selectedClienteId }) })
-                  void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
-                  void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
-                  void client.invalidateQueries({ queryKey: QK.financeiroFaturamento() })
-                }}
-              />
-              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {[
-                  moneyMetric('GMV no período', m.gmv_mes, 'lives + vídeos', 'brand'),
-                  moneyMetric('Comissão de franquia', comissao, 'franquia + franqueadora', 'success'),
-                  metric('Lives', m.total_lives ?? 0, 'no período', 'neutral'),
-                  metric('Vídeos', m.total_videos ?? 0, 'no período', 'info'),
-                ].map((item, index) => <MetricCard key={item.label} metric={item} icon={[CircleDollarSign, Percent, Users, Receipt][index]} />)}
-              </section>
+      {tab === 'cliente' ? <PorClienteTab periodo={periodo} /> : null}
 
-              <Card>
-                <CardHeader><p className="text-base font-bold text-ink">Sessões de live</p></CardHeader>
-                <CardBody>
-                  {lives.length ? (
-                    <DataTable<JsonRecord>
-                      data={lives}
-                      columns={[
-                        { key: 'iniciado_em', header: 'Data', render: (item) => asString(item.iniciado_em).slice(0, 10) },
-                        { key: 'apresentadora_nome', header: 'Apresentadora', render: (item) => asString(item.apresentadora_nome, '—') },
-                        { key: 'gmv', header: 'GMV', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv)}</span> },
-                        { key: 'status', header: 'Status', render: (item) => <Badge tone={asString(item.status) === 'encerrada' ? 'success' : 'neutral'}>{asString(item.status, '—')}</Badge> },
-                      ]}
-                    />
-                  ) : (
-                    <EmptyState title="Sem lives no período" description="Nenhuma live encerrada para este cadastro no período selecionado." />
-                  )}
-                </CardBody>
-              </Card>
+      {tab === 'comissoes' ? <ComissoesTab periodo={periodo} podeReprocessar={podeReprocessar} /> : null}
 
-              {vendas.length ? (
-                <Card>
-                  <CardHeader><p className="text-base font-bold text-ink">Comissões atribuídas</p></CardHeader>
-                  <CardBody>
-                    <DataTable<JsonRecord>
-                      data={vendas}
-                      columns={[
-                        { key: 'data', header: 'Data', render: (item) => asString(item.data).slice(0, 10) },
-                        { key: 'origem', header: 'Origem', render: (item) => asString(item.origem) },
-                        { key: 'gmv', header: 'GMV', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv)}</span> },
-                        { key: 'comissao_franquia', header: 'Comissão franquia', align: 'right', render: (item) => <span className="num">{formatMoney(item.comissao_franquia)}</span> },
-                      ]}
-                    />
-                  </CardBody>
-                </Card>
-              ) : null}
-            </div>
+      <BaixaModal
+        lancamento={baixa}
+        onClose={() => setBaixa(null)}
+        onConfirm={confirmarBaixa}
+        isPending={baixaMut.isPending}
+        error={baixaMut.error ? extractErrorMessage(baixaMut.error) : null}
+      />
+      <DesfazerModal
+        lancamento={desfazer}
+        onClose={() => setDesfazer(null)}
+        onConfirm={confirmarDesfazer}
+        isPending={baixaMut.isPending}
+        error={baixaMut.error ? extractErrorMessage(baixaMut.error) : null}
+      />
+      <ExcluirModal
+        key={excluir?.id ?? 'none'}
+        lancamento={excluir}
+        onClose={() => setExcluir(null)}
+        isPending={custos.excluir.isPending}
+        error={custos.excluir.error ? extractErrorMessage(custos.excluir.error) : null}
+        onConfirm={(escopo) =>
+          excluir &&
+          custos.excluir.mutate(
+            { id: excluir.id, escopo },
+            {
+              onSuccess: () => {
+                setExcluir(null)
+                toastOk('Custo excluído.')
+              },
+            },
           )
-        })() : null}
-      </Modal>
+        }
+      />
+      <CustoFormModal state={custoModal} mes={mes} onClose={() => setCustoModal(null)} onSaved={(msg) => toastOk(msg)} />
+      <ImpostoConfigModal
+        open={impostoOpen}
+        atual={aliquota ?? 10}
+        podeEscrever={podeEscrever}
+        onClose={() => setImpostoOpen(false)}
+        onSaved={(msg) => toastOk(msg)}
+      />
+    </div>
+  )
+}
+
+function LancamentosSkeleton() {
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Carregando lançamentos">
+      <div className="grid gap-4 lg:grid-cols-[1.05fr_2fr]">
+        <div className="h-52 animate-pulse rounded-[18px] bg-surface-muted" />
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface-muted" />
+          ))}
+        </div>
+      </div>
+      <div className="design-card space-y-3 p-5">
+        <CalendarRange className="h-5 w-5 text-ink-muted" aria-hidden />
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="h-12 animate-pulse rounded-xl bg-surface-muted" />
+        ))}
+      </div>
     </div>
   )
 }

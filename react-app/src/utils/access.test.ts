@@ -71,6 +71,7 @@ describe('menuForUser', () => {
     expect(franqueadoMenu).toContain('/comercial')
     expect(franqueadoMenu).toContain('/conteudo')
     expect(franqueadoMenu).toContain('/financeiro')
+    expect(franqueadoMenu).toContain('/conciliacao-asaas')
     // Analytics voltou a ter item próprio (findability dos relatórios PDF/CSV) —
     // para gestores; apresentadora continua chegando só pela aba de Conteúdo.
     expect(franqueadoMenu).toContain('/analytics-dashboard')

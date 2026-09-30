@@ -43,12 +43,10 @@ function PageHead({ liveCount }: { liveCount: number }) {
 function AlertsStrip({ raw }: { raw: JsonRecord }) {
   const alertas = (raw.alertas ?? {}) as JsonRecord
   const contratos = asNumber(alertas.contratos_aguardando_assinatura ?? raw.contratos_aguardando_assinatura)
-  const boletos = asNumber(alertas.boletos_vencidos ?? raw.boletos_vencidos)
   const conflitos = asNumber(alertas.conflitos_agenda ?? raw.conflitos_agenda)
 
   const items = [
     { label: 'Contratos aguardando', value: contratos, hint: 'assinatura pendente', tone: 'warning' as const },
-    { label: 'Boletos vencidos', value: boletos, hint: 'atenção financeira', tone: 'danger' as const },
     { label: 'Conflitos de agenda', value: conflitos, hint: 'próximas 48h', tone: 'neutral' as const },
   ].filter((a) => a.value > 0)
 
@@ -61,13 +59,13 @@ function AlertsStrip({ raw }: { raw: JsonRecord }) {
           key={a.label}
           className="flex items-center gap-3 rounded-xl px-4 py-3"
           style={{
-            background: a.tone === 'danger' ? 'var(--danger-soft)' : a.tone === 'warning' ? 'var(--warning-soft)' : 'var(--bg-elev-1)',
-            border: `1px solid ${a.tone === 'danger' ? 'var(--danger)' : a.tone === 'warning' ? 'var(--warning)' : 'var(--border)'}`,
+            background: a.tone === 'warning' ? 'var(--warning-soft)' : 'var(--bg-elev-1)',
+            border: `1px solid ${a.tone === 'warning' ? 'var(--warning)' : 'var(--border)'}`,
           }}
         >
           <span
             className="text-xl font-bold font-mono leading-none"
-            style={{ color: a.tone === 'danger' ? 'var(--danger)' : a.tone === 'warning' ? 'var(--warning)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
+            style={{ color: a.tone === 'warning' ? 'var(--warning)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}
           >
             {a.value}
           </span>

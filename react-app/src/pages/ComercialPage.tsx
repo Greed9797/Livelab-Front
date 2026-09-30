@@ -13,9 +13,9 @@ import { Modal } from '../components/ui/Modal'
 import { ImagePicker } from '../components/ui/ImagePicker'
 import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
 import { BriefingSection } from '../components/comercial/BriefingSection'
-import { MoneyInput } from '../components/ui/MoneyInput'
+import { CondicoesComerciaisPanel } from '../components/comercial/CondicoesComerciaisPanel'
 import { useToast } from '../components/ui/Toast'
-import { normalizeMoneyInputText, parseBRMoneyToDecimal } from '../utils/money'
+import { normalizeMoneyInputText } from '../utils/money'
 import { extractBrandColor, resolveMarcaCor } from '../utils/brandColor'
 import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getCrmSummary, getLeads, getMarcaOperacional, getMarcas, getMasterCrm, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
@@ -496,10 +496,6 @@ export function ComercialPage() {
       payload = {
         nome: ativoForm.nome,
         status: ativoForm.status === 'ativo' ? 'ativa' : ativoForm.status,
-        comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
-        comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
-        valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
-        tipo_cobranca: ativoForm.tipo_cobranca,
         data_inicio: ativoForm.data_inicio || null,
         data_fim: ativoForm.data_fim || null,
         logo_url: ativoForm.logo_url || null,
@@ -513,10 +509,6 @@ export function ComercialPage() {
         await updateMarcaPctMutation.mutateAsync({
           id: marcaPctId,
           payload: {
-            comissao_franquia_pct: Number(ativoForm.comissao_franquia_pct || 0),
-            comissao_franqueadora_pct: Number(ativoForm.comissao_franqueadora_pct || 0),
-            valor_fixo_minimo: parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo),
-            tipo_cobranca: ativoForm.tipo_cobranca,
             data_inicio: ativoForm.data_inicio || null,
             data_fim: ativoForm.data_fim || null,
             ...(cor !== undefined ? { cor } : {}),
@@ -988,42 +980,9 @@ export function ComercialPage() {
                   </>
                 ) : null}
                 <>
-                    <div className="col-span-full"><p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Comissão da marca</p></div>
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Comissão Franquia (%)</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franquia_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franquia_pct: event.target.value }))} />
-                      <span className="mt-1 text-[11px] text-ink-muted">% sobre GMV mensal da marca destinado à franquia.</span>
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Comissão Franqueadora (%)</span>
-                      <input className="design-input mt-2 h-11 w-full px-4" type="number" min="0" max="100" step="0.01" value={ativoForm.comissao_franqueadora_pct} onChange={(event) => setAtivoForm((current) => ({ ...current, comissao_franqueadora_pct: event.target.value }))} />
-                      <span className="mt-1 text-[11px] text-ink-muted">% destinado à Livelab/franqueadora.</span>
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-semibold text-ink">Fixo mensal (R$)</span>
-                      <MoneyInput className="design-input mt-2 h-11 w-full px-4" placeholder="0,00" value={ativoForm.valor_fixo_minimo} onChange={(raw) => setAtivoForm((current) => ({ ...current, valor_fixo_minimo: raw }))} />
-                      <span className="mt-1 text-[11px] text-ink-muted">≈ {formatMoney(parseBRMoneyToDecimal(ativoForm.valor_fixo_minimo))} / mês quando a marca tiver atividade (em franquia e franqueadora).</span>
-                    </label>
-                    <div className="col-span-full">
-                      <span className="text-sm font-semibold text-ink">Tipo de cobrança</span>
-                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        {([
-                          { v: 'fixo_mais_comissao', label: 'Fixo + comissão', hint: 'Soma o fixo mensal e a comissão sobre GMV.' },
-                          { v: 'fixo_ou_comissao', label: 'Fixo OU comissão', hint: 'Entra só o maior: o fixo ou a comissão.' },
-                        ] as const).map((opt) => (
-                          <button
-                            key={opt.v}
-                            type="button"
-                            onClick={() => setAtivoForm((current) => ({ ...current, tipo_cobranca: opt.v }))}
-                            className={`rounded-xl border px-4 py-3 text-left transition ${ativoForm.tipo_cobranca === opt.v ? 'border-brand bg-brand-soft text-ink' : 'border-border text-ink-muted hover:border-border-strong'}`}
-                            aria-pressed={ativoForm.tipo_cobranca === opt.v}
-                          >
-                            <span className="block text-sm font-semibold">{opt.label}</span>
-                            <span className="mt-0.5 block text-[11px] text-ink-muted">{opt.hint}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    {(selectedAtivoKind === 'marca' ? selectedAtivoId : marcaPctId)
+                      ? <CondicoesComerciaisPanel key={selectedAtivoKind === 'marca' ? selectedAtivoId : marcaPctId ?? ''} marcaId={(selectedAtivoKind === 'marca' ? selectedAtivoId : marcaPctId) as string} />
+                      : <p className="col-span-full text-[11px] text-ink-muted">Condições comerciais (fixo, comissão e vencimentos) precisam de uma marca vinculada.</p>}
                     <div className="col-span-full grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <label className="block">
                         <span className="text-sm font-semibold text-ink">Início do contrato</span>

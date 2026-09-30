@@ -599,26 +599,6 @@ export function deleteFinanceiroCusto(id: string) {
   return apiDelete(`/financeiro/custos/${id}`)
 }
 
-export function getBoletos() {
-  return apiGet<JsonRecord[]>('/boletos')
-}
-
-export function getBoletoAlertas() {
-  return apiGet<JsonRecord | null>('/boletos/alertas')
-}
-
-export function getBoletoDetalhe(id: string) {
-  return apiGet<JsonRecord>(`/boletos/${id}`)
-}
-
-export function marcarBoletoVisto(id: string) {
-  return apiPatch(`/boletos/${id}/visto`, {})
-}
-
-export function marcarBoletoPago(id: string) {
-  return apiPatch(`/boletos/${id}/pagar`, {})
-}
-
 export function getConfiguracoes() {
   return apiGet<JsonRecord>('/configuracoes')
 }

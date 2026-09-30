@@ -22,6 +22,7 @@ const ClienteFinanceiroPage = lazy(() => import('../pages/ClienteFinanceiroPage'
 const ConteudoPage = lazy(() => import('../pages/ConteudoPage').then(m => ({ default: m.ConteudoPage })))
 const AnalyticsPage = lazy(() => import('../pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })))
 const FinanceiroPage = lazy(() => import('../pages/FinanceiroPage').then(m => ({ default: m.FinanceiroPage })))
+const AsaasConciliacaoPage = lazy(() => import('../pages/AsaasConciliacaoPage').then(m => ({ default: m.AsaasConciliacaoPage })))
 const ComissoesConfigPage = lazy(() => import('../pages/ComissoesConfigPage').then(m => ({ default: m.ComissoesConfigPage })))
 const ApresentadorasPage = lazy(() => import('../pages/ApresentadorasPage').then(m => ({ default: m.ApresentadorasPage })))
 const ApresentadoraDetailPage = lazy(() => import('../pages/ApresentadoraDetailPage').then(m => ({ default: m.ApresentadoraDetailPage })))
@@ -104,16 +105,13 @@ export function AppRouter() {
 
             <Route element={<ProtectedRoute allowedRoles={financeRoles} />}>
               <Route path="/financeiro" element={<Suspense fallback={<PageFallback />}><FinanceiroPage /></Suspense>} />
+              <Route path="/conciliacao-asaas" element={<Suspense fallback={<PageFallback />}><AsaasConciliacaoPage /></Suspense>} />
             </Route>
 
             {/* Detalhe da apresentadora — alcançado por clique nas tabelas/rankings de
                 comissão (Financeiro) e no pulso operacional (ops). */}
             <Route element={<ProtectedRoute allowedRoles={[...internalRoles, ...masterRoles]} />}>
               <Route path="/apresentadoras/:id" element={<Suspense fallback={<PageFallback />}><ApresentadoraDetailPage /></Suspense>} />
-            </Route>
-
-            <Route element={<ProtectedRoute allowedRoles={financeRoles} />}>
-              <Route path="/boletos" element={<Navigate to="/financeiro?tab=boletos" replace />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['franqueador_master', 'franqueado']} />}>

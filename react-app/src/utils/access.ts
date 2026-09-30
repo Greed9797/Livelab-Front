@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Percent,
   Presentation,
+  Scale,
   Settings,
   Store,
   Trophy,
@@ -105,7 +106,7 @@ export const clienteRoles: Role[] = ['cliente_parceiro']
  * IMPORTANTE: não derivar de normalizeRole(). Ela colapsa gerente_comercial,
  * financeiro_readonly, auditor, suporte, marketing e comercial_readonly em
  * 'operacional', ou seja, daria escrita exatamente aos 6 papéis read-only.
- * Por isso a checagem é feita no papel cru, igual ao writeRoles de BoletosPage.
+ * Por isso a checagem é feita no papel cru, igual aos writeRoles das páginas de escrita.
  */
 // gerente_regional fica FORA daqui de propósito. O papel é real no banco
 // (migration 070, regional_managers.js), mas em src/config/role_groups.js do
@@ -217,6 +218,7 @@ export const menuItems: MenuItem[] = [
   // Analytics standalone — mesmos roles da rota /analytics-dashboard no AppRouter.
   { label: 'Analytics', path: '/analytics-dashboard', icon: ChartSpline, roles: [...masterRoles, ...financeRoles, ...commercialRoles] },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeRoles },
+  { label: 'Conciliação Asaas', path: '/conciliacao-asaas', icon: Scale, roles: financeRoles },
   // Hub de comissões — mesmos roles da rota /comissoes/config no AppRouter.
   { label: 'Comissões', path: '/comissoes/config', icon: Percent, roles: ['franqueador_master', 'franqueado'] },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora'] },
