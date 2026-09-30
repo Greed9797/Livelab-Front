@@ -28,7 +28,7 @@ const accounts: Account[] = [
     emailEnv: 'E2E_FRANQUEADO_EMAIL',
     passwordEnv: 'E2E_FRANQUEADO_PASSWORD',
     landing: /\/(?:$|[?#])/,
-    allowedRoutes: ['/', '/master/crm', '/cabines', '/solicitacoes', '/apresentadoras', '/analytics-dashboard', '/financeiro', '/boletos', '/configuracoes', '/conhecimento'],
+    allowedRoutes: ['/', '/master/crm', '/cabines', '/solicitacoes', '/apresentadoras', '/analytics-dashboard', '/financeiro', '/configuracoes', '/conhecimento'],
     forbiddenRoutes: ['/master', '/cliente'],
   },
   {
@@ -37,7 +37,7 @@ const accounts: Account[] = [
     emailEnv: 'E2E_CLIENTE_EMAIL',
     passwordEnv: 'E2E_CLIENTE_PASSWORD',
     landing: /\/(?:cliente|onboarding)(?:$|[/?#])/,
-    allowedRoutes: ['/cliente', '/cliente/lives', '/cliente/agenda', '/cliente/configuracoes', '/boletos', '/conhecimento'],
+    allowedRoutes: ['/cliente', '/cliente/lives', '/cliente/agenda', '/cliente/configuracoes', '/conhecimento'],
     forbiddenRoutes: ['/master', '/cabines', '/financeiro'],
   },
 ]

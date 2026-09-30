@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, History, Pencil, Plus, RotateCcw } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
@@ -8,6 +8,9 @@ import { LoadingState } from '../ui/States'
 import { MoneyInput } from '../ui/MoneyInput'
 import { extractErrorMessage } from '../../services/api'
 import { confirmMarcaCondicao, getMarcaCondicoes, previewMarcaCondicao } from '../../services/domain'
+import { patchVencimentoCondicao } from '../../services/condicoes'
+import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
+import { MES_OFFSET_OPTIONS, condicaoVigente, parseVencimentoForm, resumoVencimento, vencimentoDaCondicao } from '../../utils/condicoes-vencimento'
 import { QK } from '../../services/query-keys'
 import { formatMoney } from '../../utils/format'
 import { parseBRMoneyToDecimal } from '../../utils/money'
@@ -165,6 +168,30 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
     enabled: Boolean(marcaId),
   })
   const conditions = conditionsQuery.data ?? []
+  const hoje = getSaoPauloDateInput()
+  const vigente = useMemo(() => condicaoVigente(conditions, hoje), [conditions, hoje])
+  const vigenteId = typeof vigente?.id === 'string' ? vigente.id : ''
+  const [vencimentoForm, setVencimentoForm] = useState(() => {
+    const padrao = vencimentoDaCondicao(null)
+    return {
+      fixo_vencimento_dia: String(padrao.fixo_vencimento_dia),
+      fixo_vencimento_mes_offset: String(padrao.fixo_vencimento_mes_offset),
+      comissao_vencimento_dia: String(padrao.comissao_vencimento_dia),
+      comissao_vencimento_mes_offset: String(padrao.comissao_vencimento_mes_offset),
+    }
+  })
+  const vencimentoSeed = useRef<string | null>(null)
+  useEffect(() => {
+    if (!vigenteId || vencimentoSeed.current === vigenteId) return
+    vencimentoSeed.current = vigenteId
+    const atual = vencimentoDaCondicao(vigente)
+    setVencimentoForm({
+      fixo_vencimento_dia: String(atual.fixo_vencimento_dia),
+      fixo_vencimento_mes_offset: String(atual.fixo_vencimento_mes_offset),
+      comissao_vencimento_dia: String(atual.comissao_vencimento_dia),
+      comissao_vencimento_mes_offset: String(atual.comissao_vencimento_mes_offset),
+    })
+  }, [vigente, vigenteId])
   const expectedRevision = useMemo(
     () => Math.max(1, ...conditions.map((condition) => Math.max(1, Math.trunc(numberValue(condition.revision))))),
     [conditions],
@@ -197,6 +224,19 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
       setError(extractErrorMessage(cause))
       void queryClient.invalidateQueries({ queryKey: QK.marcaCondicoes(marcaId ?? undefined) })
     },
+  })
+  const vencimentoMutation = useMutation({
+    mutationFn: () => {
+      const parsed = parseVencimentoForm(vencimentoForm)
+      if (!parsed.ok) return Promise.reject(new Error(parsed.error))
+      return patchVencimentoCondicao(marcaId as string, vigenteId, parsed.value)
+    },
+    onSuccess: () => {
+      setError(null)
+      vencimentoSeed.current = null
+      void queryClient.invalidateQueries({ queryKey: QK.marcaCondicoes(marcaId ?? undefined) })
+    },
+    onError: (cause) => setError(extractErrorMessage(cause)),
   })
 
   function setField<K extends keyof CondicaoForm>(key: K, value: CondicaoForm[K]) {
@@ -253,12 +293,33 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
             {conditions.map((condition) => (
               <details key={String(condition.id ?? condition.inicio_vigencia)} className="group rounded-2xl border border-line bg-surface-muted">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 focus-visible:outline-2 focus-visible:outline-brand">
-                  <span className="min-w-0"><span className="block truncate text-sm font-semibold text-ink"><Badge className="mr-2" tone={conditionPeriodLabel(condition) === 'Vigente' ? 'success' : conditionPeriodLabel(condition) === 'Futura' ? 'info' : 'neutral'}>{conditionPeriodLabel(condition)}</Badge>{conditionTitle(condition)}{condition.origem === 'legado_nao_verificado' ? <Badge className="ml-2" tone="warning">A revisar</Badge> : null}</span><span className="mt-1 block text-xs text-ink-muted">{conditionSummary(condition)} · revisão {numberValue(condition.revision)}</span></span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-ink-muted transition-transform group-open:rotate-180" />
+                  <span className="min-w-0"><span className="block truncate text-sm font-semibold text-ink"><Badge className="mr-2" tone={conditionPeriodLabel(condition) === 'Vigente' ? 'success' : conditionPeriodLabel(condition) === 'Futura' ? 'info' : 'neutral'}>{conditionPeriodLabel(condition)}</Badge>{conditionTitle(condition)}{condition.origem === 'legado_nao_verificado' ? <Badge className="ml-2" tone="warning">A revisar</Badge> : null}</span><span className="mt-1 block text-xs text-ink-muted">{conditionSummary(condition)} · fixo {resumoVencimento(vencimentoDaCondicao(condition).fixo_vencimento_dia, vencimentoDaCondicao(condition).fixo_vencimento_mes_offset)} · comissão {resumoVencimento(vencimentoDaCondicao(condition).comissao_vencimento_dia, vencimentoDaCondicao(condition).comissao_vencimento_mes_offset)} · revisão {numberValue(condition.revision)}</span></span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-ink-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="grid gap-3 border-t border-line p-4 text-sm sm:grid-cols-3"><div><span className="block text-xs text-ink-muted">Vigência</span><span className="font-medium text-ink">{monthLabel(condition.inicio_vigencia)}</span></div><div><span className="block text-xs text-ink-muted">Fixo mensal</span><span className="font-medium text-ink">{formatMoney(conditionValue(condition, 'fixo_mensal'))} {boolValue(condition.fixo_confirmado) ? '· confirmado' : '· a revisar'}</span></div><div><span className="block text-xs text-ink-muted">Comissões</span><span className="font-medium text-ink">{conditionValue(condition, 'comissao_franquia_pct').toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% franquia · {conditionValue(condition, 'comissao_franqueadora_pct').toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% franqueadora</span></div></div>
               </details>
             ))}
           </div>
+          {marcaId && canEdit ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <fieldset className="space-y-2 rounded-xl border border-line p-3">
+                <legend className="px-1 text-xs font-bold uppercase tracking-wide text-ink-muted">Vencimento do fixo</legend>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block"><span className="text-sm font-semibold text-ink">Dia (1-31)</span><input aria-label="Dia de vencimento do fixo" className="design-input mt-2 h-11 w-full px-4" type="number" min="1" max="31" step="1" value={vencimentoForm.fixo_vencimento_dia} onChange={(event) => setVencimentoForm((current) => ({ ...current, fixo_vencimento_dia: event.target.value }))} /></label>
+                  <label className="block"><span className="text-sm font-semibold text-ink">Mês</span><select aria-label="Mês de vencimento do fixo" className="design-input mt-2 h-11 w-full px-3" value={vencimentoForm.fixo_vencimento_mes_offset} onChange={(event) => setVencimentoForm((current) => ({ ...current, fixo_vencimento_mes_offset: event.target.value }))}>{MES_OFFSET_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+                </div>
+              </fieldset>
+              <fieldset className="space-y-2 rounded-xl border border-line p-3">
+                <legend className="px-1 text-xs font-bold uppercase tracking-wide text-ink-muted">Vencimento da comissão</legend>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block"><span className="text-sm font-semibold text-ink">Dia (1-31)</span><input aria-label="Dia de vencimento da comissão" className="design-input mt-2 h-11 w-full px-4" type="number" min="1" max="31" step="1" value={vencimentoForm.comissao_vencimento_dia} onChange={(event) => setVencimentoForm((current) => ({ ...current, comissao_vencimento_dia: event.target.value }))} /></label>
+                  <label className="block"><span className="text-sm font-semibold text-ink">Mês</span><select aria-label="Mês de vencimento da comissão" className="design-input mt-2 h-11 w-full px-3" value={vencimentoForm.comissao_vencimento_mes_offset} onChange={(event) => setVencimentoForm((current) => ({ ...current, comissao_vencimento_mes_offset: event.target.value }))}>{MES_OFFSET_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+                </div>
+              </fieldset>
+              <div className="sm:col-span-2">
+                <Button type="button" variant="secondary" isLoading={vencimentoMutation.isPending} disabled={!vigenteId} onClick={() => { if (!vigenteId) { setError('Não há condição vigente para ajustar.'); return } setError(null); vencimentoMutation.mutate() }}>Salvar vencimento</Button>
+              </div>
+            </div>
+          ) : null}
         </>
       )}
 

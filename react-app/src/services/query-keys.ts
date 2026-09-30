@@ -31,9 +31,6 @@ export const QK = {
   apresentadoras: (scope?: string) => (scope ? ['apresentadoras', scope] : ['apresentadoras']) as readonly string[],
   leads: ['leads'] as const,
   leadById: (id: string) => ['lead', id] as const,
-  boletos: ['boletos'] as const,
-  boletoDetalhe: (id: string) => ['boleto-detalhe', id] as const,
-  boletoAlertas: ['boletos-alerta'] as const,
   videos: ['videos'] as const,
   apresentadoraFaixas: (id: string) => ['apresentadora-faixas', id] as const,
   apresentadoraFaixasComissao: (id?: string) =>

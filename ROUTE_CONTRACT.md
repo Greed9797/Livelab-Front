@@ -29,9 +29,8 @@ Antes do E2E real, validar no Railway:
 | `/solicitacoes` | operação | `GET/POST /solicitacoes`, `PATCH /solicitacoes/:id/aprovar`, `PATCH /solicitacoes/:id/recusar`, `GET /clientes`, `GET /cabines`, `GET /apresentadoras` | agendamento direto e motivo de recusa | done |
 | `/apresentadoras` | operação | `GET/POST/PATCH/DELETE /apresentadoras` | perfil operacional, remuneração e status ativo | done |
 | `/analytics-dashboard` | financeiro/comercial | `GET /analytics/dashboard` | filtros de período | done |
-| `/financeiro` | financeiro | `GET /financeiro/resumo`, `GET /financeiro/fluxo-caixa`, `GET /financeiro/faturamento`, `GET/POST/DELETE /financeiro/custos`, `GET /boletos` | custo mensal e boletos | done |
+| `/financeiro` | financeiro | `GET /financeiro/resumo`, `GET /financeiro/fluxo-caixa`, `GET /financeiro/faturamento`, `GET/POST/DELETE /financeiro/custos` | custo mensal | done |
 | `/configuracoes` | franqueador/franqueado | `GET/PATCH /configuracoes` | dados da unidade | done |
-| `/boletos` | financeiro/cliente | `GET /boletos`, `GET /boletos/alertas`, `GET /boletos/:id`, `PATCH /boletos/:id/visto`, `PATCH /boletos/:id/pagar` | detalhe, alerta visto, pagamento manual por papel financeiro | done |
 | `/conhecimento` | roles autenticadas | `GET /knowledge/categories`, `GET /knowledge/articles` | filtros de categoria | partial |
 
 ## Pendencias objetivas

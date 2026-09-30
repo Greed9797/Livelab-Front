@@ -100,6 +100,7 @@ describe('menuForUser', () => {
     expect(franqueadoMenu).toContain('/lives')
     expect(franqueadoMenu).not.toContain('/comissoes/config')
     expect(franqueadoMenu).toContain('/financeiro')
+    expect(franqueadoMenu).toContain('/conciliacao-asaas')
     // Analytics conserva seu acesso de gestão; apresentadora usa Agenda e Lives.
     expect(franqueadoMenu).toContain('/analytics-dashboard')
     expect(franqueadoMenu).not.toContain('/master/crm')

@@ -5,15 +5,12 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { PeriodControl } from '../components/forms/PeriodControl'
 import { MetricCard } from '../components/ui/MetricCard'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { DataTable } from '../components/ui/DataTable'
-import { Badge, statusTone } from '../components/ui/Badge'
-import { ErrorState, LoadingState, EmptyState } from '../components/ui/States'
+import { ErrorState, LoadingState } from '../components/ui/States'
 import { getClienteFinanceiro } from '../services/domain'
 import { extractErrorMessage } from '../services/api'
-import { asArray, asNumber, asString, currentPeriod, formatDate, formatMoney, getRecord } from '../utils/format'
+import { asNumber, asString, currentPeriod, formatMoney, getRecord } from '../utils/format'
 import { moneyMetric } from './page-helpers'
 import { QK } from '../services/query-keys'
-import type { JsonRecord } from '../types/models'
 
 export function ClienteFinanceiroPage() {
   const [period, setPeriod] = useState(currentPeriod())
@@ -24,7 +21,6 @@ export function ClienteFinanceiroPage() {
 
   const resumo = getRecord(getRecord(query.data).resumo)
   const contrato = query.data && getRecord(query.data).contrato ? getRecord(getRecord(query.data).contrato) : null
-  const boletos = asArray<JsonRecord>(getRecord(query.data).boletos)
 
   const metrics = [
     moneyMetric('GMV do mês', resumo.gmv_mes, 'lives publicadas', 'brand'),
@@ -60,32 +56,6 @@ export function ClienteFinanceiroPage() {
             </div>
           ) : (
             <p className="text-sm text-ink-muted">Nenhum contrato ativo encontrado.</p>
-          )}
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <p className="text-base font-bold text-ink">Boletos</p>
-        </CardHeader>
-        <CardBody>
-          {boletos.length === 0 ? (
-            <EmptyState title="Nenhum boleto encontrado" />
-          ) : (
-            <DataTable<JsonRecord>
-              data={boletos}
-              columns={[
-                { key: 'competencia', header: 'Competência', render: (b) => asString(b.competencia, '—') },
-                { key: 'tipo', header: 'Tipo', render: (b) => asString(b.tipo, '—') },
-                { key: 'vencimento', header: 'Vencimento', render: (b) => formatDate(asString(b.vencimento, '')) },
-                { key: 'valor', header: 'Valor', align: 'right', render: (b) => formatMoney(b.valor) },
-                { key: 'status', header: 'Status', render: (b) => <Badge tone={statusTone(asString(b.status))}>{asString(b.status)}</Badge> },
-                {
-                  key: 'gateway_url', header: '', align: 'right',
-                  render: (b) => asString(b.gateway_url, '') ? <a href={asString(b.gateway_url)} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-brand hover:underline">Abrir</a> : null,
-                },
-              ]}
-            />
           )}
         </CardBody>
       </Card>
