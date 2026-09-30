@@ -46,10 +46,11 @@ function AlertsStrip({ raw }: { raw: JsonRecord }) {
   const contratos = asNumber(alertas.contratos_aguardando_assinatura ?? raw.contratos_aguardando_assinatura)
   const conflitos = asNumber(alertas.conflitos_agenda ?? raw.conflitos_agenda)
 
-  const items = [
-    { label: 'Contratos em preparação', short: 'contratos em preparação', value: contratos, hint: 'Rascunhos ou em análise', tone: 'warning' as const, href: '/clientes' },
-    { label: 'Sobreposições na agenda', short: 'sobreposições na agenda', value: conflitos, hint: 'Agendamentos cadastrados', tone: 'neutral' as const, href: '/agenda' },
-  ].filter((a) => a.value > 0)
+  const alerts: Array<{ label: string; short: string; value: number; hint: string; tone: 'danger' | 'warning' | 'neutral'; href: string }> = [
+    { label: 'Contratos em preparação', short: 'contratos em preparação', value: contratos, hint: 'Rascunhos ou em análise', tone: 'warning', href: '/clientes' },
+    { label: 'Sobreposições na agenda', short: 'sobreposições na agenda', value: conflitos, hint: 'Agendamentos cadastrados', tone: 'neutral', href: '/agenda' },
+  ]
+  const items = alerts.filter((a) => a.value > 0)
 
   if (items.length === 0) return null
 

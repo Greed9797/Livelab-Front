@@ -1,6 +1,6 @@
 import { BarChart3, CalendarRange, ListChecks, Percent, Plus, Repeat, Table2, Users, Waves } from 'lucide-react'
 import { useState } from 'react'
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Button } from '../components/ui/Button'
 import { ErrorState } from '../components/ui/States'
@@ -15,6 +15,7 @@ import { DrePanel } from '../components/financeiro/DrePanel'
 import { FluxoCaixaPanel } from '../components/financeiro/FluxoCaixaPanel'
 import { ImpostoConfigModal } from '../components/financeiro/ImpostoConfigModal'
 import { ComissoesTab, PorClienteTab } from '../components/financeiro/LegacyTabs'
+import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
 import '../components/financeiro/financeiro.css'
 import { useBaixaMutation, useCustoMutations, useFinanceiroConfig, useLancamentos } from '../hooks/useFinanceiro'
 import { extractErrorMessage } from '../services/api'
@@ -39,6 +40,8 @@ export function FinanceiroPage() {
   const isCliente = user?.papel === 'cliente_parceiro'
   const podeEscrever = canWrite(user)
   const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
+  const podeConfigurarComissoes = user?.papel === 'franqueado'
+  const navigate = useNavigate()
 
   const paramMes = params.get('mes')
   const mes = isMes(paramMes) ? paramMes : mesAtualSP()
@@ -119,9 +122,7 @@ export function FinanceiroPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Financeiro"
-        accent="Caixa"
-        title="da unidade"
+        title="Financeiro"
         subtitle={`${mesLabel(mes).replace(/^./, (c) => c.toUpperCase())} · o que entra, o que sai e o que está vencendo.`}
         actions={
           <>
@@ -199,7 +200,26 @@ export function FinanceiroPage() {
 
       {tab === 'cliente' ? <PorClienteTab periodo={periodo} /> : null}
 
-      {tab === 'comissoes' ? <ComissoesTab periodo={periodo} podeReprocessar={podeReprocessar} /> : null}
+      {tab === 'comissoes' ? (
+        <div className="space-y-4">
+          <section className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-line bg-surface px-4 py-4 sm:px-5">
+            <div>
+              <h2 className="text-xl font-bold tracking-[-0.02em] text-ink">Comissões do período</h2>
+              <p className="mt-1 max-w-2xl text-sm text-ink-muted">Apuração por apresentadora e marca no período selecionado.</p>
+            </div>
+            {podeConfigurarComissoes ? (
+              <Button type="button" variant="secondary" icon={Percent} onClick={() => navigate({ pathname: '/financeiro/comissoes/regras', search: params.toString() })}>
+                Regras de comissão
+              </Button>
+            ) : null}
+          </section>
+          <PresenterSettlement mes={mes} />
+          <section className="space-y-3">
+            <p className="text-base font-bold text-ink">Receita calculada por marca</p>
+            <ComissoesTab periodo={periodo} podeReprocessar={podeReprocessar} />
+          </section>
+        </div>
+      ) : null}
 
       <BaixaModal
         lancamento={baixa}

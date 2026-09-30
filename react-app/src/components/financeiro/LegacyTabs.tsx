@@ -207,7 +207,7 @@ export function ComissoesTab({ periodo, podeReprocessar }: { periodo: PeriodRang
                       <p className="text-sm font-bold text-ink">Comissão zerada numa live que tem GMV?</p>
                       <p className="mt-0.5 text-xs text-ink-muted">Recalcula agora as lives encerradas sem comissão (não espera os 10 min) e lista as que continuarem zeradas e por quê.</p>
                     </div>
-                    <Button onClick={() => reprocessar.mutate()} isLoading={reprocessar.isPending}>Recalcular comissões agora</Button>
+                    <Button onClick={() => reprocessar.mutate(typeof cp.mes === 'string' ? cp.mes : periodo.fim)} isLoading={reprocessar.isPending}>Recalcular comissões agora</Button>
                   </CardBody>
                   {reprocessar.isError ? (
                     <CardBody className="border-t border-line">

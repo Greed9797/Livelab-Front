@@ -135,9 +135,7 @@ export function AsaasConciliacaoPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Financeiro"
-        accent="Conciliação"
-        title="Asaas"
+        title="Conciliação Asaas"
         subtitle="Saldo, extrato e vínculo das entradas e saídas do Asaas com receitas e custos do sistema."
         actions={
           <>
