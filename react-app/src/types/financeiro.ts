@@ -183,3 +183,47 @@ export interface CustoParceladoPayload {
 export type CustoRecorrentePayload = Omit<CustoRecorrente, 'id'>
 
 export type EscopoExclusao = 'um' | 'grupo' | 'futuras'
+
+// ── Importação da planilha ───────────────────────────────────────────────────
+
+export interface ImportarRecorrenteItem {
+  nome: string
+  descricao?: string
+  grupo: string
+  valor: number
+  dia_vencimento: number
+  mes_offset?: number
+  inicio: string // YYYY-MM-DD
+  fim: string | null
+}
+
+export interface ImportarPontualItem {
+  descricao: string
+  grupo: string
+  valor: number
+  data_vencimento: string
+  competencia: string
+  parcela_num?: number
+  parcelas_total?: number
+}
+
+export interface ImportarCustosPayload {
+  recorrentes: ImportarRecorrenteItem[]
+  pontuais: ImportarPontualItem[]
+}
+
+export interface ImportarCustosBody extends ImportarCustosPayload {
+  dry_run?: boolean
+}
+
+export interface ImportarResumo {
+  criados: number
+  ignorados: number
+  itens: { nome?: string; descricao?: string; acao: string }[]
+}
+
+export interface ImportarCustosResultado {
+  dry_run: boolean
+  recorrentes: ImportarResumo
+  pontuais: ImportarResumo
+}
