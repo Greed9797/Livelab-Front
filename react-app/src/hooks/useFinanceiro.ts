@@ -6,6 +6,7 @@ import type {
   CustoRecorrentePayload,
   EscopoExclusao,
   FinanceiroConfig,
+  ImportarCustosPayload,
   Lancamento,
   LancamentosFiltro,
 } from '../types/financeiro'
@@ -22,6 +23,7 @@ import {
   getFinanceiroConfig,
   getFluxoCaixa,
   getLancamentos,
+  importarCustos,
   updateCusto,
   updateCustoRecorrente,
   updateFinanceiroConfig,
@@ -99,4 +101,15 @@ export function useCustoMutations() {
 export function useConfigMutation() {
   const invalidate = useInvalidateFinanceiro()
   return useMutation({ mutationFn: (p: FinanceiroConfig) => updateFinanceiroConfig(p), onSuccess: invalidate })
+}
+
+/** Importação da planilha: `dryRun` só confere; sem ele grava e invalida o financeiro. */
+export function useImportarCustos() {
+  const invalidate = useInvalidateFinanceiro()
+  return useMutation({
+    mutationFn: ({ seed, dryRun }: { seed: ImportarCustosPayload; dryRun: boolean }) => importarCustos(seed, dryRun),
+    onSuccess: (res) => {
+      if (!res.dry_run) invalidate()
+    },
+  })
 }

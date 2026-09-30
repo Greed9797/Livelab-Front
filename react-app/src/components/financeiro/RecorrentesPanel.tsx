@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Pause, Pencil, Play, Plus, Repeat, Sparkles, Trash2 } from 'lucide-react'
+import { FileSpreadsheet, Pause, Pencil, Play, Plus, Repeat, Sparkles, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useCustoMutations, useCustosRecorrentes, useInvalidateFinanceiro } from '../../hooks/useFinanceiro'
@@ -11,6 +11,7 @@ import { formatMoney } from '../../utils/format'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
+import { ImportarPlanilhaModal } from './ImportarPlanilhaModal'
 import { InlineError } from './primitives'
 
 function vigencia(r: CustoRecorrente) {
@@ -35,6 +36,7 @@ export function RecorrentesPanel({
   const m = useCustoMutations()
   const invalidate = useInvalidateFinanceiro()
   const [excluir, setExcluir] = useState<CustoRecorrente | null>(null)
+  const [importarAberto, setImportarAberto] = useState(false)
   const gerar = useMutation({
     mutationFn: () => gerarCustosMes(mes),
     onSuccess: (res) => {
@@ -67,6 +69,9 @@ export function RecorrentesPanel({
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" icon={Sparkles} isLoading={gerar.isPending} onClick={() => gerar.mutate()} title="Materializa os lançamentos do mês (idempotente)">
               Gerar {mesLabel(mes, true)}
+            </Button>
+            <Button variant="secondary" icon={FileSpreadsheet} onClick={() => setImportarAberto(true)} title="Importa a lista de custos da planilha (não altera o que já existe)">
+              Importar lista da planilha
             </Button>
             <Button icon={Plus} onClick={onNovo}>Novo recorrente</Button>
           </div>
@@ -152,6 +157,7 @@ export function RecorrentesPanel({
           <InlineError message={m.excluirRecorrente.error ? extractErrorMessage(m.excluirRecorrente.error) : null} />
         </div>
       </Modal>
+      {podeEscrever ? <ImportarPlanilhaModal open={importarAberto} onClose={() => setImportarAberto(false)} onToast={onToast} /> : null}
     </section>
   )
 }

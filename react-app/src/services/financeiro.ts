@@ -8,6 +8,9 @@ import type {
   CustoRecorrentePayload,
   EscopoExclusao,
   FinanceiroConfig,
+  ImportarCustosPayload,
+  ImportarCustosResultado,
+  ImportarResumo,
   Lancamento,
   LancamentosFiltro,
 } from '../types/financeiro'
@@ -19,6 +22,7 @@ import {
   normalizarLancamentosResponse,
   rotaBaixa,
 } from '../utils/financeiro'
+import { montarPayloadImportacao } from '../utils/importar-custos'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 // Query keys próprias (prefixo 'fin2' para não colidir com QK.financeiro* legados).
@@ -126,4 +130,24 @@ export function gerarCustosMes(mes: string) {
 /** Materializa os títulos de receita do mês (idempotente). */
 export function gerarReceitasMes(mes: string) {
   return apiPost<unknown>(`/financeiro/receitas/gerar?mes=${mes}`)
+}
+
+// ── Importação da planilha ───────────────────────────────────────────────────
+
+function normalizarResumo(raw: unknown): ImportarResumo {
+  const r = (raw ?? {}) as Record<string, unknown>
+  return {
+    criados: asNumber(r.criados),
+    ignorados: asNumber(r.ignorados),
+    itens: Array.isArray(r.itens) ? (r.itens as ImportarResumo['itens']) : [],
+  }
+}
+
+export async function importarCustos(seed: ImportarCustosPayload, dryRun = false): Promise<ImportarCustosResultado> {
+  const raw = await apiPost<Record<string, unknown>>('/financeiro/custos/importar', montarPayloadImportacao(seed, dryRun))
+  return {
+    dry_run: raw?.dry_run === true || (dryRun && raw?.dry_run !== false),
+    recorrentes: normalizarResumo(raw?.recorrentes),
+    pontuais: normalizarResumo(raw?.pontuais),
+  }
 }
