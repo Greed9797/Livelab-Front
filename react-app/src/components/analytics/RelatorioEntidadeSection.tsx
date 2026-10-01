@@ -106,6 +106,14 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
 
   const metrics = buildMetrics(totals)
 
+  // Comissão da linha: marca = franquia (GMV validado × % franquia, mesma base da métrica-título);
+  // apresentadora = faixa da apresentadora. null = pendente sem comissão calculada.
+  function rowComissao(r: JsonRecord): { valor: number, pct: number } | null {
+    if (r.pendente_aprovacao && r.comissao_apresentadora == null) return null
+    if (tipo === 'marca') return { valor: asNumber(r.gmv_validado ?? r.gmv_total) * franquiaPctNum / 100, pct: franquiaPctNum }
+    return { valor: asNumber(r.comissao_apresentadora), pct: asNumber(r.comissao_pct) }
+  }
+
   const icons = [CircleDollarSign, Radio, Film, Clock, Radio, Film, ShoppingBag, ReceiptText, TrendingUp, TrendingUp, CircleDollarSign, CircleDollarSign]
 
   async function exportPdf() {
@@ -146,17 +154,22 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
         metrics: buildMetrics(sumDailyTotals(pdfRows), freshComissao, pdfRows).map((m) => ({ label: m.label, value: m.value })),
         tables: [{
           title: 'Detalhamento diário',
-          head: ['Dia', 'Marca', 'GMV lives', 'R$ comissão', '% comissão', 'Horas', 'Pedidos'],
-          rightAlign: [2, 3, 4, 5, 6],
-          body: pdfRows.map((r) => [
-            diaCurto(r.dia),
-            `${asString(r.marca_nome, '—')}${r.pendente_aprovacao ? ` · Pendente aprovação: ${formatMoney(r.gmv_pendente_aprovacao)}${r.em_conciliacao ? ' · conferir vínculo (não somado)' : ' (incluído)'}` : ''}`,
-            formatMoney(r.gmv_lives ?? r.gmv),
-            r.pendente_aprovacao && r.comissao_apresentadora == null ? 'Aguardando validação' : `${formatMoney(r.comissao_apresentadora)}${r.pendente_aprovacao ? ' · somente validada' : ''}`,
-            r.pendente_aprovacao && r.comissao_apresentadora == null ? '—' : `${asNumber(r.comissao_pct).toFixed(2)}%`,
-            asNumber(r.horas_live).toFixed(1),
-            asNumber(r.pedidos ?? r.total_pedidos).toLocaleString('pt-BR'),
-          ]),
+          head: ['Dia', 'Início', 'Fim', 'Marca', 'GMV lives', 'R$ comissão', '% comissão', 'Horas', 'Pedidos'],
+          rightAlign: [4, 5, 6, 7, 8],
+          body: pdfRows.map((r) => {
+            const c = rowComissao(r)
+            return [
+              diaCurto(r.dia),
+              asString(r.hora_inicio, '—'),
+              asString(r.hora_fim, '—'),
+              `${asString(r.marca_nome, '—')}${r.pendente_aprovacao ? ` · Pendente aprovação: ${formatMoney(r.gmv_pendente_aprovacao)}${r.em_conciliacao ? ' · conferir vínculo (não somado)' : ' (incluído)'}` : ''}`,
+              formatMoney(r.gmv_lives ?? r.gmv),
+              c ? `${formatMoney(c.valor)}${r.pendente_aprovacao ? ' · somente validada' : ''}` : 'Aguardando validação',
+              c ? `${c.pct.toFixed(2)}%` : '—',
+              asNumber(r.horas_live).toFixed(1),
+              asNumber(r.pedidos ?? r.total_pedidos).toLocaleString('pt-BR'),
+            ]
+          }),
         }],
         geradoEm: new Date().toLocaleString('pt-BR'),
       })
@@ -223,10 +236,12 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
                   data={rows}
                   columns={[
                     { key: 'dia', header: 'Dia', render: (r) => diaCurto(r.dia) },
+                    { key: 'hora_inicio', header: 'Início', render: (r) => asString(r.hora_inicio, '—') },
+                    { key: 'hora_fim', header: 'Fim', render: (r) => asString(r.hora_fim, '—') },
                     { key: 'marca_nome', header: 'Marca', render: (r) => asString(r.marca_nome, '—') },
                     { key: 'gmv_lives', header: 'GMV lives', align: 'right', render: (r) => <span>{formatMoney(r.gmv_lives ?? r.gmv)}{asNumber(r.gmv_pendente_aprovacao) > 0 ? <small className="block text-[var(--warning)]">{r.em_conciliacao ? 'Declarado pendente (conferir vínculo): ' : 'Inclui pendente: '}{formatMoney(r.gmv_pendente_aprovacao)}</small> : null}</span> },
-                    { key: 'comissao_apresentadora', header: 'R$ comissão', align: 'right', render: (r) => r.pendente_aprovacao && r.comissao_apresentadora == null ? 'Aguardando validação' : formatMoney(r.comissao_apresentadora) },
-                    { key: 'comissao_pct', header: '% comissão', align: 'right', render: (r) => r.pendente_aprovacao && r.comissao_apresentadora == null ? '—' : `${asNumber(r.comissao_pct).toFixed(2)}%` },
+                    { key: 'comissao_apresentadora', header: 'R$ comissão', align: 'right', render: (r) => { const c = rowComissao(r); return c ? formatMoney(c.valor) : 'Aguardando validação' } },
+                    { key: 'comissao_pct', header: '% comissão', align: 'right', render: (r) => { const c = rowComissao(r); return c ? `${c.pct.toFixed(2)}%` : '—' } },
                     { key: 'horas_live', header: 'Horas', align: 'right', render: (r) => asNumber(r.horas_live).toFixed(1) },
                     { key: 'pedidos', header: 'Pedidos', align: 'right', render: (r) => asNumber(r.pedidos ?? r.total_pedidos).toLocaleString('pt-BR') },
                   ]}
