@@ -1,5 +1,6 @@
 export type TipoTransacao = 'entrada' | 'saida'
-export type TipoAlvoConciliacao = 'receita' | 'custo' | 'apresentadora' | 'imposto'
+export type TipoAlvoConciliacao = 'receita' | 'avulsa' | 'custo' | 'apresentadora' | 'imposto'
+export type ComponenteApresentadora = 'fixo' | 'variavel'
 
 export interface AsaasSaldo {
   saldo: number
@@ -22,6 +23,7 @@ export interface AsaasTransacao {
   saldo_apos?: number | null
   conciliado_com_tipo?: TipoAlvoConciliacao | null
   conciliado_com_id?: string | null
+  conciliado_com_componente?: ComponenteApresentadora | null
   conciliado_em?: string | null
 }
 
@@ -46,6 +48,8 @@ export interface AsaasSincronizacao {
 export interface AsaasSugestao {
   tipo: TipoAlvoConciliacao
   id: string
+  /** Só para tipo 'apresentadora' (fixo | variável); o back também embute no id novo. */
+  componente?: ComponenteApresentadora | null
   descricao: string | null
   data_referencia: string | null
   valor_casado: number | null

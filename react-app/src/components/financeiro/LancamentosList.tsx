@@ -32,7 +32,7 @@ export interface FiltroLocal {
 
 export const FILTRO_VAZIO: FiltroLocal = { natureza: '', status: '', grupo: '', q: '' }
 
-function RowMenu({ onEditar, onExcluir, label }: { onEditar?: () => void; onExcluir?: () => void; label: string }) {
+export function RowMenu({ onEditar, onExcluir, label }: { onEditar?: () => void; onExcluir?: () => void; label: string }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {

@@ -1,5 +1,5 @@
-import { BarChart3, CalendarRange, ListChecks, Percent, Plus, Repeat, Table2, Users, Wallet, Waves } from 'lucide-react'
-import { useState } from 'react'
+import { BarChart3, CalendarRange, ListChecks, Percent, Plus, Receipt, Repeat, Scale, Table2, TrendingUp, Wallet, Waves } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Button } from '../components/ui/Button'
@@ -10,14 +10,17 @@ import { ResumoCards } from '../components/financeiro/ResumoCards'
 import { FILTRO_VAZIO, type FiltroLocal, LancamentosList } from '../components/financeiro/LancamentosList'
 import { BaixaModal, DesfazerModal, ExcluirModal } from '../components/financeiro/LancamentoModals'
 import { type CustoModalState, CustoFormModal } from '../components/financeiro/CustoFormModal'
-import { RecorrentesPanel } from '../components/financeiro/RecorrentesPanel'
+import { ReceitaPanel } from '../components/financeiro/ReceitaPanel'
+import { CustosFixosPanel } from '../components/financeiro/CustosFixosPanel'
+import { CustosVariaveisPanel } from '../components/financeiro/CustosVariaveisPanel'
+import { ConciliacaoAsaasPanel } from '../components/financeiro/ConciliacaoAsaasPanel'
 import { DrePanel } from '../components/financeiro/DrePanel'
 import { FluxoCaixaPanel } from '../components/financeiro/FluxoCaixaPanel'
 import { CaixaHoje } from '../components/financeiro/CaixaHoje'
 import { CaixaConfigModal } from '../components/financeiro/CaixaConfigModal'
 import { type ReceitaModalState, ReceitaAvulsaModal } from '../components/financeiro/ReceitaAvulsaModal'
 import { ImpostoConfigModal } from '../components/financeiro/ImpostoConfigModal'
-import { ComissoesTab, PorClienteTab } from '../components/financeiro/LegacyTabs'
+import { ComissoesTab } from '../components/financeiro/LegacyTabs'
 import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
 import '../components/financeiro/financeiro.css'
 import { useBaixaMutation, useCaixa, useCustoMutations, useFinanceiroConfig, useLancamentos, useReceitaAvulsaMutations } from '../hooks/useFinanceiro'
@@ -29,11 +32,14 @@ import { hojeSP, isMes, isReceitaAvulsa, mesAtualSP, mesLabel, totalizar } from 
 import { formatPercent } from '../utils/format'
 import type { PeriodRange } from '../utils/period'
 
-type FinanceiroTab = 'lancamentos' | 'dre' | 'fluxo' | 'recorrentes' | 'cliente' | 'comissoes'
-const TABS: FinanceiroTab[] = ['lancamentos', 'dre', 'fluxo', 'recorrentes', 'cliente', 'comissoes']
-
-function isTab(v: string | null): v is FinanceiroTab {
-  return Boolean(v && (TABS as string[]).includes(v))
+type FinanceiroTab = 'lancamentos' | 'receita' | 'custos-fixos' | 'custos-variaveis' | 'dre' | 'fluxo' | 'conciliacao' | 'comissoes'
+const TABS: FinanceiroTab[] = ['lancamentos', 'receita', 'custos-fixos', 'custos-variaveis', 'dre', 'fluxo', 'conciliacao', 'comissoes']
+// Links antigos: "Por cliente" virou Receita e "Recorrentes" vive dentro de Custos fixos.
+const TAB_ALIASES: Record<string, FinanceiroTab> = { cliente: 'receita', recorrentes: 'custos-fixos' }
+function parseTab(v: string | null): FinanceiroTab | null {
+  if (!v) return null
+  if ((TABS as string[]).includes(v)) return v as FinanceiroTab
+  return TAB_ALIASES[v] ?? null
 }
 
 export function FinanceiroPage() {
@@ -49,7 +55,7 @@ export function FinanceiroPage() {
   const paramMes = params.get('mes')
   const mes = isMes(paramMes) ? paramMes : mesAtualSP()
   const paramTab = params.get('tab')
-  const tab: FinanceiroTab = isTab(paramTab) ? paramTab : 'lancamentos'
+  const tab: FinanceiroTab = parseTab(paramTab) ?? 'lancamentos'
 
   const [filtro, setFiltro] = useState<FiltroLocal>(FILTRO_VAZIO)
   const [baixa, setBaixa] = useState<Lancamento | null>(null)
@@ -66,6 +72,15 @@ export function FinanceiroPage() {
   const custos = useCustoMutations()
   const receitas = useReceitaAvulsaMutations()
   const caixa = useCaixa(!isCliente)
+
+  // Normaliza o alias antigo na URL preservando mes/inicio/fim e demais params.
+  useEffect(() => {
+    if (paramTab && TAB_ALIASES[paramTab]) {
+      const next = new URLSearchParams(params)
+      next.set('tab', TAB_ALIASES[paramTab])
+      setParams(next, { replace: true })
+    }
+  }, [paramTab, params, setParams])
 
   function updateParams(patch: Record<string, string | null>) {
     const next = new URLSearchParams(params)
@@ -117,12 +132,18 @@ export function FinanceiroPage() {
     )
   }
 
+  const mostraNovaReceita = tab === 'lancamentos' || tab === 'receita'
+  // Nas abas de custos o painel já tem os próprios botões (Novo custo / Novo recorrente).
+  const mostraNovoCusto = tab === 'lancamentos'
+
   const tabs = [
     { value: 'lancamentos' as const, label: 'Lançamentos', icon: <ListChecks className="h-4 w-4" /> },
+    { value: 'receita' as const, label: 'Receita', icon: <TrendingUp className="h-4 w-4" /> },
+    { value: 'custos-fixos' as const, label: 'Custos fixos', icon: <Repeat className="h-4 w-4" /> },
+    { value: 'custos-variaveis' as const, label: 'Custos variáveis', icon: <Receipt className="h-4 w-4" /> },
     { value: 'dre' as const, label: 'DRE', icon: <Table2 className="h-4 w-4" /> },
     { value: 'fluxo' as const, label: 'Fluxo de caixa', icon: <Waves className="h-4 w-4" /> },
-    { value: 'recorrentes' as const, label: 'Recorrentes', icon: <Repeat className="h-4 w-4" /> },
-    { value: 'cliente' as const, label: 'Por cliente', icon: <Users className="h-4 w-4" /> },
+    { value: 'conciliacao' as const, label: 'Conciliação', icon: <Scale className="h-4 w-4" /> },
     { value: 'comissoes' as const, label: 'Comissões', icon: <BarChart3 className="h-4 w-4" /> },
   ]
 
@@ -140,15 +161,15 @@ export function FinanceiroPage() {
             <Button variant="secondary" icon={Wallet} onClick={() => setCaixaOpen(true)} title="Saldo de abertura e data de corte">
               Caixa
             </Button>
-            {podeEscrever ? (
-              <>
-                <Button variant="secondary" icon={Plus} onClick={() => setReceitaModal({ kind: 'nova' })}>
-                  Nova receita
-                </Button>
-                <Button icon={Plus} onClick={() => setCustoModal({ kind: 'novo', modo: 'pontual' })}>
-                  Novo custo
-                </Button>
-              </>
+            {podeEscrever && mostraNovaReceita ? (
+              <Button variant="secondary" icon={Plus} onClick={() => setReceitaModal({ kind: 'nova' })}>
+                Nova receita
+              </Button>
+            ) : null}
+            {podeEscrever && mostraNovoCusto ? (
+              <Button icon={Plus} onClick={() => setCustoModal({ kind: 'novo', modo: 'pontual' })}>
+                Novo custo
+              </Button>
             ) : null}
           </>
         }
@@ -213,17 +234,13 @@ export function FinanceiroPage() {
 
       {tab === 'fluxo' ? <FluxoCaixaPanel mes={mes} itensMes={itens} /> : null}
 
-      {tab === 'recorrentes' ? (
-        <RecorrentesPanel
-          mes={mes}
-          podeEscrever={podeEscrever}
-          onNovo={() => setCustoModal({ kind: 'novo', modo: 'recorrente' })}
-          onEditar={(r) => setCustoModal({ kind: 'editar-recorrente', recorrente: r })}
-          onToast={toastOk}
-        />
-      ) : null}
+      {tab === 'receita' ? <ReceitaPanel mes={mes} podeEscrever={podeEscrever} /> : null}
 
-      {tab === 'cliente' ? <PorClienteTab periodo={periodo} /> : null}
+      {tab === 'custos-fixos' ? <CustosFixosPanel mes={mes} podeEscrever={podeEscrever} /> : null}
+
+      {tab === 'custos-variaveis' ? <CustosVariaveisPanel mes={mes} podeEscrever={podeEscrever} /> : null}
+
+      {tab === 'conciliacao' ? <ConciliacaoAsaasPanel mes={mes} /> : null}
 
       {tab === 'comissoes' ? (
         <div className="space-y-4">

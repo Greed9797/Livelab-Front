@@ -34,6 +34,8 @@ export const GRUPOS_CUSTO = [
 
 export type GrupoCusto = (typeof GRUPOS_CUSTO)[number]
 
+export type ClasseCusto = 'fixo' | 'variavel'
+
 export interface Lancamento {
   id: string
   natureza: Natureza
@@ -46,7 +48,9 @@ export interface Lancamento {
   data_pagamento: string | null
   status: StatusLancamento
   grupo: string | null
-  componente: string | null // receitas: 'fixo' | 'comissao'
+  componente: string | null // receitas: 'fixo' | 'comissao'; apresentadora: 'fixo' | 'variavel'
+  /** Classe do custo informada pelo backend (null/ausente = derivar em utils/custo-classe.ts). */
+  classe: ClasseCusto | null
   marca_id: string | null
   marca_nome: string | null
   cliente_id: string | null
@@ -89,6 +93,8 @@ export interface LancamentosFiltro {
   status?: StatusLancamento | ''
   grupo?: string
   q?: string
+  classe?: ClasseCusto | ''
+  origem?: string
 }
 
 export interface PrevistoRealizado {
@@ -184,6 +190,8 @@ export interface CustoRecorrente {
   inicio: string // YYYY-MM-DD
   fim: string | null
   ativo: boolean
+  /** Override da classe derivada (null = automática). */
+  classe_custo: ClasseCusto | null
 }
 
 export interface BaixaPayload {
@@ -200,6 +208,7 @@ export interface CustoPontualPayload {
   observacao?: string | null
   valor_pago?: number | null
   data_pagamento?: string | null
+  classe_custo?: ClasseCusto | null
 }
 
 export interface CustoParceladoPayload {
@@ -211,6 +220,7 @@ export interface CustoParceladoPayload {
   competencia?: string
   data_vencimento?: string
   observacao?: string | null
+  classe_custo?: ClasseCusto | null
 }
 
 export type CustoRecorrentePayload = Omit<CustoRecorrente, 'id'>

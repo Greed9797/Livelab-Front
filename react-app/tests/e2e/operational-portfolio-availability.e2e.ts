@@ -83,6 +83,9 @@ async function setup(page: Page) {
     if (url.pathname === `/v1/clientes/${c1}/operacional`) return ok({ cliente: clients[0], marcas: [brands[0]], metrics: {}, lives: [], vendas_atribuidas: [] })
     if (url.pathname === `/v1/clientes/${c3}/operacional`) return ok({ cliente: { id: c3, nome: 'Cedro', status: 'arquivado' }, marcas: [], metrics: {}, lives: [], vendas_atribuidas: [] })
     if (url.pathname === `/v1/marcas/${m3}/operacional`) return ok({ marca: { ...brands[2], nome: 'Aurora' }, metrics: {}, lives: [], vendas_atribuidas: [] })
+    if (url.pathname === '/v1/comissoes/marcas') return ok([
+      { id: m3, marca_id: m3, tipo_entidade: 'marca', marca_tipo: 'cliente', marca_nome: 'Aurora', gmv_total: 20, comissao_apresentadoras: 1, comissao_fixo: 0, comissao_franquia: 2 },
+    ])
     if (url.pathname.startsWith('/v1/financeiro/')) return ok({})
     return ok([])
   })
@@ -195,17 +198,11 @@ test('agenda não confunde erro do catálogo com todas as apresentadoras escalad
   await expect(panel).not.toContainText('Todas as apresentadoras')
 })
 
-test('financeiro preserva homônimos e abre o detalhe da identidade declarada pela API', async ({ page }, info) => {
+test('financeiro abre o detalhe da marca pela identidade declarada pela API (aba Comissões)', async ({ page }, info) => {
   const { calls, writes } = await setup(page)
-  await page.goto('/financeiro?tab=cliente')
-  const table = page.getByRole('table')
-  await expect(table.locator('tbody tr')).toHaveCount(2)
-  await table.locator('tbody tr').first().click()
+  await page.goto('/financeiro?tab=comissoes')
+  await page.getByRole('cell', { name: /Aurora/ }).first().click()
   const dialog = page.getByRole('dialog')
-  await expect(dialog).toBeVisible()
-  await expect.poll(() => calls.some(path => path.startsWith(`/v1/clientes/${c1}/operacional`))).toBe(true)
-  await dialog.getByRole('button', { name: 'Fechar', exact: true }).click()
-  await table.locator('tbody tr').last().click()
   await expect(dialog).toBeVisible()
   await expect.poll(() => calls.some(path => path.startsWith(`/v1/marcas/${m3}/operacional`))).toBe(true)
   expect(calls.some(path => path.startsWith(`/v1/clientes/${m3}/operacional`))).toBe(false)

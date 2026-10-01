@@ -2,7 +2,7 @@ import { CalendarClock, Layers, Receipt, Repeat, Save } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { useCustoMutations } from '../../hooks/useFinanceiro'
 import { extractErrorMessage } from '../../services/api'
-import type { CustoRecorrente, Lancamento } from '../../types/financeiro'
+import type { ClasseCusto, CustoRecorrente, Lancamento } from '../../types/financeiro'
 import { GRUPOS_CUSTO } from '../../types/financeiro'
 import { dividirParcelas, formatDataCurta, grupoLabel, hojeSP, shiftMes, ultimoDiaMes, vencimentoNoMes } from '../../utils/financeiro'
 import { formatMoney } from '../../utils/format'
@@ -31,6 +31,18 @@ function GrupoSelect({ value, onChange }: { value: string; onChange: (v: string)
   )
 }
 
+function ClasseSelect({ value, onChange }: { value: ClasseCusto | ''; onChange: (v: ClasseCusto | '') => void }) {
+  return (
+    <Field label="Classe" hint="Automática: recorrente/parcelado = fixo; pontual = variável">
+      <select className={input} value={value} onChange={(e) => onChange(e.target.value as ClasseCusto | '')} aria-label="Classe do custo">
+        <option value="">Automática</option>
+        <option value="fixo">Fixo</option>
+        <option value="variavel">Variável</option>
+      </select>
+    </Field>
+  )
+}
+
 function vencimentoPadrao(mes: string) {
   const hoje = hojeSP()
   return hoje.startsWith(mes) ? hoje : vencimentoNoMes(mes, 5)
@@ -55,6 +67,11 @@ function CustoForm({ state, mes, onClose, onSaved }: { state: CustoModalState; m
   )
   const [grupo, setGrupo] = useState(editLanc?.grupo ?? editRec?.grupo ?? 'diversos')
   const [observacao, setObservacao] = useState(editLanc?.observacao ?? editRec?.descricao ?? '')
+  // Em lançamento editado a classe exibida é derivada: só envia override se o usuário mexer.
+  const [classe, setClasse] = useState<ClasseCusto | ''>(editRec?.classe_custo ?? '')
+  const [classeTocada, setClasseTocada] = useState(false)
+  const classeCriar = classe || null
+  const classePatch = !editLanc || classeTocada ? { classe_custo: classeCriar } : {}
 
   // Pontual
   const [vencimento, setVencimento] = useState(editLanc?.data_vencimento ?? vencimentoPadrao(mes))
@@ -98,6 +115,7 @@ function CustoForm({ state, mes, onClose, onSaved }: { state: CustoModalState; m
           competencia,
           data_vencimento: vencimento,
           observacao: observacao.trim() || null,
+          ...classePatch,
         }
         if (editLanc) {
           await m.atualizar.mutateAsync({ id: editLanc.id, payload })
@@ -123,6 +141,7 @@ function CustoForm({ state, mes, onClose, onSaved }: { state: CustoModalState; m
           inicio: `${inicio}-01`,
           fim: fim ? `${fim}-${String(ultimoDiaMes(fim)).padStart(2, '0')}` : null,
           ativo,
+          classe_custo: classeCriar,
         }
         if (editRec) {
           await m.atualizarRecorrente.mutateAsync({ id: editRec.id, payload })
@@ -139,6 +158,7 @@ function CustoForm({ state, mes, onClose, onSaved }: { state: CustoModalState; m
           grupo,
           data_vencimento: vencimento,
           observacao: observacao.trim() || null,
+          ...(classeCriar ? { classe_custo: classeCriar } : {}),
         })
         onSaved(`${nParcelas} parcelas lançadas.`)
       }
@@ -157,7 +177,7 @@ function CustoForm({ state, mes, onClose, onSaved }: { state: CustoModalState; m
       : 'Novo custo'
 
   const subtitulo = editLanc?.origem === 'recorrente'
-    ? 'Altera só esta ocorrência. Para mudar todos os meses, edite o recorrente na aba Recorrentes.'
+    ? 'Altera só esta ocorrência. Para mudar todos os meses, edite o recorrente em Custos fixos.'
     : editLanc?.parcela_grupo_id
       ? 'Altera só esta parcela.'
       : modo === 'recorrente'
@@ -194,6 +214,8 @@ function CustoForm({ state, mes, onClose, onSaved }: { state: CustoModalState; m
             <GrupoSelect value={grupo} onChange={setGrupo} />
           </Field>
         </div>
+
+        <ClasseSelect value={classe} onChange={(v) => { setClasse(v); setClasseTocada(true) }} />
 
         {modo === 'parcelado' ? (
           <div className="grid gap-3 sm:grid-cols-3">

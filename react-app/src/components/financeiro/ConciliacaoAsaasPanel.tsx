@@ -1,14 +1,12 @@
 import { ArrowDownLeft, ArrowUpRight, Landmark, RefreshCcw, Scale, Undo2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { PageHeader } from '../components/ui/PageHeader'
-import { PeriodControl } from '../components/forms/PeriodControl'
-import { MetricCard } from '../components/ui/MetricCard'
-import { Card, CardBody, CardHeader } from '../components/ui/Card'
-import { DataTable } from '../components/ui/DataTable'
-import { Badge } from '../components/ui/Badge'
-import { Button } from '../components/ui/Button'
-import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
-import { useToast } from '../components/ui/Toast'
+import { MetricCard } from '../ui/MetricCard'
+import { Card, CardBody, CardHeader } from '../ui/Card'
+import { DataTable } from '../ui/DataTable'
+import { Badge } from '../ui/Badge'
+import { Button } from '../ui/Button'
+import { EmptyState, ErrorState, LoadingState } from '../ui/States'
+import { useToast } from '../ui/Toast'
 import {
   useAsaasConciliacao,
   useAsaasExtrato,
@@ -16,14 +14,13 @@ import {
   useConciliarAsaas,
   useDesfazerConciliacaoAsaas,
   useSincronizarAsaas,
-} from '../hooks/useAsaasConciliacao'
-import { extractErrorMessage } from '../services/api'
-import { useCurrentUser } from '../stores/auth-store'
-import { currentPeriod, formatDate, formatMoney, periodToParam } from '../utils/format'
-import { alvoLabel, motivoLabel, periodoDoMes, scoreTone, separarConciliadas, somaValores, tipoAlvoPadrao, valorComSinal } from '../utils/asaas-conciliacao'
-import { metric, moneyMetric } from './page-helpers'
-import type { AsaasPendente, AsaasSugestao, AsaasTransacao, TipoTransacao } from '../types/asaas'
-import type { Period } from '../types/models'
+} from '../../hooks/useAsaasConciliacao'
+import { extractErrorMessage } from '../../services/api'
+import { useCurrentUser } from '../../stores/auth-store'
+import { formatDate, formatMoney } from '../../utils/format'
+import { alvoRotulo, motivoLabel, periodoDoMes, scoreTone, separarConciliadas, somaValores, tipoAlvoPadrao, valorComSinal } from '../../utils/asaas-conciliacao'
+import { metric, moneyMetric } from '../../pages/page-helpers'
+import type { AsaasPendente, AsaasSugestao, AsaasTransacao, TipoTransacao } from '../../types/asaas'
 
 // Espelha WRITE_FINANCEIRO do back (leitura = demais papéis financeiros).
 const writeRoles = new Set(['franqueador_master', 'franqueado', 'gerente', 'financeiro'])
@@ -61,7 +58,7 @@ function PendenteCard({
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-ink">
                   <Badge tone={scoreTone(s.score)} className="mr-2">{s.score}%</Badge>
-                  {alvoLabel(s.tipo)} · {s.descricao || '—'}
+                  {alvoRotulo(s.tipo, s.componente, s.id)} · {s.descricao || '—'}
                 </p>
                 <p className="mt-0.5 text-xs text-ink-muted">
                   {s.data_referencia ? `ref. ${formatDate(s.data_referencia)}` : 'sem data'}
@@ -82,13 +79,11 @@ function PendenteCard({
   )
 }
 
-export function AsaasConciliacaoPage() {
+export function ConciliacaoAsaasPanel({ mes }: { mes: string }) {
   const toast = useToast()
   const user = useCurrentUser()
   const canWrite = writeRoles.has(user?.papel ?? '')
-  const [period, setPeriod] = useState<Period>(currentPeriod())
   const [tipo, setTipo] = useState<TipoTransacao>('entrada')
-  const mes = periodToParam(period)
   const faixa = periodoDoMes(mes) ?? { inicio: `${mes}-01`, fim: `${mes}-28` }
 
   const saldo = useAsaasSaldo()
@@ -134,16 +129,10 @@ export function AsaasConciliacaoPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Conciliação Asaas"
-        subtitle="Saldo, extrato e vínculo das entradas e saídas do Asaas com receitas e custos do sistema."
-        actions={
-          <>
-            <PeriodControl period={period} onChange={setPeriod} />
-            {canWrite ? <Button icon={RefreshCcw} onClick={onSincronizar} isLoading={sincronizar.isPending}>Sincronizar</Button> : null}
-          </>
-        }
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-ink-muted">Saldo, extrato e vínculo das entradas e saídas do Asaas com receitas e custos do sistema.</p>
+        {canWrite ? <Button icon={RefreshCcw} onClick={onSincronizar} isLoading={sincronizar.isPending}>Sincronizar</Button> : null}
+      </div>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard metric={saldoMetric} icon={Landmark} />
@@ -207,7 +196,7 @@ export function AsaasConciliacaoPage() {
                 { key: 'valor', header: 'Valor', align: 'right', render: (t) => <span className={`num font-semibold ${t.tipo === 'entrada' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{formatMoney(valorComSinal(t), true)}</span> },
                 {
                   key: 'conciliado', header: 'Conciliação',
-                  render: (t) => t.conciliado_com_id ? <Badge tone="success">{alvoLabel(t.conciliado_com_tipo)}</Badge> : <Badge tone="warning">Pendente</Badge>,
+                  render: (t) => t.conciliado_com_id ? <Badge tone="success">{alvoRotulo(t.conciliado_com_tipo, t.conciliado_com_componente, t.conciliado_com_id)}</Badge> : <Badge tone="warning">Pendente</Badge>,
                 },
                 {
                   key: 'acoes', header: '', align: 'right',

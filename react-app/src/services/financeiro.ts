@@ -125,6 +125,7 @@ function normalizarRecorrente(raw: Record<string, unknown>): CustoRecorrente {
     inicio: String(raw.inicio ?? '').slice(0, 10),
     fim: typeof raw.fim === 'string' && raw.fim ? raw.fim.slice(0, 10) : null,
     ativo: raw.ativo !== false,
+    classe_custo: raw.classe_custo === 'fixo' || raw.classe_custo === 'variavel' ? raw.classe_custo : null,
   }
 }
 

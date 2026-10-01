@@ -1,4 +1,4 @@
-// Abas herdadas do Financeiro antigo ("Por cliente" e "Comissões") — mesma lógica,
+// Aba herdada do Financeiro antigo ("Comissões") — mesma lógica,
 // extraídas da FinanceiroPage para o redesenho. Período = mês selecionado no topo.
 import { Download } from 'lucide-react'
 import { CircleDollarSign, Percent, Receipt, Users } from 'lucide-react'
@@ -13,11 +13,10 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
-import { exportarComissoesCSV, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getFinanceiroFaturamento, getMarcaOperacional, reprocessarComissoes } from '../../services/domain'
+import { exportarComissoesCSV, getClienteOperacional, getComissoesApresentadoras, getComissoesMarcas, getMarcaOperacional, reprocessarComissoes } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
 import { QK } from '../../services/query-keys'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../../utils/format'
-import { downloadCsv } from '../../utils/exportCsv'
 import { type PeriodRange, comissoesParams, financeiroParams, periodKey } from '../../utils/period'
 import { metric, moneyMetric } from '../../pages/page-helpers'
 import type { JsonRecord } from '../../types/models'
@@ -25,19 +24,6 @@ import type { JsonRecord } from '../../types/models'
 const num = (value: unknown) => asNumber(value).toLocaleString('pt-BR')
 const sumBy = (rows: JsonRecord[], ...keys: string[]) =>
   rows.reduce((total, row) => total + asNumber(keys.map((k) => row[k]).find((v) => v !== undefined)), 0)
-
-const TIPO_LABEL: Record<string, string> = {
-  cliente_ecommerce: 'e-commerce',
-  afiliada: 'afiliada',
-  marca: 'marca',
-  sem_marca: 'sem marca',
-}
-function tipoTone(tipo: string): 'brand' | 'info' | 'warning' | 'neutral' {
-  if (tipo === 'cliente_ecommerce') return 'brand'
-  if (tipo === 'afiliada') return 'info'
-  if (tipo === 'marca') return 'warning'
-  return 'neutral'
-}
 
 function TotalsBar({ items }: { items: { label: string; value: string }[] }) {
   return (
@@ -48,91 +34,6 @@ function TotalsBar({ items }: { items: { label: string; value: string }[] }) {
         </span>
       ))}
     </div>
-  )
-}
-
-export function PorClienteTab({ periodo }: { periodo: PeriodRange }) {
-  const pk = periodKey(periodo)
-  const fp = financeiroParams(periodo)
-  const [selectedCliente, setSelectedCliente] = useState<JsonRecord | null>(null)
-  const faturamento = useQuery({ queryKey: QK.financeiroFaturamento(pk), queryFn: () => getFinanceiroFaturamento(fp), placeholderData: keepPreviousData })
-  const clientesRaw = asArray<JsonRecord>(faturamento.data?.clientes ?? faturamento.data?.por_cliente ?? faturamento.data?.items ?? faturamento.data)
-  const clientes = useMemo(
-    () => [...clientesRaw].sort((a, b) => asNumber(b.gmv_mes ?? b.total) - asNumber(a.gmv_mes ?? a.total)),
-    [clientesRaw],
-  )
-  const clientesView = clientes.slice(0, 100)
-
-  function exportClientesCsv() {
-    downloadCsv(`faturamento-por-cliente-${periodo.inicio}_${periodo.fim}.csv`, clientes, [
-      { key: 'nome', header: 'nome', value: (row) => asString(row.cliente_nome ?? row.nome) },
-      { key: 'tipo_operacional', header: 'tipo' },
-      { key: 'nicho', header: 'nicho' },
-      { key: 'gmv_mes', header: 'faturamento', value: (row) => asNumber(row.gmv_mes ?? row.total) },
-      { key: 'receita_liquida', header: 'receita_liquida', value: (row) => asNumber(row.receita_liquida) },
-      { key: 'lives_mes', header: 'lives', value: (row) => asNumber(row.lives_mes ?? row.total_lives) },
-      { key: 'videos_mes', header: 'videos', value: (row) => asNumber(row.videos_mes) },
-    ])
-  }
-
-  if (faturamento.isLoading && !faturamento.data) return <LoadingState />
-  if (faturamento.isError) return <ErrorState message={extractErrorMessage(faturamento.error)} onRetry={() => void faturamento.refetch()} />
-
-  return (
-    <>
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-base font-bold text-ink">Faturamento por cliente</p>
-                <p className="mt-1 text-xs text-ink-muted">Participação da carteira no GMV da unidade no período. Clique numa linha para abrir o detalhe. {clientes.length > 100 ? `Mostrando top 100 de ${num(clientes.length)}.` : ''}</p>
-              </div>
-              {clientes.length ? <Button variant="secondary" icon={Download} onClick={exportClientesCsv}>Exportar CSV</Button> : null}
-            </div>
-          </CardHeader>
-          <CardBody>
-            <DataTable<JsonRecord>
-              data={clientesView}
-              onRowClick={(item) => setSelectedCliente(item)}
-              columns={[
-                {
-                  key: 'cliente_nome',
-                  header: 'Cliente',
-                  render: (item) => (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-ink">{asString(item.cliente_nome ?? item.nome)}</span>
-                      <Badge tone={tipoTone(asString(item.tipo_operacional))}>{TIPO_LABEL[asString(item.tipo_operacional)] ?? asString(item.tipo_operacional, 'cliente')}</Badge>
-                    </div>
-                  ),
-                },
-                { key: 'nicho', header: 'Nicho', render: (item) => asString(item.nicho ?? item.segmento) },
-                { key: 'valor', header: 'Faturamento', align: 'right', render: (item) => <span className="num">{formatMoney(item.gmv_mes ?? item.valor ?? item.faturamento ?? item.total ?? item.gmv_total)}</span> },
-                { key: 'receita_liquida', header: 'Receita LiveLab', align: 'right', render: (item) => <span className="num">{formatMoney(item.receita_liquida)}</span> },
-                { key: 'lives', header: 'Lives', align: 'right', render: (item) => <span className="num">{num(item.lives_mes ?? item.lives ?? item.total_lives)}</span> },
-                { key: 'videos', header: 'Vídeos', align: 'right', render: (item) => <span className="num">{num(item.videos_mes ?? item.quantidade_videos)}</span> },
-                {
-                  key: 'gmv_live',
-                  header: 'GMV/live',
-                  align: 'right',
-                  render: (item) => {
-                    const lives = asNumber(item.lives_mes ?? item.lives ?? item.total_lives)
-                    return <span className="num">{lives > 0 ? formatMoney(asNumber(item.gmv_mes ?? item.total) / lives) : '—'}</span>
-                  },
-                },
-              ]}
-            />
-            {clientesView.length ? (
-              <TotalsBar
-                items={[
-                  { label: 'Total faturamento', value: formatMoney(sumBy(clientes, 'gmv_mes', 'total')) },
-                  { label: 'Total receita LiveLab', value: formatMoney(sumBy(clientes, 'receita_liquida')) },
-                ]}
-              />
-            ) : null}
-          </CardBody>
-        </Card>
-      <ClienteDetalheModal periodo={periodo} selected={selectedCliente} onClose={() => setSelectedCliente(null)} />
-    </>
   )
 }
 

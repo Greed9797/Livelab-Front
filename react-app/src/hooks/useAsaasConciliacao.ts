@@ -8,6 +8,7 @@ import {
   getAsaasSaldo,
   sincronizarAsaas,
 } from '../services/asaas'
+import { FQK } from '../services/financeiro'
 import type { TipoTransacao } from '../types/asaas'
 
 export function useAsaasSaldo() {
@@ -27,7 +28,8 @@ function useInvalidateAsaas() {
   const client = useQueryClient()
   return () => {
     void client.invalidateQueries({ queryKey: ASAAS_QK.all })
-    // conciliar/desfazer altera baixa de lançamentos do Financeiro
+    // conciliar/desfazer altera baixa de lançamentos: Lançamentos, DRE, Caixa e demais abas do Financeiro (prefixo 'fin2')
+    void client.invalidateQueries({ queryKey: FQK.all })
     void client.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === 'string' && q.queryKey[0].startsWith('financeiro') })
   }
 }

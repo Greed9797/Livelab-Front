@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   alvoLabel,
+  alvoRotulo,
+  componenteDe,
   melhorSugestao,
   motivoLabel,
   periodoDoMes,
@@ -37,6 +39,15 @@ describe('asaas-conciliacao', () => {
     expect(alvoLabel(null)).toBe('—')
     expect(motivoLabel('valor_exato')).toBe('valor exato')
     expect(motivoLabel('algo_novo')).toBe('algo novo')
+  })
+
+  it('rotula alvos avulsa e apresentadora com componente', () => {
+    expect(alvoLabel('avulsa')).toBe('Receita avulsa')
+    expect(alvoRotulo('apresentadora', 'fixo')).toBe('Apresentadora (fixo)')
+    expect(alvoRotulo('apresentadora', null, 'apresentadora:u1:2026-09:variavel')).toBe('Apresentadora (variável)')
+    expect(alvoRotulo('apresentadora', null, 'apresentadora:u1:2026-09')).toBe('Apresentadora')
+    expect(alvoRotulo('custo', 'fixo')).toBe('Custo')
+    expect(componenteDe('receita', 'fixo')).toBeNull()
   })
 
   it('classifica score', () => {

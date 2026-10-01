@@ -7,7 +7,6 @@ import {
   Home,
   LayoutDashboard,
   Presentation,
-  Scale,
   Settings,
   Store,
   Trophy,
@@ -255,7 +254,6 @@ export const menuItems: MenuItem[] = [
   // Analytics standalone — mesmos roles da rota /analytics-dashboard no AppRouter.
   { label: 'Analytics', path: '/analytics-dashboard', icon: ChartSpline, roles: [...masterRoles, ...financeRoles, ...commercialRoles] },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeiroPageRoles },
-  { label: 'Conciliação Asaas', path: '/conciliacao-asaas', icon: Scale, roles: financeiroPageRoles },
   { label: 'Financeiro', path: '/financeiro/comissoes/regras', icon: CircleDollarSign, roles: ['franqueador_master'] },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora'] },
   { label: 'Ranking', path: '/ranking/apresentadoras', icon: Trophy, roles: opsRoles },
