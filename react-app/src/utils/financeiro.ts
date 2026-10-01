@@ -135,6 +135,8 @@ export const GRUPO_LABEL: Record<string, string> = {
   outros: 'Outros',
   apresentadoras: 'Apresentadoras',
   imposto: 'Imposto',
+  servico: 'Serviço',
+  reembolso: 'Reembolso',
 }
 
 export function grupoLabel(grupo: string | null | undefined): string {
@@ -157,9 +159,11 @@ export function origemLabel(l: Pick<Lancamento, 'origem' | 'componente'>): strin
     case 'parcela':
       return 'Parcelado'
     case 'apresentadora':
-      return 'Apresentadora'
+      return l.componente === 'fixo' ? 'Apresentadora · fixo' : l.componente === 'variavel' ? 'Apresentadora · variável' : 'Apresentadora'
     case 'imposto':
       return 'Imposto'
+    case 'avulsa':
+      return 'Receita avulsa'
     default:
       return l.origem || 'Lançamento'
   }
@@ -194,6 +198,13 @@ function inferOrigem(raw: Record<string, unknown>, natureza: Natureza): string {
   return 'manual'
 }
 
+/** `apresentadora:<uuid>:<YYYY-MM>:fixo|variavel` → componente (ids antigos de 3 partes não têm). */
+function componenteDoId(id: string | null): string | null {
+  if (!id?.startsWith('apresentadora:')) return null
+  const c = id.split(':')[3]
+  return c === 'fixo' || c === 'variavel' ? c : null
+}
+
 export function normalizarLancamento(input: unknown, hoje: string = hojeSP()): Lancamento {
   const raw = rec(input)
   const natureza: Natureza = raw.natureza === 'receita' ? 'receita' : 'custo'
@@ -216,7 +227,8 @@ export function normalizarLancamento(input: unknown, hoje: string = hojeSP()): L
     data_pagamento: dateOnly(raw.data_pagamento),
     status: isStatus(raw.status) ? raw.status : derivarStatus(base, hoje),
     grupo: str(raw.grupo) ?? (origem === 'apresentadora' ? 'apresentadoras' : origem === 'imposto' ? 'imposto' : null),
-    componente: str(raw.componente),
+    componente: str(raw.componente) ?? componenteDoId(str(raw.id)),
+    classe: raw.classe === 'fixo' || raw.classe === 'variavel' ? raw.classe : null,
     marca_id: str(raw.marca_id),
     marca_nome: str(raw.marca_nome),
     cliente_id: str(raw.cliente_id),
@@ -365,16 +377,23 @@ export function contarPorStatus(itens: Lancamento[]): Record<StatusLancamento, n
 export type AcaoBaixa = 'pagar' | 'desfazer'
 
 /** Endpoint (relativo a /v1) que dá baixa / desfaz no lançamento, conforme a origem. */
-export function rotaBaixa(l: Pick<Lancamento, 'id' | 'natureza' | 'origem' | 'competencia' | 'apresentadora_id'>, acao: AcaoBaixa): string {
+export function rotaBaixa(l: Pick<Lancamento, 'id' | 'natureza' | 'origem' | 'competencia' | 'apresentadora_id'> & { componente?: string | null }, acao: AcaoBaixa): string {
   const enc = encodeURIComponent
+  if (l.natureza === 'receita' && l.origem === 'avulsa') {
+    return `/financeiro/receitas-avulsas/${enc(l.id)}/${acao === 'pagar' ? 'receber' : 'desfazer'}`
+  }
   if (l.natureza === 'receita') {
     return `/financeiro/receitas/${enc(l.id)}/${acao === 'pagar' ? 'receber' : 'desfazer'}`
   }
   if (l.origem === 'apresentadora') {
-    const [, idAp, mesId] = l.id.split(':')
+    const [, idAp, mesId, compId] = l.id.split(':')
     const apId = l.apresentadora_id ?? idAp
     const mes = isMes(mesId) ? mesId : l.competencia.slice(0, 7)
-    return `/financeiro/apresentadoras-pagamentos/${enc(apId)}/${mes}/${acao}`
+    const comp = l.componente === 'fixo' || l.componente === 'variavel' ? l.componente : compId === 'fixo' || compId === 'variavel' ? compId : null
+    // Id antigo (sem componente): rota legada, que o backend ainda aceita.
+    return comp
+      ? `/financeiro/apresentadoras-pagamentos/${enc(apId)}/${mes}/${comp}/${acao}`
+      : `/financeiro/apresentadoras-pagamentos/${enc(apId)}/${mes}/${acao}`
   }
   if (l.origem === 'imposto') {
     const idMes = l.id.startsWith('imposto:') ? l.id.slice('imposto:'.length) : ''
@@ -389,8 +408,18 @@ export function isCustoManual(l: Pick<Lancamento, 'natureza' | 'origem'>): boole
   return l.natureza === 'custo' && ['manual', 'recorrente', 'parcela'].includes(l.origem)
 }
 
+/** Receita lançada à mão (aporte, serviço, reembolso…) — editável/excluível como os custos manuais. */
+export function isReceitaAvulsa(l: Pick<Lancamento, 'natureza' | 'origem'>): boolean {
+  return l.natureza === 'receita' && l.origem === 'avulsa'
+}
+
+/** Lançamentos que o usuário criou e pode editar. */
+export function isEditavel(l: Pick<Lancamento, 'natureza' | 'origem'>): boolean {
+  return isCustoManual(l) || isReceitaAvulsa(l)
+}
+
 export function podeExcluir(l: Pick<Lancamento, 'natureza' | 'origem' | 'id'>): boolean {
-  return isCustoManual(l) && !l.id.startsWith('rec:')
+  return isReceitaAvulsa(l) || (isCustoManual(l) && !l.id.startsWith('rec:'))
 }
 
 export function valorEmAberto(l: Pick<Lancamento, 'valor_previsto' | 'valor_pago'>): number {

@@ -34,6 +34,8 @@ export const GRUPOS_CUSTO = [
 
 export type GrupoCusto = (typeof GRUPOS_CUSTO)[number]
 
+export type ClasseCusto = 'fixo' | 'variavel'
+
 export interface Lancamento {
   id: string
   natureza: Natureza
@@ -46,7 +48,9 @@ export interface Lancamento {
   data_pagamento: string | null
   status: StatusLancamento
   grupo: string | null
-  componente: string | null // receitas: 'fixo' | 'comissao'
+  componente: string | null // receitas: 'fixo' | 'comissao'; apresentadora: 'fixo' | 'variavel'
+  /** Classe do custo informada pelo backend (null/ausente = derivar em utils/custo-classe.ts). */
+  classe: ClasseCusto | null
   marca_id: string | null
   marca_nome: string | null
   cliente_id: string | null
@@ -89,6 +93,8 @@ export interface LancamentosFiltro {
   status?: StatusLancamento | ''
   grupo?: string
   q?: string
+  classe?: ClasseCusto | ''
+  origem?: string
 }
 
 export interface PrevistoRealizado {
@@ -138,6 +144,39 @@ export interface FluxoCaixaResponse {
 
 export interface FinanceiroConfig {
   aliquota_imposto_pct: number
+  /** 'YYYY-MM-DD' — tudo que vence antes é ignorado; null = sem corte. */
+  data_corte: string | null
+  saldo_abertura: number
+}
+
+/** PATCH /financeiro/config aceita qualquer subconjunto. */
+export type FinanceiroConfigPatch = Partial<FinanceiroConfig>
+
+/** GET /financeiro/caixa */
+export interface CaixaResumo {
+  configurado: boolean
+  data_corte: string | null
+  saldo_abertura: number
+  entradas_realizadas: number
+  saidas_realizadas: number
+  saldo_atual: number
+  a_receber: number
+  a_pagar: number
+  saldo_projetado_fim_mes: number
+}
+
+export const GRUPOS_RECEITA_AVULSA = ['aporte', 'servico', 'reembolso', 'outros'] as const
+export type GrupoReceitaAvulsa = (typeof GRUPOS_RECEITA_AVULSA)[number]
+
+export interface ReceitaAvulsaPayload {
+  descricao: string
+  grupo: GrupoReceitaAvulsa
+  valor: number
+  data_vencimento: string
+  observacao?: string | null
+  /** Informados juntos quando a receita já foi recebida. */
+  valor_pago?: number
+  data_pagamento?: string
 }
 
 export interface CustoRecorrente {
@@ -151,6 +190,8 @@ export interface CustoRecorrente {
   inicio: string // YYYY-MM-DD
   fim: string | null
   ativo: boolean
+  /** Override da classe derivada (null = automática). */
+  classe_custo: ClasseCusto | null
 }
 
 export interface BaixaPayload {
@@ -167,6 +208,7 @@ export interface CustoPontualPayload {
   observacao?: string | null
   valor_pago?: number | null
   data_pagamento?: string | null
+  classe_custo?: ClasseCusto | null
 }
 
 export interface CustoParceladoPayload {
@@ -178,6 +220,7 @@ export interface CustoParceladoPayload {
   competencia?: string
   data_vencimento?: string
   observacao?: string | null
+  classe_custo?: ClasseCusto | null
 }
 
 export type CustoRecorrentePayload = Omit<CustoRecorrente, 'id'>

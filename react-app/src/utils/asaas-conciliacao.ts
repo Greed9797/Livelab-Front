@@ -1,4 +1,4 @@
-import type { AsaasPendente, AsaasSugestao, AsaasTransacao, TipoAlvoConciliacao, TipoTransacao } from '../types/asaas'
+import type { AsaasPendente, AsaasSugestao, AsaasTransacao, ComponenteApresentadora, TipoAlvoConciliacao, TipoTransacao } from '../types/asaas'
 
 /** 'YYYY-MM' → { inicio: 'YYYY-MM-01', fim: último dia } (sem passar por Date local). */
 export function periodoDoMes(mes: string): { inicio: string; fim: string } | null {
@@ -22,6 +22,7 @@ export function tipoAlvoPadrao(tipo: TipoTransacao): TipoAlvoConciliacao {
 
 export const ALVO_LABEL: Record<TipoAlvoConciliacao, string> = {
   receita: 'Receita',
+  avulsa: 'Receita avulsa',
   custo: 'Custo',
   apresentadora: 'Apresentadora',
   imposto: 'Imposto',
@@ -29,6 +30,23 @@ export const ALVO_LABEL: Record<TipoAlvoConciliacao, string> = {
 
 export function alvoLabel(tipo: string | null | undefined): string {
   return ALVO_LABEL[tipo as TipoAlvoConciliacao] ?? (tipo || '—')
+}
+
+const COMPONENTE_LABEL: Record<string, string> = { fixo: 'fixo', variavel: 'variável' }
+
+/** Componente válido ('fixo'|'variavel'), vindo do campo explícito ou do id `apresentadora:<uuid>:<YYYY-MM>:<componente>`. */
+export function componenteDe(tipo: string | null | undefined, componente?: string | null, id?: string | null): ComponenteApresentadora | null {
+  if (tipo !== 'apresentadora') return null
+  if (componente === 'fixo' || componente === 'variavel') return componente
+  const last = typeof id === 'string' ? id.split(':').pop() : undefined
+  return last === 'fixo' || last === 'variavel' ? last : null
+}
+
+/** Rótulo do alvo, com o componente quando for apresentadora: 'Apresentadora (variável)'. */
+export function alvoRotulo(tipo: string | null | undefined, componente?: string | null, id?: string | null): string {
+  const base = alvoLabel(tipo)
+  const c = componenteDe(tipo, componente, id)
+  return c ? `${base} (${COMPONENTE_LABEL[c]})` : base
 }
 
 /** Faixa de confiança da sugestão (score do back, 0-100). */

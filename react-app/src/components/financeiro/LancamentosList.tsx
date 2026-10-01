@@ -11,7 +11,7 @@ import {
   formatDataCurta,
   grupoLabel,
   gruposPresentes,
-  isCustoManual,
+  isEditavel,
   origemLabel,
   partesData,
   podeExcluir,
@@ -19,6 +19,7 @@ import {
   valorEmAberto,
 } from '../../utils/financeiro'
 import { formatMoney } from '../../utils/format'
+import { textoCorte } from '../../utils/caixa'
 import { EmptyState } from '../ui/States'
 import { Amount, Segmented, StatusChip } from './primitives'
 
@@ -31,7 +32,7 @@ export interface FiltroLocal {
 
 export const FILTRO_VAZIO: FiltroLocal = { natureza: '', status: '', grupo: '', q: '' }
 
-function RowMenu({ onEditar, onExcluir, label }: { onEditar?: () => void; onExcluir?: () => void; label: string }) {
+export function RowMenu({ onEditar, onExcluir, label }: { onEditar?: () => void; onExcluir?: () => void; label: string }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -95,7 +96,7 @@ function LancamentoRow({
   const entrada = l.natureza === 'receita'
   const Icon = entrada ? ArrowDownLeft : ArrowUpRight
   const aberto = valorEmAberto(l)
-  const meta = [origemLabel(l), l.natureza === 'custo' ? grupoLabel(l.grupo) : l.cliente_nome ?? l.marca_nome].filter(Boolean)
+  const meta = [origemLabel(l), l.natureza === 'custo' || l.origem === 'avulsa' ? grupoLabel(l.grupo) : l.cliente_nome ?? l.marca_nome].filter(Boolean)
   const verbo = entrada ? 'Receber' : 'Pagar'
 
   return (
@@ -112,6 +113,9 @@ function LancamentoRow({
         <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-ink">
           <span className="truncate">{l.descricao}</span>
           {l.origem === 'recorrente' ? <Repeat className="h-3.5 w-3.5 shrink-0 text-ink-muted" aria-label="recorrente" /> : null}
+          {l.origem === 'avulsa' && l.grupo === 'aporte' ? (
+            <span className="shrink-0 rounded-md bg-brand-soft px-1.5 text-[11px] font-bold text-brand">Aporte</span>
+          ) : null}
           {l.parcela_num && l.parcelas_total ? (
             <span className="num shrink-0 rounded-md bg-surface-muted px-1.5 text-[11px] font-bold text-ink-muted">{l.parcela_num}/{l.parcelas_total}</span>
           ) : null}
@@ -151,7 +155,7 @@ function LancamentoRow({
                 <Undo2 className="h-4 w-4" />
               </button>
             ) : null}
-            {isCustoManual(l) ? (
+            {isEditavel(l) ? (
               <RowMenu
                 label={l.descricao}
                 onEditar={() => onEditar(l)}
@@ -178,6 +182,7 @@ export function LancamentosList({
   onDesfazer,
   onEditar,
   onExcluir,
+  dataCorte,
 }: {
   itens: Lancamento[]
   hoje: string
@@ -189,6 +194,7 @@ export function LancamentosList({
   onDesfazer: (l: Lancamento) => void
   onEditar: (l: Lancamento) => void
   onExcluir: (l: Lancamento) => void
+  dataCorte?: string | null
 }) {
   const base = filtrarLancamentos(itens, { natureza: filtro.natureza })
   const counts = contarPorStatus(base)
@@ -210,6 +216,7 @@ export function LancamentosList({
               {visiveis.length} de {itens.length} lançamento{itens.length === 1 ? '' : 's'}
               {isFetching ? ' · atualizando…' : ''}
             </p>
+            {textoCorte(dataCorte) ? <p className="mt-0.5 text-xs text-ink-muted">{textoCorte(dataCorte)}</p> : null}
           </div>
           <Segmented
             label="Natureza"
@@ -289,7 +296,7 @@ export function LancamentosList({
         <div className="p-5">
           <EmptyState
             title={temFiltro ? 'Nenhum lançamento com esses filtros' : 'Nenhum lançamento neste mês'}
-            description={temFiltro ? 'Ajuste ou limpe os filtros para ver mais.' : 'Receitas vêm do Comercial; custos você lança em “Novo custo”.'}
+            description={temFiltro ? 'Ajuste ou limpe os filtros para ver mais.' : 'Receitas vêm do Comercial; custos e receitas avulsas você lança em “Novo custo” e “Nova receita”.'}
           />
         </div>
       ) : (

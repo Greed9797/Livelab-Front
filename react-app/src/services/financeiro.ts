@@ -7,13 +7,17 @@ import type {
   CustoRecorrente,
   CustoRecorrentePayload,
   EscopoExclusao,
+  CaixaResumo,
   FinanceiroConfig,
+  FinanceiroConfigPatch,
   ImportarCustosPayload,
   ImportarCustosResultado,
   ImportarResumo,
   Lancamento,
   LancamentosFiltro,
+  ReceitaAvulsaPayload,
 } from '../types/financeiro'
+import { normalizarCaixa, normalizarConfig } from '../utils/caixa'
 import { asNumber } from '../utils/format'
 import {
   type AcaoBaixa,
@@ -32,6 +36,7 @@ export const FQK = {
   dre: (inicio?: string, fim?: string) => (inicio ? ['fin2', 'dre', inicio, fim] as const : ['fin2', 'dre'] as const),
   fluxo: (mes?: string, saldoInicial?: number) => (mes ? ['fin2', 'fluxo', mes, saldoInicial ?? 0] as const : ['fin2', 'fluxo'] as const),
   config: ['fin2', 'config'] as const,
+  caixa: ['fin2', 'caixa'] as const,
   recorrentes: ['fin2', 'recorrentes'] as const,
 }
 
@@ -56,13 +61,31 @@ export async function getFluxoCaixa(mes: string, saldoInicial?: number) {
 }
 
 export async function getFinanceiroConfig(): Promise<FinanceiroConfig> {
-  const raw = await apiGet<Record<string, unknown>>('/financeiro/config')
-  return { aliquota_imposto_pct: raw?.aliquota_imposto_pct == null ? 10 : asNumber(raw.aliquota_imposto_pct) }
+  return normalizarConfig(await apiGet<unknown>('/financeiro/config'))
 }
 
-export async function updateFinanceiroConfig(payload: FinanceiroConfig): Promise<FinanceiroConfig> {
+export async function updateFinanceiroConfig(payload: FinanceiroConfigPatch): Promise<FinanceiroConfig> {
   const raw = await apiPatch<Record<string, unknown>>('/financeiro/config', payload)
-  return { aliquota_imposto_pct: asNumber(raw?.aliquota_imposto_pct ?? payload.aliquota_imposto_pct) }
+  // A resposta pode vir parcial: o que não veio cai no que acabamos de enviar.
+  return normalizarConfig({ ...payload, ...(raw && typeof raw === 'object' ? raw : {}) })
+}
+
+export async function getCaixa(): Promise<CaixaResumo> {
+  return normalizarCaixa(await apiGet<unknown>('/financeiro/caixa'))
+}
+
+// ── Receitas avulsas ─────────────────────────────────────────────────────────
+
+export function createReceitaAvulsa(payload: ReceitaAvulsaPayload) {
+  return apiPost<unknown>('/financeiro/receitas-avulsas', clean({ ...payload }))
+}
+
+export function updateReceitaAvulsa(id: string, payload: Partial<ReceitaAvulsaPayload>) {
+  return apiPatch<unknown>(`/financeiro/receitas-avulsas/${encodeURIComponent(id)}`, payload)
+}
+
+export function deleteReceitaAvulsa(id: string) {
+  return apiDelete<unknown>(`/financeiro/receitas-avulsas/${encodeURIComponent(id)}`)
 }
 
 // ── Baixas ───────────────────────────────────────────────────────────────────
@@ -102,6 +125,7 @@ function normalizarRecorrente(raw: Record<string, unknown>): CustoRecorrente {
     inicio: String(raw.inicio ?? '').slice(0, 10),
     fim: typeof raw.fim === 'string' && raw.fim ? raw.fim.slice(0, 10) : null,
     ativo: raw.ativo !== false,
+    classe_custo: raw.classe_custo === 'fixo' || raw.classe_custo === 'variavel' ? raw.classe_custo : null,
   }
 }
 

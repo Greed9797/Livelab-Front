@@ -5,10 +5,11 @@ import type {
   CustoPontualPayload,
   CustoRecorrentePayload,
   EscopoExclusao,
-  FinanceiroConfig,
+  FinanceiroConfigPatch,
   ImportarCustosPayload,
   Lancamento,
   LancamentosFiltro,
+  ReceitaAvulsaPayload,
 } from '../types/financeiro'
 import {
   FQK,
@@ -16,8 +17,11 @@ import {
   createCustoParcelado,
   createCustoPontual,
   createCustoRecorrente,
+  createReceitaAvulsa,
   deleteCusto,
   deleteCustoRecorrente,
+  deleteReceitaAvulsa,
+  getCaixa,
   getCustosRecorrentes,
   getDre,
   getFinanceiroConfig,
@@ -27,6 +31,7 @@ import {
   updateCusto,
   updateCustoRecorrente,
   updateFinanceiroConfig,
+  updateReceitaAvulsa,
 } from '../services/financeiro'
 import { QK } from '../services/query-keys'
 import type { AcaoBaixa } from '../utils/financeiro'
@@ -55,6 +60,10 @@ export function useFluxoCaixa(mes: string, saldoInicial: number, enabled = true)
 
 export function useFinanceiroConfig(enabled = true) {
   return useQuery({ queryKey: FQK.config, queryFn: getFinanceiroConfig, enabled })
+}
+
+export function useCaixa(enabled = true) {
+  return useQuery({ queryKey: FQK.caixa, queryFn: getCaixa, enabled })
 }
 
 export function useCustosRecorrentes(enabled = true) {
@@ -100,7 +109,17 @@ export function useCustoMutations() {
 
 export function useConfigMutation() {
   const invalidate = useInvalidateFinanceiro()
-  return useMutation({ mutationFn: (p: FinanceiroConfig) => updateFinanceiroConfig(p), onSuccess: invalidate })
+  return useMutation({ mutationFn: (p: FinanceiroConfigPatch) => updateFinanceiroConfig(p), onSuccess: invalidate })
+}
+
+export function useReceitaAvulsaMutations() {
+  const invalidate = useInvalidateFinanceiro()
+  const opts = { onSuccess: invalidate }
+  return {
+    criar: useMutation({ mutationFn: (p: ReceitaAvulsaPayload) => createReceitaAvulsa(p), ...opts }),
+    atualizar: useMutation({ mutationFn: ({ id, payload }: { id: string; payload: Partial<ReceitaAvulsaPayload> }) => updateReceitaAvulsa(id, payload), ...opts }),
+    excluir: useMutation({ mutationFn: (id: string) => deleteReceitaAvulsa(id), ...opts }),
+  }
 }
 
 /** Importação da planilha: `dryRun` só confere; sem ele grava e invalida o financeiro. */
