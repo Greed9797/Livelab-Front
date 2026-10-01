@@ -1,4 +1,4 @@
-import { BarChart3, CalendarRange, ListChecks, Percent, Plus, Repeat, Table2, Users, Waves } from 'lucide-react'
+import { BarChart3, CalendarRange, ListChecks, Percent, Plus, Repeat, Table2, Users, Wallet, Waves } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -13,16 +13,19 @@ import { type CustoModalState, CustoFormModal } from '../components/financeiro/C
 import { RecorrentesPanel } from '../components/financeiro/RecorrentesPanel'
 import { DrePanel } from '../components/financeiro/DrePanel'
 import { FluxoCaixaPanel } from '../components/financeiro/FluxoCaixaPanel'
+import { CaixaHoje } from '../components/financeiro/CaixaHoje'
+import { CaixaConfigModal } from '../components/financeiro/CaixaConfigModal'
+import { type ReceitaModalState, ReceitaAvulsaModal } from '../components/financeiro/ReceitaAvulsaModal'
 import { ImpostoConfigModal } from '../components/financeiro/ImpostoConfigModal'
 import { ComissoesTab, PorClienteTab } from '../components/financeiro/LegacyTabs'
 import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
 import '../components/financeiro/financeiro.css'
-import { useBaixaMutation, useCustoMutations, useFinanceiroConfig, useLancamentos } from '../hooks/useFinanceiro'
+import { useBaixaMutation, useCaixa, useCustoMutations, useFinanceiroConfig, useLancamentos, useReceitaAvulsaMutations } from '../hooks/useFinanceiro'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import type { Lancamento } from '../types/financeiro'
 import { canWrite } from '../utils/access'
-import { hojeSP, isMes, mesAtualSP, mesLabel, totalizar } from '../utils/financeiro'
+import { hojeSP, isMes, isReceitaAvulsa, mesAtualSP, mesLabel, totalizar } from '../utils/financeiro'
 import { formatPercent } from '../utils/format'
 import type { PeriodRange } from '../utils/period'
 
@@ -54,11 +57,15 @@ export function FinanceiroPage() {
   const [excluir, setExcluir] = useState<Lancamento | null>(null)
   const [custoModal, setCustoModal] = useState<CustoModalState | null>(null)
   const [impostoOpen, setImpostoOpen] = useState(false)
+  const [caixaOpen, setCaixaOpen] = useState(false)
+  const [receitaModal, setReceitaModal] = useState<ReceitaModalState | null>(null)
 
   const lancamentos = useLancamentos({ inicio: mes, fim: mes }, !isCliente)
   const config = useFinanceiroConfig(!isCliente)
   const baixaMut = useBaixaMutation()
   const custos = useCustoMutations()
+  const receitas = useReceitaAvulsaMutations()
+  const caixa = useCaixa(!isCliente)
 
   function updateParams(patch: Record<string, string | null>) {
     const next = new URLSearchParams(params)
@@ -130,10 +137,18 @@ export function FinanceiroPage() {
             <Button variant="secondary" icon={Percent} onClick={() => setImpostoOpen(true)} title="Alíquota de imposto">
               Imposto {aliquota != null ? formatPercent(aliquota) : ''}
             </Button>
+            <Button variant="secondary" icon={Wallet} onClick={() => setCaixaOpen(true)} title="Saldo de abertura e data de corte">
+              Caixa
+            </Button>
             {podeEscrever ? (
-              <Button icon={Plus} onClick={() => setCustoModal({ kind: 'novo', modo: 'pontual' })}>
-                Novo custo
-              </Button>
+              <>
+                <Button variant="secondary" icon={Plus} onClick={() => setReceitaModal({ kind: 'nova' })}>
+                  Nova receita
+                </Button>
+                <Button icon={Plus} onClick={() => setCustoModal({ kind: 'novo', modo: 'pontual' })}>
+                  Novo custo
+                </Button>
+              </>
             ) : null}
           </>
         }
@@ -153,6 +168,14 @@ export function FinanceiroPage() {
           <LancamentosSkeleton />
         ) : (
           <div className="space-y-5">
+            <CaixaHoje
+              caixa={caixa.data}
+              isLoading={caixa.isLoading}
+              isError={caixa.isError}
+              podeEscrever={podeEscrever}
+              onConfigurar={() => setCaixaOpen(true)}
+              onRetry={() => void caixa.refetch()}
+            />
             <ResumoCards
               totais={totais}
               atrasadosCount={atrasadosCount}
@@ -174,9 +197,11 @@ export function FinanceiroPage() {
                 baixaMut.reset()
                 setDesfazer(l)
               }}
-              onEditar={(l) => setCustoModal({ kind: 'editar-lancamento', lancamento: l })}
+              dataCorte={caixa.data?.data_corte ?? config.data?.data_corte ?? null}
+              onEditar={(l) => (isReceitaAvulsa(l) ? setReceitaModal({ kind: 'editar', lancamento: l }) : setCustoModal({ kind: 'editar-lancamento', lancamento: l }))}
               onExcluir={(l) => {
                 custos.excluir.reset()
+                receitas.excluir.reset()
                 setExcluir(l)
               }}
             />
@@ -239,10 +264,23 @@ export function FinanceiroPage() {
         key={excluir?.id ?? 'none'}
         lancamento={excluir}
         onClose={() => setExcluir(null)}
-        isPending={custos.excluir.isPending}
-        error={custos.excluir.error ? extractErrorMessage(custos.excluir.error) : null}
-        onConfirm={(escopo) =>
-          excluir &&
+        isPending={excluir && isReceitaAvulsa(excluir) ? receitas.excluir.isPending : custos.excluir.isPending}
+        error={
+          excluir && isReceitaAvulsa(excluir)
+            ? receitas.excluir.error ? extractErrorMessage(receitas.excluir.error) : null
+            : custos.excluir.error ? extractErrorMessage(custos.excluir.error) : null
+        }
+        onConfirm={(escopo) => {
+          if (!excluir) return
+          if (isReceitaAvulsa(excluir)) {
+            receitas.excluir.mutate(excluir.id, {
+              onSuccess: () => {
+                setExcluir(null)
+                toastOk('Receita excluída.')
+              },
+            })
+            return
+          }
           custos.excluir.mutate(
             { id: excluir.id, escopo },
             {
@@ -252,9 +290,17 @@ export function FinanceiroPage() {
               },
             },
           )
-        }
+        }}
       />
       <CustoFormModal state={custoModal} mes={mes} onClose={() => setCustoModal(null)} onSaved={(msg) => toastOk(msg)} />
+      <ReceitaAvulsaModal state={receitaModal} mes={mes} onClose={() => setReceitaModal(null)} onSaved={(msg) => toastOk(msg)} />
+      <CaixaConfigModal
+        open={caixaOpen}
+        atual={config.data}
+        podeEscrever={podeEscrever}
+        onClose={() => setCaixaOpen(false)}
+        onSaved={(msg) => toastOk(msg)}
+      />
       <ImpostoConfigModal
         open={impostoOpen}
         atual={aliquota ?? 10}

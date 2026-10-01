@@ -135,6 +135,8 @@ export const GRUPO_LABEL: Record<string, string> = {
   outros: 'Outros',
   apresentadoras: 'Apresentadoras',
   imposto: 'Imposto',
+  servico: 'Serviço',
+  reembolso: 'Reembolso',
 }
 
 export function grupoLabel(grupo: string | null | undefined): string {
@@ -160,6 +162,8 @@ export function origemLabel(l: Pick<Lancamento, 'origem' | 'componente'>): strin
       return 'Apresentadora'
     case 'imposto':
       return 'Imposto'
+    case 'avulsa':
+      return 'Receita avulsa'
     default:
       return l.origem || 'Lançamento'
   }
@@ -367,6 +371,9 @@ export type AcaoBaixa = 'pagar' | 'desfazer'
 /** Endpoint (relativo a /v1) que dá baixa / desfaz no lançamento, conforme a origem. */
 export function rotaBaixa(l: Pick<Lancamento, 'id' | 'natureza' | 'origem' | 'competencia' | 'apresentadora_id'>, acao: AcaoBaixa): string {
   const enc = encodeURIComponent
+  if (l.natureza === 'receita' && l.origem === 'avulsa') {
+    return `/financeiro/receitas-avulsas/${enc(l.id)}/${acao === 'pagar' ? 'receber' : 'desfazer'}`
+  }
   if (l.natureza === 'receita') {
     return `/financeiro/receitas/${enc(l.id)}/${acao === 'pagar' ? 'receber' : 'desfazer'}`
   }
@@ -389,8 +396,18 @@ export function isCustoManual(l: Pick<Lancamento, 'natureza' | 'origem'>): boole
   return l.natureza === 'custo' && ['manual', 'recorrente', 'parcela'].includes(l.origem)
 }
 
+/** Receita lançada à mão (aporte, serviço, reembolso…) — editável/excluível como os custos manuais. */
+export function isReceitaAvulsa(l: Pick<Lancamento, 'natureza' | 'origem'>): boolean {
+  return l.natureza === 'receita' && l.origem === 'avulsa'
+}
+
+/** Lançamentos que o usuário criou e pode editar. */
+export function isEditavel(l: Pick<Lancamento, 'natureza' | 'origem'>): boolean {
+  return isCustoManual(l) || isReceitaAvulsa(l)
+}
+
 export function podeExcluir(l: Pick<Lancamento, 'natureza' | 'origem' | 'id'>): boolean {
-  return isCustoManual(l) && !l.id.startsWith('rec:')
+  return isReceitaAvulsa(l) || (isCustoManual(l) && !l.id.startsWith('rec:'))
 }
 
 export function valorEmAberto(l: Pick<Lancamento, 'valor_previsto' | 'valor_pago'>): number {

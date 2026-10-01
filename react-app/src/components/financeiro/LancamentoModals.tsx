@@ -173,7 +173,7 @@ export function ExcluirModal({
     <Modal
       open
       size="sm"
-      title="Excluir custo?"
+      title={lancamento.natureza === 'receita' ? 'Excluir receita?' : 'Excluir custo?'}
       subtitle="Esta ação não pode ser desfeita."
       onClose={onClose}
       footer={

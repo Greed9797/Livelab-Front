@@ -138,6 +138,39 @@ export interface FluxoCaixaResponse {
 
 export interface FinanceiroConfig {
   aliquota_imposto_pct: number
+  /** 'YYYY-MM-DD' — tudo que vence antes é ignorado; null = sem corte. */
+  data_corte: string | null
+  saldo_abertura: number
+}
+
+/** PATCH /financeiro/config aceita qualquer subconjunto. */
+export type FinanceiroConfigPatch = Partial<FinanceiroConfig>
+
+/** GET /financeiro/caixa */
+export interface CaixaResumo {
+  configurado: boolean
+  data_corte: string | null
+  saldo_abertura: number
+  entradas_realizadas: number
+  saidas_realizadas: number
+  saldo_atual: number
+  a_receber: number
+  a_pagar: number
+  saldo_projetado_fim_mes: number
+}
+
+export const GRUPOS_RECEITA_AVULSA = ['aporte', 'servico', 'reembolso', 'outros'] as const
+export type GrupoReceitaAvulsa = (typeof GRUPOS_RECEITA_AVULSA)[number]
+
+export interface ReceitaAvulsaPayload {
+  descricao: string
+  grupo: GrupoReceitaAvulsa
+  valor: number
+  data_vencimento: string
+  observacao?: string | null
+  /** Informados juntos quando a receita já foi recebida. */
+  valor_pago?: number
+  data_pagamento?: string
 }
 
 export interface CustoRecorrente {
