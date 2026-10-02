@@ -8,6 +8,7 @@ import type {
   FluxoSerieMes,
   Lancamento,
   LancamentosFiltro,
+  ModoPerda,
   Natureza,
   PrevistoRealizado,
   StatusLancamento,
@@ -109,6 +110,13 @@ export const STATUS_META: Record<StatusLancamento, StatusMeta> = {
   atrasado: { label: 'Atrasado', tone: 'danger', color: 'var(--danger)', soft: 'var(--danger-soft)', descricao: 'Vencimento passou sem baixa total' },
   parcial: { label: 'Parcial', tone: 'brand', color: 'var(--primary)', soft: 'var(--primary-soft)', descricao: 'Pago em parte, dentro do prazo' },
   pago: { label: 'Pago', tone: 'success', color: 'var(--success)', soft: 'var(--success-soft)', descricao: 'Baixa total registrada' },
+  perdido: { label: 'Perdido', tone: 'neutral', color: 'var(--text-muted)', soft: 'var(--bg-elev-3)', descricao: 'Receita dada como perdida — não entra em a receber' },
+  cancelado: { label: 'Cancelado', tone: 'neutral', color: 'var(--text-muted)', soft: 'var(--bg-elev-3)', descricao: 'Despesa cancelada — não entra em a pagar nem no previsto' },
+}
+
+/** Status que encerram o saldo em aberto sem pagamento (itens esmaecidos, sem Receber/Pagar). */
+export function isEncerrado(status: StatusLancamento): boolean {
+  return status === 'perdido' || status === 'cancelado'
 }
 
 export function statusLabel(status: StatusLancamento, natureza: Natureza): string {
@@ -205,6 +213,27 @@ function componenteDoId(id: string | null): string | null {
   return c === 'fixo' || c === 'variavel' ? c : null
 }
 
+/** Status do backend quando válido (perdido só em receita, cancelado só em custo); senão deriva, respeitando perdido_em/cancelado_em. */
+function statusDoItem(
+  raw: Record<string, unknown>,
+  natureza: Natureza,
+  base: { valor_previsto: number; valor_pago: number; data_vencimento: string | null },
+  hoje: string,
+): StatusLancamento {
+  const encerradoProprio: StatusLancamento = natureza === 'receita' ? 'perdido' : 'cancelado'
+  if (isStatus(raw.status)) {
+    if (raw.status === 'perdido' || raw.status === 'cancelado') {
+      if (raw.status === encerradoProprio) return raw.status
+    } else {
+      return raw.status
+    }
+  }
+  const derivado = derivarStatus(base, hoje)
+  if (derivado === 'pago') return derivado
+  const marcado = natureza === 'receita' ? str(raw.perdido_em) : str(raw.cancelado_em)
+  return marcado ? encerradoProprio : derivado
+}
+
 export function normalizarLancamento(input: unknown, hoje: string = hojeSP()): Lancamento {
   const raw = rec(input)
   const natureza: Natureza = raw.natureza === 'receita' ? 'receita' : 'custo'
@@ -225,7 +254,7 @@ export function normalizarLancamento(input: unknown, hoje: string = hojeSP()): L
     valor_previsto: valorPrevisto,
     valor_pago: valorPago,
     data_pagamento: dateOnly(raw.data_pagamento),
-    status: isStatus(raw.status) ? raw.status : derivarStatus(base, hoje),
+    status: statusDoItem(raw, natureza, base, hoje),
     grupo: str(raw.grupo) ?? (origem === 'apresentadora' ? 'apresentadoras' : origem === 'imposto' ? 'imposto' : null),
     componente: str(raw.componente) ?? componenteDoId(str(raw.id)),
     classe: raw.classe === 'fixo' || raw.classe === 'variavel' ? raw.classe : null,
@@ -240,6 +269,10 @@ export function normalizarLancamento(input: unknown, hoje: string = hojeSP()): L
     parcelas_total: parcelasTotal,
     observacao: str(raw.observacao),
     virtual: Boolean(raw.virtual) || /^(calc|rec|apresentadora|imposto):/.test(str(raw.id) ?? ''),
+    perdido_em: str(raw.perdido_em),
+    perdido_motivo: str(raw.perdido_motivo),
+    cancelado_em: str(raw.cancelado_em),
+    cancelado_motivo: str(raw.cancelado_motivo),
   }
 }
 
@@ -257,7 +290,9 @@ export function totalizar(itens: Lancamento[]): TotaisLancamentos {
     const aberto = Math.max(0, l.valor_previsto - l.valor_pago)
     alvo.previsto += l.valor_previsto
     alvo.pago += l.valor_pago
-    if (l.status === 'atrasado') alvo.atrasado += aberto
+    if (l.status === 'perdido') t.receita.perdido = (t.receita.perdido ?? 0) + aberto
+    else if (l.status === 'cancelado') t.custo.cancelado = (t.custo.cancelado ?? 0) + aberto
+    else if (l.status === 'atrasado') alvo.atrasado += aberto
     else if (l.status !== 'pago') alvo.pendente += aberto
   }
   for (const n of [t.receita, t.custo]) {
@@ -266,9 +301,14 @@ export function totalizar(itens: Lancamento[]): TotaisLancamentos {
     n.atrasado = r2(n.atrasado)
     n.pendente = r2(n.pendente)
   }
+  const perdido = r2(t.receita.perdido ?? 0)
+  const cancelado = r2(t.custo.cancelado ?? 0)
+  // Só expõe os campos quando há encerrados (mantém o formato dos totais antigos).
+  if (perdido > 0) t.receita.perdido = perdido
+  if (cancelado > 0) t.custo.cancelado = cancelado
   return {
     ...t,
-    saldo_previsto: r2(t.receita.previsto - t.custo.previsto),
+    saldo_previsto: r2(t.receita.previsto - perdido - (t.custo.previsto - cancelado)),
     saldo_realizado: r2(t.receita.pago - t.custo.pago),
   }
 }
@@ -281,6 +321,9 @@ function normalizarTotaisNatureza(v: unknown): TotaisNatureza | null {
     pago: asNumber(r.pago ?? r.valor_pago ?? r.realizado),
     atrasado: asNumber(r.atrasado),
     pendente: asNumber(r.pendente ?? r.em_aberto),
+    // Defensivo: backends sem perdas/cancelamentos não mandam o campo.
+    ...(r.perdido != null ? { perdido: asNumber(r.perdido) } : {}),
+    ...(r.cancelado != null ? { cancelado: asNumber(r.cancelado) } : {}),
   }
 }
 
@@ -348,6 +391,7 @@ export function agruparPorDia(itens: Lancamento[]): GrupoDia[] {
       map.set(key, g)
     }
     g.itens.push(l)
+    if (isEncerrado(l.status)) continue // perdido/cancelado sai do projetado do dia
     if (l.natureza === 'receita') g.entradas += l.valor_previsto
     else g.saidas += l.valor_previsto
   }
@@ -360,6 +404,38 @@ export function agruparPorDia(itens: Lancamento[]): GrupoDia[] {
   return grupos.sort((a, b) => (a.data || '9999').localeCompare(b.data || '9999'))
 }
 
+export type VisaoLista = 'vencimento' | 'competencia'
+
+/** Quantos meses para trás buscar ao incluir "atrasados de meses anteriores" na lista por vencimento. */
+export const MESES_ATRASADOS_ANTERIORES = 12
+
+/**
+ * Janela de competências a buscar. Por competência: só o mês. Por vencimento: [mês−1, mês]
+ * (o que vence no mês costuma ter competência do mês anterior) — ou [mês−12, mês] ao incluir atrasados antigos.
+ */
+export function janelaLancamentos(mes: string, visao: VisaoLista, incluirAnteriores = false): { inicio: string; fim: string } {
+  if (visao === 'competencia') return { inicio: mes, fim: mes }
+  return { inicio: shiftMes(mes, incluirAnteriores ? -MESES_ATRASADOS_ANTERIORES : -1), fim: mes }
+}
+
+/**
+ * Visão por vencimento: itens cujo vencimento cai dentro do mês (sem vencimento: pela competência do mês).
+ * Com `incluirAnteriores`, também os ainda atrasados que venceram antes do mês.
+ */
+export function filtrarPorVencimentoNoMes(itens: Lancamento[], mes: string, incluirAnteriores = false): Lancamento[] {
+  return itens.filter((l) => {
+    const v = l.data_vencimento
+    if (!v) return l.competencia.startsWith(mes)
+    if (v.startsWith(mes)) return true
+    return incluirAnteriores && v < `${mes}-01` && l.status === 'atrasado'
+  })
+}
+
+/** Itens que a lista oferece para o chip "atrasados de meses anteriores" (venceram antes do mês e seguem atrasados). */
+export function contarAtrasadosAnteriores(itens: Lancamento[], mes: string): number {
+  return itens.filter((l) => l.status === 'atrasado' && l.data_vencimento != null && l.data_vencimento < `${mes}-01`).length
+}
+
 export function gruposPresentes(itens: Lancamento[]): string[] {
   return [...new Set(itens.map((l) => l.grupo).filter((g): g is string => Boolean(g)))].sort((a, b) =>
     grupoLabel(a).localeCompare(grupoLabel(b), 'pt-BR'),
@@ -367,7 +443,7 @@ export function gruposPresentes(itens: Lancamento[]): string[] {
 }
 
 export function contarPorStatus(itens: Lancamento[]): Record<StatusLancamento, number> {
-  const c: Record<StatusLancamento, number> = { previsto: 0, pendente: 0, atrasado: 0, parcial: 0, pago: 0 }
+  const c: Record<StatusLancamento, number> = { previsto: 0, pendente: 0, atrasado: 0, parcial: 0, pago: 0, perdido: 0, cancelado: 0 }
   for (const l of itens) c[l.status] += 1
   return c
 }
@@ -401,6 +477,52 @@ export function rotaBaixa(l: Pick<Lancamento, 'id' | 'natureza' | 'origem' | 'co
     return `/financeiro/impostos/${mes}/${acao}`
   }
   return `/financeiro/custos/${enc(l.id)}/${acao}`
+}
+
+// ── Perder / cancelar ────────────────────────────────────────────────────────
+
+export interface AcoesPerda {
+  podePerder: boolean
+  podeCancelar: boolean
+  podeDesfazer: boolean
+}
+
+type ParaPerda = Pick<Lancamento, 'natureza' | 'origem' | 'status'> & { grupo?: string | null }
+
+/**
+ * O que o item aceita: receita (comercial ou avulsa, exceto aporte) pode ser dada como perdida;
+ * custo manual/parcela/recorrente pode ser cancelado; item já perdido/cancelado só desfaz.
+ * Apresentadora, imposto e aporte nunca ganham a ação. Título 100% pago não perde nem cancela.
+ */
+export function acoesPerda(item: ParaPerda): AcoesPerda {
+  const nenhuma = { podePerder: false, podeCancelar: false, podeDesfazer: false }
+  if (item.origem === 'apresentadora' || item.origem === 'imposto') return nenhuma
+  if (item.natureza === 'receita') {
+    if (item.origem === 'avulsa' && item.grupo === 'aporte') return nenhuma
+    return {
+      podePerder: item.status !== 'pago' && item.status !== 'perdido',
+      podeCancelar: false,
+      podeDesfazer: item.status === 'perdido',
+    }
+  }
+  if (!isCustoManual(item)) return nenhuma
+  return {
+    podePerder: false,
+    podeCancelar: item.status !== 'pago' && item.status !== 'cancelado',
+    podeDesfazer: item.status === 'cancelado',
+  }
+}
+
+export type AcaoPerda = ModoPerda
+
+/** Endpoint (relativo a /v1) de perder/desperder (receitas) ou cancelar/reativar (custos). */
+export function rotaPerda(l: Pick<Lancamento, 'id' | 'natureza' | 'origem'>, modo: ModoPerda): string {
+  const enc = encodeURIComponent(l.id)
+  if (l.natureza === 'receita') {
+    const base = l.origem === 'avulsa' ? 'receitas-avulsas' : 'receitas'
+    return `/financeiro/${base}/${enc}/${modo === 'desfazer' ? 'desperder' : 'perder'}`
+  }
+  return `/financeiro/custos/${enc}/${modo === 'desfazer' ? 'reativar' : 'cancelar'}`
 }
 
 /** Custos criados no Financeiro (editáveis/excluíveis). Receitas vêm do Comercial; apresentadoras e imposto são calculados. */
@@ -544,7 +666,8 @@ export function fluxoDeLancamentos(itens: Lancamento[], saldoInicial = 0): Fluxo
   for (const l of itens) {
     const linha = base.get(faixaDoLancamento(l))!
     const alvo = l.natureza === 'receita' ? linha.entradas : linha.saidas
-    alvo.previsto = r2(alvo.previsto + l.valor_previsto)
+    // Perdido/cancelado não projeta nada; o que já foi pago continua realizado.
+    if (!isEncerrado(l.status)) alvo.previsto = r2(alvo.previsto + l.valor_previsto)
     alvo.realizado = r2(alvo.realizado + l.valor_pago)
   }
   const linhas = [...base.values()].map((l) => ({

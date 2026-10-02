@@ -34,14 +34,16 @@ export interface TotaisCusto {
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 
-export function totaisCusto(itens: Pick<Lancamento, 'valor_previsto' | 'valor_pago'>[]): TotaisCusto {
+/** Cancelado não conta como previsto nem em aberto (só o que já foi pago permanece). */
+export function totaisCusto(itens: (Pick<Lancamento, 'valor_previsto' | 'valor_pago'> & { status?: Lancamento['status'] })[]): TotaisCusto {
   let previsto = 0
   let pago = 0
   let aberto = 0
   for (const l of itens) {
-    previsto += l.valor_previsto
+    const cancelado = l.status === 'cancelado'
+    previsto += cancelado ? l.valor_pago : l.valor_previsto
     pago += l.valor_pago
-    aberto += Math.max(0, l.valor_previsto - l.valor_pago)
+    if (!cancelado) aberto += Math.max(0, l.valor_previsto - l.valor_pago)
   }
   return { previsto: r2(previsto), pago: r2(pago), aberto: r2(aberto) }
 }

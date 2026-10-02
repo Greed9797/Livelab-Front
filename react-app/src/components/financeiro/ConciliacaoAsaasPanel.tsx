@@ -67,7 +67,7 @@ function PendenteCard({
                 </p>
               </div>
               {canWrite ? (
-                <Button className="h-9" variant="secondary" isLoading={busyId === item.id} disabled={busyId !== null} onClick={() => onConciliar(item, s)}>
+                <Button className="h-9 min-h-11 sm:min-h-0" variant="secondary" isLoading={busyId === item.id} disabled={busyId !== null} onClick={() => onConciliar(item, s)}>
                   Conciliar
                 </Button>
               ) : null}
@@ -153,7 +153,7 @@ export function ConciliacaoAsaasPanel({ mes }: { mes: string }) {
                   role="tab"
                   aria-selected={tipo === t}
                   onClick={() => setTipo(t)}
-                  className={`h-8 rounded-full px-4 text-sm font-semibold transition ${tipo === t ? 'bg-brand-soft text-brand' : 'text-ink-muted hover:text-ink'}`}
+                  className={`h-11 rounded-full px-4 text-sm font-semibold transition sm:h-8 ${tipo === t ? 'bg-brand-soft text-brand' : 'text-ink-muted hover:text-ink'}`}
                 >
                   {t === 'entrada' ? 'Entradas' : 'Saídas'}
                 </button>
@@ -201,7 +201,7 @@ export function ConciliacaoAsaasPanel({ mes }: { mes: string }) {
                 {
                   key: 'acoes', header: '', align: 'right',
                   render: (t) => canWrite && t.conciliado_com_id && t.id
-                    ? <Button className="h-8" variant="ghost" icon={Undo2} isLoading={busyId === t.id} disabled={busyId !== null} onClick={() => onDesfazer(t)}>Desfazer</Button>
+                    ? <Button className="h-8 min-h-11 sm:min-h-0" variant="ghost" icon={Undo2} isLoading={busyId === t.id} disabled={busyId !== null} onClick={() => onDesfazer(t)}>Desfazer</Button>
                     : null,
                 },
               ]}

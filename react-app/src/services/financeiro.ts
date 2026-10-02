@@ -7,7 +7,6 @@ import type {
   CustoRecorrente,
   CustoRecorrentePayload,
   EscopoExclusao,
-  CaixaResumo,
   FinanceiroConfig,
   FinanceiroConfigPatch,
   ImportarCustosPayload,
@@ -15,9 +14,11 @@ import type {
   ImportarResumo,
   Lancamento,
   LancamentosFiltro,
+  ModoPerda,
+  PainelFinanceiro,
   ReceitaAvulsaPayload,
 } from '../types/financeiro'
-import { normalizarCaixa, normalizarConfig } from '../utils/caixa'
+import { normalizarConfig } from '../utils/caixa'
 import { asNumber } from '../utils/format'
 import {
   type AcaoBaixa,
@@ -25,8 +26,10 @@ import {
   normalizarFluxo,
   normalizarLancamentosResponse,
   rotaBaixa,
+  rotaPerda,
 } from '../utils/financeiro'
 import { montarPayloadImportacao } from '../utils/importar-custos'
+import { normalizarPainel } from '../utils/painel'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 // Query keys próprias (prefixo 'fin2' para não colidir com QK.financeiro* legados).
@@ -36,7 +39,7 @@ export const FQK = {
   dre: (inicio?: string, fim?: string) => (inicio ? ['fin2', 'dre', inicio, fim] as const : ['fin2', 'dre'] as const),
   fluxo: (mes?: string, saldoInicial?: number) => (mes ? ['fin2', 'fluxo', mes, saldoInicial ?? 0] as const : ['fin2', 'fluxo'] as const),
   config: ['fin2', 'config'] as const,
-  caixa: ['fin2', 'caixa'] as const,
+  painel: (mes: string) => ['fin2', 'painel', mes] as const,
   recorrentes: ['fin2', 'recorrentes'] as const,
 }
 
@@ -70,8 +73,9 @@ export async function updateFinanceiroConfig(payload: FinanceiroConfigPatch): Pr
   return normalizarConfig({ ...payload, ...(raw && typeof raw === 'object' ? raw : {}) })
 }
 
-export async function getCaixa(): Promise<CaixaResumo> {
-  return normalizarCaixa(await apiGet<unknown>('/financeiro/caixa'))
+/** Painel do mês: A receber / A pagar em regime de caixa (vencimento até o fim do mês) + projeções. */
+export async function getPainel(mes: string): Promise<PainelFinanceiro> {
+  return normalizarPainel(await apiGet<unknown>('/financeiro/painel', { mes }), mes)
 }
 
 // ── Receitas avulsas ─────────────────────────────────────────────────────────
@@ -93,6 +97,13 @@ export function deleteReceitaAvulsa(id: string) {
 export function baixarLancamento(l: Lancamento, acao: AcaoBaixa, payload: BaixaPayload = {}) {
   const path = rotaBaixa(l, acao)
   return apiPatch<unknown>(path, acao === 'pagar' ? clean({ ...payload }) : undefined)
+}
+
+// ── Perdas / cancelamentos ───────────────────────────────────────────────────
+
+export function perdaLancamento(l: Lancamento, modo: ModoPerda, motivo?: string) {
+  const texto = motivo?.trim()
+  return apiPatch<unknown>(rotaPerda(l, modo), modo !== 'desfazer' && texto ? { motivo: texto.slice(0, 300) } : undefined)
 }
 
 // ── Custos ───────────────────────────────────────────────────────────────────
@@ -149,11 +160,6 @@ export function deleteCustoRecorrente(id: string) {
 /** Materializa os recorrentes do mês (idempotente). */
 export function gerarCustosMes(mes: string) {
   return apiPost<unknown>(`/financeiro/custos/gerar?mes=${mes}`)
-}
-
-/** Materializa os títulos de receita do mês (idempotente). */
-export function gerarReceitasMes(mes: string) {
-  return apiPost<unknown>(`/financeiro/receitas/gerar?mes=${mes}`)
 }
 
 // ── Importação da planilha ───────────────────────────────────────────────────

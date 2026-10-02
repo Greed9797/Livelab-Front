@@ -99,7 +99,7 @@ export function RecorrentesPanel({
                 <div className="flex shrink-0 items-center">
                   <button
                     type="button"
-                    className="grid h-8 w-8 place-items-center rounded-full text-ink-muted hover:bg-surface-muted hover:text-ink"
+                    className="grid h-11 w-11 place-items-center rounded-full sm:h-8 sm:w-8 text-ink-muted hover:bg-surface-muted hover:text-ink"
                     aria-label={r.ativo ? `Pausar ${r.nome}` : `Reativar ${r.nome}`}
                     title={r.ativo ? 'Pausar' : 'Reativar'}
                     onClick={() =>
@@ -111,10 +111,10 @@ export function RecorrentesPanel({
                   >
                     {r.ativo ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   </button>
-                  <button type="button" className="grid h-8 w-8 place-items-center rounded-full text-ink-muted hover:bg-surface-muted hover:text-ink" aria-label={`Editar ${r.nome}`} onClick={() => onEditar(r)}>
+                  <button type="button" className="grid h-11 w-11 place-items-center rounded-full sm:h-8 sm:w-8 text-ink-muted hover:bg-surface-muted hover:text-ink" aria-label={`Editar ${r.nome}`} onClick={() => onEditar(r)}>
                     <Pencil className="h-4 w-4" />
                   </button>
-                  <button type="button" className="grid h-8 w-8 place-items-center rounded-full text-ink-muted hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]" aria-label={`Excluir ${r.nome}`} onClick={() => setExcluir(r)}>
+                  <button type="button" className="grid h-11 w-11 place-items-center rounded-full sm:h-8 sm:w-8 text-ink-muted hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]" aria-label={`Excluir ${r.nome}`} onClick={() => setExcluir(r)}>
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>

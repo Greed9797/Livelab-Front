@@ -9,6 +9,7 @@ import type {
   ImportarCustosPayload,
   Lancamento,
   LancamentosFiltro,
+  ModoPerda,
   ReceitaAvulsaPayload,
 } from '../types/financeiro'
 import {
@@ -21,13 +22,14 @@ import {
   deleteCusto,
   deleteCustoRecorrente,
   deleteReceitaAvulsa,
-  getCaixa,
   getCustosRecorrentes,
   getDre,
   getFinanceiroConfig,
   getFluxoCaixa,
   getLancamentos,
+  getPainel,
   importarCustos,
+  perdaLancamento,
   updateCusto,
   updateCustoRecorrente,
   updateFinanceiroConfig,
@@ -36,17 +38,21 @@ import {
 import { QK } from '../services/query-keys'
 import type { AcaoBaixa } from '../utils/financeiro'
 
+/** Cache das leituras financeiras: navegar entre abas/meses já vistos não refaz a rede. */
+export const FIN_CACHE = { staleTime: 60_000, gcTime: 60 * 60_000 } as const
+
 export function useLancamentos(filtro: LancamentosFiltro, enabled = true) {
   return useQuery({
     queryKey: FQK.lancamentos(filtro),
     queryFn: () => getLancamentos(filtro),
     placeholderData: keepPreviousData,
     enabled,
+    ...FIN_CACHE,
   })
 }
 
 export function useDre(inicio: string, fim: string, enabled = true) {
-  return useQuery({ queryKey: FQK.dre(inicio, fim), queryFn: () => getDre(inicio, fim), placeholderData: keepPreviousData, enabled })
+  return useQuery({ queryKey: FQK.dre(inicio, fim), queryFn: () => getDre(inicio, fim), placeholderData: keepPreviousData, enabled, ...FIN_CACHE })
 }
 
 export function useFluxoCaixa(mes: string, saldoInicial: number, enabled = true) {
@@ -55,15 +61,23 @@ export function useFluxoCaixa(mes: string, saldoInicial: number, enabled = true)
     queryFn: () => getFluxoCaixa(mes, saldoInicial),
     placeholderData: keepPreviousData,
     enabled,
+    ...FIN_CACHE,
   })
 }
 
 export function useFinanceiroConfig(enabled = true) {
-  return useQuery({ queryKey: FQK.config, queryFn: getFinanceiroConfig, enabled })
+  return useQuery({ queryKey: FQK.config, queryFn: getFinanceiroConfig, enabled, ...FIN_CACHE })
 }
 
-export function useCaixa(enabled = true) {
-  return useQuery({ queryKey: FQK.caixa, queryFn: getCaixa, enabled })
+/** Painel do mês (caixa hoje, a receber/a pagar, projeções). Mantém o mês anterior na tela enquanto troca. */
+export function usePainel(mes: string, enabled = true) {
+  return useQuery({
+    queryKey: FQK.painel(mes),
+    queryFn: () => getPainel(mes),
+    placeholderData: keepPreviousData,
+    enabled,
+    ...FIN_CACHE,
+  })
 }
 
 export function useCustosRecorrentes(enabled = true) {
@@ -86,6 +100,15 @@ export function useBaixaMutation() {
   return useMutation({
     mutationFn: ({ lancamento, acao, payload }: { lancamento: Lancamento; acao: AcaoBaixa; payload?: BaixaPayload }) =>
       baixarLancamento(lancamento, acao, payload),
+    onSuccess: invalidate,
+  })
+}
+
+export function usePerdaMutation() {
+  const invalidate = useInvalidateFinanceiro()
+  return useMutation({
+    mutationFn: ({ lancamento, modo, motivo }: { lancamento: Lancamento; modo: ModoPerda; motivo?: string }) =>
+      perdaLancamento(lancamento, modo, motivo),
     onSuccess: invalidate,
   })
 }

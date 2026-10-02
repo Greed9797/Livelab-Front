@@ -4,9 +4,13 @@
 
 export type Natureza = 'receita' | 'custo'
 
-export type StatusLancamento = 'previsto' | 'pendente' | 'atrasado' | 'parcial' | 'pago'
+/** 'perdido' só existe para receitas e 'cancelado' só para custos (encerrados sem pagamento do saldo). */
+export type StatusLancamento = 'previsto' | 'pendente' | 'atrasado' | 'parcial' | 'pago' | 'perdido' | 'cancelado'
 
-export const STATUS_LANCAMENTO: StatusLancamento[] = ['previsto', 'pendente', 'atrasado', 'parcial', 'pago']
+export const STATUS_LANCAMENTO: StatusLancamento[] = ['previsto', 'pendente', 'atrasado', 'parcial', 'pago', 'perdido', 'cancelado']
+
+/** Modo do PerdaModal: perder (receita), cancelar (custo) ou desfazer (perda/cancelamento). */
+export type ModoPerda = 'perder' | 'cancelar' | 'desfazer'
 
 export type OrigemLancamento =
   | 'marca_fixo'
@@ -31,8 +35,6 @@ export const GRUPOS_CUSTO = [
   'aporte',
   'outros',
 ] as const
-
-export type GrupoCusto = (typeof GRUPOS_CUSTO)[number]
 
 export type ClasseCusto = 'fixo' | 'variavel'
 
@@ -62,6 +64,12 @@ export interface Lancamento {
   parcelas_total: number | null
   observacao: string | null
   virtual: boolean
+  /** Receita perdida: quando/por quê (ISO). null/ausente = não perdida. */
+  perdido_em?: string | null
+  perdido_motivo?: string | null
+  /** Custo cancelado: quando/por quê (ISO). null/ausente = não cancelado. */
+  cancelado_em?: string | null
+  cancelado_motivo?: string | null
 }
 
 export interface TotaisNatureza {
@@ -69,6 +77,9 @@ export interface TotaisNatureza {
   pago: number
   atrasado: number
   pendente: number
+  /** Saldo em aberto encerrado (receita.perdido / custo.cancelado). Ausente em backends antigos. */
+  perdido?: number
+  cancelado?: number
 }
 
 export interface TotaisLancamentos {
@@ -76,14 +87,6 @@ export interface TotaisLancamentos {
   custo: TotaisNatureza
   saldo_previsto: number
   saldo_realizado: number
-}
-
-export interface LancamentosResponse {
-  inicio: string
-  fim: string
-  hoje: string
-  itens: Lancamento[]
-  totais: TotaisLancamentos
 }
 
 export interface LancamentosFiltro {
@@ -152,17 +155,48 @@ export interface FinanceiroConfig {
 /** PATCH /financeiro/config aceita qualquer subconjunto. */
 export type FinanceiroConfigPatch = Partial<FinanceiroConfig>
 
-/** GET /financeiro/caixa */
-export interface CaixaResumo {
+/** Lado (receber/pagar) do painel: caixa = em aberto com vencimento até o fim do mês. */
+export interface PainelLado {
+  no_mes: number
+  atrasado_anterior: number
+  total: number
+  qtd: number
+  atrasados: { qtd: number; valor: number }
+}
+
+/** Projeção da comissão do mês corrente pelo ritmo atual (nunca entra nos totais reais). */
+export interface ProjecaoComissao {
+  competencia: string
+  previsto_atual: number
+  projetado: number
+  ajuste: number
+  dias_decorridos: number
+  dias_mes: number
+  qtd: number
+  vence_em: string | null
+  entra_no_painel: boolean
+}
+
+export type MesRelativo = 'passado' | 'corrente' | 'futuro'
+
+/** GET /financeiro/painel?mes=YYYY-MM */
+export interface PainelFinanceiro {
+  mes: string
+  hoje: string
+  fim_mes: string
+  mes_relativo: MesRelativo
   configurado: boolean
   data_corte: string | null
   saldo_abertura: number
-  entradas_realizadas: number
-  saidas_realizadas: number
-  saldo_atual: number
-  a_receber: number
-  a_pagar: number
-  saldo_projetado_fim_mes: number
+  caixa: { saldo_atual: number; ate: string | null }
+  recebido_mes: { total: number; receitas: number; aportes: number }
+  pago_mes: { total: number }
+  a_receber: PainelLado
+  a_pagar: PainelLado
+  projetado_fim_mes: number
+  projecao_comissao: ProjecaoComissao | null
+  projetado_fim_mes_ritmo: number | null
+  competencia: { receita: PrevistoRealizado; custos: PrevistoRealizado; resultado: PrevistoRealizado }
 }
 
 export const GRUPOS_RECEITA_AVULSA = ['aporte', 'servico', 'reembolso', 'outros'] as const

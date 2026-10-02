@@ -6,9 +6,6 @@
  * Run: npx playwright test tests/e2e/kb-screenshots.e2e.ts --project=chromium
  */
 import { expect, test, type Page } from '@playwright/test'
-import path from 'node:path'
-
-const MEDIA = '/cursor/stores/bc-bc80dd72-8325-4787-8220-fedc9d8e955f/media'
 
 const material = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -160,7 +157,7 @@ async function setup(page: Page) {
   })
 }
 
-test('capture knowledge base UI previews (production React dark sidebar)', async ({ page }) => {
+test('capture knowledge base UI previews (production React dark sidebar)', async ({ page }, info) => {
   await setup(page)
   await page.setViewportSize({ width: 1440, height: 960 })
   await page.goto('/conhecimento')
@@ -182,9 +179,9 @@ test('capture knowledge base UI previews (production React dark sidebar)', async
   await expect(page.getByRole('link', { name: 'Ranking', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Configurações', exact: true })).toBeVisible()
   await expect(page.getByText('Grupo W3', { exact: true })).toBeVisible()
-  await expect(page.getByText('Checklist pré-live', { exact: true })).toBeVisible()
+  await expect(page.getByText('Checklist pré-live', { exact: true }).first()).toBeVisible()
 
-  await page.screenshot({ path: path.join(MEDIA, 'kb-master-ctas.png'), fullPage: false })
+  await page.screenshot({ path: info.outputPath('kb-master-ctas.png'), fullPage: false })
 
   await page.getByRole('button', { name: 'Administrar Base', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Administrar Base', exact: true })).toBeVisible()
@@ -196,21 +193,21 @@ test('capture knowledge base UI previews (production React dark sidebar)', async
   const bg = await novo.evaluate((el) => getComputedStyle(el).backgroundColor)
   expect(bg).not.toMatch(/oklch\(0\.592/)
   await page.getByRole('button', { name: /Unidade: Operação de cabine/ }).click()
-  await expect(page.getByText('Checklist pré-live', { exact: true })).toBeVisible()
-  await page.screenshot({ path: path.join(MEDIA, 'kb-list.png'), fullPage: false })
+  await expect(page.getByText('Checklist pré-live', { exact: true }).first()).toBeVisible()
+  await page.screenshot({ path: info.outputPath('kb-list.png'), fullPage: false })
 
   await page.getByRole('button', { name: 'Gerenciar categorias', exact: true }).click()
   await expect(page.getByRole('dialog', { name: /Gerenciar categorias|Categorias/ })).toBeVisible()
   await expect(page.getByLabel('Nova categoria')).toBeVisible()
-  await page.screenshot({ path: path.join(MEDIA, 'kb-categories-admin.png'), fullPage: false })
+  await page.screenshot({ path: info.outputPath('kb-categories-admin.png'), fullPage: false })
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
 
-  await page.getByText('Checklist pré-live', { exact: true }).click()
+  await page.getByText('Checklist pré-live', { exact: true }).first().click()
   await expect(page.getByRole('heading', { name: 'Checklist pré-live', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Antes de ir ao ar' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Copiar link', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Editar', exact: true })).toBeVisible()
-  await page.screenshot({ path: path.join(MEDIA, 'kb-reader.png'), fullPage: false })
+  await page.screenshot({ path: info.outputPath('kb-reader.png'), fullPage: false })
 })

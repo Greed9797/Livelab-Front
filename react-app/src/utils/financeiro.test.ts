@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   STATUS_META,
+  acoesPerda,
+  isEncerrado,
+  rotaPerda,
   agruparPorDia,
+  contarAtrasadosAnteriores,
+  filtrarPorVencimentoNoMes,
+  janelaLancamentos,
   derivarStatus,
   dividirParcelas,
   faixaDoLancamento,
@@ -225,5 +231,115 @@ describe('DRE', () => {
     expect(dre.totais.receita).toEqual({ previsto: 150, realizado: 140 })
     expect(dre.totais.custos.por_grupo.estrutural.previsto).toBe(30)
     expect(dre.totais.imposto.aliquota).toBe(10)
+  })
+})
+
+describe('perdas e cancelamentos', () => {
+  it('status perdido/cancelado têm rótulo e tom distintos dos demais', () => {
+    expect(STATUS_META.perdido.label).toBe('Perdido')
+    expect(STATUS_META.cancelado.label).toBe('Cancelado')
+    expect(STATUS_META.perdido.tone).toBe('neutral')
+    expect(statusLabel('perdido', 'receita')).toBe('Perdido')
+    expect(isEncerrado('perdido') && isEncerrado('cancelado') && !isEncerrado('pago')).toBe(true)
+  })
+
+  it('normaliza status do backend e deriva por perdido_em/cancelado_em', () => {
+    expect(l({ natureza: 'receita', origem: 'comercial', status: 'perdido', perdido_motivo: 'sumiu' }).status).toBe('perdido')
+    expect(l({ natureza: 'receita', origem: 'comercial', perdido_em: '2026-09-10T12:00:00Z' }).status).toBe('perdido')
+    expect(l({ cancelado_em: '2026-09-10T12:00:00Z', cancelado_motivo: 'duplicada' })).toMatchObject({ status: 'cancelado', cancelado_motivo: 'duplicada' })
+    // pago integral vence perdido; status trocado de natureza é ignorado
+    expect(l({ natureza: 'receita', perdido_em: '2026-09-10', valor_pago: 100 }).status).toBe('pago')
+    expect(l({ natureza: 'receita', status: 'cancelado' }).status).not.toBe('cancelado')
+  })
+
+  it('acoesPerda: receita perde, custo cancela, encerrado só desfaz', () => {
+    const rec = { natureza: 'receita' as const, origem: 'comercial', status: 'pendente' as const }
+    expect(acoesPerda(rec)).toEqual({ podePerder: true, podeCancelar: false, podeDesfazer: false })
+    expect(acoesPerda({ ...rec, status: 'parcial' }).podePerder).toBe(true)
+    expect(acoesPerda({ ...rec, status: 'pago' })).toEqual({ podePerder: false, podeCancelar: false, podeDesfazer: false })
+    expect(acoesPerda({ ...rec, status: 'perdido' })).toEqual({ podePerder: false, podeCancelar: false, podeDesfazer: true })
+    expect(acoesPerda({ natureza: 'receita', origem: 'avulsa', status: 'atrasado', grupo: 'servico' }).podePerder).toBe(true)
+
+    const custo = { natureza: 'custo' as const, origem: 'recorrente', status: 'atrasado' as const }
+    expect(acoesPerda(custo)).toEqual({ podePerder: false, podeCancelar: true, podeDesfazer: false })
+    expect(acoesPerda({ ...custo, origem: 'parcela' }).podeCancelar).toBe(true)
+    expect(acoesPerda({ ...custo, status: 'cancelado' })).toEqual({ podePerder: false, podeCancelar: false, podeDesfazer: true })
+    expect(acoesPerda({ ...custo, status: 'pago' }).podeCancelar).toBe(false)
+  })
+
+  it('apresentadora, imposto e aporte não ganham a ação', () => {
+    const nada = { podePerder: false, podeCancelar: false, podeDesfazer: false }
+    expect(acoesPerda({ natureza: 'custo', origem: 'apresentadora', status: 'pendente' })).toEqual(nada)
+    expect(acoesPerda({ natureza: 'custo', origem: 'imposto', status: 'pendente' })).toEqual(nada)
+    expect(acoesPerda({ natureza: 'receita', origem: 'avulsa', status: 'pendente', grupo: 'aporte' })).toEqual(nada)
+  })
+
+  it('rotaPerda por tipo de item', () => {
+    expect(rotaPerda({ id: 'u1', natureza: 'receita', origem: 'comercial' }, 'perder')).toBe('/financeiro/receitas/u1/perder')
+    expect(rotaPerda({ id: 'calc:u1:2026-09:fixo', natureza: 'receita', origem: 'comercial' }, 'perder')).toBe('/financeiro/receitas/calc%3Au1%3A2026-09%3Afixo/perder')
+    expect(rotaPerda({ id: 'u1', natureza: 'receita', origem: 'comercial' }, 'desfazer')).toBe('/financeiro/receitas/u1/desperder')
+    expect(rotaPerda({ id: 'a1', natureza: 'receita', origem: 'avulsa' }, 'perder')).toBe('/financeiro/receitas-avulsas/a1/perder')
+    expect(rotaPerda({ id: 'a1', natureza: 'receita', origem: 'avulsa' }, 'desfazer')).toBe('/financeiro/receitas-avulsas/a1/desperder')
+    expect(rotaPerda({ id: 'c1', natureza: 'custo', origem: 'manual' }, 'cancelar')).toBe('/financeiro/custos/c1/cancelar')
+    expect(rotaPerda({ id: 'rec:r1:2026-09', natureza: 'custo', origem: 'recorrente' }, 'desfazer')).toBe('/financeiro/custos/rec%3Ar1%3A2026-09/reativar')
+  })
+
+  it('totalizar separa perdido/cancelado de pendente/atrasado; totais do backend são defensivos', () => {
+    const t = totalizar([
+      l({ natureza: 'receita', origem: 'comercial', valor_previsto: 1000, valor_pago: 300, perdido_em: '2026-09-01' }),
+      l({ natureza: 'receita', origem: 'comercial', valor_previsto: 500 }),
+      l({ valor_previsto: 200, cancelado_em: '2026-09-01' }),
+    ])
+    expect(t.receita.perdido).toBe(700)
+    expect(t.receita.pendente).toBe(500)
+    expect(t.custo.cancelado).toBe(200)
+    expect(t.custo.pendente).toBe(0)
+    expect(t.saldo_previsto).toBe(800)
+
+    const r = normalizarLancamentosResponse(
+      { totais: { receita: { previsto: 10, pago: 0, atrasado: 0, pendente: 10, perdido: '4' }, custo: { previsto: 5, pago: 0, atrasado: 0, pendente: 5 } }, itens: [] },
+      { inicio: '2026-09', fim: '2026-09' },
+    )
+    expect(r.totais.receita.perdido).toBe(4)
+    expect(r.totais.custo.cancelado).toBeUndefined()
+  })
+
+  it('filtra por status perdido/cancelado e agrupa sem projetar encerrados', () => {
+    const itens = [
+      l({ id: 'a', natureza: 'receita', origem: 'comercial', valor_previsto: 100, perdido_em: '2026-09-01' }),
+      l({ id: 'b', natureza: 'receita', origem: 'comercial', valor_previsto: 50 }),
+      l({ id: 'c', valor_previsto: 30, cancelado_em: '2026-09-01' }),
+    ]
+    expect(filtrarLancamentos(itens, { status: 'perdido' }).map((i) => i.id)).toEqual(['a'])
+    expect(filtrarLancamentos(itens, { status: 'cancelado' }).map((i) => i.id)).toEqual(['c'])
+    const [g] = agruparPorDia(itens)
+    expect(g.entradas).toBe(50)
+    expect(g.saidas).toBe(0)
+  })
+})
+
+describe('lista por vencimento', () => {
+  const itens = [
+    l({ id: 'a', data_vencimento: '2026-09-05', competencia: '2026-08-01', valor_previsto: 10 }),
+    l({ id: 'b', data_vencimento: '2026-10-03', competencia: '2026-09-01', valor_previsto: 10 }),
+    l({ id: 'c', data_vencimento: '2026-11-02', competencia: '2026-10-01', valor_previsto: 10 }),
+    l({ id: 'd', data_vencimento: '2026-09-28', competencia: '2026-09-01', valor_previsto: 10, valor_pago: 10 }),
+    l({ id: 'e', data_vencimento: null, competencia: '2026-10-01' }),
+  ]
+  it('janela: competência = só o mês; vencimento = [mês−1, mês] ou 12 meses com atrasados antigos', () => {
+    expect(janelaLancamentos('2026-10', 'competencia')).toEqual({ inicio: '2026-10', fim: '2026-10' })
+    expect(janelaLancamentos('2026-10', 'vencimento')).toEqual({ inicio: '2026-09', fim: '2026-10' })
+    expect(janelaLancamentos('2026-10', 'vencimento', true)).toEqual({ inicio: '2025-10', fim: '2026-10' })
+    expect(janelaLancamentos('2026-01', 'vencimento')).toEqual({ inicio: '2025-12', fim: '2026-01' })
+  })
+  it('filtra por vencimento dentro do mês (sem vencimento entra pela competência)', () => {
+    const ids = (xs: { id: string }[]) => xs.map((x) => x.id)
+    expect(ids(filtrarPorVencimentoNoMes(itens, '2026-10'))).toEqual(['b', 'e'])
+  })
+  it('atrasados de meses anteriores só entram quando pedido e seguem atrasados', () => {
+    const ids = (xs: { id: string }[]) => xs.map((x) => x.id)
+    expect(l({ id: 'a', data_vencimento: '2026-09-05' }).status).toBe('atrasado')
+    expect(ids(filtrarPorVencimentoNoMes(itens, '2026-10', true))).toEqual(['a', 'b', 'e'])
+    expect(contarAtrasadosAnteriores(itens, '2026-10')).toBe(1)
   })
 })

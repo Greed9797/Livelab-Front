@@ -21,6 +21,11 @@ export interface ReceitaPartes {
  * e os totais fixos/variáveis foram derivados das chaves antigas.
  */
 export interface DreLinhaV3 extends Omit<DreMes, 'mes'> {
+  /**
+   * Receita perdida (SPEC perdas): saldo em aberto de títulos dados como perdidos. O `receita.previsto`
+   * NÃO muda; `resultado.previsto` (vindo do backend) já desconta esta perda. Zero em backends antigos.
+   */
+  perdas: { receita: number }
   custos_fixos: PrevistoRealizado
   custos_variaveis: PrevistoRealizado
   aportes: PrevistoRealizado
@@ -69,6 +74,12 @@ export interface DreDetalheItem {
   realizado: number
   status: string | null
   data_vencimento: string | null
+  /** Motivo da perda/cancelamento (perdido_motivo / cancelado_motivo); null quando não informado. */
+  motivo: string | null
+  /** Quando foi encerrado (perdido_em / cancelado_em), texto ISO. */
+  encerrado_em: string | null
+  /** Valor realmente perdido/cancelado (previsto − pago), vindo do backend; null quando não informado. */
+  valor_encerrado: number | null
 }
 
 export interface DreDetalheGrupo {
@@ -127,6 +138,8 @@ export interface DreMesDetalheResponse {
     imposto: DreImpostoDetalhe
   }
   aportes: DreDetalheItem[]
+  /** Itens perdidos (receita) e cancelados (custo) do mês, com status e motivo — sem duplicatas. */
+  encerrados: DreDetalheItem[]
   margem: {
     contribuicao: PrevistoRealizado
     /** Percentual (ex.: 35 = 35%). */

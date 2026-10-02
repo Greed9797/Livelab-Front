@@ -13,15 +13,30 @@ export interface TotalReceita {
 }
 
 export interface TotalReceitaAberto extends TotalReceita {
+  /** Saldo ainda a receber: previsto − recebido, SEM os títulos perdidos. */
   aberto: number
+  /** Saldo em aberto encerrado como perdido (previsto − pago dos títulos perdidos). */
+  perdido: number
 }
+
+/**
+ * Registro da perda (SPEC perdas). O normalizador de `Lancamento` não carrega esses campos,
+ * então a Receita os anexa aos itens a partir do payload cru.
+ */
+export interface PerdaInfo {
+  perdido_em?: string | null
+  perdido_motivo?: string | null
+}
+
+/** Receita avulsa/aporte/item de vencimento + registro de perda. */
+export type LancamentoReceita = Lancamento & PerdaInfo
 
 /**
  * Título de receita de uma marca (fixo ou comissão), já no formato `Lancamento`
  * (natureza 'receita', origem 'comercial') para reaproveitar BaixaModal/rotaBaixa.
  * `divergente` vem do backend (valor pago ≠ previsto recalculado).
  */
-export type TituloReceita = Lancamento & { componente: ComponenteReceita; divergente: boolean }
+export type TituloReceita = Lancamento & PerdaInfo & { componente: ComponenteReceita; divergente: boolean }
 
 export interface ReceitaMarca {
   marca_id: string
@@ -50,15 +65,15 @@ export interface ReceitaCompetencia {
   total: TotalReceitaAberto
   clientes: ReceitaCliente[]
   /** Receitas avulsas (serviço, reembolso, outros) — entram na receita. */
-  avulsas: Lancamento[]
+  avulsas: LancamentoReceita[]
   /** Aportes — entrada de caixa, FORA da receita/resultado. */
-  aportes: Lancamento[]
+  aportes: LancamentoReceita[]
 }
 
 export interface ReceitaVencimento {
   total: TotalReceitaAberto
   /** Títulos e avulsas com vencimento no mês, ordenados por data. */
-  itens: Lancamento[]
+  itens: LancamentoReceita[]
 }
 
 export interface ReceitaMensal {

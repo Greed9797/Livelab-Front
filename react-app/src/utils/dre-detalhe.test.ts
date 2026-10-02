@@ -5,7 +5,9 @@ import {
   normalizarAportes,
   normalizarDreAnualV3,
   normalizarDreMesDetalhe,
+  normalizarItem,
   normalizarLinhaV3,
+  normalizarPerdas,
   normalizarPR,
   ordenarGrupos,
   participacao,
@@ -210,5 +212,99 @@ describe('apresentação', () => {
   it('ordenarGrupos por valor desc e rótulo', () => {
     const g = (grupo: string, v: number) => ({ grupo, total: { previsto: v, realizado: v }, itens: [] })
     expect(ordenarGrupos([g('outros', 1), g('marketing', 5), g('estrutural', 5)], 'realizado').map((x) => x.grupo)).toEqual(['estrutural', 'marketing', 'outros'])
+  })
+})
+
+describe('perdas (SPEC perdas)', () => {
+  it('normalizarPerdas aceita {receita:{valor}}, número e ausência', () => {
+    expect(normalizarPerdas({ receita: { valor: '350.5' } })).toEqual({ receita: 350.5 })
+    expect(normalizarPerdas({ receita: 90 })).toEqual({ receita: 90 })
+    expect(normalizarPerdas(undefined)).toEqual({ receita: 0 })
+  })
+
+  it('linha: receita.previsto intacto e resultado da API preservado; sem perdas = 0', () => {
+    const com = normalizarLinhaV3({ ...linhaAntiga, perdas: { receita: { valor: 1000 } } })
+    expect(com.perdas.receita).toBe(1000)
+    expect(com.receita.previsto).toBe(10000)
+    expect(com.resultado).toEqual({ previsto: 4400, realizado: 4500 })
+    expect(normalizarLinhaV3(linhaAntiga).perdas.receita).toBe(0)
+  })
+
+  it('sem resultado da API, a perda desconta só do previsto', () => {
+    const { resultado: _r, ...semResultado } = linhaAntiga
+    const l = normalizarLinhaV3({
+      ...semResultado,
+      custos_fixos: { previsto: 4000, realizado: 3000 },
+      custos_variaveis: { previsto: 1600, realizado: 500 },
+      perdas: { receita: { valor: 1000 } },
+    })
+    expect(l.resultado).toEqual({ previsto: 3400, realizado: 4500 })
+  })
+
+  it('anual: totais sem perdas somam os meses', () => {
+    const dre = normalizarDreAnualV3(
+      {
+        meses: [
+          { mes: '2026-08', ...linhaAntiga, perdas: { receita: { valor: 200 } } },
+          { mes: '2026-09', ...linhaAntiga, perdas: { receita: { valor: 300 } } },
+        ],
+        totais: linhaAntiga,
+      },
+      { inicio: '2026-01', fim: '2026-12' },
+    )
+    expect(dre.totais.perdas.receita).toBe(500)
+  })
+
+  it('detalhe do mês: perdidos/cancelados com status e motivo, sem duplicar', () => {
+    const d = normalizarDreMesDetalhe(
+      {
+        mes: '2026-09',
+        atual: { ...linhaAntiga, perdas: { receita: { valor: 300 } } },
+        receita: {
+          por_cliente: [],
+          avulsas: [{ id: 'a1', descricao: 'Consultoria', previsto: 300, status: 'perdido', perdido_motivo: 'Calote', perdido_em: '2026-09-20T10:00:00Z' }],
+        },
+        custos_fixos: {
+          por_grupo: [{ grupo: 'estrutural', itens: [{ id: 'c1', descricao: 'Aluguel antigo', previsto: 500, status: 'cancelado', cancelado_motivo: 'Duplicado' }, { id: 'c2', descricao: 'Luz', previsto: 100, status: 'pendente' }] }],
+        },
+        perdidos: [{ id: 'a1', descricao: 'Consultoria', previsto: 300, status: 'perdido', perdido_motivo: 'Calote' }],
+      },
+      '2026-09',
+    )
+    expect(d.atual.perdas.receita).toBe(300)
+    expect(d.encerrados.map((i) => [i.id, i.status, i.motivo])).toEqual([
+      ['a1', 'perdido', 'Calote'],
+      ['c1', 'cancelado', 'Duplicado'],
+    ])
+    expect(detalheVazio(d)).toBe(false)
+  })
+
+  it('backend sem perdas: detalhe sem encerrados e perdas = 0', () => {
+    const d = normalizarDreMesDetalhe({ mes: '2026-09', atual: linhaAntiga }, '2026-09')
+    expect(d.atual.perdas.receita).toBe(0)
+    expect(d.encerrados).toEqual([])
+  })
+})
+
+describe('normalizarItem — valor encerrado (perda/cancelamento)', () => {
+  it('preserva valor_encerrado de um custo cancelado cujo previsto efetivo é 0', () => {
+    const i = normalizarItem({
+      id: 'k1', descricao: 'Internet', origem: 'recorrente', previsto: 0, valor_previsto: 150,
+      valor_encerrado: 150, status: 'cancelado', cancelado_em: '2026-10-12T13:00:00.000Z', cancelado_motivo: 'Duplicado',
+    })
+    expect(i.status).toBe('cancelado')
+    expect(i.previsto).toBe(0)
+    expect(i.valor_encerrado).toBe(150)
+    expect(i.motivo).toBe('Duplicado')
+  })
+
+  it('perda parcial: o valor perdido é só o saldo (1000 previsto, 400 pagos, 600 perdidos)', () => {
+    const i = normalizarItem({ id: 't1', descricao: 'Fixo', previsto: 1000, realizado: 400, valor_encerrado: 600, status: 'perdido' })
+    expect(i.realizado).toBe(400)
+    expect(i.valor_encerrado).toBe(600)
+  })
+
+  it('sem o campo vem null (backend antigo ou item normal)', () => {
+    expect(normalizarItem({ id: 'x', descricao: 'Normal', previsto: 10, realizado: 0 }).valor_encerrado).toBeNull()
   })
 })

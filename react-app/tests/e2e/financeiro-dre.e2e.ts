@@ -1,24 +1,51 @@
 import { expect, test, type Page } from '@playwright/test'
 
-const operational = {
-  entradas: [
-    { categoria: 'comissao_franquia', descricao: 'Comissão de franquia — Marca A', valor: 250, memoria: { marca_id: 'm1', marca_nome: 'Marca A', gmv: 10000, lives: 4, pct_medio: 2.5 } },
-    { categoria: 'fixo_marca', descricao: 'Fixo mensal — Marca A', valor: 300, memoria: { marca_id: 'm1', marca_nome: 'Marca A', criterio: 'mes_com_atividade', meses_ativos: 1 } },
-    { categoria: 'comissao_franquia', descricao: 'Comissão de franquia — Marca B', valor: 900, memoria: { marca_id: 'm2', marca_nome: 'Marca B', gmv: 9000, lives: 3, pct_medio: 10 } },
-  ],
-  saidas: [
-    { categoria: 'fixo_apresentadora', descricao: 'Fixo mensal — Ana', valor: 2700, memoria: { apresentadora_id: 'a1', nome: 'Ana', criterio: 'fixo_mensal' } },
-    { categoria: 'comissao_apresentadora', descricao: 'Comissão — Ana', valor: 100, memoria: { apresentadora_id: 'a1', nome: 'Ana', gmv_atribuido: 10000, pct_medio: 1 } },
-    { categoria: 'adicional_apresentadora', descricao: 'Bonificação — Ana', valor: 25, memoria: { adicional_id: 'x1', apresentadora_id: 'a1', nome: 'Ana', tipo: 'bonificacao' } },
-    { categoria: 'fixo_apresentadora', descricao: 'Fixo mensal — Bia', valor: 500, memoria: { apresentadora_id: 'a2', nome: 'Bia', criterio: 'fixo_mensal' } },
-    { categoria: 'custo_manual', descricao: 'Aluguel', valor: 1000, memoria: { custo_id: 'c1', tipo: 'aluguel' } },
-    { categoria: 'custo_manual', descricao: 'Material', valor: 50, memoria: { custo_id: 'c2', tipo: 'outros' } },
-  ],
-  totais: { entradas: 1450, despesas_fixas: 4200, despesas_variaveis: 175, resultado: -2925 },
-  pendencias: ['equipe_sem_remuneracao_no_schema'],
+const pr = (previsto: number, realizado: number) => ({ previsto, realizado })
+
+const setembro = {
+  mes: '2026-09',
+  receita: { ...pr(1450, 1450), fixo: pr(300, 300), comissao: pr(1150, 1150), avulsas: pr(0, 0) },
+  custos_fixos: pr(4200, 4200),
+  custos_variaveis: pr(175, 175),
+  resultado: pr(-2925, -2925),
+  imposto: { ...pr(0, 0), aliquota: 6, base: 0 },
 }
 
-async function setup(page: Page) {
+const detalheSetembro = {
+  mes: '2026-09',
+  atual: setembro,
+  receita: {
+    total: pr(1450, 1450),
+    por_cliente: [
+      {
+        cliente_id: 'c1',
+        cliente_nome: 'Cliente A',
+        marcas: [
+          { marca_id: 'm1', marca_nome: 'Marca A', fixo: pr(300, 300), comissao: pr(250, 250), gmv: 10000, pct: 2.5 },
+          { marca_id: 'm2', marca_nome: 'Marca B', fixo: pr(0, 0), comissao: pr(900, 900), gmv: 9000, pct: 10 },
+        ],
+      },
+    ],
+    avulsas: [],
+  },
+  custos_fixos: {
+    total: pr(4200, 4200),
+    por_grupo: [{ grupo: 'estrutural', total: pr(1000, 1000), itens: [{ id: 'c1', descricao: 'Aluguel', origem: 'recorrente', previsto: 1000, realizado: 1000, status: 'pago' }] }],
+    apresentadoras_fixo: [
+      { apresentadora_id: 'a1', nome: 'Ana', previsto: 2700, realizado: 2700 },
+      { apresentadora_id: 'a2', nome: 'Bia', previsto: 500, realizado: 500 },
+    ],
+  },
+  custos_variaveis: {
+    total: pr(175, 175),
+    por_grupo: [{ grupo: 'outros', total: pr(50, 50), itens: [{ id: 'c2', descricao: 'Material', origem: 'manual', previsto: 50, realizado: 50, status: 'pago' }] }],
+    apresentadoras_variavel: [{ apresentadora_id: 'a1', nome: 'Ana', previsto: 125, realizado: 125, comissao: 100, adicionais: 25 }],
+    imposto: { ...pr(0, 0), aliquota: 6, base: 0 },
+  },
+  aportes: [],
+}
+
+async function setup(page: Page, opts: { dre404?: boolean } = {}) {
   const writes: string[] = []
   const calls: string[] = []
   await page.addInitScript(() => {
@@ -37,39 +64,82 @@ async function setup(page: Page) {
       writes.push(`${request.method()} ${url.pathname}`)
       return route.fulfill({ status: 405, json: { error: 'Fixture somente leitura' } })
     }
-    if (url.pathname === '/v1/financeiro/operacional') return route.fulfill({ json: operational })
-    if (url.pathname === '/v1/financeiro/custos') return route.fulfill({ json: operational.saidas.filter((line) => line.categoria === 'custo_manual').map((line) => ({ id: line.memoria.custo_id, descricao: line.descricao, valor: line.valor, tipo: line.memoria.tipo, competencia: '2026-09-01' })) })
-    if (url.pathname === '/v1/financeiro/faturamento') return route.fulfill({ json: { por_cliente: [] } })
+    if (url.pathname === '/v1/financeiro/dre' && opts.dre404) return route.fulfill({ status: 404, json: { error: 'Not Found' } })
+    if (url.pathname === '/v1/financeiro/dre' || url.pathname === '/v1/financeiro/resumo') return route.fulfill({ json: { inicio: '2026-01', fim: '2026-12', meses: [setembro], totais: setembro } })
+    if (url.pathname === '/v1/financeiro/dre/mes') return route.fulfill({ json: detalheSetembro })
+    if (url.pathname === '/v1/financeiro/lancamentos') return route.fulfill({ json: { itens: [], hoje: '2026-09-15' } })
+    if (url.pathname === '/v1/financeiro/config') return route.fulfill({ json: { aliquota_imposto_pct: 6 } })
+    if (url.pathname === '/v1/financeiro/caixa') return route.fulfill({ json: { saldo_atual: 0, a_receber: 0, a_pagar: 0 } })
     return route.fulfill({ json: [] })
   })
   return { writes, calls }
 }
 
-test('exibe DRE reconciliado, expande detalhes e permanece somente leitura', async ({ page }) => {
+test('exibe DRE reconciliado, expande o detalhe inline (sem drawer) e permanece somente leitura', async ({ page }) => {
   const { writes, calls } = await setup(page)
-  await page.goto('/financeiro?inicio=2026-09&fim=2026-09')
+  await page.goto('/financeiro?tab=dre&mes=2026-09')
 
-  const dre = page.getByRole('region', { name: 'DRE operacional' })
-  await expect(page.getByRole('heading', { name: 'Resultado operacional completo', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'DRE mensal' })).toBeVisible()
+  await expect(page.getByText('Resultado no ano', { exact: true })).toBeVisible()
   await expect(page.getByText('-R$ 2.925,00', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('Margem após custos manuais', { exact: false })).toHaveCount(0)
-  await expect(page.getByText('Fluxo de caixa', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Adicionar custo', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Novo custo', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Excluir', exact: true })).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: 'Descrição do custo', exact: true })).toHaveCount(0)
 
-  await dre.getByText('Receita de marcas', { exact: true }).click()
-  await expect(dre.getByText('Marca A', { exact: true })).toBeVisible()
-  await expect(dre.getByText('Marca B', { exact: true })).toBeVisible()
-  await dre.locator('summary').filter({ hasText: 'Remuneração de apresentadoras' }).click({ position: { x: 8, y: 8 } })
-  await expect(dre.getByText('Ana', { exact: true })).toBeVisible()
-  await expect(dre.getByText('Bia', { exact: true })).toBeVisible()
-  await dre.locator('summary').filter({ hasText: 'Custos operacionais' }).click({ position: { x: 8, y: 8 } })
-  await expect(dre.getByText('Aluguel', { exact: true })).toBeVisible()
-  await expect(dre.getByText('Material', { exact: true })).toBeVisible()
+  const linha = page.getByRole('button', { name: 'Detalhe de setembro de 2026' })
+  await expect(linha).toHaveAttribute('aria-expanded', 'false')
+  await linha.click()
+  await expect(linha).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 
-  expect(calls).toContain('/v1/financeiro/operacional')
+  const detalhe = page.getByTestId('dre-detalhe-2026-09')
+  await detalhe.getByRole('button', { name: /Cliente A/ }).click()
+  await expect(detalhe.getByText('Marca A', { exact: true })).toBeVisible()
+  await expect(detalhe.getByText('Marca B', { exact: true })).toBeVisible()
+  await expect(detalhe.getByText('Ana', { exact: true }).first()).toBeVisible()
+  await expect(detalhe.getByText('Bia', { exact: true })).toBeVisible()
+  await expect(detalhe.getByText('Aluguel', { exact: true })).toBeVisible()
+  await expect(detalhe.getByText('Material', { exact: true })).toBeVisible()
+
+  // vários meses abertos ao mesmo tempo; o aberto permanece
+  await page.getByRole('button', { name: 'Detalhe de outubro de 2026' }).click()
+  await expect(page.getByTestId('dre-detalhe-2026-10')).toBeVisible()
+  await expect(detalhe).toBeVisible()
+
+  expect(calls).toContain('/v1/financeiro/dre')
   expect(calls).not.toContain('/v1/financeiro/resumo')
+  expect(calls).toContain('/v1/financeiro/dre/mes')
+  expect(calls).not.toContain('/v1/financeiro/operacional')
   expect(calls).not.toContain('/v1/financeiro/fluxo-caixa')
+  // aba DRE não busca lançamentos nem painel
+  expect(calls).not.toContain('/v1/financeiro/lancamentos')
+  expect(calls).not.toContain('/v1/financeiro/painel')
   expect(writes).toEqual([])
+})
+
+test('cai em /financeiro/resumo quando /financeiro/dre ainda não existe (404)', async ({ page }) => {
+  const { calls } = await setup(page, { dre404: true })
+  await page.goto('/financeiro?tab=dre&mes=2026-09')
+  await expect(page.getByRole('heading', { name: 'DRE mensal' })).toBeVisible()
+  await expect(page.getByText('-R$ 2.925,00', { exact: true }).first()).toBeVisible()
+  expect(calls).toContain('/v1/financeiro/dre')
+  expect(calls).toContain('/v1/financeiro/resumo')
+})
+
+test('mobile 390x844: DRE sem estouro horizontal, detalhe inline em largura total', async ({ page }) => {
+  await setup(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/financeiro?tab=dre&mes=2026-09')
+  await expect(page.getByRole('heading', { name: 'DRE mensal' })).toBeVisible()
+  const botao = page.getByRole('button', { name: 'Detalhe de setembro de 2026' })
+  const box = await botao.boundingBox()
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
+  await botao.click()
+  const detalhe = page.getByTestId('dre-detalhe-2026-09')
+  await detalhe.getByRole('button', { name: /Cliente A/ }).click()
+  await expect(detalhe.getByText('Marca A', { exact: true })).toBeVisible()
+  const dims = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }))
+  expect(dims.sw).toBeLessThanOrEqual(dims.iw)
 })

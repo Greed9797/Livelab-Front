@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
-  calcSaldoProjetado,
   formatDataBR,
   isDataISO,
   montarPayloadCaixa,
   montarPayloadReceitaAvulsa,
-  normalizarCaixa,
   normalizarConfig,
   precisaConfirmarAlteracao,
   textoCorte,
@@ -37,23 +35,9 @@ describe('normalização', () => {
     })
     expect(normalizarConfig(null)).toEqual({ aliquota_imposto_pct: 10, data_corte: null, saldo_abertura: 0 })
   })
-  it('caixa converte strings e calcula saldo projetado ausente', () => {
-    const c = normalizarCaixa({ configurado: true, data_corte: '2026-10-01', saldo_abertura: '1000', entradas_realizadas: '500', saidas_realizadas: 200, saldo_atual: '1300', a_receber: 400, a_pagar: '900' })
-    expect(c.saldo_atual).toBe(1300)
-    expect(c.saldo_projetado_fim_mes).toBe(800)
-  })
-  it('caixa respeita saldo projetado do backend e configurado=false', () => {
-    const c = normalizarCaixa({ configurado: false, saldo_projetado_fim_mes: 42 })
-    expect(c.configurado).toBe(false)
-    expect(c.saldo_projetado_fim_mes).toBe(42)
-    expect(c.data_corte).toBeNull()
-  })
 })
 
-describe('saldo projetado e tom', () => {
-  it('atual + a receber - a pagar', () => {
-    expect(calcSaldoProjetado({ saldo_atual: 100, a_receber: 50.1, a_pagar: 200.2 })).toBe(-50.1)
-  })
+describe('tom do saldo', () => {
   it('tom', () => {
     expect(tomSaldo(10)).toBe('positivo')
     expect(tomSaldo(-0.01)).toBe('negativo')

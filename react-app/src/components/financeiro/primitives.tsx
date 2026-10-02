@@ -29,13 +29,13 @@ export function MonthSwitcher({ value, onChange }: { value: string; onChange: (y
     <div className="flex items-center gap-1 rounded-full border border-line bg-surface p-1 shadow-[var(--shadow-card)]" role="group" aria-label="Selecionar mês">
       <button
         type="button"
-        className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+        className="grid h-11 w-11 place-items-center rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 sm:h-9 sm:w-9"
         aria-label="Mês anterior"
         onClick={() => onChange(shiftMes(value, -1))}
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
-      <label className="relative flex h-9 min-w-[10.5rem] cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold text-ink hover:bg-surface-muted">
+      <label className="relative flex h-11 min-w-[9rem] sm:h-9 sm:min-w-[10.5rem] cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold text-ink hover:bg-surface-muted">
         <CalendarDays className="h-4 w-4 text-brand" aria-hidden />
         <span aria-live="polite" className="first-letter:uppercase">{mesLabel(value)}</span>
         <input
@@ -48,7 +48,7 @@ export function MonthSwitcher({ value, onChange }: { value: string; onChange: (y
       </label>
       <button
         type="button"
-        className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+        className="grid h-11 w-11 place-items-center rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 sm:h-9 sm:w-9"
         aria-label="Próximo mês"
         onClick={() => onChange(shiftMes(value, 1))}
       >
@@ -57,7 +57,7 @@ export function MonthSwitcher({ value, onChange }: { value: string; onChange: (y
       {value !== atual ? (
         <button
           type="button"
-          className="h-9 rounded-full px-3 text-xs font-bold uppercase tracking-[0.06em] text-brand transition hover:bg-brand-soft"
+          className="h-11 rounded-full px-3 text-xs font-bold uppercase tracking-[0.06em] text-brand transition hover:bg-brand-soft sm:h-9"
           onClick={() => onChange(atual)}
         >
           Hoje
@@ -81,7 +81,7 @@ export function Segmented<T extends string>({
   size?: 'sm' | 'md'
 }) {
   return (
-    <div role="tablist" aria-label={label} className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-line bg-surface p-1 scrollbar-thin">
+    <div role="tablist" aria-label={label} className="inline-flex min-w-0 max-w-full snap-x snap-mandatory items-center gap-1 overflow-x-auto overscroll-x-contain rounded-full border border-line bg-surface p-1 scrollbar-thin">
       {options.map((o) => {
         const active = o.value === value
         return (
@@ -91,8 +91,8 @@ export function Segmented<T extends string>({
             role="tab"
             aria-selected={active}
             className={clsx(
-              'inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full font-semibold transition focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20',
-              size === 'sm' ? 'h-8 px-3 text-xs' : 'h-9 px-4 text-sm',
+              'inline-flex shrink-0 snap-start scroll-mx-2 items-center gap-2 whitespace-nowrap rounded-full font-semibold transition focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20',
+              size === 'sm' ? 'h-11 px-3.5 text-xs sm:h-8 sm:px-3' : 'h-11 px-4 text-sm sm:h-9',
               active ? 'bg-[var(--text-primary)] text-[var(--bg-elev-1)] shadow-sm' : 'text-ink-muted hover:bg-surface-muted hover:text-ink',
             )}
             onClick={() => onChange(o.value)}
