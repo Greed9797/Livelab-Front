@@ -241,7 +241,7 @@ test('portal identifica uma transmissão unida e mostra somente a participação
   })
   await page.goto('/minhas-lives')
   await expect(page.getByText('Transmissão unida · sua participação', { exact: true })).toBeVisible()
-  await expect(page.getByText('R$ 2.000,00', { exact: true })).toBeVisible()
+  await expect(page.getByRole('table').getByText('R$ 2.000,00', { exact: true })).toBeVisible()
   await expect(page.getByText('3h · 20 pedidos', { exact: true })).toBeVisible()
 })
 

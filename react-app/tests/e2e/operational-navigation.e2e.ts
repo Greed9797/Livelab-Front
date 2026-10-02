@@ -87,8 +87,9 @@ test('master mantém somente regras sem montar as consultas de apuração', asyn
   expect(calls).not.toContain('/v1/comissoes/apresentadoras')
   expect(calls).not.toContain('/v1/comissoes/marcas')
   await page.goto('/financeiro?tab=comissoes')
-  await expect(page).toHaveURL(/\/master$/)
-  expect(calls.some(path => path.startsWith('/v1/financeiro/'))).toBe(false)
+  await expect(page).toHaveURL(/\/financeiro\?tab=comissoes/)
+  await expect(page.getByRole('heading', { name: 'Comissões do período' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Regras de comissão', exact: true })).toHaveCount(0)
   expect(writes).toEqual([])
 })
 

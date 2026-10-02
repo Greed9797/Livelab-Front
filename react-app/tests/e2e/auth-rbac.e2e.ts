@@ -19,8 +19,8 @@ const accounts: Account[] = [
     emailEnv: 'E2E_MASTER_EMAIL',
     passwordEnv: 'E2E_MASTER_PASSWORD',
     landing: /\/master(?:$|[?#])/,
-    allowedRoutes: ['/master', '/master/unidades', '/master/consolidado', '/master/crm', '/master/franqueados', '/configuracoes', '/conhecimento'],
-    forbiddenRoutes: ['/cabines', '/financeiro'],
+    allowedRoutes: ['/master', '/master/unidades', '/master/consolidado', '/master/crm', '/master/franqueados', '/financeiro', '/configuracoes', '/conhecimento'],
+    forbiddenRoutes: ['/cabines'],
   },
   {
     key: 'franqueado',
