@@ -85,3 +85,38 @@ describe('ReceitaPanel smoke', () => {
     expect(await screen.findByText('Lançar receita')).toBeTruthy()
   })
 })
+
+const rawUmaOuVarias = {
+  mes: '2026-09', hoje: '2026-10-01',
+  competencia: { clientes: [
+    { cliente_id: 'c1', cliente_nome: 'Grupo Ação', marcas: [
+      { marca_id: 'm1', marca_nome: 'Haag', marca_tipo: 'cliente', tipo_cobranca: 'fixo_mais_comissao', pct: 10, gmv: 1000,
+        fixo: { id: 'calc:1', componente: 'fixo', valor_previsto: 1000, valor_pago: 0, data_vencimento: '2026-10-05', competencia: '2026-09-01' }, comissao: null } ] },
+    { cliente_id: 'c2', cliente_nome: 'Duo', marcas: [
+      { marca_id: 'm2', marca_nome: 'Duo Um', tipo_cobranca: 'fixo_mais_comissao', pct: 10, gmv: 0, fixo: null, comissao: null },
+      { marca_id: 'm3', marca_nome: 'Duo Dois', tipo_cobranca: 'fixo_mais_comissao', pct: 10, gmv: 0, fixo: null, comissao: null } ] },
+    { cliente_id: null, cliente_nome: 'Sem cliente', marcas: [{ marca_id: 'm8', marca_nome: 'Farol', marca_tipo: 'afiliada', tipo_cobranca: 'fixo_mais_comissao', pct: 5, gmv: 0, fixo: null, comissao: null }] },
+    { cliente_id: null, cliente_nome: 'Sem cliente', marcas: [{ marca_id: 'm9', marca_nome: 'Rosa', marca_tipo: 'propria', tipo_cobranca: 'fixo_mais_comissao', pct: 100, gmv: 0, fixo: null, comissao: null }] },
+  ], avulsas: [], aportes: [] },
+  vencimento: { itens: [] },
+}
+
+describe('ReceitaPanel cliente com uma marca', () => {
+  it('mostra 1 linha (sem marca aninhada) e mantém o aninhamento só com 2+ marcas', async () => {
+    const mod = await import('../../services/financeiro-receita')
+    vi.mocked(mod.getReceitaMensal).mockResolvedValueOnce(normalizarReceitaMensal(rawUmaOuVarias, '2026-09'))
+    render(<QueryClientProvider client={new QueryClient()}><ToastProvider><ReceitaPanel mes="2026-09" podeEscrever /></ToastProvider></QueryClientProvider>)
+    expect(await screen.findByText('Grupo Ação')).toBeTruthy()
+    // Haag é a única marca de Grupo Ação: aparece como complemento, não como cabeçalho aninhado.
+    expect(screen.queryByRole('heading', { level: 4, name: 'Haag' })).toBeNull()
+    expect(screen.getByText(/^Haag · \d+% recebido$/)).toBeTruthy()
+    expect(screen.getByText('2 marcas · 0% recebido')).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 4, name: 'Duo Um' })).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 4, name: 'Duo Dois' })).toBeTruthy()
+    // Duas marcas sem cliente não colidem e mantêm o aviso de tipo.
+    expect(screen.getByText('Farol')).toBeTruthy()
+    expect(screen.getByText('Rosa')).toBeTruthy()
+    expect(screen.getByText(/Marca afiliada: o GMV dela não é receita da casa/)).toBeTruthy()
+    expect(screen.getByText(/Marca própria: o GMV dela não é receita da casa/)).toBeTruthy()
+  })
+})

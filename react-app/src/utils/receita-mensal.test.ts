@@ -4,6 +4,11 @@ import {
   agruparPorVencimento,
   avisoMarcaNaoCliente,
   calcularAReceberMes,
+  chaveClienteReceita,
+  complementoMarcaUnica,
+  marcaUnicaDoCliente,
+  nomeLinhaCliente,
+  normalizarCliente,
   contextoTitulo,
   filtrarClientes,
   formatPct,
@@ -332,5 +337,41 @@ describe('receita perdida (SPEC perdas)', () => {
     expect(g).toHaveLength(1)
     expect(g[0].previsto).toBe(400)
     expect(g[0].itens).toHaveLength(2)
+  })
+})
+
+describe('cliente × marca (cadastro unificado)', () => {
+  const marca = (id: string, nome: string, extra: Record<string, unknown> = {}) => ({ marca_id: id, marca_nome: nome, tipo_cobranca: 'fixo_mais_comissao', pct: 10, gmv: 0, ...extra })
+
+  it('marca sem cliente não ganha cliente_id inventado e usa o nome da marca', () => {
+    const c = normalizarCliente({ cliente_id: null, cliente_nome: null, marcas: [marca('m9', 'Rosa')] }, '2026-10-01')!
+    expect(c.cliente_id).toBe('')
+    expect(c.cliente_nome).toBe('Rosa')
+    const sintetico = normalizarCliente({ cliente_id: 'sem-cliente:m9', cliente_nome: 'Rosa', marcas: [marca('m9', 'Rosa', { fixo: { id: 'calc:1', componente: 'fixo', valor_previsto: 10 } })] }, '2026-10-01')!
+    expect(sintetico.cliente_id).toBe('')
+    expect(sintetico.marcas[0].fixo?.cliente_id ?? null).toBeNull()
+    expect(normalizarCliente({ id: 'c1', nome: 'Grupo', marcas: [] }, '2026-10-01')!.cliente_id).toBe('c1')
+  })
+
+  it('chave de lista: cliente; sem cliente, a marca (não colide entre marcas sem ficha)', () => {
+    const a = normalizarCliente({ cliente_id: null, cliente_nome: 'Sem cliente', marcas: [marca('m1', 'A')] }, '2026-10-01')!
+    const b = normalizarCliente({ cliente_id: null, cliente_nome: 'Sem cliente', marcas: [marca('m2', 'B')] }, '2026-10-01')!
+    expect(chaveClienteReceita(a)).toBe('marca:m1')
+    expect(chaveClienteReceita(b)).toBe('marca:m2')
+    expect(chaveClienteReceita({ cliente_id: 'c1', cliente_nome: 'X', marcas: [] })).toBe('c1')
+    expect(chaveClienteReceita({ cliente_id: '', cliente_nome: 'X', marcas: [] })).toBe('nome:X')
+  })
+
+  it('uma marca → linha única; complemento só quando o nome da marca difere', () => {
+    expect(marcaUnicaDoCliente({ marcas: [1] })).toBe(1)
+    expect(marcaUnicaDoCliente({ marcas: [1, 2] })).toBeNull()
+    expect(marcaUnicaDoCliente({ marcas: [] })).toBeNull()
+    expect(complementoMarcaUnica('Grupo Ação', 'Haag')).toBe('Haag')
+    expect(complementoMarcaUnica('Haag', 'haag')).toBeNull()
+    expect(complementoMarcaUnica('Ação', 'Acao')).toBeNull()
+    expect(complementoMarcaUnica('X', null)).toBeNull()
+    expect(nomeLinhaCliente({ cliente_id: '', cliente_nome: 'Sem cliente', marcas: [{ marca_nome: 'Farol' }] })).toBe('Farol')
+    expect(nomeLinhaCliente({ cliente_id: null, cliente_nome: 'Sem cliente', marcas: [{ marca_nome: 'A' }, { marca_nome: 'B' }] })).toBe('Sem cliente')
+    expect(nomeLinhaCliente({ cliente_id: 'c1', cliente_nome: 'Grupo', marcas: [{ marca_nome: 'Haag' }] })).toBe('Grupo')
   })
 })
