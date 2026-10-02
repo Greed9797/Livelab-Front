@@ -51,8 +51,6 @@ export const QK = {
   clienteAnalyticsDiario: (from: string, to: string) => ['cliente-analytics-diario', from, to] as const,
   clienteFinanceiro: (period: { mes: number; ano: number }) => ['cliente-financeiro', period.ano, period.mes] as const,
   crmSummary: ['crm-summary'] as const,
-  financeiroCustos: (mes?: string) =>
-    mes ? ['financeiro-custos', mes] as const : ['financeiro-custos'] as const,
   financeiroResumo: (key?: string) => (key ? ['financeiro-resumo', key] as const : ['financeiro-resumo'] as const),
   financeiroFluxo: (key?: string) => (key ? ['financeiro-fluxo', key] as const : ['financeiro-fluxo'] as const),
   financeiroFaturamento: (key?: string) => (key ? ['financeiro-faturamento', key] as const : ['financeiro-faturamento'] as const),

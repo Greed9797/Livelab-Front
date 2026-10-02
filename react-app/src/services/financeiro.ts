@@ -151,11 +151,6 @@ export function gerarCustosMes(mes: string) {
   return apiPost<unknown>(`/financeiro/custos/gerar?mes=${mes}`)
 }
 
-/** Materializa os títulos de receita do mês (idempotente). */
-export function gerarReceitasMes(mes: string) {
-  return apiPost<unknown>(`/financeiro/receitas/gerar?mes=${mes}`)
-}
-
 // ── Importação da planilha ───────────────────────────────────────────────────
 
 function normalizarResumo(raw: unknown): ImportarResumo {

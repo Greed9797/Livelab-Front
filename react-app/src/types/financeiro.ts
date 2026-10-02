@@ -32,8 +32,6 @@ export const GRUPOS_CUSTO = [
   'outros',
 ] as const
 
-export type GrupoCusto = (typeof GRUPOS_CUSTO)[number]
-
 export type ClasseCusto = 'fixo' | 'variavel'
 
 export interface Lancamento {
@@ -76,14 +74,6 @@ export interface TotaisLancamentos {
   custo: TotaisNatureza
   saldo_previsto: number
   saldo_realizado: number
-}
-
-export interface LancamentosResponse {
-  inicio: string
-  fim: string
-  hoje: string
-  itens: Lancamento[]
-  totais: TotaisLancamentos
 }
 
 export interface LancamentosFiltro {
