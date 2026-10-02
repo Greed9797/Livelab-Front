@@ -216,6 +216,7 @@ test('mantém editor aberto quando publicação vazia, conflito ou upload falham
   await page.getByRole('button', { name: 'Administrar Base', exact: true }).click()
   await page.getByRole('button', { name: 'Novo material', exact: true }).click()
   await page.getByRole('textbox', { name: 'Título', exact: true }).fill('Material sem conteúdo')
+  await page.getByRole('dialog', { name: 'Novo material' }).getByLabel('Status').selectOption('published')
   await page.getByRole('button', { name: 'Salvar material', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('precisa ter conteúdo')
   await expect(page.getByRole('dialog', { name: 'Novo material' })).toBeVisible()
@@ -257,7 +258,7 @@ test('Início pinta com /training/home e não busca trails, bookmarks nem catego
   expect(gets.filter((path) => path === '/v1/knowledge/unit/categories')).toEqual([])
 })
 
-test('filtro de função na home pede recorte no GET /training/home', async ({ page }) => {
+test('filtro da home não dispara outro GET /training/home', async ({ page }) => {
   const { gets } = await setup(page, 'apresentadora')
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto('/conhecimento')
@@ -265,7 +266,7 @@ test('filtro de função na home pede recorte no GET /training/home', async ({ p
   await expect.poll(() => gets.filter((path) => path === '/v1/training/home').length).toBe(1)
   await page.getByLabel('Função').selectOption('apresentadora')
   await expect(page.getByText(/aulas neste recorte/)).toBeVisible()
-  await expect.poll(() => gets.filter((path) => path === '/v1/training/home').length).toBe(2)
+  expect(gets.filter((path) => path === '/v1/training/home')).toHaveLength(1)
   expect(gets.filter((path) => path === '/v1/training/trails')).toEqual([])
 })
 
