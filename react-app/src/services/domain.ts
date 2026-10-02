@@ -755,26 +755,6 @@ export function applyAnalyticsImport(batchId: string) {
   })
 }
 
-export function getFinanceiroFaturamento(filters: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord>('/financeiro/faturamento', filters)
-}
-
-export function getFinanceiroOperacional(filters: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord>('/financeiro/operacional', filters)
-}
-
-export function getFinanceiroCustos(filters: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord[]>('/financeiro/custos', filters)
-}
-
-export function createFinanceiroCusto(payload: JsonRecord) {
-  return apiPost<JsonRecord>('/financeiro/custos', payload)
-}
-
-export function deleteFinanceiroCusto(id: string) {
-  return apiDelete(`/financeiro/custos/${id}`)
-}
-
 export function getConfiguracoes() {
   return apiGet<JsonRecord>('/configuracoes')
 }
@@ -802,10 +782,6 @@ export function getKnowledgeArticle(slugOrId: string) {
 export async function exportarComissoesCSV(params: Record<string, unknown> = {}): Promise<Blob> {
   const response = await api.get<Blob>('/comissoes/export-csv', { params, responseType: 'blob' })
   return response.data
-}
-
-export function getFinanceiroFranqueadora(filters: Record<string, unknown> = {}) {
-  return apiGet<JsonRecord>('/financeiro/franqueadora', filters)
 }
 
 export function criarLiveManual(payload: JsonRecord) {

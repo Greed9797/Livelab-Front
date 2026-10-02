@@ -9,7 +9,6 @@ import type { Lancamento, ModoPerda } from '../../types/financeiro'
 import { type GrupoCusto, type TotaisCusto } from '../../utils/custo-classe'
 import { formatDataCurta, isEditavel, isEncerrado, origemLabel, podeExcluir, valorEmAberto } from '../../utils/financeiro'
 import { formatMoney } from '../../utils/format'
-import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
 import { type CustoModalState, CustoFormModal } from './CustoFormModal'
 import { BaixaModal, DesfazerModal, ExcluirModal } from './LancamentoModals'
@@ -220,13 +219,5 @@ export function CustoGrupoBloco({ g, podeEscrever, acoes }: { g: GrupoCusto; pod
         ))}
       </ul>
     </section>
-  )
-}
-
-export function BotaoNovoCusto({ acoes, modo, children }: { acoes: CustoAcoes; modo: 'pontual' | 'recorrente'; children: ReactNode }) {
-  return (
-    <Button variant="secondary" onClick={() => acoes.setCustoModal({ kind: 'novo', modo })}>
-      {children}
-    </Button>
   )
 }

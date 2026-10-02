@@ -1,11 +1,9 @@
 // API do DRE v3 (SPEC_V3, F2): DRE anual com custos fixos/variáveis + aportes e
 // o detalhe de um mês. A normalização defensiva (inclui `aportes`) vive em
-// utils/dre-detalhe.ts — re-exportada aqui para quem consome o serviço.
+// utils/dre-detalhe.ts.
 import type { DreAnualV3, DreMesDetalheResponse } from '../types/financeiro-dre'
 import { normalizarDreAnualV3, normalizarDreMesDetalhe } from '../utils/dre-detalhe'
 import { apiGet } from './api'
-
-export { normalizarAportes, normalizarDreAnualV3, normalizarDreMesDetalhe, normalizarLinhaV3 } from '../utils/dre-detalhe'
 
 // Prefixo 'fin2' → invalidado junto com o resto do financeiro (FQK.all).
 export const DRE_QK = {
