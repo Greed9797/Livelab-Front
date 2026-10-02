@@ -1,6 +1,6 @@
 import { AxiosError, AxiosHeaders } from 'axios'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getCadastros, isEndpointCadastrosAusente, promoverCadastroACliente, resetCadastrosEndpointCache } from './cadastros'
+import { getCadastros, isEndpointCadastrosAusente, promoverCadastroACliente, resetCadastrosEndpointCache, retroativoDaPromocao } from './cadastros'
 import { apiGet, apiPost } from './api'
 
 vi.mock('./api', () => ({
@@ -10,9 +10,9 @@ vi.mock('./api', () => ({
   apiPost: vi.fn(),
 }))
 
-function httpError(status: number) {
+function httpError(status: number, data: unknown = {}) {
   const headers = new AxiosHeaders()
-  return new AxiosError('erro', String(status), { headers }, undefined, { status, statusText: '', data: {}, headers, config: { headers } })
+  return new AxiosError('erro', String(status), { headers }, undefined, { status, statusText: '', data, headers, config: { headers } })
 }
 
 const clientes = [{ id: 'c1', nome: 'Aurora', status: 'ativo' }]
@@ -93,9 +93,17 @@ describe('getCadastros — flag e fallback', () => {
     expect(isEndpointCadastrosAusente(new Error('x'))).toBe(false)
   })
 
-  it('promover chama a rota nova', async () => {
+  it('promover chama a rota nova com a ficha', async () => {
     vi.mocked(apiPost).mockResolvedValue({ id: 'm2' })
-    await promoverCadastroACliente('m2')
-    expect(apiPost).toHaveBeenCalledWith('/cadastros/m2/promover-cliente', {})
+    await promoverCadastroACliente('m2', { celular: '47999' })
+    expect(apiPost).toHaveBeenCalledWith('/cadastros/m2/promover-cliente', { celular: '47999' })
+  })
+
+  it('reconhece o 409 de condição retroativa na promoção (e só ele)', () => {
+    expect(retroativoDaPromocao(httpError(409, { code: 'PROMOCAO_CONDICAO_RETROATIVA', error: 'Há condição retroativa' }))).toBe('Há condição retroativa')
+    expect(retroativoDaPromocao(httpError(409, { code: 'PROMOCAO_CONDICAO_RETROATIVA' }))).toMatch(/condição comercial/)
+    expect(retroativoDaPromocao(httpError(409, { code: 'CADASTRO_JA_E_CLIENTE' }))).toBeNull()
+    expect(retroativoDaPromocao(httpError(400, { code: 'PROMOCAO_CONDICAO_RETROATIVA' }))).toBeNull()
+    expect(retroativoDaPromocao(new Error('x'))).toBeNull()
   })
 })

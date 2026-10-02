@@ -72,3 +72,15 @@ export function updateCadastro(id: string, payload: JsonRecord) {
 export function promoverCadastroACliente(id: string, payload: JsonRecord = {}) {
   return apiPost<JsonRecord>(`/cadastros/${id}/promover-cliente`, payload)
 }
+
+/**
+ * 409 PROMOCAO_CONDICAO_RETROATIVA: há condição com fixo/% vigente antes do início do
+ * contrato. Devolve a mensagem do backend (para pedir confirmação) ou null.
+ */
+export function retroativoDaPromocao(error: unknown): string | null {
+  if (!axios.isAxiosError(error) || error.response?.status !== 409) return null
+  const data = error.response.data as { code?: unknown; error?: unknown; message?: unknown } | undefined
+  if (data?.code !== 'PROMOCAO_CONDICAO_RETROATIVA') return null
+  const msg = typeof data.error === 'string' ? data.error : typeof data.message === 'string' ? data.message : ''
+  return msg || 'Há condição comercial com fixo ou % vigente antes do início do contrato.'
+}

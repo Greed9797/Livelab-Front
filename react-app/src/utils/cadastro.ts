@@ -74,10 +74,12 @@ export function tipoCadastroLabel(tipo: unknown): string {
   return TIPO_LABEL[normalizarTipoCadastro(tipo)] ?? 'Cliente'
 }
 
-/** Marca não-cliente (ou cliente sem ficha) pode ser promovida; marca de sistema nunca. */
-export function podePromoverACliente(c: Pick<Cadastro, 'tipo' | 'cliente_id' | 'sistema' | 'marca_id'>): boolean {
-  if (c.sistema || !c.marca_id) return false
-  return c.tipo !== 'cliente' || !c.cliente_id
+/**
+ * Afiliada/própria/parceira pode ser promovida; marca de sistema nunca. Tipo cliente já é
+ * cliente (o backend responde 409 CADASTRO_JA_E_CLIENTE).
+ */
+export function podePromoverACliente(c: Pick<Cadastro, 'tipo' | 'sistema' | 'marca_id'>): boolean {
+  return !c.sistema && Boolean(c.marca_id) && c.tipo !== 'cliente'
 }
 
 // ── Normalização ─────────────────────────────────────────────────────────────

@@ -81,12 +81,12 @@ describe('cadastro — normalizador defensivo', () => {
     expect(normalizarListaCadastros(null)).toBeNull()
   })
 
-  it('promover: só não-cliente (ou cliente sem ficha) e nunca sistema', () => {
-    expect(podePromoverACliente({ tipo: 'afiliada', cliente_id: null, sistema: false, marca_id: 'm' })).toBe(true)
-    expect(podePromoverACliente({ tipo: 'cliente', cliente_id: null, sistema: false, marca_id: 'm' })).toBe(true)
-    expect(podePromoverACliente({ tipo: 'cliente', cliente_id: 'c', sistema: false, marca_id: 'm' })).toBe(false)
-    expect(podePromoverACliente({ tipo: 'propria', cliente_id: null, sistema: true, marca_id: 'm' })).toBe(false)
-    expect(podePromoverACliente({ tipo: 'afiliada', cliente_id: null, sistema: false, marca_id: null })).toBe(false)
+  it('promover: só afiliada/própria/parceira e nunca sistema', () => {
+    expect(podePromoverACliente({ tipo: 'afiliada', sistema: false, marca_id: 'm' })).toBe(true)
+    expect(podePromoverACliente({ tipo: 'cliente', sistema: false, marca_id: 'm' })).toBe(false)
+    expect(podePromoverACliente({ tipo: 'parceira', sistema: false, marca_id: 'm' })).toBe(true)
+    expect(podePromoverACliente({ tipo: 'propria', sistema: true, marca_id: 'm' })).toBe(false)
+    expect(podePromoverACliente({ tipo: 'afiliada', sistema: false, marca_id: null })).toBe(false)
   })
 })
 
@@ -136,5 +136,20 @@ describe('cadastro — linhas a partir de /v1/cadastros', () => {
     expect(linhas[0]).toMatchObject({ email: 'a@x.com', status: 'ativo', cor_seed_id: 'm1', cadastro_marca_id: 'm1' })
     expect(linhas[2].gera_receita).toBe(false)
     expect(linhas[3]).toMatchObject({ gera_receita: false, sistema: true })
+  })
+})
+
+describe('cadastro — formato real do backend (cadastroColsSql)', () => {
+  it('ficha solta + cliente_nome + status alias + configuracao_comercial', () => {
+    const [c] = normalizarListaCadastros([{
+      id: 'm1', marca_id: 'm1', cliente_id: 'c1', tenant_id: 't', nome: 'Haag', tipo: 'cliente', sistema: false, gera_receita: true,
+      status_operacional: 'ativa', status: 'ativa', status_comercial: 'inadimplente', tiktok_username: 'haag', logo_url: null, cor: '#111111',
+      cliente_nome: 'Haag', celular: '47', email: 'h@x.com', cnpj: '1', razao_social: 'Haag SA', gateway_customer_id: 'cus_9',
+      acesso_user_id: 'u1', acesso_email: 'portal@h.com', acesso_ativo: true, apresentadoras: [], gmv_mes: 12.5, lives_mes: 2, videos_mes: 1,
+      configuracao_comercial: { status: 'ok' },
+    }])!
+    expect(c).toMatchObject({ id: 'm1', cliente_id: 'c1', status_comercial: 'inadimplente', gmv_mes: 12.5, videos_mes: 1, configuracao_comercial: { status: 'ok' } })
+    expect(c.ficha).toEqual({ celular: '47', email: 'h@x.com', cnpj: '1', razao_social: 'Haag SA', gateway_customer_id: 'cus_9', acesso_email: 'portal@h.com' })
+    expect(cadastrosParaCarteira([c])[0]).toMatchObject({ id: 'c1', tipo_operacional: 'cliente_ecommerce', status: 'inadimplente', email: 'h@x.com', celular: '47' })
   })
 })

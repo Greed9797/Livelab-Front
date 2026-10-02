@@ -21,7 +21,8 @@ import { useToast } from '../components/ui/Toast'
 import { normalizeMoneyInputText } from '../utils/money'
 import { extractBrandColor, resolveMarcaCor } from '../utils/brandColor'
 import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getMarcaOperacional, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
-import { getCadastros, promoverCadastroACliente } from '../services/cadastros'
+import { getCadastros, promoverCadastroACliente, retroativoDaPromocao } from '../services/cadastros'
+import { FQK } from '../services/financeiro'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
 import { getBrandImage } from '../utils/favicon'
@@ -205,6 +206,8 @@ export function ComercialPage() {
   // escolhido no picker, 'clear' = botão "Automática" (PATCH cor: null).
   const [ativoCorTouch, setAtivoCorTouch] = useState<'manual' | 'clear' | null>(null)
   const [auditMarcaId, setAuditMarcaId] = useState<string | null>(null)
+  // Promover a cliente: a ficha nova exige WhatsApp; data_inicio é opcional (backend usa hoje).
+  const [promoverForm, setPromoverForm] = useState<{ marcaId: string; nome: string; celular: string; email: string; cnpj: string; data_inicio: string } | null>(null)
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('todos')
   const [filtroTipo, setFiltroTipo] = useState('todos')
@@ -303,17 +306,15 @@ export function ComercialPage() {
     },
   })
   const promoverMutation = useMutation({
-    mutationFn: (id: string) => promoverCadastroACliente(id),
+    mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => promoverCadastroACliente(id, payload),
     onSuccess: () => {
       toast.push('Cadastro promovido a cliente. A partir de agora ele gera receita.', 'success')
+      setPromoverForm(null)
       setSelectedAtivo(null)
-      for (const queryKey of [QK.cadastros(), QK.clientes(), QK.marcas(), QK.ativoOperacional(), QK.agenda(), QK.comissoesMarcas, QK.rankingMarcas(), QK.financeiroResumo(), QK.financeiroOperacional(), QK.financeiroFaturamento()]) {
+      for (const queryKey of [QK.cadastros(), QK.clientes(), QK.marcas(), QK.ativoOperacional(), QK.agenda(), QK.comissoesMarcas, QK.rankingMarcas(), QK.financeiroResumo(), QK.financeiroOperacional(), QK.financeiroFaturamento(), FQK.all]) {
         void queryClient.invalidateQueries({ queryKey })
       }
-      void queryClient.invalidateQueries({ queryKey: ['financeiro-receita'] })
-      void queryClient.invalidateQueries({ queryKey: ['financeiro-dre'] })
     },
-    onError: (error) => toast.push(extractErrorMessage(error), 'error'),
   })
   const uploadClienteImage = useMutation({
     mutationFn: (file: File) => uploadImageAsset(file, 'clientes'),
@@ -638,12 +639,30 @@ export function ComercialPage() {
   function promoverAtivo() {
     const cadastro = selectedAtivo?.cadastro as Cadastro | undefined
     if (!cadastro?.marca_id) return
-    const ok = window.confirm(
-      `Promover "${cadastro.nome}" (${tipoCadastroLabel(cadastro.tipo)}) a cliente?\n\n`
-      + 'O cadastro passa a ser do tipo cliente e a gerar receita (fixo + % do GMV) conforme as condições comerciais vigentes.',
-    )
-    if (!ok) return
-    promoverMutation.mutate(cadastro.marca_id)
+    promoverMutation.reset()
+    setPromoverForm({ marcaId: cadastro.marca_id, nome: cadastro.nome, celular: cadastro.ficha.celular ?? '', email: cadastro.ficha.email ?? '', cnpj: cadastro.ficha.cnpj ?? '', data_inicio: '' })
+  }
+
+  async function onPromoverSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!promoverForm || promoverMutation.isPending) return
+    const payload: JsonRecord = {
+      celular: promoverForm.celular.trim(),
+      ...(promoverForm.email.trim() ? { email: promoverForm.email.trim() } : {}),
+      ...(promoverForm.cnpj.trim() ? { cnpj: promoverForm.cnpj.trim() } : {}),
+      ...(promoverForm.data_inicio ? { data_inicio: promoverForm.data_inicio } : {}),
+    }
+    try {
+      await promoverMutation.mutateAsync({ id: promoverForm.marcaId, payload })
+    } catch (error) {
+      // Condição com fixo/% vigente antes do início: GMV antigo viraria receita. Só segue com confirmação explícita.
+      const retro = retroativoDaPromocao(error)
+      if (!retro) return
+      const ok = window.confirm(`${retro}\n\nConfirmar mesmo assim? O GMV anterior ao início do contrato passará a gerar receita.`)
+      if (!ok) return
+      promoverMutation.reset()
+      await promoverMutation.mutateAsync({ id: promoverForm.marcaId, payload: { ...payload, confirmar_retroativo: true } }).catch(() => undefined)
+    }
   }
 
   const condicoesMarcaId = selectedAtivoKind === 'marca'
@@ -1200,6 +1219,29 @@ export function ComercialPage() {
             </button>
           ))}
         </div>
+      </Modal>
+
+      {/* ---- Promover a cliente (cadastro unificado) ---- */}
+      <Modal
+        open={Boolean(promoverForm)}
+        title="Promover a cliente"
+        subtitle={promoverForm ? `"${promoverForm.nome}" passa a ser cliente e a gerar receita (fixo + % do GMV) pelas condições comerciais vigentes.` : undefined}
+        onClose={() => { if (!promoverMutation.isPending) setPromoverForm(null) }}
+        closeDisabled={promoverMutation.isPending}
+      >
+        {promoverForm ? (
+          <form className="grid gap-3 md:grid-cols-2" onSubmit={onPromoverSubmit}>
+            <label className="block"><span className="text-sm font-medium text-ink">WhatsApp *</span><input aria-label="WhatsApp do cliente" className="design-input mt-1 h-11 w-full px-4" type="tel" value={promoverForm.celular} onChange={(event) => setPromoverForm((f) => f && { ...f, celular: event.target.value })} required /></label>
+            <label className="block"><span className="text-sm font-medium text-ink">E-mail</span><input aria-label="E-mail do cliente" className="design-input mt-1 h-11 w-full px-4" type="email" value={promoverForm.email} onChange={(event) => setPromoverForm((f) => f && { ...f, email: event.target.value })} /></label>
+            <label className="block"><span className="text-sm font-medium text-ink">CNPJ</span><input aria-label="CNPJ do cliente" className="design-input mt-1 h-11 w-full px-4" value={promoverForm.cnpj} onChange={(event) => setPromoverForm((f) => f && { ...f, cnpj: event.target.value })} /></label>
+            <label className="block"><span className="text-sm font-medium text-ink">Início do contrato</span><input aria-label="Início do contrato" className="design-input mt-1 h-11 w-full px-4" type="date" value={promoverForm.data_inicio} onChange={(event) => setPromoverForm((f) => f && { ...f, data_inicio: event.target.value })} /><span className="mt-1 block text-[11px] text-ink-muted">Vazio = data de início já cadastrada ou hoje.</span></label>
+            {promoverMutation.isError && !retroativoDaPromocao(promoverMutation.error) ? <p role="alert" className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(promoverMutation.error)}</p> : null}
+            <div className="flex flex-wrap gap-2 md:col-span-2">
+              <Button type="submit" isLoading={promoverMutation.isPending}>Promover a cliente</Button>
+              <Button type="button" variant="secondary" disabled={promoverMutation.isPending} onClick={() => setPromoverForm(null)}>Cancelar</Button>
+            </div>
+          </form>
+        ) : null}
       </Modal>
 
       {/* ---- Audit history modal — marca ---- */}

@@ -44,6 +44,7 @@ async function setup(page: Page) {
   const state = { failArchives: false, failAgenda: false, failPresenters: false, archivedHomonym: false, cadastros404: false, allowPromote: false }
   const calls: string[] = []
   const writes: string[] = []
+  const promoteBodies: Record<string, unknown>[] = []
   await page.addInitScript(({ tenantId }) => {
     localStorage.setItem('livelab.react.remember', 'true')
     localStorage.setItem('livelab.react.access_token', 'synthetic-operations-test')
@@ -57,7 +58,13 @@ async function setup(page: Page) {
     calls.push(url.pathname + url.search)
     if (route.request().method() !== 'GET') {
       writes.push(route.request().method() + ' ' + url.pathname)
-      if (state.allowPromote && url.pathname === `/v1/cadastros/${m3}/promover-cliente`) return route.fulfill({ status: 200, json: { id: m3, tipo: 'cliente' } })
+      if (state.allowPromote && url.pathname === `/v1/cadastros/${m3}/promover-cliente`) {
+        const body = route.request().postDataJSON() as Record<string, unknown>
+        promoteBodies.push(body)
+        // 1ª tentativa: condição retroativa exige confirmação explícita.
+        if (body.confirmar_retroativo !== true) return route.fulfill({ status: 409, json: { code: 'PROMOCAO_CONDICAO_RETROATIVA', error: 'Há condição comercial com fixo ou % vigente antes do início do contrato.' } })
+        return route.fulfill({ status: 200, json: { id: m3, tipo: 'cliente' } })
+      }
       return route.fulfill({ status: 405, json: { error: 'Fixture somente leitura' } })
     }
     const ok = (json: unknown) => route.fulfill({ json })
@@ -101,7 +108,7 @@ async function setup(page: Page) {
     if (url.pathname.startsWith('/v1/financeiro/')) return ok({})
     return ok([])
   })
-  return { state, calls, writes }
+  return { state, calls, writes, promoteBodies }
 }
 
 test('carteira prioriza ativos e mantém inativos acessíveis, por último e com busca', async ({ page }, info) => {
@@ -266,16 +273,24 @@ test('flag ligada e backend antigo (404 em /v1/cadastros) caem na junção /clie
 
 test('promover afiliada a cliente chama a rota nova e recarrega a lista', async ({ page }) => {
   test.skip(!cadastroUnificadoLigado, 'promover só existe com o endpoint novo')
-  const { state, calls, writes } = await setup(page)
+  const { state, calls, writes, promoteBodies } = await setup(page)
   state.allowPromote = true
   await page.goto('/clientes')
   await page.getByRole('button', { name: 'Editar Farol', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Marca afiliada', exact: true })
   await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('não gera receita')
   const antes = calls.filter(path => path.startsWith('/v1/cadastros')).length
-  page.once('dialog', d => d.accept())
   await dialog.getByRole('button', { name: 'Promover a cliente', exact: true }).click()
-  await expect.poll(() => writes).toEqual([`POST /v1/cadastros/${m3}/promover-cliente`])
+  const promover = page.getByRole('dialog', { name: 'Promover a cliente', exact: true })
+  await promover.getByLabel('WhatsApp do cliente', { exact: true }).fill('47911112222')
+  page.once('dialog', d => d.accept())
+  await promover.getByRole('button', { name: 'Promover a cliente', exact: true }).click()
+  await expect.poll(() => promoteBodies.length).toBe(2)
+  expect(promoteBodies[0]).toEqual({ celular: '47911112222' })
+  expect(promoteBodies[1]).toEqual({ celular: '47911112222', confirmar_retroativo: true })
+  expect(writes).toEqual([`POST /v1/cadastros/${m3}/promover-cliente`, `POST /v1/cadastros/${m3}/promover-cliente`])
+  await expect(promover).not.toBeVisible()
   await expect(dialog).not.toBeVisible()
   await expect.poll(() => calls.filter(path => path.startsWith('/v1/cadastros')).length).toBeGreaterThan(antes)
 })

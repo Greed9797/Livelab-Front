@@ -9,7 +9,7 @@ const ativoCliente = (status: unknown) => status === 'ativo' || status === 'inad
 
 /**
  * Monta GET /v1/cadastros a partir das fixtures de /clientes e /marcas como o backend
- * faria (marcas LEFT JOIN clientes). Cliente sem marca ganha a marca espelho
+ * faria (marcas LEFT JOIN clientes; status_operacional simplificado = status da marca). Cliente sem marca ganha a marca espelho
  * (ensureClienteMarca), com id `espelho-<cliente_id>`.
  */
 export function cadastrosDaFixture(clientes: Row[], marcas: Row[], opts: { incluirInativos?: boolean } = {}): Row[] {
@@ -33,7 +33,15 @@ export function cadastrosDaFixture(clientes: Row[], marcas: Row[], opts: { inclu
       gera_receita: tipo === 'cliente' && !sistema,
       status_operacional: m.status,
       status_comercial: cliente ? cliente.status : null,
-      ficha: cliente ? { celular: cliente.celular ?? null, email: cliente.email ?? null } : {},
+      status: m.status,
+      // Formato real de GET /v1/cadastros (src/lib/cadastro-sql.js): campos da ficha soltos.
+      cliente_nome: cliente ? cliente.nome : null,
+      celular: cliente?.celular ?? null,
+      email: cliente?.email ?? null,
+      cnpj: null,
+      razao_social: null,
+      gateway_customer_id: null,
+      acesso_email: null,
       logo_url: m.logo_url ?? cliente?.logo_url ?? null,
       cor: m.cor ?? null,
       configuracao_comercial: m.configuracao_comercial ?? null,
