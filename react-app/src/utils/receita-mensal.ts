@@ -60,6 +60,19 @@ export function labelTipoCobranca(tipo: string): string {
 }
 
 /** 10 → '10%'; 12.5 → '12,5%'; null → '—'. */
+const TIPO_MARCA_LABEL: Record<string, string> = { afiliada: 'afiliada', propria: 'própria', parceira: 'parceira' }
+
+/**
+ * Só marca de CLIENTE gera receita (fixo + % do GMV). Marca afiliada/própria/parceira
+ * só aparece aqui por título antigo materializado antes da regra — a tela avisa para
+ * revisar (dar como perdido ou corrigir o tipo no cadastro). null = backend antigo, sem aviso.
+ */
+export function avisoMarcaNaoCliente(m: Pick<ReceitaMarca, 'marca_tipo'>): string | null {
+  if (!m.marca_tipo || m.marca_tipo === 'cliente') return null
+  const tipo = TIPO_MARCA_LABEL[m.marca_tipo] ?? m.marca_tipo
+  return `Marca ${tipo}: o GMV dela não é receita da casa. Revise este título (cadastro da marca ou dar como perdido).`
+}
+
 export function formatPct(pct: number | null | undefined): string {
   if (pct === null || pct === undefined || !Number.isFinite(pct)) return '—'
   return `${pct.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
@@ -202,6 +215,7 @@ export function normalizarMarca(input: unknown, cliente: { cliente_id: string; c
   return {
     marca_id,
     marca_nome,
+    marca_tipo: str(raw.marca_tipo),
     tipo_cobranca: str(raw.tipo_cobranca) ?? 'fixo_mais_comissao',
     pct,
     gmv,

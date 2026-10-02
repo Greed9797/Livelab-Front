@@ -31,6 +31,7 @@ import { acoesPerda, formatDataCurta, grupoLabel, mesLabel, partesData, valorEmA
 import { formatMoney } from '../../utils/format'
 import {
   agruparPorVencimento,
+  avisoMarcaNaoCliente,
   contextoTitulo,
   filtrarClientes,
   formatPct,
@@ -309,6 +310,7 @@ function ApuracaoLinha({ m }: { m: ReceitaMarca }) {
 
 function MarcaBloco({ m, ...acoes }: Acoes & { m: ReceitaMarca }) {
   const nota = notaFixoOuComissao(m)
+  const avisoTipo = avisoMarcaNaoCliente(m)
   const semTitulos = !m.fixo && !m.comissao && !m.em_apuracao
   return (
     <li className="border-t border-[var(--hairline)] first:border-t-0">
@@ -329,6 +331,12 @@ function MarcaBloco({ m, ...acoes }: Acoes & { m: ReceitaMarca }) {
         </dl>
       </div>
       {nota ? <p className="px-4 pt-1 text-[11px] text-[var(--text-secondary)] sm:px-5">{nota}</p> : null}
+      {avisoTipo ? (
+        <p role="note" className="flex items-start gap-1.5 px-4 pt-1 text-[11px] font-semibold text-[var(--warning)] sm:px-5">
+          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+          {avisoTipo}
+        </p>
+      ) : null}
       <ul className="pb-1" aria-label={`Títulos de ${m.marca_nome}`}>
         {m.fixo ? <TituloLinha t={m.fixo} {...acoes} /> : null}
         {m.comissao ? <TituloLinha t={m.comissao} {...acoes} /> : m.em_apuracao ? <ApuracaoLinha m={m} /> : null}

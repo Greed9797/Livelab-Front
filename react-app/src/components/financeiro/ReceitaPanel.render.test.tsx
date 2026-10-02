@@ -48,6 +48,24 @@ describe('ReceitaPanel perdidos', () => {
   })
 })
 
+const rawNaoCliente = {
+  mes: '2026-09', hoje: '2026-10-01',
+  competencia: { clientes: [{ cliente_id: null, cliente_nome: 'Rosa', marcas: [
+    { marca_id: 'm9', marca_nome: 'Rosa', marca_tipo: 'propria', tipo_cobranca: 'fixo_mais_comissao', pct: 100, gmv: 80000, comissao_bruta: 0,
+      fixo: null, comissao: { id: 'u9', componente: 'comissao', valor_previsto: 80000, valor_pago: 0, data_vencimento: '2026-10-05', competencia: '2026-09-01' } } ] }],
+    avulsas: [], aportes: [] },
+  vencimento: { itens: [] },
+}
+
+describe('ReceitaPanel marca não-cliente', () => {
+  it('avisa que o GMV de marca própria não é receita', async () => {
+    const mod = await import('../../services/financeiro-receita')
+    vi.mocked(mod.getReceitaMensal).mockResolvedValueOnce(normalizarReceitaMensal(rawNaoCliente, '2026-09'))
+    render(<QueryClientProvider client={new QueryClient()}><ToastProvider><ReceitaPanel mes="2026-09" podeEscrever /></ToastProvider></QueryClientProvider>)
+    expect(await screen.findByText(/Marca própria: o GMV dela não é receita da casa/)).toBeTruthy()
+  })
+})
+
 describe('ReceitaPanel smoke', () => {
   it('renderiza competência e vencimento', async () => {
     render(<QueryClientProvider client={new QueryClient()}><ToastProvider><ReceitaPanel mes="2026-09" podeEscrever /></ToastProvider></QueryClientProvider>)

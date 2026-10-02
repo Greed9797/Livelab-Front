@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { rotaBaixa } from './financeiro'
 import {
   agruparPorVencimento,
+  avisoMarcaNaoCliente,
   calcularAReceberMes,
   contextoTitulo,
   filtrarClientes,
@@ -149,6 +150,15 @@ describe('marca e títulos', () => {
     const m = normalizarMarca({ marca_id: 'm', marca_nome: 'M', pct: 8, gmv: 1000, fixo: null, comissao: null }, cli)!
     expect(m.em_apuracao).toBe(true)
     expect(m.comissao).toBeNull()
+  })
+
+  it('marca não-cliente (título antigo) recebe aviso; cliente e backend sem o campo, não', () => {
+    const propria = normalizarMarca({ marca_id: 'm', marca_nome: 'Rosa', marca_tipo: 'propria', gmv: 80000 }, cli)!
+    expect(propria.marca_tipo).toBe('propria')
+    expect(avisoMarcaNaoCliente(propria)).toMatch(/^Marca própria: o GMV dela não é receita da casa/)
+    expect(avisoMarcaNaoCliente({ marca_tipo: 'afiliada' })).toMatch(/^Marca afiliada/)
+    expect(avisoMarcaNaoCliente({ marca_tipo: 'cliente' })).toBeNull()
+    expect(avisoMarcaNaoCliente(normalizarMarca({ marca_id: 'm', marca_nome: 'M' }, cli)!)).toBeNull()
   })
 
   it('respeita em_apuracao explícito e deriva pct do GMV quando falta', () => {
