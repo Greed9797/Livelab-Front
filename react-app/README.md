@@ -56,6 +56,23 @@ CORS_ORIGIN=https://app.grupolivelab.com.br,https://seu-projeto.vercel.app
 
 Validação feita em 2026-05-12: Railway responde `/health`, aceita preflight de `https://app.grupolivelab.com.br` e `https://livelab-3601f.web.app`, mas rejeita `http://127.0.0.1:5173` e domínios Vercel não cadastrados.
 
+### Flag `VITE_CADASTRO_UNIFICADO` (cadastro unificado)
+
+A tela **Clientes** (`/clientes`) pode ler a lista do endpoint novo `GET /v1/cadastros`
+(clientes, afiliadas, marcas próprias e parceiras na mesma lista, com coluna "Tipo",
+indicação "não gera receita" e o botão "Promover a cliente").
+
+- **Desligada por padrão.** Só o valor exato `true` liga; ausente, `false` ou `0` mantêm a
+  junção atual `/clientes` + `/marcas`.
+- Mesmo ligada, se o backend responder 404/405/501 em `/v1/cadastros` (backend antigo),
+  a tela cai sozinha na junção atual — nada quebra. "Promover a cliente" só aparece quando
+  a lista veio do endpoint novo.
+- Para ligar na Vercel (projeto `liveshop-saas-frontend-react`): Settings → Environment
+  Variables → adicionar `VITE_CADASTRO_UNIFICADO` = `true` (Production; opcionalmente
+  Preview) → **novo deploy** (variáveis `VITE_*` são embutidas no build). Para desligar,
+  troque para `false` e publique de novo.
+- Local: `VITE_CADASTRO_UNIFICADO=true npm run dev` ou a linha correspondente no `.env.local`.
+
 ## Migrado nesta etapa
 
 - Login/autenticação com JWT + refresh.

@@ -217,6 +217,7 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
       setError(null)
       void queryClient.invalidateQueries({ queryKey: QK.marcaCondicoes(marcaId ?? undefined) })
       void queryClient.invalidateQueries({ queryKey: QK.marcas() })
+      void queryClient.invalidateQueries({ queryKey: QK.cadastros() })
       void queryClient.invalidateQueries({ queryKey: QK.financeiroOperacional() })
     },
     onError: (cause) => {

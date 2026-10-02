@@ -21,6 +21,7 @@ async function setup(page: Page, papel = 'franqueado') {
       return route.fulfill({ status: 405, json: { error: 'Fixture somente leitura' } })
     }
     if (url.pathname === '/v1/clientes') return route.fulfill({ json: [{ id: 'cliente-1', nome: 'Marca Aurora', status: 'ativo', gmv_mes: 1234, lives_mes: 7 }] })
+    if (url.pathname === '/v1/cadastros') return route.fulfill({ json: [{ id: 'marca-1', marca_id: 'marca-1', cliente_id: 'cliente-1', nome: 'Marca Aurora', tipo: 'cliente', status_operacional: 'ativa', status_comercial: 'ativo', gmv_mes: 1234, lives_mes: 7 }] })
     if (url.pathname === '/v1/financeiro/resumo') return route.fulfill({ json: {} })
     if (url.pathname === '/v1/financeiro/fluxo-caixa') return route.fulfill({ json: {} })
     if (url.pathname === '/v1/financeiro/faturamento') return route.fulfill({ json: {} })
@@ -33,7 +34,7 @@ test('Clientes abre diretamente sem CRM e mantém Configurações ao final do me
   const { calls, writes } = await setup(page)
   await page.goto('/comercial?tab=crm')
   await expect(page).toHaveURL(/\/clientes$/)
-  await expect(page.getByRole('heading', { name: /Carteira de clientes/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Clientes', exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Resumo da carteira' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Ativos', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('button', { name: 'CRM', exact: true })).toHaveCount(0)

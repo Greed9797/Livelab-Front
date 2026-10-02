@@ -41,6 +41,8 @@ export default defineConfig({
       VITE_API_URL: process.env.VITE_API_URL || '/v1',
       VITE_DEV_API_PROXY_TARGET:
         process.env.VITE_DEV_API_PROXY_TARGET || 'https://liveshop-saas-api-production.up.railway.app',
+      // Cadastro unificado: e2e roda com a flag desligada (padrão) e ligada (VITE_CADASTRO_UNIFICADO=true).
+      VITE_CADASTRO_UNIFICADO: process.env.VITE_CADASTRO_UNIFICADO || 'false',
     },
   },
 })
