@@ -15,6 +15,7 @@ import type {
   ImportarResumo,
   Lancamento,
   LancamentosFiltro,
+  ModoPerda,
   ReceitaAvulsaPayload,
 } from '../types/financeiro'
 import { normalizarCaixa, normalizarConfig } from '../utils/caixa'
@@ -25,6 +26,7 @@ import {
   normalizarFluxo,
   normalizarLancamentosResponse,
   rotaBaixa,
+  rotaPerda,
 } from '../utils/financeiro'
 import { montarPayloadImportacao } from '../utils/importar-custos'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
@@ -93,6 +95,13 @@ export function deleteReceitaAvulsa(id: string) {
 export function baixarLancamento(l: Lancamento, acao: AcaoBaixa, payload: BaixaPayload = {}) {
   const path = rotaBaixa(l, acao)
   return apiPatch<unknown>(path, acao === 'pagar' ? clean({ ...payload }) : undefined)
+}
+
+// ── Perdas / cancelamentos ───────────────────────────────────────────────────
+
+export function perdaLancamento(l: Lancamento, modo: ModoPerda, motivo?: string) {
+  const texto = motivo?.trim()
+  return apiPatch<unknown>(rotaPerda(l, modo), modo !== 'desfazer' && texto ? { motivo: texto.slice(0, 300) } : undefined)
 }
 
 // ── Custos ───────────────────────────────────────────────────────────────────

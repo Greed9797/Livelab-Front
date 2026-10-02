@@ -1,18 +1,20 @@
 // Peças compartilhadas por CustosFixosPanel e CustosVariaveisPanel: ações de baixa/edição/exclusão
 // (com seus modais), resumo do mês e linhas agrupadas por grupo.
+import clsx from 'clsx'
 import { Check, Undo2 } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { useBaixaMutation, useCustoMutations } from '../../hooks/useFinanceiro'
 import { extractErrorMessage } from '../../services/api'
-import type { Lancamento } from '../../types/financeiro'
+import type { Lancamento, ModoPerda } from '../../types/financeiro'
 import { type GrupoCusto, type TotaisCusto } from '../../utils/custo-classe'
-import { formatDataCurta, isEditavel, origemLabel, podeExcluir, valorEmAberto } from '../../utils/financeiro'
+import { formatDataCurta, isEditavel, isEncerrado, origemLabel, podeExcluir, valorEmAberto } from '../../utils/financeiro'
 import { formatMoney } from '../../utils/format'
 import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
 import { type CustoModalState, CustoFormModal } from './CustoFormModal'
 import { BaixaModal, DesfazerModal, ExcluirModal } from './LancamentoModals'
-import { RowMenu } from './LancamentosList'
+import { RowMenu, acaoPerdaMenu } from './LancamentosList'
+import { PerdaModal } from './PerdaModal'
 import { StatusChip } from './primitives'
 
 export function useCustoAcoes() {
@@ -22,12 +24,14 @@ export function useCustoAcoes() {
   const [baixa, setBaixa] = useState<Lancamento | null>(null)
   const [desfazer, setDesfazer] = useState<Lancamento | null>(null)
   const [excluir, setExcluir] = useState<Lancamento | null>(null)
+  const [perda, setPerda] = useState<{ item: Lancamento; modo: ModoPerda } | null>(null)
   const [custoModal, setCustoModal] = useState<CustoModalState | null>(null)
   const toastOk = (msg: string, variant: 'success' | 'error' = 'success') => toast.push(msg, variant)
   return {
     baixa,
     desfazer,
     excluir,
+    perda,
     custoModal,
     setCustoModal,
     toastOk,
@@ -45,6 +49,8 @@ export function useCustoAcoes() {
       custos.excluir.reset()
       setExcluir(l)
     },
+    abrirPerda: (item: Lancamento, modo: ModoPerda) => setPerda({ item, modo }),
+    fecharPerda: () => setPerda(null),
     abrirEditar: (l: Lancamento) => setCustoModal({ kind: 'editar-lancamento', lancamento: l }),
     fecharBaixa: () => setBaixa(null),
     fecharDesfazer: () => setDesfazer(null),
@@ -114,6 +120,7 @@ export function CustoAcoesModais({ acoes, mes }: { acoes: CustoAcoes; mes: strin
           )
         }}
       />
+      {acoes.perda ? <PerdaModal key={`${acoes.perda.item.id}:${acoes.perda.modo}`} item={acoes.perda.item} modo={acoes.perda.modo} onClose={acoes.fecharPerda} /> : null}
       <CustoFormModal state={acoes.custoModal} mes={mes} onClose={() => acoes.setCustoModal(null)} onSaved={(msg) => toastOk(msg)} />
     </>
   )
@@ -140,23 +147,26 @@ export function ResumoCusto({ titulo, totais, extra }: { titulo: string; totais:
 
 export function CustoItemRow({ l, podeEscrever, acoes }: { l: Lancamento; podeEscrever: boolean; acoes: CustoAcoes }) {
   const aberto = valorEmAberto(l)
+  const cancelado = isEncerrado(l.status)
+  const extra = acaoPerdaMenu(l, acoes.abrirPerda)
   return (
-    <li className="fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5">
+    <li className={clsx('fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5', cancelado && 'opacity-60')}>
       <div className="min-w-0 flex-1 basis-full sm:basis-auto">
         <p className="truncate text-sm font-semibold text-ink">{l.descricao}</p>
         <p className="mt-0.5 truncate text-xs text-ink-muted">
           {origemLabel(l)}
           {l.parcela_num && l.parcelas_total ? ` · ${l.parcela_num}/${l.parcelas_total}` : ''} · vence {formatDataCurta(l.data_vencimento)}
           {l.status === 'parcial' || (l.status === 'atrasado' && l.valor_pago > 0) ? <> · <span className="num font-semibold">{formatMoney(l.valor_pago, true)} pago, falta {formatMoney(aberto, true)}</span></> : null}
+          {cancelado ? <> · <span title={l.cancelado_motivo ?? undefined}>Cancelado{l.cancelado_motivo ? `: ${l.cancelado_motivo}` : ''}</span></> : null}
           {l.status === 'pago' && l.data_pagamento ? ` · pago em ${formatDataCurta(l.data_pagamento)}` : ''}
         </p>
       </div>
       <div className="flex flex-1 items-center justify-between gap-3 sm:flex-none sm:justify-end">
         <StatusChip status={l.status} natureza="custo" />
-        <span className="num w-28 text-right text-sm font-bold text-ink">{formatMoney(l.valor_previsto, true)}</span>
+        <span className={clsx('num w-28 text-right text-sm font-bold text-ink', cancelado && 'line-through')}>{formatMoney(l.valor_previsto, true)}</span>
         {podeEscrever ? (
           <div className="flex items-center justify-end gap-1 sm:w-[10.5rem]">
-            {l.status !== 'pago' ? (
+            {l.status !== 'pago' && !cancelado ? (
               <button
                 type="button"
                 onClick={() => acoes.abrirBaixa(l)}
@@ -177,8 +187,13 @@ export function CustoItemRow({ l, podeEscrever, acoes }: { l: Lancamento; podeEs
                 <Undo2 className="h-4 w-4" />
               </button>
             ) : null}
-            {isEditavel(l) ? (
-              <RowMenu label={l.descricao} onEditar={() => acoes.abrirEditar(l)} onExcluir={podeExcluir(l) ? () => acoes.abrirExcluir(l) : undefined} />
+            {isEditavel(l) || extra ? (
+              <RowMenu
+                label={l.descricao}
+                onEditar={isEditavel(l) ? () => acoes.abrirEditar(l) : undefined}
+                onExcluir={isEditavel(l) && podeExcluir(l) ? () => acoes.abrirExcluir(l) : undefined}
+                extra={extra}
+              />
             ) : null}
           </div>
         ) : null}

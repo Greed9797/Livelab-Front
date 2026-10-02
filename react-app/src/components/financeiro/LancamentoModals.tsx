@@ -9,7 +9,7 @@ import { Modal } from '../ui/Modal'
 import { MoneyInput } from '../ui/MoneyInput'
 import { Amount, Field, InlineError, StatusChip } from './primitives'
 
-function Resumo({ l }: { l: Lancamento }) {
+export function Resumo({ l }: { l: Lancamento }) {
   return (
     <div className="flex items-start justify-between gap-3 rounded-2xl border border-line bg-surface-muted p-4">
       <div className="min-w-0">

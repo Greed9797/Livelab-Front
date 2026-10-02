@@ -13,7 +13,7 @@ import type {
   DreMesDetalheResponse,
   VisaoDre,
 } from '../../types/financeiro-dre'
-import { detalheVazio, margemPct, ordenarGrupos, participacao, tomDelta, valorVisao, variacaoPct } from '../../utils/dre-detalhe'
+import { detalheVazio, itemEncerrado, margemPct, ordenarGrupos, participacao, tomDelta, valorVisao, variacaoPct } from '../../utils/dre-detalhe'
 import { formatDataCurta, grupoLabel, isStatus, mesLabel, origemLabel, shiftMes } from '../../utils/financeiro'
 import { formatMoney, formatPercent } from '../../utils/format'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
@@ -102,15 +102,23 @@ function Vazio({ children }: { children: ReactNode }) {
 }
 
 function ItemLinha({ item, visao }: { item: DreDetalheItem; visao: VisaoDre }) {
+  const encerrado = itemEncerrado(item)
   return (
-    <li className="fin-row flex items-start justify-between gap-3 px-4 py-2.5">
+    <li className={clsx('fin-row flex items-start justify-between gap-3 px-4 py-2.5', encerrado && 'opacity-70')} data-status={item.status ?? undefined}>
       <div className="min-w-0">
         <p className="truncate text-[13px] font-medium text-ink" title={item.descricao}>{item.descricao}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-muted">
           {item.origem ? <span>{origemLabel({ origem: item.origem, componente: null })}</span> : null}
           {item.data_vencimento ? <span>vence {formatDataCurta(item.data_vencimento)}</span> : null}
-          {isStatus(item.status) ? <StatusChip status={item.status} className="h-5 px-2 text-[10px]" /> : item.status ? <span>{item.status}</span> : null}
+          {isStatus(item.status) ? <StatusChip status={item.status} natureza={item.status === 'perdido' ? 'receita' : 'custo'} className="h-5 px-2 text-[10px]" /> : item.status ? <span>{item.status}</span> : null}
         </p>
+        {encerrado ? (
+          <p className="mt-0.5 text-[11px] text-[var(--danger)]" title={item.motivo ? `Motivo: ${item.motivo}` : undefined}>
+            {item.status === 'perdido' ? 'Perdido' : 'Cancelado'}
+            {item.valor_encerrado != null && item.valor_encerrado > 0 ? ` ${formatMoney(item.valor_encerrado, true)}` : ''}
+            {item.encerrado_em ? ` em ${formatDataCurta(item.encerrado_em.slice(0, 10))}` : ''} · {item.motivo ? `motivo: ${item.motivo}` : 'sem motivo informado'}
+          </p>
+        ) : null}
       </div>
       <Valor v={pr(item.previsto, item.realizado)} visao={visao} />
     </li>
@@ -220,6 +228,7 @@ function Resumo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
   const receita = valorVisao(d.receita.total, visao)
   const margemLiq = margemPct(valorVisao(d.atual.resultado, visao), receita)
   const margemContrib = valorVisao(d.margem.pct, visao)
+  const perdas = d.atual.perdas.receita
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2.5">
@@ -246,6 +255,12 @@ function Resumo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
         <span>
           Margem líquida <strong className={clsx('num', margemLiq < 0 ? 'text-[var(--danger)]' : 'text-ink')}>{formatPercent(margemLiq)}</strong>
         </span>
+        {perdas > 0 ? (
+          <span>
+            Receita perdida <strong className="num text-[var(--danger)]">− {formatMoney(perdas, true)}</strong>
+            <span className="text-ink-muted"> (desconta só do resultado previsto)</span>
+          </span>
+        ) : null}
         <span>
           Margem de contribuição <strong className="num text-ink">{formatPercent(margemContrib)}</strong>
           <span className="num"> ({formatMoney(valorVisao(d.margem.contribuicao, visao), true)})</span>
@@ -257,6 +272,9 @@ function Resumo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
 
 function Conteudo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
   const totalReceita = valorVisao(d.receita.total, visao)
+  const perdidos = d.encerrados.filter((i) => i.status === 'perdido')
+  const cancelados = d.encerrados.filter((i) => i.status === 'cancelado')
+  const temPerdas = d.atual.perdas.receita > 0 || perdidos.length > 0
   const imp = d.custos_variaveis.imposto
   const totalAvulsas = d.receita.avulsas.reduce((s, i) => pr(s.previsto + i.previsto, s.realizado + i.realizado), pr(0, 0))
   const totalAportes = d.aportes.reduce((s, i) => pr(s.previsto + i.previsto, s.realizado + i.realizado), pr(0, 0))
@@ -268,7 +286,12 @@ function Conteudo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
     <div className="space-y-3">
       <Resumo d={d} visao={visao} />
 
-      <Secao titulo="Receita" total={d.receita.total} visao={visao}>
+      <Secao
+        titulo="Receita"
+        total={d.receita.total}
+        visao={visao}
+        nota={temPerdas ? 'O previsto da receita não muda: o que o cliente não vai pagar aparece na linha própria “Receita perdida” e desconta apenas do resultado previsto.' : undefined}
+      >
         <SubTitulo visao={visao}>Por cliente</SubTitulo>
         {d.receita.por_cliente.length ? (
           <ul className="divide-y divide-[var(--hairline)]">
@@ -283,6 +306,12 @@ function Conteudo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
         ) : (
           <Vazio>Sem receitas avulsas.</Vazio>
         )}
+        {d.atual.perdas.receita > 0 ? (
+          <>
+            <SubTitulo visao={visao} total={pr(d.atual.perdas.receita, 0)}>Receita perdida</SubTitulo>
+            <Vazio>Saldo em aberto de títulos dados como perdidos (detalhes em “Perdidos e cancelados”).</Vazio>
+          </>
+        ) : null}
       </Secao>
 
       <Secao titulo="Custos fixos" total={d.custos_fixos.total} visao={visao} nota="Fixos = recorrentes, parcelas e o fixo das apresentadoras.">
@@ -331,6 +360,19 @@ function Conteudo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
           </div>
         </dl>
       </Secao>
+
+      {d.encerrados.length ? (
+        <Secao
+          titulo="Perdidos e cancelados"
+          visao={visao}
+          nota="Perdido = receita que o cliente não vai pagar (linha “Receita perdida” do DRE; o previsto não muda). Cancelado = custo que não será mais pago (sai do previsto de custos). O valor pago, se houver, continua contando."
+        >
+          <SubTitulo visao={visao} total={perdidos.length ? pr(d.atual.perdas.receita, 0) : undefined}>Receitas perdidas</SubTitulo>
+          {perdidos.length ? <ul className="divide-y divide-[var(--hairline)]">{perdidos.map((i) => <ItemLinha key={i.id} item={i} visao={visao} />)}</ul> : <Vazio>Nenhuma receita perdida.</Vazio>}
+          <SubTitulo visao={visao}>Custos cancelados</SubTitulo>
+          {cancelados.length ? <ul className="divide-y divide-[var(--hairline)]">{cancelados.map((i) => <ItemLinha key={i.id} item={i} visao={visao} />)}</ul> : <Vazio>Nenhum custo cancelado.</Vazio>}
+        </Secao>
+      ) : null}
 
       <Secao titulo="Aportes" total={d.aportes.length ? totalAportes : undefined} visao={visao} defaultOpen={d.aportes.length > 0} nota="Aportes não são receita operacional: ficam fora do resultado.">
         {d.aportes.length ? (
@@ -485,7 +527,7 @@ function Drawer({ mes, onClose, onChangeMes, visaoInicial }: { mes: string; onCl
             <Conteudo d={d} visao={visao} />
           ) : null}
           <p className="mt-4 text-[11px] text-ink-muted">
-            Regime de competência. Resultado = receita − custos fixos − custos variáveis (imposto incluso). Aportes ficam fora.
+            Regime de competência. Resultado = receita − receita perdida − custos fixos − custos variáveis (imposto incluso). Aportes ficam fora.
           </p>
         </div>
       </div>

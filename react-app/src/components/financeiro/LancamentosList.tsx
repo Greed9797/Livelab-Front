@@ -1,10 +1,11 @@
 import clsx from 'clsx'
-import { ArrowDownLeft, ArrowUpRight, Check, MoreHorizontal, Pencil, Repeat, Search, Trash2, Undo2, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import type { Lancamento, Natureza, StatusLancamento } from '../../types/financeiro'
+import { ArrowDownLeft, ArrowUpRight, Ban, Check, MoreHorizontal, Pencil, Repeat, RotateCcw, Search, Trash2, Undo2, X } from 'lucide-react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
+import type { Lancamento, ModoPerda, Natureza, StatusLancamento } from '../../types/financeiro'
 import { STATUS_LANCAMENTO } from '../../types/financeiro'
 import {
   STATUS_META,
+  acoesPerda,
   agruparPorDia,
   contarPorStatus,
   filtrarLancamentos,
@@ -12,6 +13,7 @@ import {
   grupoLabel,
   gruposPresentes,
   isEditavel,
+  isEncerrado,
   origemLabel,
   partesData,
   podeExcluir,
@@ -21,6 +23,7 @@ import {
 import { formatMoney } from '../../utils/format'
 import { textoCorte } from '../../utils/caixa'
 import { EmptyState } from '../ui/States'
+import { PerdaModal } from './PerdaModal'
 import { Amount, Segmented, StatusChip } from './primitives'
 
 export interface FiltroLocal {
@@ -32,7 +35,28 @@ export interface FiltroLocal {
 
 export const FILTRO_VAZIO: FiltroLocal = { natureza: '', status: '', grupo: '', q: '' }
 
-export function RowMenu({ onEditar, onExcluir, label }: { onEditar?: () => void; onExcluir?: () => void; label: string }) {
+export interface RowMenuExtra {
+  label: string
+  icon: ReactNode
+  onClick: () => void
+}
+
+/** Ação de perda/cancelamento do item para o menu da linha (null quando o item não aceita). */
+export function acaoPerdaMenu(l: Lancamento, abrir: (l: Lancamento, modo: ModoPerda) => void): RowMenuExtra | null {
+  const a = acoesPerda(l)
+  if (a.podeDesfazer) {
+    return {
+      label: l.natureza === 'receita' ? 'Desfazer perda' : 'Desfazer cancelamento',
+      icon: <RotateCcw className="h-4 w-4 text-ink-muted" />,
+      onClick: () => abrir(l, 'desfazer'),
+    }
+  }
+  if (a.podePerder) return { label: 'Dar como perdida', icon: <Ban className="h-4 w-4 text-ink-muted" />, onClick: () => abrir(l, 'perder') }
+  if (a.podeCancelar) return { label: 'Cancelar', icon: <Ban className="h-4 w-4 text-ink-muted" />, onClick: () => abrir(l, 'cancelar') }
+  return null
+}
+
+export function RowMenu({ onEditar, onExcluir, extra, label }: { onEditar?: () => void; onExcluir?: () => void; extra?: RowMenuExtra | null; label: string }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -47,7 +71,7 @@ export function RowMenu({ onEditar, onExcluir, label }: { onEditar?: () => void;
       document.removeEventListener('keydown', close)
     }
   }, [open])
-  if (!onEditar && !onExcluir) return null
+  if (!onEditar && !onExcluir && !extra) return null
   return (
     <div className="relative" ref={ref}>
       <button
@@ -61,10 +85,15 @@ export function RowMenu({ onEditar, onExcluir, label }: { onEditar?: () => void;
         <MoreHorizontal className="h-4 w-4" />
       </button>
       {open ? (
-        <div role="menu" className="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-[var(--shadow-card-lg)]">
+        <div role="menu" className="absolute right-0 top-10 z-20 w-52 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-[var(--shadow-card-lg)]">
           {onEditar ? (
             <button role="menuitem" type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-surface-muted" onClick={() => { setOpen(false); onEditar() }}>
               <Pencil className="h-4 w-4 text-ink-muted" /> Editar
+            </button>
+          ) : null}
+          {extra ? (
+            <button role="menuitem" type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-surface-muted" onClick={() => { setOpen(false); extra.onClick() }}>
+              {extra.icon} {extra.label}
             </button>
           ) : null}
           {onExcluir ? (
@@ -85,6 +114,7 @@ function LancamentoRow({
   onDesfazer,
   onEditar,
   onExcluir,
+  onPerda,
 }: {
   l: Lancamento
   podeEscrever: boolean
@@ -92,15 +122,19 @@ function LancamentoRow({
   onDesfazer: (l: Lancamento) => void
   onEditar: (l: Lancamento) => void
   onExcluir: (l: Lancamento) => void
+  onPerda: (l: Lancamento, modo: ModoPerda) => void
 }) {
   const entrada = l.natureza === 'receita'
+  const encerrado = isEncerrado(l.status)
+  const motivoEncerramento = l.status === 'perdido' ? l.perdido_motivo : l.status === 'cancelado' ? l.cancelado_motivo : null
+  const extra = acaoPerdaMenu(l, onPerda)
   const Icon = entrada ? ArrowDownLeft : ArrowUpRight
   const aberto = valorEmAberto(l)
   const meta = [origemLabel(l), l.natureza === 'custo' || l.origem === 'avulsa' ? grupoLabel(l.grupo) : l.cliente_nome ?? l.marca_nome].filter(Boolean)
   const verbo = entrada ? 'Receber' : 'Pagar'
 
   return (
-    <li className="fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5">
+    <li className={clsx('fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5', encerrado && 'opacity-60')}>
       <span
         aria-hidden
         className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl"
@@ -125,16 +159,17 @@ function LancamentoRow({
           {l.status === 'parcial' || (l.status === 'atrasado' && l.valor_pago > 0) ? (
             <> · <span className="num font-semibold" style={{ color: STATUS_META.parcial.color }}>{formatMoney(l.valor_pago, true)} {entrada ? 'recebido' : 'pago'}, falta {formatMoney(aberto, true)}</span></>
           ) : null}
+          {encerrado ? <> · <span title={motivoEncerramento ?? undefined}>{statusLabel(l.status, l.natureza)}{motivoEncerramento ? `: ${motivoEncerramento}` : ''}</span></> : null}
           {l.status === 'pago' && l.data_pagamento ? <> · {entrada ? 'recebido' : 'pago'} em {formatDataCurta(l.data_pagamento)}</> : null}
         </p>
       </div>
 
       <div className="ml-[3.25rem] flex flex-1 items-center justify-between gap-3 sm:ml-0 sm:flex-none sm:justify-end">
         <StatusChip status={l.status} natureza={l.natureza} />
-        <Amount value={l.valor_previsto} natureza={l.natureza} className="w-32 text-right text-sm" />
+        <Amount value={l.valor_previsto} natureza={l.natureza} className={clsx('w-32 text-right text-sm', encerrado && 'line-through')} />
         {podeEscrever ? (
           <div className="flex items-center justify-end gap-1 sm:w-[10.5rem]">
-            {l.status !== 'pago' ? (
+            {l.status !== 'pago' && !encerrado ? (
               <button
                 type="button"
                 onClick={() => onBaixar(l)}
@@ -155,11 +190,12 @@ function LancamentoRow({
                 <Undo2 className="h-4 w-4" />
               </button>
             ) : null}
-            {isEditavel(l) ? (
+            {isEditavel(l) || extra ? (
               <RowMenu
                 label={l.descricao}
-                onEditar={() => onEditar(l)}
-                onExcluir={podeExcluir(l) ? () => onExcluir(l) : undefined}
+                onEditar={isEditavel(l) ? () => onEditar(l) : undefined}
+                onExcluir={isEditavel(l) && podeExcluir(l) ? () => onExcluir(l) : undefined}
+                extra={extra}
               />
             ) : (
               <span aria-hidden className="hidden w-9 sm:block" />
@@ -203,6 +239,11 @@ export function LancamentosList({
   const grupos = gruposPresentes(itens)
   const temFiltro = Boolean(filtro.status || filtro.grupo || filtro.q || filtro.natureza)
   const set = (patch: Partial<FiltroLocal>) => onFiltro({ ...filtro, ...patch })
+  const [perda, setPerda] = useState<{ item: Lancamento; modo: ModoPerda } | null>(null)
+  // Perdido só existe em receita e cancelado só em custo: some o chip que não se aplica à natureza filtrada.
+  const statusVisiveis = STATUS_LANCAMENTO.filter(
+    (s) => !((s === 'perdido' && filtro.natureza === 'custo') || (s === 'cancelado' && filtro.natureza === 'receita')),
+  )
 
   return (
     <section className="design-card overflow-visible" aria-label="Lançamentos do mês">
@@ -233,7 +274,7 @@ export function LancamentosList({
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por status">
-            {STATUS_LANCAMENTO.map((s) => {
+            {statusVisiveis.map((s) => {
               const active = filtro.status === s
               const meta = STATUS_META[s]
               return (
@@ -336,6 +377,7 @@ export function LancamentosList({
                       onDesfazer={onDesfazer}
                       onEditar={onEditar}
                       onExcluir={onExcluir}
+                      onPerda={(item, modo) => setPerda({ item, modo })}
                     />
                   ))}
                 </ul>
@@ -344,6 +386,7 @@ export function LancamentosList({
           })}
         </ol>
       )}
+      {perda ? <PerdaModal key={`${perda.item.id}:${perda.modo}`} item={perda.item} modo={perda.modo} onClose={() => setPerda(null)} /> : null}
     </section>
   )
 }

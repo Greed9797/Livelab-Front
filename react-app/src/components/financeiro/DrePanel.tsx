@@ -22,6 +22,8 @@ type Linha = {
   sub?: boolean
   informativa?: boolean
   expansivel?: boolean
+  /** Tooltip explicativo do rótulo. */
+  dica?: string
 }
 
 const VAZIA: DreLinhaV3 = {
@@ -33,6 +35,7 @@ const VAZIA: DreLinhaV3 = {
   custos_fixos: ZERO_PR,
   custos_variaveis: ZERO_PR,
   aportes: ZERO_PR,
+  perdas: { receita: 0 },
   receita_partes: null,
   classificacao: 'api',
 }
@@ -74,6 +77,8 @@ export function DrePanel({ mes }: { mes: string }) {
   const estimada = dre.totais.classificacao === 'estimada'
   const temPartes = dre.totais.receita_partes != null
   const temAportes = dre.totais.aportes.previsto !== 0 || dre.totais.aportes.realizado !== 0
+  // Backend antigo não manda `perdas` (= 0): a linha só aparece quando há perda no ano.
+  const temPerdas = dre.totais.perdas.receita !== 0 || dre.meses.some((m) => m.perdas.receita !== 0)
 
   const linhas: Linha[] = [
     { key: 'receita', label: 'Receita', sinal: '+', sel: (m) => m.receita, destaque: true },
@@ -82,6 +87,17 @@ export function DrePanel({ mes }: { mes: string }) {
           { key: 'r-fixo', label: 'Fixo das marcas', sinal: '+', sel: (m) => m.receita_partes?.fixo ?? ZERO_PR, sub: true },
           { key: 'r-comissao', label: 'Comissões', sinal: '+', sel: (m) => m.receita_partes?.comissao ?? ZERO_PR, sub: true },
           { key: 'r-avulsas', label: 'Avulsas', sinal: '+', sel: (m) => m.receita_partes?.avulsas ?? ZERO_PR, sub: true },
+        ] satisfies Linha[])
+      : []),
+    ...(temPerdas
+      ? ([
+          {
+            key: 'perdas',
+            label: 'Receita perdida',
+            sinal: '−',
+            sel: (m) => ({ previsto: m.perdas.receita, realizado: 0 }),
+            dica: 'Saldo de títulos dados como perdidos. O previsto da receita não muda; a perda desconta só do resultado previsto.',
+          },
         ] satisfies Linha[])
       : []),
     { key: 'fixos', label: 'Custos fixos', sinal: '−', sel: (m) => m.custos_fixos },
@@ -199,7 +215,7 @@ export function DrePanel({ mes }: { mes: string }) {
                             <ChevronDown className={clsx('h-3.5 w-3.5 text-ink-muted transition', abrirVariaveis && 'rotate-180')} />
                           </button>
                         ) : (
-                          <span className={clsx('inline-flex items-center gap-1.5 whitespace-nowrap', l.sub ? 'pl-5 text-xs text-ink-muted' : l.informativa ? 'text-xs font-semibold italic text-ink-muted' : l.destaque ? 'font-bold text-ink' : 'font-semibold text-ink')}>
+                          <span title={l.dica} className={clsx('inline-flex items-center gap-1.5 whitespace-nowrap', l.sub ? 'pl-5 text-xs text-ink-muted' : l.informativa ? 'text-xs font-semibold italic text-ink-muted' : l.destaque ? 'font-bold text-ink' : 'font-semibold text-ink')}>
                             {!l.sub ? <span className="num w-3 text-ink-muted">{l.sinal}</span> : null}
                             {l.label}
                           </span>
@@ -221,9 +237,12 @@ export function DrePanel({ mes }: { mes: string }) {
           </div>
         )}
         <p className="border-t border-line px-4 py-3 text-xs text-ink-muted sm:px-5">
-          Resultado = receita − custos fixos − custos variáveis. Fixos = recorrentes, parcelas e fixo das apresentadoras; variáveis =
+          Resultado = receita{temPerdas ? ' − receita perdida' : ''} − custos fixos − custos variáveis. Fixos = recorrentes, parcelas e fixo das apresentadoras; variáveis =
           custos pontuais, comissão e adicionais das apresentadoras e imposto (alíquota × recebido no mês anterior). Aportes ficam fora do
           resultado. Clique no mês para ver o detalhe.
+          {temPerdas
+            ? ' Receita perdida = saldo em aberto de títulos que o cliente não vai pagar: o previsto da receita não muda, a perda aparece em linha própria e desconta apenas do resultado previsto (o realizado não muda).'
+            : ''}
           {estimada ? ' Classificação fixo/variável estimada (fixos = custos lançados; variáveis = apresentadoras + imposto).' : ''}
         </p>
       </div>

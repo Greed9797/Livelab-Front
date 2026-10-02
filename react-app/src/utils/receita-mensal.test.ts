@@ -6,7 +6,9 @@ import {
   contextoTitulo,
   filtrarClientes,
   formatPct,
+  isPerdido,
   labelTipoCobranca,
+  motivoPerda,
   normalizarItemVencimento,
   normalizarMarca,
   normalizarReceitaMensal,
@@ -81,7 +83,7 @@ describe('normalizarReceitaMensal', () => {
     expect(r.hoje).toBe('2026-10-01')
     expect(r.data_corte).toBe('2026-08-01')
     expect(r.a_receber_mes).toBe(2500)
-    expect(r.competencia.total).toEqual({ previsto: 3500, pago: 1000, aberto: 2500 })
+    expect(r.competencia.total).toEqual({ previsto: 3500, pago: 1000, aberto: 2500, perdido: 0 })
     const m = r.competencia.clientes[0].marcas[0]
     expect(m.pct).toBe(10)
     expect(m.gmv).toBe(20000)
@@ -105,7 +107,7 @@ describe('normalizarReceitaMensal', () => {
     const vazio = normalizarReceitaMensal(null, '2026-10')
     expect(vazio.mes).toBe('2026-10')
     expect(vazio.competencia.clientes).toEqual([])
-    expect(vazio.competencia.total).toEqual({ previsto: 0, pago: 0, aberto: 0 })
+    expect(vazio.competencia.total).toEqual({ previsto: 0, pago: 0, aberto: 0, perdido: 0 })
     expect(vazio.a_receber_mes).toBe(0)
     expect(vazio.data_corte).toBeNull()
     expect(receitaVazia(vazio, 'competencia')).toBe(true)
@@ -123,7 +125,7 @@ describe('normalizarReceitaMensal', () => {
     }
     const r = normalizarReceitaMensal(semTotais, '2026-09')
     expect(r.competencia.clientes[0].total).toEqual({ previsto: 1000, pago: 400 })
-    expect(r.competencia.total).toEqual({ previsto: 1100, pago: 400, aberto: 700 })
+    expect(r.competencia.total).toEqual({ previsto: 1100, pago: 400, aberto: 700, perdido: 0 })
     expect(r.competencia.aportes[0].grupo).toBe('aporte')
   })
 
@@ -229,5 +231,96 @@ describe('apresentação', () => {
     expect(pctRecebido({ previsto: 0, pago: 0 })).toBe(0)
     expect(pctRecebido({ previsto: 200, pago: 50 })).toBe(25)
     expect(contextoTitulo({ competencia: '2026-09-01', data_vencimento: '2026-10-05' })).toBe('competência set/26 · vence 05/10')
+  })
+})
+
+describe('receita perdida (SPEC perdas)', () => {
+  const perdido = (over: Record<string, unknown> = {}) =>
+    titulo({
+      id: 'calc:comissao:m1:2026-09',
+      componente: 'comissao',
+      valor_previsto: 2000,
+      valor_pago: 500,
+      data_vencimento: '2026-09-10',
+      status: 'perdido',
+      perdido_em: '2026-09-20T12:00:00Z',
+      perdido_motivo: ' Cliente encerrou o contrato ',
+      ...over,
+    })
+  const base = (comissao: unknown, extra: Record<string, unknown> = {}) => ({
+    mes: '2026-09',
+    hoje: '2026-10-01',
+    competencia: {
+      clientes: [
+        {
+          cliente_id: 'c1',
+          cliente_nome: 'Grupo Ação',
+          marcas: [{ marca_id: 'm1', marca_nome: 'Haag', fixo: titulo({ valor_previsto: 1000, data_vencimento: '2026-09-05' }), comissao }],
+        },
+      ],
+      avulsas: [],
+      ...extra,
+    },
+    vencimento: { itens: [] },
+  })
+
+  it('marca o título como perdido, com motivo e data da perda', () => {
+    const r = normalizarReceitaMensal(base(perdido()), '2026-09')
+    const t = r.competencia.clientes[0].marcas[0].comissao!
+    expect(isPerdido(t)).toBe(true)
+    expect(t.status).toBe('perdido')
+    expect(motivoPerda(t)).toBe('Cliente encerrou o contrato')
+    expect(t.perdido_em).toBe('2026-09-20T12:00:00Z')
+  })
+
+  it('perdido_em preenchido basta, mesmo com status não perdido', () => {
+    const r = normalizarReceitaMensal(base(perdido({ status: 'atrasado', perdido_motivo: null })), '2026-09')
+    const t = r.competencia.clientes[0].marcas[0].comissao!
+    expect(t.status).toBe('perdido')
+    expect(motivoPerda(t)).toBeNull()
+  })
+
+  it('sem a chave de totais: aberto não conta o saldo perdido e perdido = previsto − pago do perdido', () => {
+    const r = normalizarReceitaMensal(base(perdido()), '2026-09')
+    const t = r.competencia.total
+    expect(t.previsto).toBe(3000) // previsto não muda
+    expect(t.pago).toBe(500)
+    expect(t.perdido).toBe(1500)
+    expect(t.aberto).toBe(1000) // só o fixo
+  })
+
+  it('usa perdido/aberto do backend quando vierem', () => {
+    const raw = base(perdido())
+    ;(raw.competencia as Record<string, unknown>).total = { previsto: 3000, pago: 500, aberto: 900, perdido: '1500.00' }
+    const t = normalizarReceitaMensal(raw, '2026-09').competencia.total
+    expect(t).toMatchObject({ aberto: 900, perdido: 1500 })
+  })
+
+  it('sem perdas: perdido = 0 e aberto igual ao de antes', () => {
+    const r = normalizarReceitaMensal(base(null), '2026-09')
+    expect(r.competencia.total).toMatchObject({ previsto: 1000, pago: 0, aberto: 1000, perdido: 0 })
+  })
+
+  it('avulsa perdida (competência e vencimento) carrega o motivo', () => {
+    const avulsa = { id: 'a1', descricao: 'Consultoria', grupo: 'servico', valor_previsto: 300, valor_pago: 0, data_vencimento: '2026-09-10', status: 'perdido', perdido_motivo: 'Calote' }
+    const r = normalizarReceitaMensal(base(null, { avulsas: [avulsa] }), '2026-09')
+    expect(r.competencia.avulsas[0].status).toBe('perdido')
+    expect(motivoPerda(r.competencia.avulsas[0])).toBe('Calote')
+    expect(r.competencia.total.perdido).toBe(300)
+    expect(r.competencia.total.aberto).toBe(1000)
+    const v = normalizarItemVencimento({ ...avulsa, origem: 'avulsa' })!
+    expect(isPerdido(v)).toBe(true)
+  })
+
+  it('a_receber_mes (fallback) e total do dia ignoram perdidos', () => {
+    const itens = [
+      normalizarItemVencimento(perdido({ id: 'x1' }))!,
+      normalizarItemVencimento(titulo({ id: 'x2', valor_previsto: 400, data_vencimento: '2026-09-10' }))!,
+    ]
+    expect(calcularAReceberMes(itens, '2026-09')).toBe(400)
+    const g = agruparPorVencimento(itens)
+    expect(g).toHaveLength(1)
+    expect(g[0].previsto).toBe(400)
+    expect(g[0].itens).toHaveLength(2)
   })
 })

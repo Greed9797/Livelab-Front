@@ -4,9 +4,13 @@
 
 export type Natureza = 'receita' | 'custo'
 
-export type StatusLancamento = 'previsto' | 'pendente' | 'atrasado' | 'parcial' | 'pago'
+/** 'perdido' só existe para receitas e 'cancelado' só para custos (encerrados sem pagamento do saldo). */
+export type StatusLancamento = 'previsto' | 'pendente' | 'atrasado' | 'parcial' | 'pago' | 'perdido' | 'cancelado'
 
-export const STATUS_LANCAMENTO: StatusLancamento[] = ['previsto', 'pendente', 'atrasado', 'parcial', 'pago']
+export const STATUS_LANCAMENTO: StatusLancamento[] = ['previsto', 'pendente', 'atrasado', 'parcial', 'pago', 'perdido', 'cancelado']
+
+/** Modo do PerdaModal: perder (receita), cancelar (custo) ou desfazer (perda/cancelamento). */
+export type ModoPerda = 'perder' | 'cancelar' | 'desfazer'
 
 export type OrigemLancamento =
   | 'marca_fixo'
@@ -62,6 +66,12 @@ export interface Lancamento {
   parcelas_total: number | null
   observacao: string | null
   virtual: boolean
+  /** Receita perdida: quando/por quê (ISO). null/ausente = não perdida. */
+  perdido_em?: string | null
+  perdido_motivo?: string | null
+  /** Custo cancelado: quando/por quê (ISO). null/ausente = não cancelado. */
+  cancelado_em?: string | null
+  cancelado_motivo?: string | null
 }
 
 export interface TotaisNatureza {
@@ -69,6 +79,9 @@ export interface TotaisNatureza {
   pago: number
   atrasado: number
   pendente: number
+  /** Saldo em aberto encerrado (receita.perdido / custo.cancelado). Ausente em backends antigos. */
+  perdido?: number
+  cancelado?: number
 }
 
 export interface TotaisLancamentos {

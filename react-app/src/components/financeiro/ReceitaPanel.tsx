@@ -10,10 +10,12 @@ import {
   ChevronDown,
   CircleDollarSign,
   Hourglass,
+  Ban,
   Info,
   Landmark,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   Undo2,
   Wallet,
@@ -24,9 +26,9 @@ import { useBaixaMutation } from '../../hooks/useFinanceiro'
 import { useReceitaMensal } from '../../hooks/useReceitaMensal'
 import { extractErrorMessage } from '../../services/api'
 import type { Lancamento } from '../../types/financeiro'
-import type { ReceitaCliente, ReceitaMarca, ReceitaMensal, TituloReceita, VisaoReceita } from '../../types/financeiro-receita'
+import type { LancamentoReceita, ReceitaCliente, ReceitaMarca, ReceitaMensal, TituloReceita, VisaoReceita } from '../../types/financeiro-receita'
 import { textoCorte } from '../../utils/caixa'
-import { formatDataCurta, grupoLabel, mesLabel, partesData, valorEmAberto } from '../../utils/financeiro'
+import { acoesPerda, formatDataCurta, grupoLabel, mesLabel, partesData, valorEmAberto } from '../../utils/financeiro'
 import { formatMoney } from '../../utils/format'
 import {
   agruparPorVencimento,
@@ -34,7 +36,9 @@ import {
   filtrarClientes,
   formatPct,
   isAporte,
+  isPerdido,
   labelTipoCobranca,
+  motivoPerda,
   notaCompetenciaVencimento,
   notaFixoOuComissao,
   pctRecebido,
@@ -46,6 +50,7 @@ import { Button } from '../ui/Button'
 import { EmptyState, ErrorState } from '../ui/States'
 import { useToast } from '../ui/Toast'
 import { BaixaModal, DesfazerModal } from './LancamentoModals'
+import { PerdaModal } from './PerdaModal'
 import { type ReceitaModalState, ReceitaAvulsaModal } from './ReceitaAvulsaModal'
 import { ProgressBar, Segmented, StatusChip } from './primitives'
 import './financeiro.css'
@@ -54,6 +59,7 @@ type Acoes = {
   podeEscrever: boolean
   onBaixar: (l: Lancamento) => void
   onDesfazer: (l: Lancamento) => void
+  onPerda: (l: Lancamento, modo: 'perder' | 'desfazer') => void
 }
 
 // ── Resumo ───────────────────────────────────────────────────────────────────
@@ -117,7 +123,27 @@ function ResumoReceita({ data, visao }: { data: ReceitaMensal; visao: VisaoRecei
         <ProgressBar value={t.pago} max={t.previsto} color="var(--success)" label="Recebido sobre o previsto" />
       </Tile>
       <Tile label="Recebido" value={t.pago} hint={`${pctRecebido(t)}% do previsto`} icon={Wallet} color="var(--success)" soft="var(--success-soft)" />
-      <Tile label="Em aberto" value={t.aberto} hint="previsto − recebido" icon={Hourglass} color="var(--warning)" soft="var(--warning-soft)" />
+      <Tile
+        label="Em aberto"
+        value={t.aberto}
+        hint={t.perdido > 0 ? 'previsto − recebido − perdido' : 'previsto − recebido'}
+        icon={Hourglass}
+        color="var(--warning)"
+        soft="var(--warning-soft)"
+      />
+      {t.perdido > 0 ? (
+        <p
+          className="col-span-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-line bg-surface-muted px-4 py-2.5 text-xs text-[var(--text-secondary)] lg:col-span-4"
+          aria-label={`Perdido: ${formatMoney(t.perdido, true)}`}
+        >
+          <Ban className="h-4 w-4 shrink-0 text-[var(--danger)]" aria-hidden />
+          <strong className="text-ink">Perdido</strong>
+          <span className="num font-bold text-ink">{formatMoney(t.perdido, true)}</span>
+          <span className="text-ink-muted">
+            — saldo de títulos dados como perdidos. O previsto não muda; sai do “a receber” e do “em aberto” e aparece como “Receita perdida” no DRE.
+          </span>
+        </p>
+      ) : null}
     </section>
   )
 }
@@ -137,11 +163,24 @@ function NotaCompetencia({ mes }: { mes: string }) {
 
 // ── Ações de baixa ───────────────────────────────────────────────────────────
 
-function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onEditar }: Acoes & { l: Lancamento; onEditar?: (l: Lancamento) => void }) {
+function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar }: Acoes & { l: Lancamento; onEditar?: (l: Lancamento) => void }) {
   if (!podeEscrever) return null
+  const perdido = isPerdido(l)
+  // Aporte não perde (SPEC); acoesPerda (FA) decide o resto (título 100% pago, etc.).
+  const perda = isAporte(l) ? null : acoesPerda(l)
   return (
     <div className="flex items-center justify-end gap-1">
-      {l.status !== 'pago' ? (
+      {perdido && perda?.podeDesfazer ? (
+        <button
+          type="button"
+          onClick={() => onPerda(l, 'desfazer')}
+          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-xs font-bold text-ink transition hover:border-[var(--info)] hover:bg-[var(--info-soft)] hover:text-[var(--info)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+          aria-label={`Desfazer perda: ${l.descricao}`}
+        >
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Desfazer perda
+        </button>
+      ) : null}
+      {!perdido && l.status !== 'pago' ? (
         <button
           type="button"
           onClick={() => onBaixar(l)}
@@ -151,7 +190,18 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onEditar }: Acoes 
           <Check className="h-3.5 w-3.5" aria-hidden /> Receber
         </button>
       ) : null}
-      {l.valor_pago > 0 ? (
+      {!perdido && perda?.podePerder ? (
+        <button
+          type="button"
+          onClick={() => onPerda(l, 'perder')}
+          className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+          aria-label={`Dar como perdida: ${l.descricao}`}
+          title="Dar como perdida"
+        >
+          <Ban className="h-4 w-4" aria-hidden />
+        </button>
+      ) : null}
+      {!perdido && l.valor_pago > 0 ? (
         <button
           type="button"
           onClick={() => onDesfazer(l)}
@@ -177,8 +227,29 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onEditar }: Acoes 
   )
 }
 
+/** Registro da perda: quando e por quê (linha visível; o motivo também vai no tooltip). */
+function InfoPerda({ l }: { l: LancamentoReceita }) {
+  const motivo = motivoPerda(l)
+  const em = l.perdido_em ? formatDataCurta(l.perdido_em.slice(0, 10)) : null
+  return (
+    <span className="mt-0.5 block text-[11px] text-[var(--danger)]" title={motivo ? `Motivo: ${motivo}` : 'Sem motivo informado'}>
+      Perdido{em ? ` em ${em}` : ''} · {motivo ? `motivo: ${motivo}` : 'sem motivo informado'}
+    </span>
+  )
+}
+
 function ValorTitulo({ l }: { l: Lancamento }) {
   const aberto = valorEmAberto(l)
+  if (isPerdido(l)) {
+    return (
+      <div className="text-right">
+        <p className="num text-sm font-bold text-ink-muted line-through decoration-1">{formatMoney(l.valor_previsto, true)}</p>
+        <p className="num text-[11px] text-ink-muted">
+          {l.valor_pago > 0 ? `recebido ${formatMoney(l.valor_pago, true)} · ` : ''}perdido {formatMoney(aberto, true)}
+        </p>
+      </div>
+    )
+  }
   return (
     <div className="text-right">
       <p className="num text-sm font-bold text-ink">{formatMoney(l.valor_previsto, true)}</p>
@@ -196,7 +267,13 @@ function ValorTitulo({ l }: { l: Lancamento }) {
 
 function TituloLinha({ t, ...acoes }: Acoes & { t: TituloReceita }) {
   return (
-    <li className="fin-row grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-2.5 sm:grid-cols-[7.5rem_1fr_auto_auto_auto] sm:px-5">
+    <li
+      className={clsx(
+        'fin-row grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-2.5 sm:grid-cols-[7.5rem_1fr_auto_auto_auto] sm:px-5',
+        isPerdido(t) && 'opacity-70',
+      )}
+      data-status={t.status}
+    >
       <div className="min-w-0">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
           {rotuloComponente(t.componente)}
@@ -208,6 +285,7 @@ function TituloLinha({ t, ...acoes }: Acoes & { t: TituloReceita }) {
           vence {formatDataCurta(t.data_vencimento)}
           {t.status === 'pago' && t.data_pagamento ? ` · recebido em ${formatDataCurta(t.data_pagamento)}` : ''}
         </p>
+        {isPerdido(t) ? <InfoPerda l={t} /> : null}
       </div>
       <span className="hidden sm:block" aria-hidden />
       <StatusChip status={t.status} natureza="receita" className="justify-self-start sm:justify-self-end" />
@@ -306,15 +384,19 @@ function ClienteCard({ c, aberto, onToggle, ...acoes }: Acoes & { c: ReceitaClie
   )
 }
 
-function AvulsaLinha({ l, onEditar, ...acoes }: Acoes & { l: Lancamento; onEditar?: (l: Lancamento) => void }) {
+function AvulsaLinha({ l, onEditar, ...acoes }: Acoes & { l: LancamentoReceita; onEditar?: (l: Lancamento) => void }) {
   return (
-    <li className="fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5">
+    <li
+      className={clsx('fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5', isPerdido(l) && 'opacity-70')}
+      data-status={l.status}
+    >
       <div className="min-w-0 flex-1 basis-full sm:basis-auto">
         <p className="truncate text-sm font-semibold text-ink">{l.descricao}</p>
         <p className="text-[11px] text-ink-muted">
           {grupoLabel(l.grupo)} · vence {formatDataCurta(l.data_vencimento)}
           {l.status === 'pago' && l.data_pagamento ? ` · recebido em ${formatDataCurta(l.data_pagamento)}` : ''}
         </p>
+        {isPerdido(l) ? <InfoPerda l={l} /> : null}
       </div>
       <StatusChip status={l.status} natureza="receita" />
       <div className="ml-auto sm:ml-0 sm:w-36">
@@ -468,7 +550,11 @@ function VisaoVencimento({ data, ...acoes }: Acoes & { data: ReceitaMensal }) {
                     ? [l.cliente_nome, l.marca_nome, l.componente === 'fixo' || l.componente === 'comissao' ? rotuloComponente(l.componente) : null]
                     : [isAporte(l) ? 'Aporte (fora da receita)' : `Receita avulsa · ${grupoLabel(l.grupo)}`]
                   return (
-                    <li key={l.id} className="fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5">
+                    <li
+                      key={l.id}
+                      className={clsx('fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5', isPerdido(l) && 'opacity-70')}
+                      data-status={l.status}
+                    >
                       <span
                         aria-hidden
                         className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl"
@@ -481,6 +567,7 @@ function VisaoVencimento({ data, ...acoes }: Acoes & { data: ReceitaMensal }) {
                         <p className="truncate text-[11px] text-ink-muted">
                           {[...meta, contextoTitulo(l)].filter(Boolean).join(' · ')}
                         </p>
+                        {isPerdido(l) ? <InfoPerda l={l} /> : null}
                       </div>
                       <StatusChip status={l.status} natureza="receita" />
                       <div className="ml-auto sm:ml-0 sm:w-36">
@@ -538,6 +625,7 @@ export function ReceitaPanel({ mes, podeEscrever }: { mes: string; podeEscrever:
   const [baixa, setBaixa] = useState<Lancamento | null>(null)
   const [desfazer, setDesfazer] = useState<Lancamento | null>(null)
   const [receitaModal, setReceitaModal] = useState<ReceitaModalState | null>(null)
+  const [perda, setPerda] = useState<{ item: Lancamento; modo: 'perder' | 'desfazer' } | null>(null)
   const baixaMut = useBaixaMutation()
   const toast = useToast()
 
@@ -551,6 +639,7 @@ export function ReceitaPanel({ mes, podeEscrever }: { mes: string; podeEscrever:
       baixaMut.reset()
       setDesfazer(l)
     },
+    onPerda: (item, modo) => setPerda({ item, modo }),
   }
 
   function confirmarBaixa(payload: { valor_pago: number; data_pagamento: string }) {
@@ -666,6 +755,7 @@ export function ReceitaPanel({ mes, podeEscrever }: { mes: string; podeEscrever:
         isPending={baixaMut.isPending}
         error={baixaMut.error ? extractErrorMessage(baixaMut.error) : null}
       />
+      {perda ? <PerdaModal item={perda.item} modo={perda.modo} onClose={() => setPerda(null)} /> : null}
       <ReceitaAvulsaModal state={receitaModal} mes={mes} onClose={() => setReceitaModal(null)} onSaved={(msg) => toast.push(msg, 'success')} />
     </section>
   )

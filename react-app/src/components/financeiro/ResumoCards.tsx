@@ -65,8 +65,11 @@ export function ResumoCards({
   atrasadosAtivo: boolean
 }) {
   const { receita, custo } = totais
-  const aReceber = Math.max(0, receita.previsto - receita.pago)
-  const aPagar = Math.max(0, custo.previsto - custo.pago)
+  const perdido = Math.max(0, receita.perdido ?? 0)
+  const cancelado = Math.max(0, custo.cancelado ?? 0)
+  // Perdido/cancelado já saíram de pendente/atrasado no backend; o fallback de totalizar() faz o mesmo.
+  const aReceber = Math.max(0, receita.pendente + receita.atrasado)
+  const aPagar = Math.max(0, custo.pendente + custo.atrasado)
   const atrasado = receita.atrasado + custo.atrasado
   const pctRecebido = receita.previsto > 0 ? Math.round((receita.pago / receita.previsto) * 100) : 0
   const pctPago = custo.previsto > 0 ? Math.round((custo.pago / custo.previsto) * 100) : 0
@@ -108,6 +111,22 @@ export function ResumoCards({
             <dd className="num mt-0.5 text-sm font-bold text-ink">{formatMoney(custo.previsto, true)}</dd>
           </div>
         </dl>
+        {perdido > 0 || cancelado > 0 ? (
+          <dl className="relative mt-3 grid grid-cols-2 gap-3 text-xs">
+            {perdido > 0 ? (
+              <div title="Receita dada como perdida — fora do a receber">
+                <dt className="text-ink-muted">Perdido</dt>
+                <dd className="num mt-0.5 text-sm font-semibold text-ink-muted">{formatMoney(perdido, true)}</dd>
+              </div>
+            ) : null}
+            {cancelado > 0 ? (
+              <div title="Despesa cancelada — fora do a pagar e do previsto">
+                <dt className="text-ink-muted">Cancelado</dt>
+                <dd className="num mt-0.5 text-sm font-semibold text-ink-muted">{formatMoney(cancelado, true)}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">

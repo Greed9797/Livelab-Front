@@ -9,6 +9,7 @@ import type {
   ImportarCustosPayload,
   Lancamento,
   LancamentosFiltro,
+  ModoPerda,
   ReceitaAvulsaPayload,
 } from '../types/financeiro'
 import {
@@ -28,6 +29,7 @@ import {
   getFluxoCaixa,
   getLancamentos,
   importarCustos,
+  perdaLancamento,
   updateCusto,
   updateCustoRecorrente,
   updateFinanceiroConfig,
@@ -86,6 +88,15 @@ export function useBaixaMutation() {
   return useMutation({
     mutationFn: ({ lancamento, acao, payload }: { lancamento: Lancamento; acao: AcaoBaixa; payload?: BaixaPayload }) =>
       baixarLancamento(lancamento, acao, payload),
+    onSuccess: invalidate,
+  })
+}
+
+export function usePerdaMutation() {
+  const invalidate = useInvalidateFinanceiro()
+  return useMutation({
+    mutationFn: ({ lancamento, modo, motivo }: { lancamento: Lancamento; modo: ModoPerda; motivo?: string }) =>
+      perdaLancamento(lancamento, modo, motivo),
     onSuccess: invalidate,
   })
 }

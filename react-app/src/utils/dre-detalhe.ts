@@ -79,9 +79,42 @@ export function normalizarItem(input: unknown, idx = 0): DreDetalheItem {
     grupo: str(r.grupo),
     previsto: asNumber(r.previsto ?? r.valor_previsto ?? r.valor),
     realizado: asNumber(r.realizado ?? r.valor_pago ?? r.pago),
-    status: str(r.status),
+    status: str(r.status) ?? (str(r.perdido_em) ? 'perdido' : str(r.cancelado_em) ? 'cancelado' : null),
     data_vencimento: str(r.data_vencimento)?.slice(0, 10) ?? null,
+    motivo: str(r.perdido_motivo)?.trim() || str(r.cancelado_motivo)?.trim() || str(r.motivo)?.trim() || null,
+    encerrado_em: str(r.perdido_em) ?? str(r.cancelado_em),
+    // `previsto` de um custo cancelado já vem sem o saldo cancelado (parte efetiva); o que foi
+    // encerrado de fato está em valor_encerrado.
+    valor_encerrado: r.valor_encerrado == null ? null : asNumber(r.valor_encerrado),
   }
+}
+
+export function itemEncerrado(i: Pick<DreDetalheItem, 'status'>): boolean {
+  return i.status === 'perdido' || i.status === 'cancelado'
+}
+
+/** `perdas` do backend: { receita: { valor } }, { receita: número } ou ausente (= 0). */
+export function normalizarPerdas(v: unknown): { receita: number } {
+  const receita = rec(v).receita
+  const valor = typeof receita === 'object' && receita !== null ? rec(receita).valor : receita
+  return { receita: r2(asNumber(valor)) }
+}
+
+/** Perdidos/cancelados do detalhe: itens com esse status em qualquer seção + listas explícitas do backend. */
+function coletarEncerrados(raw: Record<string, unknown>, secoes: DreDetalheItem[][]): DreDetalheItem[] {
+  const extras = [
+    raw.encerrados,
+    raw.perdidos,
+    raw.cancelados,
+    rec(raw.perdas).itens,
+    rec(raw.receita).perdidos,
+    rec(raw.custos_fixos).cancelados,
+    rec(raw.custos_variaveis).cancelados,
+  ].flatMap((l) => arr(l).map((i, idx) => normalizarItem(i, idx)))
+  const vistos = new Set<string>()
+  return [...secoes.flat(), ...extras]
+    .filter(itemEncerrado)
+    .filter((i) => (vistos.has(i.id) ? false : (vistos.add(i.id), true)))
 }
 
 function totalDeItens(itens: DreDetalheItem[]): PrevistoRealizado {
@@ -132,10 +165,16 @@ export function normalizarLinhaV3(input: unknown): DreLinhaV3 {
   const temNovas = temPR(raw.custos_fixos) || temPR(raw.custos_variaveis)
   const custos_fixos = temNovas ? normalizarPR(raw.custos_fixos) : { previsto: base.custos.previsto, realizado: base.custos.realizado }
   const custos_variaveis = temNovas ? normalizarPR(raw.custos_variaveis) : somarPR(base.apresentadoras, base.imposto)
-  const resultado = raw.resultado != null ? base.resultado : subtrairPR(subtrairPR(base.receita, custos_fixos), custos_variaveis)
+  const perdas = normalizarPerdas(raw.perdas)
+  // Sem `resultado` da API: a perda desconta só do previsto (o realizado não muda).
+  const resultado =
+    raw.resultado != null
+      ? base.resultado
+      : subtrairPR(subtrairPR(subtrairPR(base.receita, { previsto: perdas.receita, realizado: 0 }), custos_fixos), custos_variaveis)
   return {
     ...base,
     resultado,
+    perdas,
     custos_fixos,
     custos_variaveis,
     aportes: normalizarAportes(raw.aportes),
@@ -163,6 +202,7 @@ function somarLinhas(meses: DreLinhaV3[]): DreLinhaV3 {
     custos_fixos: soma((m) => m.custos_fixos),
     custos_variaveis: soma((m) => m.custos_variaveis),
     aportes: soma((m) => m.aportes),
+    perdas: { receita: r2(meses.reduce((s, m) => s + m.perdas.receita, 0)) },
     receita_partes: comPartes.length
       ? {
           fixo: somarPR(...comPartes.map((m) => m.receita_partes!.fixo)),
@@ -191,6 +231,7 @@ export function normalizarDreAnualV3(input: unknown, fallback: { inicio: string;
       totais = { ...totais, custos_fixos: soma.custos_fixos, custos_variaveis: soma.custos_variaveis, classificacao: soma.classificacao }
     }
     if (totaisRaw.aportes == null) totais = { ...totais, aportes: somarLinhas(meses).aportes }
+    if (totaisRaw.perdas == null) totais = { ...totais, perdas: somarLinhas(meses).perdas }
   } else {
     totais = somarLinhas(meses)
   }
@@ -273,7 +314,9 @@ function totalOu(v: unknown, fallback: PrevistoRealizado): PrevistoRealizado {
 export function normalizarDreMesDetalhe(input: unknown, mes: string): DreMesDetalheResponse {
   const raw = rec(input)
   const temAtual = Object.keys(rec(raw.atual)).length > 0
-  const atualApi = temAtual ? normalizarLinhaV3(raw.atual) : null
+  const atualBase = temAtual ? normalizarLinhaV3(raw.atual) : null
+  // `perdas` pode vir na linha `atual` ou no topo da resposta.
+  const atualApi = atualBase && rec(raw.atual).perdas == null && raw.perdas != null ? { ...atualBase, perdas: normalizarPerdas(raw.perdas) } : atualBase
   const anterior = Object.keys(rec(raw.anterior)).length > 0 ? normalizarLinhaV3(raw.anterior) : null
 
   const receitaRaw = rec(raw.receita)
@@ -307,13 +350,16 @@ export function normalizarDreMesDetalhe(input: unknown, mes: string): DreMesDeta
     atualApi?.classificacao === 'api' ? atualApi.custos_variaveis : somarPR(...varGrupos.map((g) => g.total), somaPessoas(apresVar), imposto),
   )
 
+  const perdasMes = normalizarPerdas(raw.perdas)
+
   // Sem `atual` (backend parcial): sintetiza a linha a partir das seções.
   const atual: DreLinhaV3 = atualApi ?? {
     ...LINHA_VAZIA,
     custos: { ...ZERO_PR, por_grupo: {} },
     receita: receitaTotal,
     imposto: { previsto: imposto.previsto, realizado: imposto.realizado, aliquota: imposto.aliquota, base: imposto.base },
-    resultado: subtrairPR(subtrairPR(receitaTotal, fixosTotal), varTotal),
+    resultado: subtrairPR(subtrairPR(subtrairPR(receitaTotal, { previsto: perdasMes.receita, realizado: 0 }), fixosTotal), varTotal),
+    perdas: perdasMes,
     custos_fixos: fixosTotal,
     custos_variaveis: varTotal,
     aportes: normalizarAportes(raw.aportes),
@@ -351,6 +397,7 @@ export function normalizarDreMesDetalhe(input: unknown, mes: string): DreMesDeta
     custos_fixos: { total: fixosTotal, por_grupo: fixosGrupos, apresentadoras_fixo: apresFixo },
     custos_variaveis: { total: varTotal, por_grupo: varGrupos, apresentadoras_variavel: apresVar, imposto },
     aportes: arr(raw.aportes).map(normalizarItem),
+    encerrados: coletarEncerrados(raw, [avulsas, ...fixosGrupos.map((g) => g.itens), ...varGrupos.map((g) => g.itens)]),
     margem: { contribuicao, pct },
   }
 }
@@ -415,5 +462,7 @@ export function detalheVazio(d: DreMesDetalheResponse): boolean {
     && d.custos_fixos.por_grupo.length === 0
     && d.custos_variaveis.por_grupo.length === 0
     && d.aportes.length === 0
+    && d.encerrados.length === 0
+    && d.atual.perdas.receita === 0
   )
 }
