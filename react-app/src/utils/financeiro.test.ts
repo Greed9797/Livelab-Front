@@ -5,6 +5,9 @@ import {
   isEncerrado,
   rotaPerda,
   agruparPorDia,
+  contarAtrasadosAnteriores,
+  filtrarPorVencimentoNoMes,
+  janelaLancamentos,
   derivarStatus,
   dividirParcelas,
   faixaDoLancamento,
@@ -312,5 +315,31 @@ describe('perdas e cancelamentos', () => {
     const [g] = agruparPorDia(itens)
     expect(g.entradas).toBe(50)
     expect(g.saidas).toBe(0)
+  })
+})
+
+describe('lista por vencimento', () => {
+  const itens = [
+    l({ id: 'a', data_vencimento: '2026-09-05', competencia: '2026-08-01', valor_previsto: 10 }),
+    l({ id: 'b', data_vencimento: '2026-10-03', competencia: '2026-09-01', valor_previsto: 10 }),
+    l({ id: 'c', data_vencimento: '2026-11-02', competencia: '2026-10-01', valor_previsto: 10 }),
+    l({ id: 'd', data_vencimento: '2026-09-28', competencia: '2026-09-01', valor_previsto: 10, valor_pago: 10 }),
+    l({ id: 'e', data_vencimento: null, competencia: '2026-10-01' }),
+  ]
+  it('janela: competência = só o mês; vencimento = [mês−1, mês] ou 12 meses com atrasados antigos', () => {
+    expect(janelaLancamentos('2026-10', 'competencia')).toEqual({ inicio: '2026-10', fim: '2026-10' })
+    expect(janelaLancamentos('2026-10', 'vencimento')).toEqual({ inicio: '2026-09', fim: '2026-10' })
+    expect(janelaLancamentos('2026-10', 'vencimento', true)).toEqual({ inicio: '2025-10', fim: '2026-10' })
+    expect(janelaLancamentos('2026-01', 'vencimento')).toEqual({ inicio: '2025-12', fim: '2026-01' })
+  })
+  it('filtra por vencimento dentro do mês (sem vencimento entra pela competência)', () => {
+    const ids = (xs: { id: string }[]) => xs.map((x) => x.id)
+    expect(ids(filtrarPorVencimentoNoMes(itens, '2026-10'))).toEqual(['b', 'e'])
+  })
+  it('atrasados de meses anteriores só entram quando pedido e seguem atrasados', () => {
+    const ids = (xs: { id: string }[]) => xs.map((x) => x.id)
+    expect(l({ id: 'a', data_vencimento: '2026-09-05' }).status).toBe('atrasado')
+    expect(ids(filtrarPorVencimentoNoMes(itens, '2026-10', true))).toEqual(['a', 'b', 'e'])
+    expect(contarAtrasadosAnteriores(itens, '2026-10')).toBe(1)
   })
 })

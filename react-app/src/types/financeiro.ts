@@ -155,17 +155,48 @@ export interface FinanceiroConfig {
 /** PATCH /financeiro/config aceita qualquer subconjunto. */
 export type FinanceiroConfigPatch = Partial<FinanceiroConfig>
 
-/** GET /financeiro/caixa */
-export interface CaixaResumo {
+/** Lado (receber/pagar) do painel: caixa = em aberto com vencimento até o fim do mês. */
+export interface PainelLado {
+  no_mes: number
+  atrasado_anterior: number
+  total: number
+  qtd: number
+  atrasados: { qtd: number; valor: number }
+}
+
+/** Projeção da comissão do mês corrente pelo ritmo atual (nunca entra nos totais reais). */
+export interface ProjecaoComissao {
+  competencia: string
+  previsto_atual: number
+  projetado: number
+  ajuste: number
+  dias_decorridos: number
+  dias_mes: number
+  qtd: number
+  vence_em: string | null
+  entra_no_painel: boolean
+}
+
+export type MesRelativo = 'passado' | 'corrente' | 'futuro'
+
+/** GET /financeiro/painel?mes=YYYY-MM */
+export interface PainelFinanceiro {
+  mes: string
+  hoje: string
+  fim_mes: string
+  mes_relativo: MesRelativo
   configurado: boolean
   data_corte: string | null
   saldo_abertura: number
-  entradas_realizadas: number
-  saidas_realizadas: number
-  saldo_atual: number
-  a_receber: number
-  a_pagar: number
-  saldo_projetado_fim_mes: number
+  caixa: { saldo_atual: number; ate: string | null }
+  recebido_mes: { total: number; receitas: number; aportes: number }
+  pago_mes: { total: number }
+  a_receber: PainelLado
+  a_pagar: PainelLado
+  projetado_fim_mes: number
+  projecao_comissao: ProjecaoComissao | null
+  projetado_fim_mes_ritmo: number | null
+  competencia: { receita: PrevistoRealizado; custos: PrevistoRealizado; resultado: PrevistoRealizado }
 }
 
 export const GRUPOS_RECEITA_AVULSA = ['aporte', 'servico', 'reembolso', 'outros'] as const

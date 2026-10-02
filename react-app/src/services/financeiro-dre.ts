@@ -3,6 +3,7 @@
 // utils/dre-detalhe.ts.
 import type { DreAnualV3, DreMesDetalheResponse } from '../types/financeiro-dre'
 import { normalizarDreAnualV3, normalizarDreMesDetalhe } from '../utils/dre-detalhe'
+import axios from 'axios'
 import { apiGet } from './api'
 
 // Prefixo 'fin2' → invalidado junto com o resto do financeiro (FQK.all).
@@ -11,8 +12,18 @@ export const DRE_QK = {
   mes: (mes: string) => ['fin2', 'dre-mes', mes] as const,
 }
 
+/**
+ * DRE anual: tenta GET /financeiro/dre e, se o deploy do backend ainda não tem a rota (404),
+ * cai em GET /financeiro/resumo (mesma forma, com bloco legado que o normalizador ignora).
+ */
 export async function getDreAnualV3(inicio: string, fim: string): Promise<DreAnualV3> {
-  const raw = await apiGet<unknown>('/financeiro/resumo', { inicio, fim })
+  let raw: unknown
+  try {
+    raw = await apiGet<unknown>('/financeiro/dre', { inicio, fim })
+  } catch (e) {
+    if (!(axios.isAxiosError(e) && e.response?.status === 404)) throw e
+    raw = await apiGet<unknown>('/financeiro/resumo', { inicio, fim })
+  }
   return normalizarDreAnualV3(raw, { inicio, fim })
 }
 

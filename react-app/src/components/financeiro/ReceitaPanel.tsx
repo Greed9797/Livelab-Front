@@ -5,7 +5,6 @@
 import clsx from 'clsx'
 import {
   AlertTriangle,
-  CalendarClock,
   Check,
   ChevronDown,
   CircleDollarSign,
@@ -109,17 +108,8 @@ function ResumoReceita({ data, visao }: { data: ReceitaMensal; visao: VisaoRecei
   const nomeMes = mesLabel(data.mes).split(' de ')[0]
   const base = visao === 'competencia' ? `competência de ${nomeMes}` : `vencendo em ${nomeMes}`
   return (
-    <section aria-label="Totais da receita" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-      <Tile
-        destaque
-        label={`A receber em ${nomeMes}`}
-        value={data.a_receber_mes}
-        hint="Em aberto com vencimento neste mês — o que ainda deve cair no caixa."
-        icon={CalendarClock}
-        color="var(--info)"
-        soft="var(--info-soft)"
-      />
-      <Tile label="Previsto" value={t.previsto} hint={base} icon={CircleDollarSign} color="var(--primary)" soft="var(--primary-soft)">
+    <section aria-label="Totais da receita" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+      <Tile destaque label="Previsto" value={t.previsto} hint={base} icon={CircleDollarSign} color="var(--primary)" soft="var(--primary-soft)">
         <ProgressBar value={t.pago} max={t.previsto} color="var(--success)" label="Recebido sobre o previsto" />
       </Tile>
       <Tile label="Recebido" value={t.pago} hint={`${pctRecebido(t)}% do previsto`} icon={Wallet} color="var(--success)" soft="var(--success-soft)" />
@@ -133,14 +123,14 @@ function ResumoReceita({ data, visao }: { data: ReceitaMensal; visao: VisaoRecei
       />
       {t.perdido > 0 ? (
         <p
-          className="col-span-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-line bg-surface-muted px-4 py-2.5 text-xs text-[var(--text-secondary)] lg:col-span-4"
+          className="col-span-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-line bg-surface-muted px-4 py-2.5 text-xs text-[var(--text-secondary)] lg:col-span-3"
           aria-label={`Perdido: ${formatMoney(t.perdido, true)}`}
         >
           <Ban className="h-4 w-4 shrink-0 text-[var(--danger)]" aria-hidden />
           <strong className="text-ink">Perdido</strong>
           <span className="num font-bold text-ink">{formatMoney(t.perdido, true)}</span>
           <span className="text-ink-muted">
-            — saldo de títulos dados como perdidos. O previsto não muda; sai do “a receber” e do “em aberto” e aparece como “Receita perdida” no DRE.
+            — saldo de títulos dados como perdidos. O previsto não muda; sai do “em aberto” e aparece como “Receita perdida” no DRE.
           </span>
         </p>
       ) : null}
@@ -174,7 +164,7 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar 
         <button
           type="button"
           onClick={() => onPerda(l, 'desfazer')}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-xs font-bold text-ink transition hover:border-[var(--info)] hover:bg-[var(--info-soft)] hover:text-[var(--info)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+          className="inline-flex h-11 items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-xs font-bold sm:h-9 sm:px-3 text-ink transition hover:border-[var(--info)] hover:bg-[var(--info-soft)] hover:text-[var(--info)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
           aria-label={`Desfazer perda: ${l.descricao}`}
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Desfazer perda
@@ -184,7 +174,7 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar 
         <button
           type="button"
           onClick={() => onBaixar(l)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-xs font-bold text-ink transition hover:border-[var(--success)] hover:bg-[var(--success-soft)] hover:text-[var(--success)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+          className="inline-flex h-11 items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-xs font-bold sm:h-9 sm:px-3 text-ink transition hover:border-[var(--success)] hover:bg-[var(--success-soft)] hover:text-[var(--success)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
           aria-label={`Receber: ${l.descricao}`}
         >
           <Check className="h-3.5 w-3.5" aria-hidden /> Receber
@@ -194,7 +184,7 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar 
         <button
           type="button"
           onClick={() => onPerda(l, 'perder')}
-          className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+          className="grid h-11 w-11 place-items-center sm:h-9 sm:w-9 rounded-full text-ink-muted transition hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
           aria-label={`Dar como perdida: ${l.descricao}`}
           title="Dar como perdida"
         >
@@ -205,7 +195,7 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar 
         <button
           type="button"
           onClick={() => onDesfazer(l)}
-          className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+          className="grid h-11 w-11 place-items-center sm:h-9 sm:w-9 rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
           aria-label={`Desfazer recebimento: ${l.descricao}`}
           title="Desfazer recebimento"
         >
@@ -216,7 +206,7 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar 
         <button
           type="button"
           onClick={() => onEditar(l)}
-          className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+          className="grid h-11 w-11 place-items-center sm:h-9 sm:w-9 rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
           aria-label={`Editar: ${l.descricao}`}
           title="Editar"
         >
@@ -488,7 +478,7 @@ function VisaoCompetencia({
         vazio="Nenhuma receita avulsa neste mês."
         acao={
           acoes.podeEscrever ? (
-            <Button variant="secondary" icon={Plus} onClick={onNovaReceita} className="h-9">
+            <Button variant="secondary" icon={Plus} onClick={onNovaReceita} className="h-9 min-h-11 sm:min-h-0">
               Nova receita
             </Button>
           ) : undefined
@@ -593,7 +583,7 @@ function ReceitaSkeleton() {
   return (
     <div role="status" aria-live="polite" aria-busy="true" className="space-y-4">
       <span className="sr-only">Carregando receita do mês</span>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" aria-hidden>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3" aria-hidden>
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className={clsx('design-card space-y-3 p-4 sm:p-5', i === 0 && 'col-span-2 lg:col-span-1')}>
             <span className={clsx(bar, 'block h-3 w-24')} />
@@ -720,7 +710,7 @@ export function ReceitaPanel({ mes, podeEscrever }: { mes: string; podeEscrever:
                 type="search"
                 aria-label="Buscar cliente ou marca"
                 placeholder="Buscar cliente ou marca…"
-                className="design-input h-9 w-full pl-9 pr-3 text-sm"
+                className="design-input h-11 w-full pl-9 pr-3 text-sm sm:h-9"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
               />

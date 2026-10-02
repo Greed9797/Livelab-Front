@@ -45,7 +45,7 @@ const detalheSetembro = {
   aportes: [],
 }
 
-async function setup(page: Page) {
+async function setup(page: Page, opts: { dre404?: boolean } = {}) {
   const writes: string[] = []
   const calls: string[] = []
   await page.addInitScript(() => {
@@ -64,7 +64,8 @@ async function setup(page: Page) {
       writes.push(`${request.method()} ${url.pathname}`)
       return route.fulfill({ status: 405, json: { error: 'Fixture somente leitura' } })
     }
-    if (url.pathname === '/v1/financeiro/resumo') return route.fulfill({ json: { inicio: '2026-01', fim: '2026-12', meses: [setembro], totais: setembro } })
+    if (url.pathname === '/v1/financeiro/dre' && opts.dre404) return route.fulfill({ status: 404, json: { error: 'Not Found' } })
+    if (url.pathname === '/v1/financeiro/dre' || url.pathname === '/v1/financeiro/resumo') return route.fulfill({ json: { inicio: '2026-01', fim: '2026-12', meses: [setembro], totais: setembro } })
     if (url.pathname === '/v1/financeiro/dre/mes') return route.fulfill({ json: detalheSetembro })
     if (url.pathname === '/v1/financeiro/lancamentos') return route.fulfill({ json: { itens: [], hoje: '2026-09-15' } })
     if (url.pathname === '/v1/financeiro/config') return route.fulfill({ json: { aliquota_imposto_pct: 6 } })
@@ -74,7 +75,7 @@ async function setup(page: Page) {
   return { writes, calls }
 }
 
-test('exibe DRE reconciliado, expande detalhes e permanece somente leitura', async ({ page }) => {
+test('exibe DRE reconciliado, expande o detalhe inline (sem drawer) e permanece somente leitura', async ({ page }) => {
   const { writes, calls } = await setup(page)
   await page.goto('/financeiro?tab=dre&mes=2026-09')
 
@@ -87,12 +88,13 @@ test('exibe DRE reconciliado, expande detalhes e permanece somente leitura', asy
   await expect(page.getByRole('button', { name: 'Excluir', exact: true })).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: 'Descrição do custo', exact: true })).toHaveCount(0)
 
-  await page.getByRole('button', { name: /Custos variáveis/ }).click()
-  await expect(page.getByText('Apresentadoras (var.) e custos', { exact: true })).toBeVisible()
+  const linha = page.getByRole('button', { name: 'Detalhe de setembro de 2026' })
+  await expect(linha).toHaveAttribute('aria-expanded', 'false')
+  await linha.click()
+  await expect(linha).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Abrir detalhe de setembro de 2026' }).click()
-  const detalhe = page.getByRole('dialog')
-  await expect(detalhe.getByRole('heading', { name: 'setembro de 2026' })).toBeVisible()
+  const detalhe = page.getByTestId('dre-detalhe-2026-09')
   await detalhe.getByRole('button', { name: /Cliente A/ }).click()
   await expect(detalhe.getByText('Marca A', { exact: true })).toBeVisible()
   await expect(detalhe.getByText('Marca B', { exact: true })).toBeVisible()
@@ -101,9 +103,43 @@ test('exibe DRE reconciliado, expande detalhes e permanece somente leitura', asy
   await expect(detalhe.getByText('Aluguel', { exact: true })).toBeVisible()
   await expect(detalhe.getByText('Material', { exact: true })).toBeVisible()
 
-  expect(calls).toContain('/v1/financeiro/resumo')
+  // vários meses abertos ao mesmo tempo; o aberto permanece
+  await page.getByRole('button', { name: 'Detalhe de outubro de 2026' }).click()
+  await expect(page.getByTestId('dre-detalhe-2026-10')).toBeVisible()
+  await expect(detalhe).toBeVisible()
+
+  expect(calls).toContain('/v1/financeiro/dre')
+  expect(calls).not.toContain('/v1/financeiro/resumo')
   expect(calls).toContain('/v1/financeiro/dre/mes')
   expect(calls).not.toContain('/v1/financeiro/operacional')
   expect(calls).not.toContain('/v1/financeiro/fluxo-caixa')
+  // aba DRE não busca lançamentos nem painel
+  expect(calls).not.toContain('/v1/financeiro/lancamentos')
+  expect(calls).not.toContain('/v1/financeiro/painel')
   expect(writes).toEqual([])
+})
+
+test('cai em /financeiro/resumo quando /financeiro/dre ainda não existe (404)', async ({ page }) => {
+  const { calls } = await setup(page, { dre404: true })
+  await page.goto('/financeiro?tab=dre&mes=2026-09')
+  await expect(page.getByRole('heading', { name: 'DRE mensal' })).toBeVisible()
+  await expect(page.getByText('-R$ 2.925,00', { exact: true }).first()).toBeVisible()
+  expect(calls).toContain('/v1/financeiro/dre')
+  expect(calls).toContain('/v1/financeiro/resumo')
+})
+
+test('mobile 390x844: DRE sem estouro horizontal, detalhe inline em largura total', async ({ page }) => {
+  await setup(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/financeiro?tab=dre&mes=2026-09')
+  await expect(page.getByRole('heading', { name: 'DRE mensal' })).toBeVisible()
+  const botao = page.getByRole('button', { name: 'Detalhe de setembro de 2026' })
+  const box = await botao.boundingBox()
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
+  await botao.click()
+  const detalhe = page.getByTestId('dre-detalhe-2026-09')
+  await detalhe.getByRole('button', { name: /Cliente A/ }).click()
+  await expect(detalhe.getByText('Marca A', { exact: true })).toBeVisible()
+  const dims = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }))
+  expect(dims.sw).toBeLessThanOrEqual(dims.iw)
 })

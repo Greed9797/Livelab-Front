@@ -140,7 +140,7 @@ export function FluxoCaixaPanel({ mes, itensMes }: { mes: string; itensMes: Lanc
             <label className="grid gap-1">
               <span className="text-[11px] font-semibold text-ink-muted">Saldo inicial</span>
               <MoneyInput
-                className="design-input h-9 w-36 px-3 text-sm"
+                className="design-input h-11 w-36 px-3 text-sm sm:h-9"
                 placeholder="0,00"
                 value={saldoRaw}
                 onChange={(raw) => setSaldoRaw(raw)}

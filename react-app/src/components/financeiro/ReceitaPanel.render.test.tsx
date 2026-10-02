@@ -54,7 +54,8 @@ describe('ReceitaPanel smoke', () => {
     expect(await screen.findByText('Grupo Ação')).toBeTruthy()
     expect(screen.getByText('Em apuração')).toBeTruthy()
     expect(screen.getByText(/cobra-se o maior/)).toBeTruthy()
-    expect(screen.getByText('A receber em setembro')).toBeTruthy()
+    // O "A receber" do mês vive só no painel de Lançamentos (caixa), não nesta aba.
+    expect(screen.queryByText('A receber em setembro')).toBeNull()
     expect(screen.getByText('Consultoria')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Receber: Fixo · Haag/ }))
     expect(await screen.findByText('Registrar recebimento')).toBeTruthy()

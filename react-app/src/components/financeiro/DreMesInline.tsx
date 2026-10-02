@@ -1,7 +1,6 @@
 import clsx from 'clsx'
-import { ArrowDownRight, ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, Minus, X } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { ArrowDownRight, ArrowUpRight, ChevronDown, Minus } from 'lucide-react'
+import { useId, useState, type ReactNode } from 'react'
 import { useDreMes } from '../../hooks/useDreMes'
 import { extractErrorMessage } from '../../services/api'
 import type { PrevistoRealizado } from '../../types/financeiro'
@@ -16,10 +15,8 @@ import type {
 import { detalheVazio, itemEncerrado, margemPct, ordenarGrupos, participacao, tomDelta, valorVisao, variacaoPct } from '../../utils/dre-detalhe'
 import { formatDataCurta, grupoLabel, isStatus, mesLabel, origemLabel, shiftMes } from '../../utils/financeiro'
 import { formatMoney, formatPercent } from '../../utils/format'
-import { EmptyState, ErrorState, LoadingState } from '../ui/States'
-import { Segmented, StatusChip } from './primitives'
-
-const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+import { EmptyState, ErrorState } from '../ui/States'
+import { StatusChip } from './primitives'
 
 // ── Valores ──────────────────────────────────────────────────────────────────
 
@@ -385,153 +382,46 @@ function Conteudo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
   )
 }
 
-// ── Drawer ───────────────────────────────────────────────────────────────────
+// ── Inline ───────────────────────────────────────────────────────────────────
 
-/**
- * Painel lateral com o detalhe de um mês do DRE (GET /financeiro/dre/mes).
- * Diálogo modal: Esc fecha, Tab fica preso no painel, foco volta ao gatilho.
- * No mobile ocupa a tela inteira.
- */
-export function DreMesDetalhe({
-  mes,
-  onClose,
-  onChangeMes,
-  visaoInicial = 'ambos',
-}: {
-  mes: string | null
-  onClose: () => void
-  onChangeMes?: (mes: string) => void
-  visaoInicial?: VisaoDre
-}) {
-  if (!mes) return null
-  return <Drawer mes={mes} onClose={onClose} onChangeMes={onChangeMes} visaoInicial={visaoInicial} />
+function DetalheSkeleton() {
+  return (
+    <div className="space-y-3" role="status" aria-live="polite" aria-busy="true">
+      <span className="sr-only">Carregando detalhe do mês</span>
+      <div className="grid grid-cols-2 gap-2.5">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="h-24 animate-pulse rounded-2xl bg-surface-muted" aria-hidden />
+        ))}
+      </div>
+      {Array.from({ length: 3 }, (_, i) => (
+        <div key={i} className="h-12 animate-pulse rounded-2xl bg-surface-muted" aria-hidden />
+      ))}
+    </div>
+  )
 }
 
-function Drawer({ mes, onClose, onChangeMes, visaoInicial }: { mes: string; onClose: () => void; onChangeMes?: (mes: string) => void; visaoInicial: VisaoDre }) {
-  const [visao, setVisao] = useState<VisaoDre>(visaoInicial)
+/**
+ * Detalhe de um mês do DRE (GET /financeiro/dre/mes) renderizado inline, logo abaixo da linha do mês
+ * na tabela anual. Sem overlay: a visão (real × previsto) vem do painel que o contém.
+ */
+export function DreMesInline({ mes, visao }: { mes: string; visao: VisaoDre }) {
   const q = useDreMes(mes)
-  const titleId = useId()
-  const panelRef = useRef<HTMLDivElement>(null)
-  const closeRef = useRef<HTMLButtonElement>(null)
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
-
-  useEffect(() => {
-    const restore = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const root = document.getElementById('root')
-    const prevInert = root?.getAttribute('inert') ?? null
-    const prevOverflow = document.body.style.overflow
-    root?.setAttribute('inert', '')
-    document.body.style.overflow = 'hidden'
-    const frame = requestAnimationFrame(() => closeRef.current?.focus())
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        onCloseRef.current()
-        return
-      }
-      if (e.key !== 'Tab') return
-      const panel = panelRef.current
-      if (!panel) return
-      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => !el.closest('[hidden]') && el.getClientRects().length > 0)
-      if (focusable.length === 0) {
-        e.preventDefault()
-        panel.focus()
-        return
-      }
-      const idx = focusable.indexOf(document.activeElement as HTMLElement)
-      if (e.shiftKey ? idx <= 0 : idx === -1 || idx === focusable.length - 1) {
-        e.preventDefault()
-        focusable[e.shiftKey ? focusable.length - 1 : 0].focus()
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      cancelAnimationFrame(frame)
-      document.removeEventListener('keydown', onKeyDown)
-      if (root) {
-        if (prevInert === null) root.removeAttribute('inert')
-        else root.setAttribute('inert', prevInert)
-      }
-      document.body.style.overflow = prevOverflow
-      if (restore?.isConnected) requestAnimationFrame(() => restore.focus())
-    }
-  }, [])
-
   const d = q.data
-
-  return createPortal(
-    <div className="fixed inset-0 z-[80] flex justify-end bg-black/45 backdrop-blur-[2px]" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        className="motion-panel flex h-[100dvh] w-full flex-col bg-[var(--bg-base)] shadow-[var(--shadow-card-lg)] outline-none sm:max-w-[40rem] sm:border-l sm:border-line"
-      >
-        <header className="shrink-0 border-b border-line bg-surface px-4 py-3 sm:px-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">DRE do mês</p>
-              <h2 id={titleId} className="text-lg font-bold tracking-[-0.015em] text-ink first-letter:uppercase">
-                {mesLabel(mes)}
-              </h2>
-            </div>
-            <div className="flex items-center gap-1">
-              {onChangeMes ? (
-                <>
-                  <button type="button" aria-label="Mês anterior" className="grid h-9 w-9 place-items-center rounded-full text-ink-muted hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20" onClick={() => onChangeMes(shiftMes(mes, -1))}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button type="button" aria-label="Próximo mês" className="grid h-9 w-9 place-items-center rounded-full text-ink-muted hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20" onClick={() => onChangeMes(shiftMes(mes, 1))}>
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </>
-              ) : null}
-              <button
-                ref={closeRef}
-                type="button"
-                aria-label="Fechar detalhe do mês"
-                className="grid h-10 w-10 place-items-center rounded-full border border-line bg-surface text-ink-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
-                onClick={onClose}
-              >
-                <X className="h-[18px] w-[18px]" />
-              </button>
-            </div>
-          </div>
-          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
-            <Segmented<VisaoDre>
-              label="Visão do detalhe"
-              size="sm"
-              value={visao}
-              onChange={setVisao}
-              options={[
-                { value: 'ambos', label: 'Real × previsto' },
-                { value: 'realizado', label: 'Realizado' },
-                { value: 'previsto', label: 'Previsto' },
-              ]}
-            />
-            {q.isFetching && d ? <span className="text-[11px] text-ink-muted" aria-live="polite">atualizando…</span> : null}
-          </div>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 scrollbar-thin sm:px-5">
-          {q.isLoading && !d ? (
-            <LoadingState label="Carregando detalhe do mês" />
-          ) : q.isError ? (
-            <ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} />
-          ) : d && detalheVazio(d) ? (
-            <EmptyState title="Mês sem movimento" description="Nenhuma receita, custo ou aporte com competência neste mês." />
-          ) : d ? (
-            <Conteudo d={d} visao={visao} />
-          ) : null}
-          <p className="mt-4 text-[11px] text-ink-muted">
-            Regime de competência. Resultado = receita − receita perdida − custos fixos − custos variáveis (imposto incluso). Aportes ficam fora.
-          </p>
-        </div>
-      </div>
-    </div>,
-    document.body,
+  return (
+    <div className="min-w-0 space-y-3" data-testid={`dre-detalhe-${mes}`}>
+      {q.isFetching && d ? <p className="text-[11px] text-ink-muted" aria-live="polite">atualizando…</p> : null}
+      {q.isLoading && !d ? (
+        <DetalheSkeleton />
+      ) : q.isError && !d ? (
+        <ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} />
+      ) : d && detalheVazio(d) ? (
+        <EmptyState title="Mês sem movimento" description="Nenhuma receita, custo ou aporte com competência neste mês." />
+      ) : d ? (
+        <Conteudo d={d} visao={visao} />
+      ) : null}
+      <p className="text-[11px] text-ink-muted">
+        Regime de competência. Resultado = receita − receita perdida − custos fixos − custos variáveis (imposto incluso). Aportes ficam fora.
+      </p>
+    </div>
   )
 }

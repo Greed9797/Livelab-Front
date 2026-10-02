@@ -170,7 +170,7 @@ export function CustoItemRow({ l, podeEscrever, acoes }: { l: Lancamento; podeEs
                 type="button"
                 onClick={() => acoes.abrirBaixa(l)}
                 aria-label={`Pagar: ${l.descricao}`}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-xs font-bold text-ink transition hover:border-[var(--success)] hover:bg-[var(--success-soft)] hover:text-[var(--success)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+                className="inline-flex h-11 items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-xs font-bold sm:h-9 sm:px-3 text-ink transition hover:border-[var(--success)] hover:bg-[var(--success-soft)] hover:text-[var(--success)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
               >
                 <Check className="h-3.5 w-3.5" /> <span className="hidden md:inline">Pagar</span>
               </button>
@@ -181,7 +181,7 @@ export function CustoItemRow({ l, podeEscrever, acoes }: { l: Lancamento; podeEs
                 onClick={() => acoes.abrirDesfazer(l)}
                 aria-label={`Desfazer baixa: ${l.descricao}`}
                 title="Desfazer baixa"
-                className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+                className="grid h-11 w-11 place-items-center sm:h-9 sm:w-9 rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
               >
                 <Undo2 className="h-4 w-4" />
               </button>

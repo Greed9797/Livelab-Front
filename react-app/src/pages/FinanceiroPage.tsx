@@ -1,12 +1,12 @@
 import { BarChart3, CalendarRange, ListChecks, Percent, Plus, Receipt, Repeat, Scale, Table2, TrendingUp, Wallet, Waves } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Button } from '../components/ui/Button'
 import { ErrorState } from '../components/ui/States'
 import { useToast } from '../components/ui/Toast'
 import { MonthSwitcher, Segmented } from '../components/financeiro/primitives'
-import { ResumoCards } from '../components/financeiro/ResumoCards'
+import { PainelMes } from '../components/financeiro/PainelMes'
 import { FILTRO_VAZIO, type FiltroLocal, LancamentosList } from '../components/financeiro/LancamentosList'
 import { BaixaModal, DesfazerModal, ExcluirModal } from '../components/financeiro/LancamentoModals'
 import { type CustoModalState, CustoFormModal } from '../components/financeiro/CustoFormModal'
@@ -16,19 +16,18 @@ import { CustosVariaveisPanel } from '../components/financeiro/CustosVariaveisPa
 import { ConciliacaoAsaasPanel } from '../components/financeiro/ConciliacaoAsaasPanel'
 import { DrePanel } from '../components/financeiro/DrePanel'
 import { FluxoCaixaPanel } from '../components/financeiro/FluxoCaixaPanel'
-import { CaixaHoje } from '../components/financeiro/CaixaHoje'
 import { CaixaConfigModal } from '../components/financeiro/CaixaConfigModal'
 import { type ReceitaModalState, ReceitaAvulsaModal } from '../components/financeiro/ReceitaAvulsaModal'
 import { ImpostoConfigModal } from '../components/financeiro/ImpostoConfigModal'
 import { ComissoesTab } from '../components/financeiro/LegacyTabs'
 import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
 import '../components/financeiro/financeiro.css'
-import { useBaixaMutation, useCaixa, useCustoMutations, useFinanceiroConfig, useLancamentos, useReceitaAvulsaMutations } from '../hooks/useFinanceiro'
+import { useBaixaMutation, useCustoMutations, useFinanceiroConfig, useLancamentos, usePainel, useReceitaAvulsaMutations } from '../hooks/useFinanceiro'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
-import type { Lancamento } from '../types/financeiro'
+import type { Lancamento, Natureza } from '../types/financeiro'
 import { canWrite } from '../utils/access'
-import { hojeSP, isMes, isReceitaAvulsa, mesAtualSP, mesLabel, totalizar } from '../utils/financeiro'
+import { filtrarPorVencimentoNoMes, hojeSP, isMes, isReceitaAvulsa, janelaLancamentos, mesAtualSP, mesLabel, type VisaoLista } from '../utils/financeiro'
 import { formatPercent } from '../utils/format'
 import type { PeriodRange } from '../utils/period'
 
@@ -65,13 +64,26 @@ export function FinanceiroPage() {
   const [impostoOpen, setImpostoOpen] = useState(false)
   const [caixaOpen, setCaixaOpen] = useState(false)
   const [receitaModal, setReceitaModal] = useState<ReceitaModalState | null>(null)
+  const [visao, setVisao] = useState<VisaoLista>('vencimento')
+  const [incluirAnteriores, setIncluirAnteriores] = useState(false)
 
-  const lancamentos = useLancamentos({ inicio: mes, fim: mes }, !isCliente)
+  // Cada aba só busca o que usa: lançamentos na lista e no fluxo (fallback); painel só na lista.
+  const usaLancamentos = tab === 'lancamentos' || tab === 'fluxo'
+  const janela = janelaLancamentos(mes, visao, visao === 'vencimento' && incluirAnteriores)
+  const lancamentos = useLancamentos(janela, !isCliente && usaLancamentos)
+  const painel = usePainel(mes, !isCliente && tab === 'lancamentos')
   const config = useFinanceiroConfig(!isCliente)
   const baixaMut = useBaixaMutation()
   const custos = useCustoMutations()
   const receitas = useReceitaAvulsaMutations()
-  const caixa = useCaixa(!isCliente)
+
+  const data = lancamentos.data
+  // Por vencimento: a janela traz competências vizinhas; fica só o que vence no mês (+ atrasados antigos, se pedido).
+  const itens = useMemo(() => {
+    const todos = data?.itens ?? []
+    return visao === 'vencimento' ? filtrarPorVencimentoNoMes(todos, mes, incluirAnteriores) : todos
+  }, [data, visao, mes, incluirAnteriores])
+  const hoje = data?.hoje ?? hojeSP()
 
   // Normaliza o alias antigo na URL preservando mes/inicio/fim e demais params.
   useEffect(() => {
@@ -93,13 +105,14 @@ export function FinanceiroPage() {
 
   if (isCliente) return <Navigate to="/cliente/financeiro" replace />
 
-  const data = lancamentos.data
-  const itens = data?.itens ?? []
-  const totais = data?.totais ?? totalizar([])
-  const hoje = data?.hoje ?? hojeSP()
-  const atrasadosCount = itens.filter((l) => l.status === 'atrasado').length
   const periodo: PeriodRange = { mode: 'single', inicio: mes, fim: mes }
   const aliquota = config.data?.aliquota_imposto_pct
+
+  function verAtrasados(natureza: Natureza) {
+    setVisao('vencimento')
+    setIncluirAnteriores(true)
+    setFiltro({ ...FILTRO_VAZIO, natureza, status: 'atrasado' })
+  }
 
   function toastOk(msg: string, variant: 'success' | 'error' = 'success') {
     toast.push(msg, variant)
@@ -148,26 +161,26 @@ export function FinanceiroPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <PageHeader
         title="Financeiro"
         subtitle={`${mesLabel(mes).replace(/^./, (c) => c.toUpperCase())} · o que entra, o que sai e o que está vencendo.`}
         actions={
           <>
             <MonthSwitcher value={mes} onChange={(v) => updateParams({ mes: v === mesAtualSP() ? null : v })} />
-            <Button variant="secondary" icon={Percent} onClick={() => setImpostoOpen(true)} title="Alíquota de imposto">
+            <Button variant="secondary" icon={Percent} className="min-h-11 sm:min-h-0" onClick={() => setImpostoOpen(true)} title="Alíquota de imposto">
               Imposto {aliquota != null ? formatPercent(aliquota) : ''}
             </Button>
-            <Button variant="secondary" icon={Wallet} onClick={() => setCaixaOpen(true)} title="Saldo de abertura e data de corte">
+            <Button variant="secondary" icon={Wallet} className="min-h-11 sm:min-h-0" onClick={() => setCaixaOpen(true)} title="Saldo de abertura e data de corte">
               Caixa
             </Button>
             {podeEscrever && mostraNovaReceita ? (
-              <Button variant="secondary" icon={Plus} onClick={() => setReceitaModal({ kind: 'nova' })}>
+              <Button variant="secondary" icon={Plus} className="min-h-11 sm:min-h-0" onClick={() => setReceitaModal({ kind: 'nova' })}>
                 Nova receita
               </Button>
             ) : null}
             {podeEscrever && mostraNovoCusto ? (
-              <Button icon={Plus} onClick={() => setCustoModal({ kind: 'novo', modo: 'pontual' })}>
+              <Button icon={Plus} className="min-h-11 sm:min-h-0" onClick={() => setCustoModal({ kind: 'novo', modo: 'pontual' })}>
                 Novo custo
               </Button>
             ) : null}
@@ -175,37 +188,39 @@ export function FinanceiroPage() {
         }
       />
 
-      <Segmented<FinanceiroTab>
-        label="Seções do financeiro"
-        value={tab}
-        onChange={(v) => updateParams({ tab: v === 'lancamentos' ? null : v })}
-        options={tabs}
-      />
+      <div className="min-w-0 max-w-full">
+        <Segmented<FinanceiroTab>
+          label="Seções do financeiro"
+          value={tab}
+          onChange={(v) => updateParams({ tab: v === 'lancamentos' ? null : v })}
+          options={tabs}
+        />
+      </div>
 
       {tab === 'lancamentos' ? (
-        lancamentos.isError && !data ? (
-          <ErrorState message={extractErrorMessage(lancamentos.error)} onRetry={() => void lancamentos.refetch()} />
-        ) : lancamentos.isLoading && !data ? (
-          <LancamentosSkeleton />
-        ) : (
-          <div className="space-y-5">
-            <CaixaHoje
-              caixa={caixa.data}
-              isLoading={caixa.isLoading}
-              isError={caixa.isError}
-              podeEscrever={podeEscrever}
-              onConfigurar={() => setCaixaOpen(true)}
-              onRetry={() => void caixa.refetch()}
-            />
-            <ResumoCards
-              totais={totais}
-              atrasadosCount={atrasadosCount}
-              atrasadosAtivo={filtro.status === 'atrasado'}
-              onFiltrarAtrasados={() => setFiltro((f) => ({ ...f, status: f.status === 'atrasado' ? '' : 'atrasado' }))}
-            />
+        <div className="space-y-5">
+          <PainelMes
+            painel={painel.data}
+            isLoading={painel.isLoading}
+            isError={painel.isError}
+            podeEscrever={podeEscrever}
+            onConfigurar={() => setCaixaOpen(true)}
+            onRetry={() => void painel.refetch()}
+            onVerAtrasados={verAtrasados}
+          />
+          {lancamentos.isError && !data ? (
+            <ErrorState message={extractErrorMessage(lancamentos.error)} onRetry={() => void lancamentos.refetch()} />
+          ) : lancamentos.isLoading && !data ? (
+            <LancamentosSkeleton />
+          ) : (
             <LancamentosList
               itens={itens}
               hoje={hoje}
+              mes={mes}
+              visao={visao}
+              onVisao={setVisao}
+              incluirAnteriores={incluirAnteriores}
+              onIncluirAnteriores={setIncluirAnteriores}
               filtro={filtro}
               onFiltro={setFiltro}
               podeEscrever={podeEscrever}
@@ -218,7 +233,7 @@ export function FinanceiroPage() {
                 baixaMut.reset()
                 setDesfazer(l)
               }}
-              dataCorte={caixa.data?.data_corte ?? config.data?.data_corte ?? null}
+              dataCorte={painel.data?.data_corte ?? config.data?.data_corte ?? null}
               onEditar={(l) => (isReceitaAvulsa(l) ? setReceitaModal({ kind: 'editar', lancamento: l }) : setCustoModal({ kind: 'editar-lancamento', lancamento: l }))}
               onExcluir={(l) => {
                 custos.excluir.reset()
@@ -226,8 +241,8 @@ export function FinanceiroPage() {
                 setExcluir(l)
               }}
             />
-          </div>
-        )
+          )}
+        </div>
       ) : null}
 
       {tab === 'dre' ? <DrePanel key={mes.slice(0, 4)} mes={mes} /> : null}
@@ -331,21 +346,11 @@ export function FinanceiroPage() {
 
 function LancamentosSkeleton() {
   return (
-    <div className="space-y-5" aria-busy="true" aria-label="Carregando lançamentos">
-      <div className="grid gap-4 lg:grid-cols-[1.05fr_2fr]">
-        <div className="h-52 animate-pulse rounded-[18px] bg-surface-muted" />
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-          {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface-muted" />
-          ))}
-        </div>
-      </div>
-      <div className="design-card space-y-3 p-5">
-        <CalendarRange className="h-5 w-5 text-ink-muted" aria-hidden />
-        {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="h-12 animate-pulse rounded-xl bg-surface-muted" />
-        ))}
-      </div>
+    <div className="design-card space-y-3 p-5" aria-busy="true" aria-label="Carregando lançamentos">
+      <CalendarRange className="h-5 w-5 text-ink-muted" aria-hidden />
+      {Array.from({ length: 6 }, (_, i) => (
+        <div key={i} className="h-12 animate-pulse rounded-xl bg-surface-muted" />
+      ))}
     </div>
   )
 }

@@ -404,6 +404,38 @@ export function agruparPorDia(itens: Lancamento[]): GrupoDia[] {
   return grupos.sort((a, b) => (a.data || '9999').localeCompare(b.data || '9999'))
 }
 
+export type VisaoLista = 'vencimento' | 'competencia'
+
+/** Quantos meses para trás buscar ao incluir "atrasados de meses anteriores" na lista por vencimento. */
+export const MESES_ATRASADOS_ANTERIORES = 12
+
+/**
+ * Janela de competências a buscar. Por competência: só o mês. Por vencimento: [mês−1, mês]
+ * (o que vence no mês costuma ter competência do mês anterior) — ou [mês−12, mês] ao incluir atrasados antigos.
+ */
+export function janelaLancamentos(mes: string, visao: VisaoLista, incluirAnteriores = false): { inicio: string; fim: string } {
+  if (visao === 'competencia') return { inicio: mes, fim: mes }
+  return { inicio: shiftMes(mes, incluirAnteriores ? -MESES_ATRASADOS_ANTERIORES : -1), fim: mes }
+}
+
+/**
+ * Visão por vencimento: itens cujo vencimento cai dentro do mês (sem vencimento: pela competência do mês).
+ * Com `incluirAnteriores`, também os ainda atrasados que venceram antes do mês.
+ */
+export function filtrarPorVencimentoNoMes(itens: Lancamento[], mes: string, incluirAnteriores = false): Lancamento[] {
+  return itens.filter((l) => {
+    const v = l.data_vencimento
+    if (!v) return l.competencia.startsWith(mes)
+    if (v.startsWith(mes)) return true
+    return incluirAnteriores && v < `${mes}-01` && l.status === 'atrasado'
+  })
+}
+
+/** Itens que a lista oferece para o chip "atrasados de meses anteriores" (venceram antes do mês e seguem atrasados). */
+export function contarAtrasadosAnteriores(itens: Lancamento[], mes: string): number {
+  return itens.filter((l) => l.status === 'atrasado' && l.data_vencimento != null && l.data_vencimento < `${mes}-01`).length
+}
+
 export function gruposPresentes(itens: Lancamento[]): string[] {
   return [...new Set(itens.map((l) => l.grupo).filter((g): g is string => Boolean(g)))].sort((a, b) =>
     grupoLabel(a).localeCompare(grupoLabel(b), 'pt-BR'),
