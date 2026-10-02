@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ArrowDownLeft, ArrowUpRight, Check, MoreHorizontal, Pencil, Repeat, Search, Trash2, Undo2, X } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Check, Download, MoreHorizontal, Pencil, Repeat, Search, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Lancamento, Natureza, StatusLancamento } from '../../types/financeiro'
 import { STATUS_LANCAMENTO } from '../../types/financeiro'
@@ -20,6 +20,7 @@ import {
 } from '../../utils/financeiro'
 import { formatMoney } from '../../utils/format'
 import { textoCorte } from '../../utils/caixa'
+import { exportarLancamentosCsv } from '../../utils/exportar-csv'
 import { EmptyState } from '../ui/States'
 import { Amount, Segmented, StatusChip } from './primitives'
 
@@ -218,17 +219,27 @@ export function LancamentosList({
             </p>
             {textoCorte(dataCorte) ? <p className="mt-0.5 text-xs text-ink-muted">{textoCorte(dataCorte)}</p> : null}
           </div>
-          <Segmented
-            label="Natureza"
-            size="sm"
-            value={filtro.natureza || 'todos'}
-            onChange={(v) => set({ natureza: v === 'todos' ? '' : (v as Natureza) })}
-            options={[
-              { value: 'todos', label: 'Tudo' },
-              { value: 'receita', label: 'Entradas', icon: <ArrowDownLeft className="h-3.5 w-3.5" /> },
-              { value: 'custo', label: 'Saídas', icon: <ArrowUpRight className="h-3.5 w-3.5" /> },
-            ]}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={visiveis.length === 0}
+              onClick={() => exportarLancamentosCsv(visiveis)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-xs font-bold text-ink transition hover:bg-surface-muted focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 disabled:opacity-40"
+            >
+              <Download className="h-3.5 w-3.5" /> Exportar CSV
+            </button>
+            <Segmented
+              label="Natureza"
+              size="sm"
+              value={filtro.natureza || 'todos'}
+              onChange={(v) => set({ natureza: v === 'todos' ? '' : (v as Natureza) })}
+              options={[
+                { value: 'todos', label: 'Tudo' },
+                { value: 'receita', label: 'Entradas', icon: <ArrowDownLeft className="h-3.5 w-3.5" /> },
+                { value: 'custo', label: 'Saídas', icon: <ArrowUpRight className="h-3.5 w-3.5" /> },
+              ]}
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
