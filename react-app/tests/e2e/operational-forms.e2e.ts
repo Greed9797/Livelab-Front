@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
+import { cadastrosDaFixture } from './support/cadastros'
 
 test.setTimeout(30_000)
 
@@ -51,6 +52,7 @@ async function setup(page: Page, onWrite?: (route: Route) => Promise<void>, them
     if (url.pathname === '/v1/lives') return json(url.searchParams.get('paginado') === '1' ? { items: [live], total: 1, page: 0, limit: 50 } : [live])
     if (url.pathname === '/v1/cabines') return json([{ id: cabineId, numero: 1, status: 'disponivel' }])
     if (url.pathname === '/v1/marcas') return json([marca])
+    if (url.pathname === '/v1/cadastros') return json(cadastrosDaFixture([cliente], [marca], { incluirInativos: url.searchParams.get('status') === 'all' }))
     if (url.pathname === '/v1/clientes') return json(url.searchParams.get('status') === 'arquivado' ? [] : [cliente])
     if (url.pathname === '/v1/apresentadoras') return json([{ id: presenterId, nome: 'Ana', status: 'ativa' }])
     if (url.pathname === `/v1/clientes/${clienteId}/operacional`) return json({ cliente, marcas: [marca], metrics: {}, lives: [], videos: [] })
@@ -308,8 +310,32 @@ test('edição mantém a marca histórica ausente do catálogo ativo sem oferece
   const account = dialog.getByLabel('Marca ou cliente')
   await expect(account).toHaveValue(`marca:${marcaId}`)
   const labels = await account.locator('option').allTextContents()
-  expect(labels).toContain('Marca · Marca Aurora (inativo)')
+  // Cadastro unificado: uma opção por cadastro, sem prefixo "Marca ·"/"Cliente ·".
+  expect(labels).toContain('Marca Aurora (inativo)')
+  expect(labels.filter((label) => label.includes('Marca Aurora'))).toHaveLength(1)
   expect(labels).not.toContain('Outra marca inativa')
+  expect(writes).toEqual([])
+})
+
+test('live antiga só com cliente_id mostra a marca principal sem opção duplicada e não grava sozinha', async ({ page }) => {
+  const writes = await setup(page)
+  const liveLegada = { ...live, marca_id: null }
+  await page.route('**/v1/lives**', (route) => {
+    const url = new URL(route.request().url())
+    if (route.request().method() !== 'GET') return route.fallback()
+    if (url.pathname === `/v1/lives/${liveId}`) return route.fulfill({ json: liveLegada })
+    if (url.pathname === '/v1/lives') return route.fulfill({ json: url.searchParams.get('paginado') === '1' ? { items: [liveLegada], total: 1, page: 0, limit: 50 } : [liveLegada] })
+    return route.fallback()
+  })
+  const dialog = await openEdit(page)
+  const account = dialog.getByLabel('Marca ou cliente')
+  await expect(account).toHaveValue(`marca:${marcaId}`)
+  const values = await account.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))
+  expect(values.filter((value) => value.startsWith('cliente:'))).toEqual([])
+  expect(values.filter((value) => value === `marca:${marcaId}`)).toHaveLength(1)
+  const labels = await account.locator('option').allTextContents()
+  expect(labels.some((label) => label.startsWith('Marca ·') || label.startsWith('Cliente ·'))).toBe(false)
+  await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click()
   expect(writes).toEqual([])
 })
 

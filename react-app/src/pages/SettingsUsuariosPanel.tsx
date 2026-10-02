@@ -145,6 +145,7 @@ export function SettingsUsuariosPanel() {
       setCreateOpen(false)
       void client.invalidateQueries({ queryKey: QK.usuarios })
       void client.invalidateQueries({ queryKey: QK.clientes() })
+      void client.invalidateQueries({ queryKey: QK.cadastros() })
       void client.invalidateQueries({ queryKey: QK.apresentadoras() })
     },
   })

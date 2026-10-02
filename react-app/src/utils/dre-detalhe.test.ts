@@ -308,3 +308,20 @@ describe('normalizarItem — valor encerrado (perda/cancelamento)', () => {
     expect(normalizarItem({ id: 'x', descricao: 'Normal', previsto: 10, realizado: 0 }).valor_encerrado).toBeNull()
   })
 })
+
+describe('normalizarDreMesDetalhe — cliente × marca', () => {
+  it('cliente_id nulo (ou sem-cliente:<marca>) fica null; nome cai na marca; marca_tipo preservado', () => {
+    const d = normalizarDreMesDetalhe({
+      mes: '2026-09',
+      receita: { por_cliente: [
+        { cliente_id: null, marcas: [{ marca_id: 'm9', marca_nome: 'Rosa', marca_tipo: 'propria', fixo: { previsto: 0, realizado: 0 }, comissao: { previsto: 10, realizado: 0 } }] },
+        { cliente_id: 'sem-cliente:m8', cliente_nome: 'Farol', marcas: [{ marca_id: 'm8', marca_nome: 'Farol' }] },
+        { cliente_id: 'c1', cliente_nome: 'Grupo', marcas: [] },
+      ] },
+    }, '2026-09')
+    expect(d.receita.por_cliente.map((c) => c.cliente_id)).toEqual([null, null, 'c1'])
+    expect(d.receita.por_cliente[0].cliente_nome).toBe('Rosa')
+    expect(d.receita.por_cliente[0].marcas[0].marca_tipo).toBe('propria')
+    expect(d.receita.por_cliente[1].marcas[0].marca_tipo).toBeNull()
+  })
+})

@@ -84,6 +84,7 @@ export function CondicoesComerciaisPanel({ marcaId }: { marcaId: string }) {
   function invalidar() {
     void client.invalidateQueries({ queryKey: CONDICOES_QK.lista(marcaId) })
     void client.invalidateQueries({ queryKey: QK.marcas() })
+    void client.invalidateQueries({ queryKey: QK.cadastros() })
     void client.invalidateQueries({ queryKey: QK.marcas('ativas') })
     void client.invalidateQueries({ queryKey: QK.comissoesMarcas })
   }

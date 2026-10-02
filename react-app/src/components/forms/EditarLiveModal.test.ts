@@ -16,9 +16,10 @@ describe('EditarLiveModal account and split contract', () => {
   it('selecting a brand preserves its client link while client-only remains a legacy fallback', () => {
     const marcas = [{ id: 'marca-a', nome: 'Marca A', cliente_id: 'cliente-a', status: 'ativa' }]
     const clientes = [{ id: 'cliente-a', nome: 'Cliente A', status: 'ativo' }, { id: 'cliente-legado', nome: 'Cliente legado', status: 'inadimplente' }]
+    // Um item por cadastro, sem prefixo "Marca ·"/"Cliente ·"; a ficha só aparece se não tiver marca.
     expect(liveAccountOptions(marcas, clientes)).toEqual([
-      { value: 'marca:marca-a', label: 'Marca · Marca A' },
-      { value: 'cliente:cliente-legado', label: 'Cliente · Cliente legado' },
+      { value: 'marca:marca-a', label: 'Marca A', tipo: 'cliente' },
+      { value: 'cliente:cliente-legado', label: 'Cliente legado', tipo: 'cliente' },
     ])
     expect(liveAccountSelection('marca:marca-a', marcas)).toEqual({ marca_id: 'marca-a', cliente_id: 'cliente-a' })
     expect(liveAccountSelection('cliente:cliente-legado', marcas)).toEqual({ marca_id: '', cliente_id: 'cliente-legado' })
@@ -28,8 +29,28 @@ describe('EditarLiveModal account and split contract', () => {
     const marcas = [{ id: 'ativa', nome: 'Ativa', status: 'ativa' }, { id: 'inativa', nome: 'Histórica', status: 'inativa' }]
     const clientes = [{ id: 'cliente-ativo', nome: 'Atual', status: 'ativo' }, { id: 'cliente-cancelado', nome: 'Legado', status: 'cancelado' }]
     expect(liveAccountOptions(marcas, clientes).map((item) => item.value)).toEqual(['marca:ativa', 'cliente:cliente-ativo'])
-    expect(liveAccountOptions(marcas, clientes, { marcaId: 'inativa' })[0]).toEqual({ value: 'marca:inativa', label: 'Marca · Histórica (inativo)' })
-    expect(liveAccountOptions([], [], { marcaId: 'ausente', historicalName: 'Marca removida do catálogo' })[0]).toEqual({ value: 'marca:ausente', label: 'Marca · Marca removida do catálogo (inativo)' })
+    expect(liveAccountOptions(marcas, clientes, { marcaId: 'inativa' })[0]).toEqual({ value: 'marca:inativa', label: 'Histórica (inativo)' })
+    expect(liveAccountOptions([], [], { marcaId: 'ausente', historicalName: 'Marca removida do catálogo' })[0]).toEqual({ value: 'marca:ausente', label: 'Marca removida do catálogo (inativo)' })
+  })
+
+  it('live antiga só com cliente_id resolve para a marca principal, sem opção duplicada', () => {
+    const marcas = [
+      { id: 'marca-extra', nome: 'Aurora Kids', cliente_id: 'cliente-a', status: 'ativa', tipo: 'afiliada' },
+      { id: 'marca-a', nome: 'Aurora', cliente_id: 'cliente-a', status: 'ativa', tipo: 'cliente' },
+      { id: 'farol', nome: 'Farol', status: 'ativa', tipo: 'afiliada' },
+    ]
+    const clientes = [{ id: 'cliente-a', nome: 'Aurora', status: 'ativo' }]
+    const options = liveAccountOptions(marcas, clientes, { clienteId: 'cliente-a' })
+    expect(options.map((item) => item.value)).toEqual(['marca:marca-extra', 'marca:marca-a', 'marca:farol'])
+    expect(options.find((item) => item.value === 'marca:farol')?.label).toBe('Farol (afiliada)')
+    expect(options.some((item) => item.value.startsWith('cliente:'))).toBe(false)
+    expect(options.some((item) => item.label.includes('(inativo)'))).toBe(false)
+  })
+
+  it('marca histórica fora do catálogo não duplica a ficha do mesmo cliente', () => {
+    const clientes = [{ id: 'cliente-a', nome: 'Aurora', status: 'ativo' }]
+    const options = liveAccountOptions([], clientes, { marcaId: 'marca-a', clienteId: 'cliente-a', historicalName: 'Aurora' })
+    expect(options).toEqual([{ value: 'marca:marca-a', label: 'Aurora (inativo)' }])
   })
 
   it('does not turn an unavailable account value into a destructive replacement', () => {
