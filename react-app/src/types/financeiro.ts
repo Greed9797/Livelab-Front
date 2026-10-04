@@ -4,7 +4,7 @@
 
 export type Natureza = 'receita' | 'custo'
 
-/** 'perdido' só existe para receitas e 'cancelado' só para custos (encerrados sem pagamento do saldo). */
+/** 'perdido' só existe para receitas e 'cancelado' para pagáveis (custos, apresentadora, imposto) (encerrados sem pagamento do saldo). */
 export type StatusLancamento = 'previsto' | 'pendente' | 'atrasado' | 'parcial' | 'pago' | 'perdido' | 'cancelado'
 
 export const STATUS_LANCAMENTO: StatusLancamento[] = ['previsto', 'pendente', 'atrasado', 'parcial', 'pago', 'perdido', 'cancelado']
@@ -67,9 +67,10 @@ export interface Lancamento {
   /** Receita perdida: quando/por quê (ISO). null/ausente = não perdida. */
   perdido_em?: string | null
   perdido_motivo?: string | null
-  /** Custo cancelado: quando/por quê (ISO). null/ausente = não cancelado. */
+  /** Custo, pagamento de apresentadora ou imposto cancelado: quando/por quê (ISO). null/ausente = não cancelado. */
   cancelado_em?: string | null
   cancelado_motivo?: string | null
+  cancelado_por?: string | null
 }
 
 export interface TotaisNatureza {

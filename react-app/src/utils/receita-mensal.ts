@@ -78,6 +78,19 @@ export function formatPct(pct: number | null | undefined): string {
   return `${pct.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
 }
 
+/** Dia de início da janela de apuração (1..28); ausente/inválido = mês civil. */
+export function janelaInicioDia(m: object): number {
+  const n = Math.trunc(asNumber((m as { janela_inicio_dia?: unknown }).janela_inicio_dia, 1))
+  return n >= 1 && n <= 28 ? n : 1
+}
+
+/** Hint da aba Receita: só para marca com janela ≠ 1. */
+export function notaJanelaComissao(m: object): string | null {
+  const j = janelaInicioDia(m)
+  if (j === 1) return null
+  return `Janela ${j}→${j - 1} · competência = mês de início · GMV da aba Comissões é por mês civil`
+}
+
 /** Nota da modalidade "fixo ou comissão": a comissão bruta e a regra do maior. */
 export function notaFixoOuComissao(m: Pick<ReceitaMarca, 'tipo_cobranca' | 'comissao_bruta' | 'fixo'>): string | null {
   if (m.tipo_cobranca !== 'fixo_ou_comissao') return null
@@ -221,6 +234,7 @@ export function normalizarMarca(input: unknown, cliente: { cliente_id: string; c
     gmv,
     comissao_bruta,
     em_apuracao,
+    janela_inicio_dia: janelaInicioDia(raw),
     fixo,
     comissao,
     total: normalizarTotal(raw.total, somaTitulos(fixo, comissao)),

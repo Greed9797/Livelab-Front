@@ -269,7 +269,15 @@ export function ComercialPage() {
     mutationFn: ({ id, kind, payload }: { id: string; kind: 'cliente' | 'marca'; payload: JsonRecord }) => (
       kind === 'cliente' ? updateCliente(id, payload) : updateMarca(id, payload)
     ),
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
+      if (data?.aviso === 'data_fim_expirada') {
+        toast.push(
+          variables.kind === 'cliente'
+            ? 'Cliente reativado, mas o contrato tem data de fim no passado. Ajuste as datas do contrato para voltar a cobrar o fixo.'
+            : 'Afiliado reativado, mas o contrato tem data de fim no passado. Ajuste as datas do contrato para voltar a cobrar o fixo.',
+          'warning',
+        )
+      }
       void queryClient.invalidateQueries({ queryKey: QK.clientes() })
       void queryClient.invalidateQueries({ queryKey: QK.marcas() })
       void queryClient.invalidateQueries({ queryKey: QK.cadastros() })

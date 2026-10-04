@@ -51,6 +51,8 @@ export interface ReceitaMarca {
   /** GMV × %, antes da regra fixo_ou_comissao; null quando não informado. */
   comissao_bruta: number | null
   em_apuracao: boolean
+  /** Dia de início da janela de apuração da comissão (1 = mês civil). */
+  janela_inicio_dia: number
   fixo: TituloReceita | null
   comissao: TituloReceita | null
   total: TotalReceita

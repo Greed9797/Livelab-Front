@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildMarcaCondicaoProposal, initialForm, submitMarcaCondicao } from './CondicoesComerciais'
+import { parseVencimentoForm, previewJanelaComissao, vencimentoDaCondicao } from '../../utils/condicoes-vencimento'
 import { commercialConfigCodes, commercialConfigSummary } from '../../utils/comercial-config'
 import type { JsonRecord } from '../../types/models'
 
@@ -86,5 +87,28 @@ describe('condições comerciais temporais', () => {
       origem: 'gestao',
       motivo: 'Contrato zerado',
     }])
+  })
+
+  describe('janela de apuração da comissão', () => {
+    const base = { fixo_vencimento_dia: '5', fixo_vencimento_mes_offset: '1', comissao_vencimento_dia: '20', comissao_vencimento_mes_offset: '1' }
+
+    it('default 1 e lê o valor da condição', () => {
+      expect(vencimentoDaCondicao(null).comissao_janela_inicio_dia).toBe(1)
+      expect(vencimentoDaCondicao({ comissao_janela_inicio_dia: 16 }).comissao_janela_inicio_dia).toBe(16)
+      expect(vencimentoDaCondicao({ comissao_janela_inicio_dia: 40 }).comissao_janela_inicio_dia).toBe(1)
+    })
+
+    it('valida 1..28 e inclui no payload', () => {
+      expect(parseVencimentoForm({ ...base, comissao_janela_inicio_dia: '16' })).toMatchObject({ ok: true, value: { comissao_janela_inicio_dia: 16 } })
+      expect(parseVencimentoForm(base)).toMatchObject({ ok: true, value: { comissao_janela_inicio_dia: 1 } })
+      expect(parseVencimentoForm({ ...base, comissao_janela_inicio_dia: '0' }).ok).toBe(false)
+      expect(parseVencimentoForm({ ...base, comissao_janela_inicio_dia: '29' }).ok).toBe(false)
+    })
+
+    it('monta o preview da janela', () => {
+      expect(previewJanelaComissao('2026-09', 16, 20, 1)).toBe('16/set → 15/out · competência set · vence 20/out')
+      expect(previewJanelaComissao('2026-09', 1, 5, 1)).toBe('01/set → 30/set · competência set · vence 05/out')
+      expect(previewJanelaComissao('2026-12', 16, 20, 1)).toBe('16/dez → 15/jan · competência dez · vence 20/jan')
+    })
   })
 })

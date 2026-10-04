@@ -17,6 +17,7 @@ import { parseBRMoneyToDecimal } from '../utils/money'
 import { isPresenterRole, presenterProfileId, toPresenterOptions } from '../utils/presenters'
 import { extractErrorMessage } from '../services/api'
 import { QK } from '../services/query-keys'
+import { invalidateFinanceiro } from '../hooks/useFinanceiro'
 import {
   createApresentadoraFaixaComissao,
   convidarUsuario,
@@ -147,6 +148,7 @@ export function SettingsUsuariosPanel() {
       void client.invalidateQueries({ queryKey: QK.clientes() })
       void client.invalidateQueries({ queryKey: QK.cadastros() })
       void client.invalidateQueries({ queryKey: QK.apresentadoras() })
+      invalidateFinanceiro(client)
     },
   })
   const uploadCreatePresenterImage = useMutation({
@@ -159,7 +161,11 @@ export function SettingsUsuariosPanel() {
   })
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateUsuario(id, payload),
-    onSuccess: () => { setEditingUser(null); setEditForm(emptyEditForm); void client.invalidateQueries({ queryKey: ['usuarios'] }) },
+    onSuccess: () => {
+      setEditingUser(null); setEditForm(emptyEditForm)
+      void client.invalidateQueries({ queryKey: ['usuarios'] })
+      invalidateFinanceiro(client)
+    },
   })
   const updatePresenterMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateApresentadora(id, payload),
@@ -167,6 +173,7 @@ export function SettingsUsuariosPanel() {
       setEditingUser(null); setEditForm(emptyEditForm)
       void client.invalidateQueries({ queryKey: ['usuarios'] })
       void client.invalidateQueries({ queryKey: ['apresentadoras'] })
+      invalidateFinanceiro(client)
     },
   })
   const deleteMutation = useMutation({
@@ -176,6 +183,7 @@ export function SettingsUsuariosPanel() {
       client.setQueriesData<JsonRecord[]>({ queryKey: QK.usuarios }, (old) =>
         Array.isArray(old) ? old.filter((item) => asString(item.id, '') !== id) : old)
       void client.invalidateQueries({ queryKey: ['usuarios'] })
+      invalidateFinanceiro(client)
     },
   })
   const deletePresenterMutation = useMutation({
@@ -186,6 +194,7 @@ export function SettingsUsuariosPanel() {
         Array.isArray(old) ? old.filter((item) => asString(item.id, '') !== id) : old)
       void client.invalidateQueries({ queryKey: ['usuarios'] })
       void client.invalidateQueries({ queryKey: ['apresentadoras'] })
+      invalidateFinanceiro(client)
     },
   })
   const resetMutation = useMutation({ mutationFn: resetSenhaUsuario })
@@ -234,6 +243,7 @@ export function SettingsUsuariosPanel() {
       setEditingUser(null); setEditForm(emptyEditForm)
       void client.invalidateQueries({ queryKey: ['usuarios'] })
       void client.invalidateQueries({ queryKey: ['apresentadoras'] })
+      invalidateFinanceiro(client)
       void client.invalidateQueries({ queryKey: QK.apresentadoraFaixasComissao() })
     },
   })

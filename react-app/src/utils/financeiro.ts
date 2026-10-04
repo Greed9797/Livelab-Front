@@ -273,6 +273,7 @@ export function normalizarLancamento(input: unknown, hoje: string = hojeSP()): L
     perdido_motivo: str(raw.perdido_motivo),
     cancelado_em: str(raw.cancelado_em),
     cancelado_motivo: str(raw.cancelado_motivo),
+    cancelado_por: str(raw.cancelado_por),
   }
 }
 
@@ -285,8 +286,14 @@ const r2 = (n: number) => Math.round(n * 100) / 100
 /** Totais calculados no cliente (fallback e também usado com filtros locais). */
 export function totalizar(itens: Lancamento[]): TotaisLancamentos {
   const t = { receita: zeroNatureza(), custo: zeroNatureza() }
+  const aportes = { previsto: 0, pago: 0 }
   for (const l of itens) {
     const alvo = t[l.natureza]
+    if (isAporte(l)) {
+      // previsto EFETIVO: o saldo de um aporte perdido já sai em receita.perdido (não subtrair 2x)
+      aportes.previsto += l.status === 'perdido' ? Math.min(l.valor_previsto, l.valor_pago) : l.valor_previsto
+      aportes.pago += l.valor_pago
+    }
     const aberto = Math.max(0, l.valor_previsto - l.valor_pago)
     alvo.previsto += l.valor_previsto
     alvo.pago += l.valor_pago
@@ -308,9 +315,15 @@ export function totalizar(itens: Lancamento[]): TotaisLancamentos {
   if (cancelado > 0) t.custo.cancelado = cancelado
   return {
     ...t,
-    saldo_previsto: r2(t.receita.previsto - perdido - (t.custo.previsto - cancelado)),
-    saldo_realizado: r2(t.receita.pago - t.custo.pago),
+    // Aporte não é resultado (o DRE o exclui): sai da receita nos dois saldos.
+    saldo_previsto: r2(t.receita.previsto - perdido - aportes.previsto - (t.custo.previsto - cancelado)),
+    saldo_realizado: r2(t.receita.pago - aportes.pago - t.custo.pago),
   }
+}
+
+/** Receita avulsa do grupo aporte: entra no caixa, mas não no resultado. */
+function isAporte(l: Pick<Lancamento, 'natureza' | 'origem' | 'grupo'>): boolean {
+  return l.natureza === 'receita' && l.origem === 'avulsa' && l.grupo === 'aporte'
 }
 
 function normalizarTotaisNatureza(v: unknown): TotaisNatureza | null {
@@ -340,8 +353,8 @@ export function normalizarLancamentosResponse(input: unknown, fallback: { inicio
     ? {
         receita,
         custo,
-        saldo_previsto: t.saldo_previsto == null ? r2(receita.previsto - custo.previsto) : asNumber(t.saldo_previsto),
-        saldo_realizado: t.saldo_realizado == null ? r2(receita.pago - custo.pago) : asNumber(t.saldo_realizado),
+        saldo_previsto: t.saldo_previsto == null ? calc.saldo_previsto : asNumber(t.saldo_previsto),
+        saldo_realizado: t.saldo_realizado == null ? calc.saldo_realizado : asNumber(t.saldo_realizado),
       }
     : calc
   return {
@@ -492,11 +505,18 @@ type ParaPerda = Pick<Lancamento, 'natureza' | 'origem' | 'status'> & { grupo?: 
 /**
  * O que o item aceita: receita (comercial ou avulsa, exceto aporte) pode ser dada como perdida;
  * custo manual/parcela/recorrente pode ser cancelado; item já perdido/cancelado só desfaz.
- * Apresentadora, imposto e aporte nunca ganham a ação. Título 100% pago não perde nem cancela.
+ * Apresentadora e imposto (pagáveis, calculados) também cancelam/reativam; aporte nunca ganha a ação.
+ * Título 100% pago não perde nem cancela.
  */
 export function acoesPerda(item: ParaPerda): AcoesPerda {
   const nenhuma = { podePerder: false, podeCancelar: false, podeDesfazer: false }
-  if (item.origem === 'apresentadora' || item.origem === 'imposto') return nenhuma
+  if (item.origem === 'apresentadora' || item.origem === 'imposto') {
+    return {
+      podePerder: false,
+      podeCancelar: item.status !== 'pago' && item.status !== 'cancelado',
+      podeDesfazer: item.status === 'cancelado',
+    }
+  }
   if (item.natureza === 'receita') {
     if (item.origem === 'avulsa' && item.grupo === 'aporte') return nenhuma
     return {
@@ -516,13 +536,28 @@ export function acoesPerda(item: ParaPerda): AcoesPerda {
 export type AcaoPerda = ModoPerda
 
 /** Endpoint (relativo a /v1) de perder/desperder (receitas) ou cancelar/reativar (custos). */
-export function rotaPerda(l: Pick<Lancamento, 'id' | 'natureza' | 'origem'>, modo: ModoPerda): string {
+export function rotaPerda(
+  l: Pick<Lancamento, 'id' | 'natureza' | 'origem'> & { competencia?: string; apresentadora_id?: string | null; componente?: string | null },
+  modo: ModoPerda,
+): string {
+  const sufixo = modo === 'desfazer' ? 'reativar' : 'cancelar'
+  if (l.origem === 'apresentadora') {
+    const [, idAp, mesId, compId] = l.id.split(':')
+    const mes = isMes(mesId) ? mesId : (l.competencia ?? '').slice(0, 7)
+    const comp = l.componente === 'fixo' || l.componente === 'variavel' ? l.componente : compId
+    return `/financeiro/apresentadoras-pagamentos/${encodeURIComponent(l.apresentadora_id ?? idAp)}/${mes}/${comp}/${sufixo}`
+  }
+  if (l.origem === 'imposto') {
+    const idMes = l.id.startsWith('imposto:') ? l.id.slice('imposto:'.length) : ''
+    const mes = isMes(idMes) ? idMes : (l.competencia ?? '').slice(0, 7)
+    return `/financeiro/impostos/${mes}/${sufixo}`
+  }
   const enc = encodeURIComponent(l.id)
   if (l.natureza === 'receita') {
     const base = l.origem === 'avulsa' ? 'receitas-avulsas' : 'receitas'
     return `/financeiro/${base}/${enc}/${modo === 'desfazer' ? 'desperder' : 'perder'}`
   }
-  return `/financeiro/custos/${enc}/${modo === 'desfazer' ? 'reativar' : 'cancelar'}`
+  return `/financeiro/custos/${enc}/${sufixo}`
 }
 
 /** Custos criados no Financeiro (editáveis/excluíveis). Receitas vêm do Comercial; apresentadoras e imposto são calculados. */

@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { Info } from 'lucide-react'
 import { useState } from 'react'
-import { useDre, useFluxoCaixa } from '../../hooks/useFinanceiro'
+import { useDre, useFinanceiroConfig, useFluxoCaixa } from '../../hooks/useFinanceiro'
 import { extractErrorMessage } from '../../services/api'
 import type { FluxoLinha, FluxoSerieMes, Lancamento } from '../../types/financeiro'
 import { fluxoDeLancamentos, mesCurto, mesLabel } from '../../utils/financeiro'
@@ -84,12 +84,15 @@ function SerieAnual({ serie, mes, visao }: { serie: FluxoSerieMes[]; mes: string
   )
 }
 
-export function FluxoCaixaPanel({ mes, itensMes }: { mes: string; itensMes: Lancamento[] }) {
+export function FluxoCaixaPanel({ mes, itensMes, onConfigurarCaixa }: { mes: string; itensMes: Lancamento[]; onConfigurarCaixa?: () => void }) {
   const [saldoRaw, setSaldoRaw] = useState('')
   const [saldoInicial, setSaldoInicial] = useState(0)
   const [visao, setVisao] = useState<Visao>('ambos')
   const ano = mes.slice(0, 4)
-  const q = useFluxoCaixa(mes, saldoInicial)
+  const config = useFinanceiroConfig()
+  // Com corte configurado o saldo inicial vem do Caixa (somente leitura) e não é enviado.
+  const saldoDoCaixa = Boolean(config.data?.data_corte)
+  const q = useFluxoCaixa(mes, saldoDoCaixa ? 0 : saldoInicial)
   const serieBackend = q.data?.serie_anual ?? []
   // Série anual: usa a do backend; se vier vazia (formato legado), deriva da DRE do ano.
   const dre = useDre(`${ano}-01`, `${ano}-12`, q.isSuccess && serieBackend.length === 0)
@@ -98,7 +101,8 @@ export function FluxoCaixaPanel({ mes, itensMes }: { mes: string; itensMes: Lanc
   if (q.isError) return <ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} />
 
   const legado = q.data === null
-  const linhas: FluxoLinha[] = q.data?.linhas?.length ? q.data.linhas : fluxoDeLancamentos(itensMes, saldoInicial)
+  const saldoBase = saldoDoCaixa ? (q.data?.saldo_inicial ?? 0) : saldoInicial
+  const linhas: FluxoLinha[] = q.data?.linhas?.length ? q.data.linhas : fluxoDeLancamentos(itensMes, saldoBase)
   const serie: FluxoSerieMes[] = serieBackend.length
     ? serieBackend
     : Array.from({ length: 12 }, (_, i) => {
@@ -119,7 +123,7 @@ export function FluxoCaixaPanel({ mes, itensMes }: { mes: string; itensMes: Lanc
 
   const pick = (v: { previsto: number; realizado: number }) => (visao === 'previsto' ? v.previsto : v.realizado)
   const max = Math.max(1, ...linhas.flatMap((l) => [l.entradas.previsto, l.saidas.previsto, l.entradas.realizado, l.saidas.realizado]))
-  const final = linhas[linhas.length - 1]?.acumulado ?? { previsto: saldoInicial, realizado: saldoInicial }
+  const final = linhas[linhas.length - 1]?.acumulado ?? { previsto: saldoBase, realizado: saldoBase }
   const menorAcumulado = Math.min(...linhas.map((l) => pick(l.acumulado)))
 
   function commitSaldo() {
@@ -137,17 +141,35 @@ export function FluxoCaixaPanel({ mes, itensMes }: { mes: string; itensMes: Lanc
             <p className="mt-0.5 text-xs text-ink-muted">Agrupado pelas datas de vencimento (5, 10, 15, 20, 25, 30) e fatura do cartão.</p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
-            <label className="grid gap-1">
-              <span className="text-[11px] font-semibold text-ink-muted">Saldo inicial</span>
-              <MoneyInput
-                className="design-input h-11 w-36 px-3 text-sm sm:h-9"
-                placeholder="0,00"
-                value={saldoRaw}
-                onChange={(raw) => setSaldoRaw(raw)}
-                onBlur={commitSaldo}
-                onKeyDown={(e) => e.key === 'Enter' && commitSaldo()}
-              />
-            </label>
+            {saldoDoCaixa ? (
+              <div className="grid gap-1">
+                <span className="text-[11px] font-semibold text-ink-muted">Saldo inicial</span>
+                <p className="flex h-11 items-center gap-2 rounded-[var(--radius-control)] border border-line bg-surface-muted px-3 text-sm sm:h-9">
+                  <span className="num font-semibold text-ink">{formatMoney(saldoBase)}</span>
+                  <span className="text-[11px] text-ink-muted">
+                    vem do Caixa
+                    {onConfigurarCaixa ? (
+                      <>
+                        {' · '}
+                        <button type="button" className="font-semibold text-brand underline-offset-2 hover:underline" onClick={onConfigurarCaixa}>configurar</button>
+                      </>
+                    ) : null}
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <label className="grid gap-1">
+                <span className="text-[11px] font-semibold text-ink-muted">Saldo inicial</span>
+                <MoneyInput
+                  className="design-input h-11 w-36 px-3 text-sm sm:h-9"
+                  placeholder="0,00"
+                  value={saldoRaw}
+                  onChange={(raw) => setSaldoRaw(raw)}
+                  onBlur={commitSaldo}
+                  onKeyDown={(e) => e.key === 'Enter' && commitSaldo()}
+                />
+              </label>
+            )}
             <Segmented<Visao>
               label="Visão"
               size="sm"
