@@ -3,6 +3,7 @@ import {
   detalheVazio,
   margemPct,
   normalizarAportes,
+  normalizarCaixa,
   normalizarDreAnualV3,
   normalizarDreMesDetalhe,
   normalizarItem,
@@ -186,6 +187,18 @@ describe('normalizarDreMesDetalhe', () => {
     expect(d.mes).toBe('2026-10')
     expect(detalheVazio(d)).toBe(true)
     expect(detalheVazio(normalizarDreMesDetalhe(raw, '2026-10'))).toBe(false)
+  })
+})
+
+describe('caixa (bloco informativo do mês)', () => {
+  it('normaliza o bloco caixa do detalhe', () => {
+    const d = normalizarDreMesDetalhe({ mes: '2026-10', atual: linhaAntiga, caixa: { saldo_inicio_mes: '12500.5', saldo_abertura: 10000, data_corte: '2026-10-01T00:00:00Z', origem: 'caixa' } }, '2026-10')
+    expect(d.caixa).toEqual({ saldo_inicio_mes: 12500.5, saldo_abertura: 10000, data_corte: '2026-10-01', origem: 'caixa' })
+  })
+  it('backend sem caixa: null; origem desconhecida vira padrao; corte inválido vira null', () => {
+    expect(normalizarDreMesDetalhe({ mes: '2026-10', atual: linhaAntiga }, '2026-10').caixa).toBeNull()
+    expect(normalizarCaixa(undefined)).toBeNull()
+    expect(normalizarCaixa({ saldo_inicio_mes: 5, origem: 'x', data_corte: 'abc' })).toEqual({ saldo_inicio_mes: 5, saldo_abertura: 0, data_corte: null, origem: 'padrao' })
   })
 })
 

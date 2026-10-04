@@ -21,16 +21,16 @@ describe('condicoes-vencimento', () => {
 
   it('lê vencimento com fallback no padrão e prefixo comercial_', () => {
     expect(vencimentoDaCondicao(null)).toEqual({
-      fixo_vencimento_dia: 5, fixo_vencimento_mes_offset: 1, comissao_vencimento_dia: 5, comissao_vencimento_mes_offset: 1,
+      fixo_vencimento_dia: 5, fixo_vencimento_mes_offset: 1, comissao_vencimento_dia: 5, comissao_vencimento_mes_offset: 1, comissao_janela_inicio_dia: 1,
     })
     expect(vencimentoDaCondicao({ comercial_fixo_vencimento_dia: 10, comercial_fixo_vencimento_mes_offset: 0, comissao_vencimento_dia: '15', comissao_vencimento_mes_offset: 1 })).toEqual({
-      fixo_vencimento_dia: 10, fixo_vencimento_mes_offset: 0, comissao_vencimento_dia: 15, comissao_vencimento_mes_offset: 1,
+      fixo_vencimento_dia: 10, fixo_vencimento_mes_offset: 0, comissao_vencimento_dia: 15, comissao_vencimento_mes_offset: 1, comissao_janela_inicio_dia: 1,
     })
   })
 
   it('parseia o formulário e recusa dia inválido', () => {
     const ok = parseVencimentoForm({ fixo_vencimento_dia: '10', fixo_vencimento_mes_offset: '0', comissao_vencimento_dia: '20', comissao_vencimento_mes_offset: '1' })
-    expect(ok).toEqual({ ok: true, value: { fixo_vencimento_dia: 10, fixo_vencimento_mes_offset: 0, comissao_vencimento_dia: 20, comissao_vencimento_mes_offset: 1 } })
+    expect(ok).toEqual({ ok: true, value: { fixo_vencimento_dia: 10, fixo_vencimento_mes_offset: 0, comissao_vencimento_dia: 20, comissao_vencimento_mes_offset: 1, comissao_janela_inicio_dia: 1 } })
     const bad = parseVencimentoForm({ fixo_vencimento_dia: '40', fixo_vencimento_mes_offset: '0', comissao_vencimento_dia: '20', comissao_vencimento_mes_offset: '1' })
     expect(bad.ok).toBe(false)
   })

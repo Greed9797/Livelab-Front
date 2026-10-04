@@ -1,10 +1,12 @@
 import clsx from 'clsx'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Fragment, useCallback, useState, useSyncExternalStore } from 'react'
+import { useFinanceiroConfig } from '../../hooks/useFinanceiro'
 import { useDreAnualV3, usePrefetchDreMes } from '../../hooks/useDreMes'
 import { extractErrorMessage } from '../../services/api'
 import type { PrevistoRealizado } from '../../types/financeiro'
 import type { DreLinhaV3, VisaoDre } from '../../types/financeiro-dre'
+import { formatDataBR } from '../../utils/caixa'
 import { somarPR, ZERO_PR } from '../../utils/dre-detalhe'
 import { mesLabel } from '../../utils/financeiro'
 import { formatMoney, formatPercent } from '../../utils/format'
@@ -74,6 +76,7 @@ export function DrePanel({ mes }: { mes: string }) {
   const inicio = `${ano}-01`
   const fim = `${ano}-12`
   const q = useDreAnualV3(inicio, fim)
+  const config = useFinanceiroConfig()
   const prefetch = usePrefetchDreMes()
   const sm = useMinWidth(640)
   const lg = useMinWidth(1024)
@@ -106,6 +109,7 @@ export function DrePanel({ mes }: { mes: string }) {
       ? ([{ key: 'aportes', label: 'Aportes', sinal: '·', sel: (m) => m.aportes, informativa: true, dica: 'Fora do resultado' }] satisfies Coluna[])
       : []),
   ]
+  const dataCorte = config.data?.data_corte && config.data.data_corte.slice(0, 4) === String(ano) ? config.data.data_corte : null
   const nCols = colunas.length + 1
 
   const t = dre.totais
@@ -173,6 +177,12 @@ export function DrePanel({ mes }: { mes: string }) {
             />
           </div>
         </header>
+
+        {dataCorte ? (
+          <p className="border-b border-line bg-[var(--info-soft)] px-4 py-2 text-xs text-[var(--info)] sm:px-5">
+            Saldo de caixa no início: abertura de {formatMoney(config.data?.saldo_abertura ?? 0)} em {formatDataBR(dataCorte)}. Informativo, fora do resultado; o saldo de cada mês está no detalhe.
+          </p>
+        ) : null}
 
         {dre.meses.length === 0 ? (
           <div className="p-5">

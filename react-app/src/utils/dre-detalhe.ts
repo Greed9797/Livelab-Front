@@ -7,6 +7,7 @@ import type {
   DreAnualV3,
   DreApresentadoraFixo,
   DreApresentadoraVariavel,
+  DreCaixa,
   DreDeltas,
   DreDetalheCliente,
   DreDetalheGrupo,
@@ -18,6 +19,7 @@ import type {
   ReceitaPartes,
   VisaoDre,
 } from '../types/financeiro-dre'
+import { isDataISO } from './caixa'
 import { grupoLabel, isMes, normalizarDre, shiftMes } from './financeiro'
 import { asNumber } from './format'
 
@@ -121,6 +123,19 @@ function totalDeItens(itens: DreDetalheItem[]): PrevistoRealizado {
   return {
     previsto: r2(itens.reduce((s, i) => s + i.previsto, 0)),
     realizado: r2(itens.reduce((s, i) => s + i.realizado, 0)),
+  }
+}
+
+/** `caixa` do detalhe do mês: null quando o backend não manda. */
+export function normalizarCaixa(v: unknown): DreCaixa | null {
+  const r = rec(v)
+  if (r.saldo_inicio_mes == null && r.saldo_abertura == null) return null
+  const corte = str(r.data_corte)?.slice(0, 10)
+  return {
+    saldo_inicio_mes: asNumber(r.saldo_inicio_mes),
+    saldo_abertura: asNumber(r.saldo_abertura),
+    data_corte: corte && isDataISO(corte) ? corte : null,
+    origem: r.origem === 'caixa' ? 'caixa' : 'padrao',
   }
 }
 
@@ -397,6 +412,7 @@ export function normalizarDreMesDetalhe(input: unknown, mes: string): DreMesDeta
     custos_fixos: { total: fixosTotal, por_grupo: fixosGrupos, apresentadoras_fixo: apresFixo },
     custos_variaveis: { total: varTotal, por_grupo: varGrupos, apresentadoras_variavel: apresVar, imposto },
     aportes: arr(raw.aportes).map(normalizarItem),
+    caixa: normalizarCaixa(raw.caixa),
     encerrados: coletarEncerrados(raw, [avulsas, ...fixosGrupos.map((g) => g.itens), ...varGrupos.map((g) => g.itens)]),
     margem: { contribuicao, pct },
   }

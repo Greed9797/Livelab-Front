@@ -101,3 +101,9 @@ export function montarPayloadReceitaAvulsa(f: ReceitaAvulsaFormInput, opts: { pe
   }
   return { ok: true, payload }
 }
+
+/** Frase do bloco Caixa do DRE: abertura (quando o corte cai no mês) e saldo de caixa no início do mês. */
+export function textoAberturaCaixa(c: { saldo_abertura: number; data_corte: string | null }, mes: string, moeda: (v: number) => string): string | null {
+  if (!c.data_corte) return null
+  return c.data_corte.slice(0, 7) === mes ? `Abertura em ${formatDataBR(c.data_corte)}: ${moeda(c.saldo_abertura)}` : `Corte em ${formatDataBR(c.data_corte)}`
+}

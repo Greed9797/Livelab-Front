@@ -7,6 +7,7 @@ import {
   filtrarClientes,
   formatPct,
   isPerdido,
+  janelaInicioDia,
   labelTipoCobranca,
   motivoPerda,
   normalizarItemVencimento,
@@ -14,6 +15,7 @@ import {
   normalizarReceitaMensal,
   notaCompetenciaVencimento,
   notaFixoOuComissao,
+  notaJanelaComissao,
   pctRecebido,
   receitaVazia,
   totaisDaVisao,
@@ -322,5 +324,22 @@ describe('receita perdida (SPEC perdas)', () => {
     expect(g).toHaveLength(1)
     expect(g[0].previsto).toBe(400)
     expect(g[0].itens).toHaveLength(2)
+  })
+})
+
+describe('janela de comissão', () => {
+  const cli = { cliente_id: 'c1', cliente_nome: 'Grupo Ação' }
+
+  it('expõe janela_inicio_dia por marca (default 1 = mês civil, inválido cai em 1)', () => {
+    expect(normalizarMarca({ marca_id: 'm1', marca_nome: 'Pure Up', janela_inicio_dia: '16' }, cli, '2026-10-01')?.janela_inicio_dia).toBe(16)
+    expect(normalizarMarca({ marca_id: 'm1', marca_nome: 'Haag' }, cli, '2026-10-01')?.janela_inicio_dia).toBe(1)
+    expect(janelaInicioDia({ janela_inicio_dia: 40 })).toBe(1)
+    expect(janelaInicioDia({ janela_inicio_dia: 0 })).toBe(1)
+  })
+
+  it('hint da janela só aparece com janela diferente de 1', () => {
+    expect(notaJanelaComissao({ janela_inicio_dia: 1 })).toBeNull()
+    expect(notaJanelaComissao({})).toBeNull()
+    expect(notaJanelaComissao({ janela_inicio_dia: 16 })).toBe('Janela 16→15 · competência = mês de início · GMV da aba Comissões é por mês civil')
   })
 })

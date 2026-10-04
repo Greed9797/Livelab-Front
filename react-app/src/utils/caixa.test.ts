@@ -6,6 +6,7 @@ import {
   montarPayloadReceitaAvulsa,
   normalizarConfig,
   precisaConfirmarAlteracao,
+  textoAberturaCaixa,
   textoCorte,
   tomSaldo,
 } from './caixa'
@@ -101,5 +102,16 @@ describe('roteamento da receita avulsa', () => {
     expect(isEditavel(av)).toBe(true)
     expect(podeExcluir(av)).toBe(true)
     expect(isEditavel({ natureza: 'receita', origem: 'comercial' })).toBe(false)
+  })
+})
+
+describe('textoAberturaCaixa', () => {
+  const moeda = (v: number) => `R$ ${v}`
+  it('mostra a abertura quando o corte cai no mês', () => {
+    expect(textoAberturaCaixa({ saldo_abertura: 1000, data_corte: '2026-10-01' }, '2026-10', moeda)).toBe('Abertura em 01/10/2026: R$ 1000')
+  })
+  it('mostra só o corte em outro mês e nada sem corte', () => {
+    expect(textoAberturaCaixa({ saldo_abertura: 1000, data_corte: '2026-10-01' }, '2026-12', moeda)).toBe('Corte em 01/10/2026')
+    expect(textoAberturaCaixa({ saldo_abertura: 0, data_corte: null }, '2026-10', moeda)).toBeNull()
   })
 })

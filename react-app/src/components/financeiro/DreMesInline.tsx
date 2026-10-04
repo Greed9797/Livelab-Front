@@ -13,6 +13,7 @@ import type {
   VisaoDre,
 } from '../../types/financeiro-dre'
 import { detalheVazio, itemEncerrado, margemPct, ordenarGrupos, participacao, tomDelta, valorVisao, variacaoPct } from '../../utils/dre-detalhe'
+import { textoAberturaCaixa } from '../../utils/caixa'
 import { formatDataCurta, grupoLabel, isStatus, mesLabel, origemLabel, shiftMes } from '../../utils/financeiro'
 import { formatMoney, formatPercent } from '../../utils/format'
 import { EmptyState, ErrorState } from '../ui/States'
@@ -368,6 +369,23 @@ function Conteudo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
           {perdidos.length ? <ul className="divide-y divide-[var(--hairline)]">{perdidos.map((i) => <ItemLinha key={i.id} item={i} visao={visao} />)}</ul> : <Vazio>Nenhuma receita perdida.</Vazio>}
           <SubTitulo visao={visao}>Custos cancelados</SubTitulo>
           {cancelados.length ? <ul className="divide-y divide-[var(--hairline)]">{cancelados.map((i) => <ItemLinha key={i.id} item={i} visao={visao} />)}</ul> : <Vazio>Nenhum custo cancelado.</Vazio>}
+        </Secao>
+      ) : null}
+
+      {d.caixa ? (
+        <Secao titulo="Caixa" visao={visao} nota="Informativo: o saldo de caixa fica fora do DRE e não entra no resultado.">
+          <dl className="grid gap-3 px-4 py-3 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-ink-muted">Saldo de caixa no início do mês</dt>
+              <dd className={clsx('num mt-0.5 text-[13px] font-medium', d.caixa.saldo_inicio_mes < 0 ? 'text-[var(--danger)]' : 'text-ink')}>{formatMoney(d.caixa.saldo_inicio_mes, true)}</dd>
+            </div>
+            {textoAberturaCaixa(d.caixa, d.mes, (v) => formatMoney(v, true)) ? (
+              <div>
+                <dt className="text-xs text-ink-muted">Configuração</dt>
+                <dd className="mt-0.5 text-[13px] font-medium text-ink">{textoAberturaCaixa(d.caixa, d.mes, (v) => formatMoney(v, true))}</dd>
+              </div>
+            ) : null}
+          </dl>
         </Secao>
       ) : null}
 

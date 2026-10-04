@@ -13,6 +13,8 @@ import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import {
   MES_OFFSET_OPTIONS,
   calcularDataVencimento,
+  previewJanelaComissao,
+  resumoJanela,
   condicaoVigente,
   parseVencimentoForm,
   resumoVencimento,
@@ -35,6 +37,7 @@ type FormState = {
   fixo_vencimento_mes_offset: string
   comissao_vencimento_dia: string
   comissao_vencimento_mes_offset: string
+  comissao_janela_inicio_dia: string
 }
 
 function formFromCondicao(c: JsonRecord | null, mesAtual: string): FormState {
@@ -52,6 +55,7 @@ function formFromCondicao(c: JsonRecord | null, mesAtual: string): FormState {
     fixo_vencimento_mes_offset: String(v.fixo_vencimento_mes_offset),
     comissao_vencimento_dia: String(v.comissao_vencimento_dia),
     comissao_vencimento_mes_offset: String(v.comissao_vencimento_mes_offset),
+    comissao_janela_inicio_dia: String(v.comissao_janela_inicio_dia),
   }
 }
 
@@ -135,6 +139,8 @@ export function CondicoesComerciaisPanel({ marcaId }: { marcaId: string }) {
   const cmOff = Number(form.comissao_vencimento_mes_offset) === 0 ? 0 : 1
   const exemploFixo = calcularDataVencimento(form.competencia || mesAtual, fx, fxOff)
   const exemploCom = calcularDataVencimento(form.competencia || mesAtual, cm, cmOff)
+  const janelaN = Number(form.comissao_janela_inicio_dia)
+  const previewJanela = previewJanelaComissao(form.competencia || mesAtual, janelaN, cm, cmOff)
   const mutErro = vencimentoMutation.error ?? novaMutation.error
 
   if (query.isLoading) return <LoadingState label="Carregando condições comerciais" />
@@ -146,7 +152,7 @@ export function CondicoesComerciaisPanel({ marcaId }: { marcaId: string }) {
         <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Condições comerciais (versionadas)</p>
         <p className="mt-1 text-[11px] text-ink-muted">
           {vigente
-            ? <>Vigente desde {formatDate(asString(vigente.inicio_vigencia, '').slice(0, 10))}: fixo {formatMoney(vigente.fixo_mensal)} ({resumoVencimento(vencimentoDaCondicao(vigente).fixo_vencimento_dia, vencimentoDaCondicao(vigente).fixo_vencimento_mes_offset)}) · comissão {resumoVencimento(vencimentoDaCondicao(vigente).comissao_vencimento_dia, vencimentoDaCondicao(vigente).comissao_vencimento_mes_offset)}.</>
+            ? <>Vigente desde {formatDate(asString(vigente.inicio_vigencia, '').slice(0, 10))}: fixo {formatMoney(vigente.fixo_mensal)} ({resumoVencimento(vencimentoDaCondicao(vigente).fixo_vencimento_dia, vencimentoDaCondicao(vigente).fixo_vencimento_mes_offset)}) · comissão {resumoVencimento(vencimentoDaCondicao(vigente).comissao_vencimento_dia, vencimentoDaCondicao(vigente).comissao_vencimento_mes_offset)}{resumoJanela(vencimentoDaCondicao(vigente).comissao_janela_inicio_dia) ? ` · ${resumoJanela(vencimentoDaCondicao(vigente).comissao_janela_inicio_dia)}` : ''}.</>
             : 'Nenhuma condição vigente cadastrada.'}
           {' '}Valores só mudam criando uma nova condição com vigência; o vencimento pode ser ajustado na versão vigente.
         </p>
@@ -220,7 +226,11 @@ export function CondicoesComerciaisPanel({ marcaId }: { marcaId: string }) {
               </select>
             </label>
           </div>
-          {exemploCom ? <p className="text-[11px] text-ink-muted">Ex.: competência {form.competencia || mesAtual} vence em {formatDate(exemploCom)}.</p> : null}
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Apuração começa no dia (1-28)</span>
+            <input className="design-input mt-2 h-11 w-full px-4" type="number" min="1" max="28" step="1" value={form.comissao_janela_inicio_dia} onChange={(e) => set('comissao_janela_inicio_dia', e.target.value)} />
+          </label>
+          {previewJanela ? <p className="text-[11px] text-ink-muted">{previewJanela}</p> : exemploCom ? <p className="text-[11px] text-ink-muted">Ex.: competência {form.competencia || mesAtual} vence em {formatDate(exemploCom)}.</p> : null}
         </fieldset>
       </div>
 

@@ -1,5 +1,5 @@
-import { BarChart3, CalendarRange, ListChecks, Percent, Plus, Receipt, Repeat, Scale, Table2, TrendingUp, Wallet, Waves } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { BarChart3, CalendarRange, ChevronDown, ListChecks, Percent, Plus, Receipt, Repeat, Scale, Settings2, Table2, TrendingUp, Wallet, Waves } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Button } from '../components/ui/Button'
@@ -145,10 +145,6 @@ export function FinanceiroPage() {
     )
   }
 
-  const mostraNovaReceita = tab === 'lancamentos' || tab === 'receita'
-  // Nas abas de custos o painel já tem os próprios botões (Novo custo / Novo recorrente).
-  const mostraNovoCusto = tab === 'lancamentos'
-
   const tabs = [
     { value: 'lancamentos' as const, label: 'Lançamentos', icon: <ListChecks className="h-4 w-4" /> },
     { value: 'receita' as const, label: 'Receita', icon: <TrendingUp className="h-4 w-4" /> },
@@ -168,22 +164,21 @@ export function FinanceiroPage() {
         actions={
           <>
             <MonthSwitcher value={mes} onChange={(v) => updateParams({ mes: v === mesAtualSP() ? null : v })} />
-            <Button variant="secondary" icon={Percent} className="min-h-11 sm:min-h-0" onClick={() => setImpostoOpen(true)} title="Alíquota de imposto">
-              Imposto {aliquota != null ? formatPercent(aliquota) : ''}
-            </Button>
-            <Button variant="secondary" icon={Wallet} className="min-h-11 sm:min-h-0" onClick={() => setCaixaOpen(true)} title="Saldo de abertura e data de corte">
-              Caixa
-            </Button>
-            {podeEscrever && mostraNovaReceita ? (
+            {podeEscrever ? (
               <Button variant="secondary" icon={Plus} className="min-h-11 sm:min-h-0" onClick={() => setReceitaModal({ kind: 'nova' })}>
                 Nova receita
               </Button>
             ) : null}
-            {podeEscrever && mostraNovoCusto ? (
+            {podeEscrever ? (
               <Button icon={Plus} className="min-h-11 sm:min-h-0" onClick={() => setCustoModal({ kind: 'novo', modo: 'pontual' })}>
                 Novo custo
               </Button>
             ) : null}
+            <ConfigurarMenu
+              impostoLabel={`Imposto${aliquota != null ? ` (${formatPercent(aliquota)})` : ''}`}
+              onImposto={() => setImpostoOpen(true)}
+              onCaixa={() => setCaixaOpen(true)}
+            />
           </>
         }
       />
@@ -247,7 +242,7 @@ export function FinanceiroPage() {
 
       {tab === 'dre' ? <DrePanel key={mes.slice(0, 4)} mes={mes} /> : null}
 
-      {tab === 'fluxo' ? <FluxoCaixaPanel mes={mes} itensMes={itens} /> : null}
+      {tab === 'fluxo' ? <FluxoCaixaPanel mes={mes} itensMes={itens} onConfigurarCaixa={() => setCaixaOpen(true)} /> : null}
 
       {tab === 'receita' ? <ReceitaPanel mes={mes} podeEscrever={podeEscrever} /> : null}
 
@@ -272,7 +267,12 @@ export function FinanceiroPage() {
           </section>
           <PresenterSettlement mes={mes} />
           <section className="space-y-3">
-            <p className="text-base font-bold text-ink">Receita calculada por marca</p>
+            <div>
+              <p className="text-base font-bold text-ink">Receita calculada por marca</p>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                GMV por mês civil; marcas com janela de apuração aparecem na aba Receita pela competência da janela.
+              </p>
+            </div>
             <ComissoesTab periodo={periodo} podeReprocessar={podeReprocessar} />
           </section>
         </div>
@@ -340,6 +340,42 @@ export function FinanceiroPage() {
         onClose={() => setImpostoOpen(false)}
         onSaved={(msg) => toastOk(msg)}
       />
+    </div>
+  )
+}
+
+/** Menu do header: configurações que valem para todas as abas (imposto e caixa). */
+function ConfigurarMenu({ impostoLabel, onImposto, onCaixa }: { impostoLabel: string; onImposto: () => void; onCaixa: () => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    function close(e: MouseEvent | KeyboardEvent) {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', close)
+    }
+  }, [open])
+  const item = 'flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-surface-muted sm:min-h-0'
+  return (
+    <div className="relative" ref={ref}>
+      <Button variant="secondary" icon={Settings2} className="min-h-11 sm:min-h-0" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        Configurar <ChevronDown className="h-4 w-4" aria-hidden />
+      </Button>
+      {open ? (
+        <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-60 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-[var(--shadow-card-lg)]">
+          <button role="menuitem" type="button" className={item} onClick={() => { setOpen(false); onImposto() }}>
+            <Percent className="h-4 w-4 text-ink-muted" /> {impostoLabel}
+          </button>
+          <button role="menuitem" type="button" className={item} onClick={() => { setOpen(false); onCaixa() }}>
+            <Wallet className="h-4 w-4 text-ink-muted" /> Caixa (abertura e corte)
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

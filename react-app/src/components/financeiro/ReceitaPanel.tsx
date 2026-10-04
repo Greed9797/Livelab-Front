@@ -39,7 +39,9 @@ import {
   labelTipoCobranca,
   motivoPerda,
   notaCompetenciaVencimento,
+  janelaInicioDia,
   notaFixoOuComissao,
+  notaJanelaComissao,
   pctRecebido,
   receitaVazia,
   rotuloComponente,
@@ -309,6 +311,7 @@ function ApuracaoLinha({ m }: { m: ReceitaMarca }) {
 
 function MarcaBloco({ m, ...acoes }: Acoes & { m: ReceitaMarca }) {
   const nota = notaFixoOuComissao(m)
+  const notaJanela = janelaInicioDia(m) !== 1 ? notaJanelaComissao(m) : null
   const semTitulos = !m.fixo && !m.comissao && !m.em_apuracao
   return (
     <li className="border-t border-[var(--hairline)] first:border-t-0">
@@ -329,6 +332,7 @@ function MarcaBloco({ m, ...acoes }: Acoes & { m: ReceitaMarca }) {
         </dl>
       </div>
       {nota ? <p className="px-4 pt-1 text-[11px] text-[var(--text-secondary)] sm:px-5">{nota}</p> : null}
+      {notaJanela ? <p className="px-4 pt-1 text-[11px] text-[var(--text-secondary)] sm:px-5">{notaJanela}</p> : null}
       <ul className="pb-1" aria-label={`Títulos de ${m.marca_nome}`}>
         {m.fixo ? <TituloLinha t={m.fixo} {...acoes} /> : null}
         {m.comissao ? <TituloLinha t={m.comissao} {...acoes} /> : m.em_apuracao ? <ApuracaoLinha m={m} /> : null}

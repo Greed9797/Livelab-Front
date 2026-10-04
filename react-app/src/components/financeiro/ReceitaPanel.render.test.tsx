@@ -67,3 +67,29 @@ describe('ReceitaPanel smoke', () => {
     expect(await screen.findByText('Lançar receita')).toBeTruthy()
   })
 })
+
+describe('ReceitaPanel janela', () => {
+  it('mostra o hint da janela só na marca com janela diferente de 1', async () => {
+    const mod = await import('../../services/financeiro-receita')
+    const comJanela = {
+      ...raw,
+      competencia: {
+        ...raw.competencia,
+        clientes: [{ cliente_id: 'c1', cliente_nome: 'Grupo Ação', marcas: [
+          { marca_id: 'm1', marca_nome: 'Pure Up', tipo_cobranca: 'fixo_mais_comissao', pct: 10, gmv: 0, comissao_bruta: null, janela_inicio_dia: 16,
+            fixo: { id: 'calc:9', componente: 'fixo', valor_previsto: 1000, valor_pago: 0, data_vencimento: '2026-10-05', competencia: '2026-09-01' }, comissao: null },
+        ] }],
+      },
+    }
+    vi.mocked(mod.getReceitaMensal).mockResolvedValueOnce(normalizarReceitaMensal(comJanela, '2026-09'))
+    render(<QueryClientProvider client={new QueryClient()}><ToastProvider><ReceitaPanel mes="2026-09" podeEscrever /></ToastProvider></QueryClientProvider>)
+    expect(await screen.findByText('Pure Up')).toBeTruthy()
+    expect(screen.getByText(/Janela 16→15/)).toBeTruthy()
+  })
+
+  it('sem janela (mês civil) não mostra o hint', async () => {
+    render(<QueryClientProvider client={new QueryClient()}><ToastProvider><ReceitaPanel mes="2026-09" podeEscrever /></ToastProvider></QueryClientProvider>)
+    expect(await screen.findByText('Grupo Ação')).toBeTruthy()
+    expect(screen.queryByText(/Janela \d+→/)).toBeNull()
+  })
+})
