@@ -78,7 +78,7 @@ test('franqueado navega entre apuração e regras dentro de Financeiro', async (
   expect(writes).toEqual([])
 })
 
-test('master mantém somente regras sem montar as consultas de apuração', async ({ page }) => {
+test('master abre as regras sem consultas de apuração e acessa Financeiro pelo menu próprio', async ({ page }) => {
   const { calls, writes } = await setup(page, 'franqueador_master')
   await page.goto('/comissoes/config')
   await expect(page).toHaveURL(/\/financeiro\/comissoes\/regras$/)
@@ -88,8 +88,9 @@ test('master mantém somente regras sem montar as consultas de apuração', asyn
   expect(calls).not.toContain('/v1/comissoes/apresentadoras')
   expect(calls).not.toContain('/v1/comissoes/marcas')
   await page.goto('/financeiro?tab=comissoes')
-  await expect(page).toHaveURL(/\/master$/)
-  expect(calls.some(path => path.startsWith('/v1/financeiro/'))).toBe(false)
+  // Desde 6a1709c o master entra em /financeiro (financeiroPageRoles), em vez de ser redirecionado para /master.
+  await expect(page).toHaveURL(/\/financeiro\?tab=comissoes$/)
+  await expect(page.getByRole('heading', { name: 'Comissões do período' })).toBeVisible()
   expect(writes).toEqual([])
 })
 
