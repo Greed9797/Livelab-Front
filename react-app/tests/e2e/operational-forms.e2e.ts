@@ -31,6 +31,8 @@ const marca = {
 
 async function setup(page: Page, onWrite?: (route: Route) => Promise<void>, theme = 'light', papel = 'franqueado') {
   const unexpectedWrites: string[] = []
+  // As condições da fixture são relativas a set/2026 (2026-10 = futura); congela o relógio para não depender da data real.
+  await page.clock.setFixedTime(new Date('2026-09-15T15:00:00Z'))
   await page.addInitScript(({ tenantId, selectedTheme, userRole }) => {
     localStorage.setItem('livelab.react.remember', 'true')
     localStorage.setItem('livelab.react.access_token', 'local-test-token')
@@ -104,6 +106,7 @@ test('programa condição comercial por competência com prévia e idempotência
   await dialog.getByLabel('Competência da condição').fill('2026-10')
   await dialog.getByLabel('Fixo mensal').fill('1.200,00')
   await dialog.getByLabel('Comissão da franquia').fill('8')
+  await dialog.getByLabel('Comissão da franqueadora').fill('2')
   await dialog.getByRole('button', { name: 'Revisar impacto', exact: true }).click()
   await expect(dialog.getByText('Prévia antes de confirmar', { exact: true })).toBeVisible()
   expect(previewPayload).toMatchObject({ inicio_vigencia: '2026-10', fixo_mensal: 1200, comissao_franquia_pct: 8 })
@@ -156,6 +159,8 @@ test('409 de revisão exige nova prévia e preserva os valores digitados', async
   await dialog.getByRole('button', { name: 'Nova competência', exact: true }).click()
   const fixed = dialog.getByLabel('Fixo mensal')
   await fixed.fill('1.500,00')
+  await dialog.getByLabel('Comissão da franquia').fill('8')
+  await dialog.getByLabel('Comissão da franqueadora').fill('2')
   await dialog.getByRole('button', { name: 'Revisar impacto', exact: true }).click()
   await dialog.getByRole('button', { name: 'Confirmar condição', exact: true }).click()
   await expect(dialog.getByRole('alert')).toContainText('A revisão da marca mudou')
