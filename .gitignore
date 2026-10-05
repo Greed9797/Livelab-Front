@@ -53,3 +53,9 @@ app.*.map.json
 # Metadados de ferramentas locais
 .serena/
 .vercel
+
+# Ferramentas locais (não versionar)
+graphify-out/
+.agent/
+.superpowers/
+.fastcontext/

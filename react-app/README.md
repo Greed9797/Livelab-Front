@@ -87,7 +87,7 @@ indicação "não gera receita" e o botão "Promover a cliente").
 - Financeiro com custos, faturamento, fluxo de caixa, boletos e tela detalhada de cobranças.
 - Analytics e base de conhecimento em modo leitura.
 - API client centralizado em `src/services/api.ts`.
-- Matriz de contrato em `../ROUTE_CONTRACT.md`.
+- Matriz de contrato em `../docs/legado/ROUTE_CONTRACT.md`.
 
 ## Ainda falta
 
@@ -98,7 +98,7 @@ indicação "não gera receita" e o botão "Promover a cliente").
 
 ## QA ponta a ponta
 
-O roteiro completo está em `../QA_E2E_ROTEIRO.md`.
+O roteiro completo está em `../docs/legado/QA_E2E_ROTEIRO.md`.
 
 Gates técnicos:
 
