@@ -109,8 +109,8 @@ export function useBaixaMutation() {
 export function usePerdaMutation() {
   const invalidate = useInvalidateFinanceiro()
   return useMutation({
-    mutationFn: ({ lancamento, modo, motivo }: { lancamento: Lancamento; modo: ModoPerda; motivo?: string }) =>
-      perdaLancamento(lancamento, modo, motivo),
+    mutationFn: ({ lancamento, modo, motivo, valor }: { lancamento: Lancamento; modo: ModoPerda; motivo?: string; valor?: string }) =>
+      perdaLancamento(lancamento, modo, motivo, valor),
     onSuccess: invalidate,
   })
 }

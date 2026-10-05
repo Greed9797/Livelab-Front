@@ -271,6 +271,7 @@ export function normalizarLancamento(input: unknown, hoje: string = hojeSP()): L
     virtual: Boolean(raw.virtual) || /^(calc|rec|apresentadora|imposto):/.test(str(raw.id) ?? ''),
     perdido_em: str(raw.perdido_em),
     perdido_motivo: str(raw.perdido_motivo),
+    valor_perdido: raw.valor_perdido == null ? null : asNumber(raw.valor_perdido),
     cancelado_em: str(raw.cancelado_em),
     cancelado_motivo: str(raw.cancelado_motivo),
     cancelado_por: str(raw.cancelado_por),
