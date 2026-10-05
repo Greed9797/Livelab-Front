@@ -170,7 +170,7 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar 
   const perda = isAporte(l) ? null : acoesPerda(l)
   return (
     <div className="flex items-center justify-end gap-1">
-      {perdido && perda?.podeDesfazer ? (
+      {perda?.podeDesfazer ? (
         <button
           type="button"
           onClick={() => onPerda(l, 'desfazer')}
@@ -233,7 +233,7 @@ function InfoPerda({ l }: { l: LancamentoReceita }) {
   const em = l.perdido_em ? formatDataCurta(l.perdido_em.slice(0, 10)) : null
   return (
     <span className="mt-0.5 block text-[11px] text-[var(--danger)]" title={motivo ? `Motivo: ${motivo}` : 'Sem motivo informado'}>
-      Perdido{em ? ` em ${em}` : ''} · {motivo ? `motivo: ${motivo}` : 'sem motivo informado'}
+      {isPerdido(l) ? 'Perdido' : 'Perda parcial'}{em ? ` em ${em}` : ''} · {motivo ? `motivo: ${motivo}` : 'sem motivo informado'}
     </span>
   )
 }
@@ -245,7 +245,7 @@ function ValorTitulo({ l }: { l: Lancamento }) {
       <div className="text-right">
         <p className="num text-sm font-bold text-ink-muted line-through decoration-1">{formatMoney(l.valor_previsto, true)}</p>
         <p className="num text-[11px] text-ink-muted">
-          {l.valor_pago > 0 ? `recebido ${formatMoney(l.valor_pago, true)} · ` : ''}perdido {formatMoney(aberto, true)}
+          {l.valor_pago > 0 ? `recebido ${formatMoney(l.valor_pago, true)} · ` : ''}perdido {formatMoney(l.valor_perdido ?? Math.max(0, l.valor_previsto - l.valor_pago), true)}
         </p>
       </div>
     )
@@ -253,9 +253,10 @@ function ValorTitulo({ l }: { l: Lancamento }) {
   return (
     <div className="text-right">
       <p className="num text-sm font-bold text-ink">{formatMoney(l.valor_previsto, true)}</p>
-      {l.valor_pago > 0 ? (
+      {l.valor_pago > 0 || (l.valor_perdido ?? 0) > 0 ? (
         <p className="num text-[11px] text-ink-muted">
-          recebido {formatMoney(l.valor_pago, true)}
+          {l.valor_pago > 0 ? `recebido ${formatMoney(l.valor_pago, true)}` : ''}
+          {(l.valor_perdido ?? 0) > 0 ? `${l.valor_pago > 0 ? ' · ' : ''}perdido ${formatMoney(l.valor_perdido ?? 0, true)}` : ''}
           {aberto > 0 ? ` · falta ${formatMoney(aberto, true)}` : ''}
         </p>
       ) : null}
@@ -285,7 +286,7 @@ function TituloLinha({ t, ...acoes }: Acoes & { t: TituloReceita }) {
           vence {formatDataCurta(t.data_vencimento)}
           {t.status === 'pago' && t.data_pagamento ? ` · recebido em ${formatDataCurta(t.data_pagamento)}` : ''}
         </p>
-        {isPerdido(t) ? <InfoPerda l={t} /> : null}
+        {isPerdido(t) || (t.valor_perdido ?? 0) > 0 ? <InfoPerda l={t} /> : null}
       </div>
       <span className="hidden sm:block" aria-hidden />
       <StatusChip status={t.status} natureza="receita" className="justify-self-start sm:justify-self-end" />
@@ -414,7 +415,7 @@ function AvulsaLinha({ l, onEditar, ...acoes }: Acoes & { l: LancamentoReceita; 
           {grupoLabel(l.grupo)} · vence {formatDataCurta(l.data_vencimento)}
           {l.status === 'pago' && l.data_pagamento ? ` · recebido em ${formatDataCurta(l.data_pagamento)}` : ''}
         </p>
-        {isPerdido(l) ? <InfoPerda l={l} /> : null}
+        {isPerdido(l) || (l.valor_perdido ?? 0) > 0 ? <InfoPerda l={l} /> : null}
       </div>
       <StatusChip status={l.status} natureza="receita" />
       <div className="ml-auto sm:ml-0 sm:w-36">
@@ -585,7 +586,7 @@ function VisaoVencimento({ data, ...acoes }: Acoes & { data: ReceitaMensal }) {
                         <p className="truncate text-[11px] text-ink-muted">
                           {[...meta, contextoTitulo(l)].filter(Boolean).join(' · ')}
                         </p>
-                        {isPerdido(l) ? <InfoPerda l={l} /> : null}
+                        {isPerdido(l) || (l.valor_perdido ?? 0) > 0 ? <InfoPerda l={l} /> : null}
                       </div>
                       <StatusChip status={l.status} natureza="receita" />
                       <div className="ml-auto sm:ml-0 sm:w-36">

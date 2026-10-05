@@ -67,6 +67,8 @@ export interface Lancamento {
   /** Receita perdida: quando/por quê (ISO). null/ausente = não perdida. */
   perdido_em?: string | null
   perdido_motivo?: string | null
+  /** Saldo encerrado por perda no contrato novo; null indica registro legado. */
+  valor_perdido?: number | null
   /** Custo, pagamento de apresentadora ou imposto cancelado: quando/por quê (ISO). null/ausente = não cancelado. */
   cancelado_em?: string | null
   cancelado_motivo?: string | null

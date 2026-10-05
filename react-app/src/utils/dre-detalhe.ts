@@ -402,7 +402,10 @@ export function normalizarDreMesDetalhe(input: unknown, mes: string): DreMesDeta
   }
 
   const margemRaw = rec(raw.margem)
-  const contribuicao = totalOu(margemRaw.contribuicao, subtrairPR(receitaTotal, varTotal))
+  const contribuicao = totalOu(
+    margemRaw.contribuicao,
+    subtrairPR(subtrairPR(receitaTotal, { previsto: perdasMes.receita, realizado: 0 }), varTotal),
+  )
   const pct = totalOu(margemRaw.pct, {
     previsto: margemPct(contribuicao.previsto, receitaTotal.previsto),
     realizado: margemPct(contribuicao.realizado, receitaTotal.realizado),

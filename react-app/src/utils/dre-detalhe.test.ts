@@ -183,6 +183,12 @@ describe('normalizarDreMesDetalhe', () => {
     expect(d.margem.pct).toEqual({ previsto: 84, realizado: 93.75 })
   })
 
+  it('desconta perdas da margem sintetizada como faz a API', () => {
+    const d = normalizarDreMesDetalhe({ ...raw, perdas: { receita: { valor: 1000 } } }, '2026-10')
+    expect(d.margem.contribuicao).toEqual({ previsto: 7400, realizado: 7500 })
+    expect(d.margem.pct).toEqual({ previsto: 74, realizado: 93.75 })
+  })
+
   it('respeita delta/margem da API', () => {
     const d = normalizarDreMesDetalhe({ ...raw, delta: { receita: { previsto: 1, realizado: 2 } }, margem: { pct: { previsto: 50, realizado: 40 } } }, '2026-10')
     expect(d.delta.receita).toEqual({ previsto: 1, realizado: 2 })

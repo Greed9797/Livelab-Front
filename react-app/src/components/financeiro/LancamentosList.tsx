@@ -46,22 +46,23 @@ export interface RowMenuExtra {
   onClick: () => void
 }
 
-/** Ação de perda/cancelamento do item para o menu da linha (null quando o item não aceita). */
-export function acaoPerdaMenu(l: Lancamento, abrir: (l: Lancamento, modo: ModoPerda) => void): RowMenuExtra | null {
+/** Ações disponíveis; perda parcial pode ser ampliada ou revertida. */
+export function acaoPerdaMenu(l: Lancamento, abrir: (l: Lancamento, modo: ModoPerda) => void): RowMenuExtra[] {
   const a = acoesPerda(l)
+  const extras: RowMenuExtra[] = []
   if (a.podeDesfazer) {
-    return {
+    extras.push({
       label: l.natureza === 'receita' ? 'Desfazer perda' : 'Desfazer cancelamento',
       icon: <RotateCcw className="h-4 w-4 text-ink-muted" />,
       onClick: () => abrir(l, 'desfazer'),
-    }
+    })
   }
-  if (a.podePerder) return { label: 'Dar como perdida', icon: <Ban className="h-4 w-4 text-ink-muted" />, onClick: () => abrir(l, 'perder') }
-  if (a.podeCancelar) return { label: 'Cancelar', icon: <Ban className="h-4 w-4 text-ink-muted" />, onClick: () => abrir(l, 'cancelar') }
-  return null
+  if (a.podePerder) extras.push({ label: 'Dar como perdida', icon: <Ban className="h-4 w-4 text-ink-muted" />, onClick: () => abrir(l, 'perder') })
+  if (a.podeCancelar) extras.push({ label: 'Cancelar', icon: <Ban className="h-4 w-4 text-ink-muted" />, onClick: () => abrir(l, 'cancelar') })
+  return extras
 }
 
-export function RowMenu({ onEditar, onExcluir, extra, label }: { onEditar?: () => void; onExcluir?: () => void; extra?: RowMenuExtra | null; label: string }) {
+export function RowMenu({ onEditar, onExcluir, extra, label }: { onEditar?: () => void; onExcluir?: () => void; extra?: RowMenuExtra[]; label: string }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -76,7 +77,7 @@ export function RowMenu({ onEditar, onExcluir, extra, label }: { onEditar?: () =
       document.removeEventListener('keydown', close)
     }
   }, [open])
-  if (!onEditar && !onExcluir && !extra) return null
+  if (!onEditar && !onExcluir && !extra?.length) return null
   return (
     <div className="relative" ref={ref}>
       <button
@@ -96,11 +97,11 @@ export function RowMenu({ onEditar, onExcluir, extra, label }: { onEditar?: () =
               <Pencil className="h-4 w-4 text-ink-muted" /> Editar
             </button>
           ) : null}
-          {extra ? (
-            <button role="menuitem" type="button" className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm sm:min-h-0 text-ink hover:bg-surface-muted" onClick={() => { setOpen(false); extra.onClick() }}>
-              {extra.icon} {extra.label}
+          {extra?.map((action) => (
+            <button key={action.label} role="menuitem" type="button" className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm sm:min-h-0 text-ink hover:bg-surface-muted" onClick={() => { setOpen(false); action.onClick() }}>
+              {action.icon} {action.label}
             </button>
-          ) : null}
+          ))}
           {onExcluir ? (
             <button role="menuitem" type="button" className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm sm:min-h-0 text-[var(--danger)] hover:bg-[var(--danger-soft)]" onClick={() => { setOpen(false); onExcluir() }}>
               <Trash2 className="h-4 w-4" /> Excluir
