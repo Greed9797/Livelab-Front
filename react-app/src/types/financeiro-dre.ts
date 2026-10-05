@@ -45,6 +45,8 @@ export interface DreCaixa {
 
 export interface DreMesV3 extends DreLinhaV3 {
   mes: string // YYYY-MM
+  /** Saldo de caixa no início do mês; null quando ainda não há corte/configuração. */
+  caixa: { saldo_inicio_mes: number | null }
 }
 
 export interface DreAnualV3 {

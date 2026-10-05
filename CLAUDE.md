@@ -12,6 +12,7 @@ npm run typecheck    # tsc -b
 npm run test         # vitest
 npm run build        # lint:hooks + tsc -b + vite build
 npm run e2e          # Playwright
+npm run e2e:production-smoke  # leitura em produção com E2E_BASE_URL/E2E_EMAIL/E2E_PASSWORD
 ```
 
 Backend: repositório `Livelab-back` (Fastify + Postgres com RLS), em produção no Railway.
@@ -27,8 +28,11 @@ O único app deste repositório é `react-app/` (React 18 + TypeScript + Vite). 
 - **Produção:** https://app.grupolivelab.com.br (Vercel, projeto `liveshop-saas-frontend-react`, scope `greed9797s-projects`).
 - **Deploy automático:** push em `feat/multi-apresentadora-agenda` ou `migration/react-vercel` dispara `.github/workflows/frontend-deploy.yml` (typecheck + testes + build antes; qualquer falha aborta sem publicar). Na prática os deploys recentes saem de `feat/multi-apresentadora-agenda` — parta dela para mudanças.
 - **Deploy manual (exceção):** seguir `react-app/DEPLOY-HANDOFF.md`; token em `$VERCEL_TOKEN`. **Nunca** usar `--prebuilt` (ver `AGENTS.md`).
-- Gates antes de publicar: `npm run typecheck` + `npm run test` em `react-app/`.
+- Gates antes de publicar: `npm run typecheck`, `npm run test` e `npm run build` em `react-app/`.
+- `react-app/.env.production` define `VITE_CADASTRO_UNIFICADO=true`; o workflow de produção embute a URL da API no build. Criar/editar cadastro usa `/v1/cadastros`; o acesso de login do novo cliente é criado separadamente. A flag é de build: trocar o valor exige novo deploy.
+- Smoke autenticado somente de leitura: `E2E_BASE_URL=https://app.grupolivelab.com.br E2E_EMAIL=... E2E_PASSWORD=... npm run e2e:production-smoke` em `react-app/`, com conta de teste. O teste bloqueia escritas exceto o POST de login.
 - Conferir que foi ao ar: `curl -s https://app.grupolivelab.com.br/version.json` — o timestamp `v` deve ser recente (é o ts do build).
+- Receita tem o botão **Gerar títulos**; a operação reconcilia os títulos do mês via `POST /v1/financeiro/receitas/gerar` após confirmação. O DRE anual mostra o caixa inicial por mês; sem data de corte, exibe **Não configurado**.
 - `livelab-3601f.web.app` é o app antigo (Flutter/Firebase), a desativar; produção real = `app.grupolivelab.com.br`.
 
 ### Stack React

@@ -9,13 +9,14 @@ const pr = (previsto: number, realizado: number) => ({ previsto, realizado })
 
 const setembro = {
   mes: '2026-09',
+  caixa: { saldo_inicio_mes: 8500 },
   receita: { ...pr(1450, 1450), fixo: pr(300, 300), comissao: pr(1150, 1150), avulsas: pr(0, 0) },
   custos_fixos: pr(4200, 4200),
   custos_variaveis: pr(175, 175),
   resultado: pr(-2925, -2925),
   imposto: { ...pr(0, 0), aliquota: 6, base: 0 },
 }
-const outubro = { ...setembro, mes: '2026-10', receita: { ...pr(900, 100), fixo: pr(0, 0), comissao: pr(900, 100), avulsas: pr(0, 0) } }
+const outubro = { ...setembro, mes: '2026-10', caixa: { saldo_inicio_mes: 0 }, receita: { ...pr(900, 100), fixo: pr(0, 0), comissao: pr(900, 100), avulsas: pr(0, 0) } }
 
 function detalhe(mes: string, cliente: string) {
   return {
@@ -42,7 +43,8 @@ vi.mock('../../hooks/useFinanceiro', async (importOriginal) => ({
 }))
 
 beforeEach(() => {
-  getDreMesDetalhe.mockClear()
+  getDreMesDetalhe.mockReset()
+  getDreMesDetalhe.mockImplementation(async (mes: string) => normalizarDreMesDetalhe(detalhe(mes, mes === '2026-09' ? 'Cliente Set' : 'Cliente Out'), mes))
 })
 afterEach(cleanup)
 
@@ -63,6 +65,14 @@ describe('DrePanel linhas expansíveis', () => {
     expect(botoes).toHaveLength(12)
     expect(botoes.every((b) => b.getAttribute('aria-expanded') === 'false')).toBe(true)
     expect(getDreMesDetalhe).not.toHaveBeenCalled()
+  })
+
+  it('mostra caixa inicial por mês fora do resultado, com zero real e null como Não configurado', async () => {
+    renderPanel()
+    expect(await screen.findByRole('columnheader', { name: 'Caixa inicial' })).toBeTruthy()
+    expect(screen.getByText('R$ 8.500,00')).toBeTruthy()
+    expect(screen.getByText('R$ 0,00')).toBeTruthy()
+    expect(screen.getAllByText('Não configurado').length).toBeGreaterThan(0)
   })
 
   it('expande inline sob demanda, mostra o detalhe do mês e recolhe de novo', async () => {
@@ -120,6 +130,27 @@ describe('DrePanel linhas expansíveis', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Detalhe de setembro de 2026' }))
     expect(await screen.findByText('Saldo de caixa no início do mês')).toBeTruthy()
     expect(screen.getByText(/Abertura em 01\/09\/2026/)).toBeTruthy()
+  })
+
+  it('mostra Não configurado sem data de corte e preserva zero quando o caixa foi configurado', async () => {
+    getDreMesDetalhe
+      .mockImplementationOnce(async (mes: string) => normalizarDreMesDetalhe({
+        ...detalhe(mes, 'Cliente Set'),
+        caixa: { saldo_inicio_mes: 0, saldo_abertura: 0, data_corte: null, origem: 'padrao' },
+      }, mes))
+      .mockImplementationOnce(async (mes: string) => normalizarDreMesDetalhe({
+        ...detalhe(mes, 'Cliente Out'),
+        caixa: { saldo_inicio_mes: 0, saldo_abertura: 0, data_corte: '2026-10-01', origem: 'caixa' },
+      }, mes))
+
+    renderPanel()
+    fireEvent.click(await screen.findByRole('button', { name: 'Detalhe de setembro de 2026' }))
+    const setembroDetalhe = await screen.findByTestId('dre-detalhe-2026-09')
+    await waitFor(() => expect(setembroDetalhe.textContent).toContain('Não configurado'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhe de outubro de 2026' }))
+    const outubroDetalhe = await screen.findByTestId('dre-detalhe-2026-10')
+    await waitFor(() => expect(outubroDetalhe.textContent).toContain('R$ 0,00'))
   })
 })
 

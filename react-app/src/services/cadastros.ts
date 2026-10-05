@@ -68,6 +68,13 @@ export function updateCadastro(id: string, payload: JsonRecord) {
   return apiPatch<JsonRecord>(`/cadastros/${id}`, payload)
 }
 
+/** 409 das rotas legadas quando a alteração precisa passar por /v1/cadastros. */
+export function isUseCadastroEndpoint(error: unknown): boolean {
+  if (!axios.isAxiosError(error) || error.response?.status !== 409) return false
+  const data = error.response.data as { code?: unknown } | undefined
+  return data?.code === 'USE_CADASTRO_ENDPOINT'
+}
+
 /** Transforma afiliada/própria/parceira (ou marca sem ficha) em cliente; passa a gerar receita. */
 export function promoverCadastroACliente(id: string, payload: JsonRecord = {}) {
   return apiPost<JsonRecord>(`/cadastros/${id}/promover-cliente`, payload)

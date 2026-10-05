@@ -16,6 +16,7 @@ npm run typecheck      # só tsc -b (sem bundle)
 npm run test           # vitest run (unit)
 npm run e2e            # playwright test
 npm run e2e:headed     # com browser visível
+npm run e2e:production-smoke  # smoke somente de leitura com conta de teste
 
 # Preview do build
 npm run preview
@@ -189,6 +190,9 @@ O conic sheen requer `@property --cabine-ang` (suporte: Chrome 85+, Safari 15.4+
 - **Prod:** Vercel → Railway (domínio Vercel precisa estar em `CORS_ORIGIN` do Railway)
 - **Dev local:** proxy Vite (`VITE_DEV_API_PROXY_TARGET`) contorna o CORS
 - **`VITE_API_URL`:** URL completa com `/v1`, ex: `https://liveshop-saas-api-production.up.railway.app/v1`
+- **Cadastro unificado:** `.env.production` define `VITE_CADASTRO_UNIFICADO=true` no build. A lista e os formulários de criação/edição passam a usar `/v1/cadastros`. O cadastro não cria login; o acesso deve ser criado separadamente.
+- **Receita/DRE:** “Gerar títulos” reconcilia a competência mediante confirmação. O DRE anual lê `caixa.saldo_inicio_mes`; `null` é “Não configurado”, e `0` é saldo zero.
+- **Smoke em produção:** definir `E2E_BASE_URL=https://app.grupolivelab.com.br` e credenciais de uma conta de teste via `E2E_EMAIL`/`E2E_PASSWORD`, então executar `npm run e2e:production-smoke`. Sem essas credenciais, não considerar as telas verificadas com login real.
 
 ## Referências
 

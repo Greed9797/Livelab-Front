@@ -3,6 +3,7 @@
 // Competência (padrão) = o ganho do mês, bate com DRE.receita.previsto.
 // Vencimento = o que cai no caixa no mês, bate com as entradas do fluxo de caixa.
 import clsx from 'clsx'
+import { useMutation } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Check,
@@ -14,6 +15,7 @@ import {
   Landmark,
   Pencil,
   Plus,
+  Sparkles,
   RotateCcw,
   Search,
   Undo2,
@@ -21,9 +23,10 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { type ReactNode, useMemo, useState } from 'react'
-import { useBaixaMutation } from '../../hooks/useFinanceiro'
+import { useBaixaMutation, useInvalidateFinanceiro } from '../../hooks/useFinanceiro'
 import { useReceitaMensal } from '../../hooks/useReceitaMensal'
 import { extractErrorMessage } from '../../services/api'
+import { gerarTitulosReceita } from '../../services/financeiro-receita'
 import type { Lancamento } from '../../types/financeiro'
 import type { LancamentoReceita, ReceitaCliente, ReceitaMarca, ReceitaMensal, TituloReceita, VisaoReceita } from '../../types/financeiro-receita'
 import { textoCorte } from '../../utils/caixa'
@@ -642,7 +645,24 @@ export function ReceitaPanel({ mes, podeEscrever }: { mes: string; podeEscrever:
   const [receitaModal, setReceitaModal] = useState<ReceitaModalState | null>(null)
   const [perda, setPerda] = useState<{ item: Lancamento; modo: 'perder' | 'desfazer' } | null>(null)
   const baixaMut = useBaixaMutation()
+  const invalidate = useInvalidateFinanceiro()
   const toast = useToast()
+  const gerarTitulos = useMutation({
+    mutationFn: () => gerarTitulosReceita(mes),
+    onSuccess: (raw) => {
+      invalidate()
+      const res = (raw ?? {}) as Record<string, unknown>
+      const criados = Number(res.criados ?? 0)
+      const atualizados = Number(res.atualizados ?? 0)
+      const removidos = Number(res.removidos ?? 0)
+      const perdidosPreservados = Number(res.perdidos_preservados ?? 0)
+      toast.push(
+        `Títulos gerados: ${criados} criado(s), ${atualizados} atualizado(s), ${removidos} removido(s), ${perdidosPreservados} perdido(s) preservado(s).`,
+        'success',
+      )
+    },
+    onError: (e) => toast.push(extractErrorMessage(e), 'error'),
+  })
 
   const acoes: Acoes = {
     podeEscrever,
@@ -728,6 +748,21 @@ export function ReceitaPanel({ mes, podeEscrever }: { mes: string; podeEscrever:
           {corte ? <p className="mt-0.5 text-xs text-ink-muted">{corte}</p> : null}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          {podeEscrever ? (
+            <Button
+              variant="secondary"
+              icon={Sparkles}
+              isLoading={gerarTitulos.isPending}
+              disabled={gerarTitulos.isPending}
+              onClick={() => {
+                if (!window.confirm(`Gerar e reconciliar os títulos de receita de ${mesLabel(mes)}?`)) return
+                gerarTitulos.mutate()
+              }}
+              title="Gera e reconcilia os títulos de receita do mês"
+            >
+              Gerar títulos
+            </Button>
+          ) : null}
           {visao === 'competencia' ? (
             <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" aria-hidden />

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildAfiliadoCreatePayload, buildAtivoUpdatePayload, normalizarBusca, statusLabel } from './ComercialPage'
+import { AxiosError, AxiosHeaders } from 'axios'
+import { buildAfiliadoCreatePayload, buildAtivoUpdatePayload, buildCadastroClienteCreatePayload, buildCadastroUpdatePayload, cadastroMutationErrorMessage, normalizarBusca, statusLabel } from './ComercialPage'
 
 const FINANCE_KEYS = ['comissao_franquia_pct', 'comissao_franqueadora_pct', 'valor_fixo_minimo', 'tipo_cobranca'] as const
 
@@ -97,6 +98,36 @@ describe('ComercialPage — busca e status', () => {
     expectSemFinanceiro(payload)
   })
 
+  it('monta create unificado de cliente sem campos exclusivos do legado', () => {
+    expect(buildCadastroClienteCreatePayload({
+      nome: 'Cliente', responsavel: 'Ana', whatsapp: '47999', email: 'ana@test.dev', cnpj: '', nicho: '',
+      tiktok_username: '', logo_url: '', criar_acesso: true, senha_temporaria: 'segredo',
+    })).toEqual({
+      nome: 'Cliente', tipo: 'cliente', celular: '47999', email: 'ana@test.dev', cnpj: undefined,
+      razao_social: 'Ana', nicho: undefined, tiktok_username: undefined, logo_url: undefined,
+    })
+  })
+
+  it('PATCH unificado de cliente usa status_comercial', () => {
+    expect(buildCadastroUpdatePayload('cliente', {
+      nome: 'Cliente', status: 'cancelado', email: '', celular: '47999', logo_url: '',
+    })).toEqual({
+      nome: 'Cliente', status_comercial: 'cancelado', email: undefined, celular: '47999', logo_url: null,
+    })
+  })
+
+  it('explica o 409 USE_CADASTRO_ENDPOINT sem alterar o caminho legado', () => {
+    const error = new AxiosError('Conflict', 'ERR_BAD_REQUEST', undefined, undefined, {
+      status: 409,
+      statusText: 'Conflict',
+      headers: new AxiosHeaders(),
+      config: { headers: new AxiosHeaders() },
+      data: { code: 'USE_CADASTRO_ENDPOINT' },
+    })
+    expect(cadastroMutationErrorMessage(error)).toContain('cadastro unificado')
+    expect(cadastroMutationErrorMessage(error)).toContain('Peça ao administrador')
+  })
+
   it('mantém o lápis com ação de edição separada do clique da linha', async () => {
     const source = await import('node:fs').then(({ readFileSync }) => readFileSync(new URL('./ComercialPage.tsx', import.meta.url), 'utf8'))
     expect(source).toContain('aria-label={`Editar ${asString(item.nome, \'cadastro\')}`}')
@@ -106,7 +137,7 @@ describe('ComercialPage — busca e status', () => {
   it('usa o editor temporal e não deixa o modal cadastral gravar condições legadas', async () => {
     const source = await import('node:fs').then(({ readFileSync }) => readFileSync(new URL('./ComercialPage.tsx', import.meta.url), 'utf8'))
     expect(source).toContain("import { CondicoesComerciais } from '../components/comercial/CondicoesComerciais'")
-    expect(source).toContain('const payload = kind === \'marca\'')
+    expect(source).toContain('const legacyPayload = kind === \'marca\'')
     expect(source).toContain('<CondicoesComerciais')
     expect(source).not.toContain('Valores aplicados à marca operacional nas lives e vídeos.')
     expect(source).toContain('configuracao_comercial')

@@ -12,7 +12,8 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
-    "e2e:report": "playwright show-report"
+    "e2e:report": "playwright show-report",
+    "e2e:production-smoke": "playwright test --config=playwright.production-smoke.config.ts"
   },
   "dependencies": {
     "@sentry/react": "^10.67.0",

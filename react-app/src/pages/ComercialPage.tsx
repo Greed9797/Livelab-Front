@@ -21,14 +21,14 @@ import { useToast } from '../components/ui/Toast'
 import { normalizeMoneyInputText } from '../utils/money'
 import { extractBrandColor, resolveMarcaCor } from '../utils/brandColor'
 import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getMarcaOperacional, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
-import { getCadastros, promoverCadastroACliente, retroativoDaPromocao } from '../services/cadastros'
+import { createCadastro, getCadastros, isUseCadastroEndpoint, promoverCadastroACliente, retroativoDaPromocao, updateCadastro } from '../services/cadastros'
 import { FQK } from '../services/financeiro'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
 import { getBrandImage } from '../utils/favicon'
 import { downloadCsv } from '../utils/exportCsv'
 import { chaveAgrupamentoCarteira, isCarteiraAtiva, resolverLinkCarteira, resolverMarcaPrincipal, selecionarCarteiraPorVisibilidade, type CarteiraVisibilidade } from '../utils/carteira'
-import { cadastrosParaCarteira, normalizarTipoCadastro, podePromoverACliente, tipoCadastroLabel } from '../utils/cadastro'
+import { cadastroUnificadoHabilitado, cadastrosParaCarteira, normalizarTipoCadastro, podePromoverACliente, tipoCadastroLabel } from '../utils/cadastro'
 import { CADASTRO_TIPOS, type Cadastro } from '../types/cadastro'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
@@ -183,6 +183,38 @@ export function buildAtivoUpdatePayload(kind: 'cliente' | 'marca', form: JsonRec
   }
 }
 
+export function buildCadastroClienteCreatePayload(form: typeof emptyClienteForm): JsonRecord {
+  return {
+    nome: form.nome,
+    tipo: 'cliente',
+    celular: form.whatsapp,
+    email: form.email || undefined,
+    cnpj: form.cnpj || undefined,
+    razao_social: form.responsavel || undefined,
+    nicho: form.nicho || undefined,
+    tiktok_username: form.tiktok_username || undefined,
+    logo_url: form.logo_url || undefined,
+  }
+}
+
+export function buildCadastroUpdatePayload(kind: 'cliente' | 'marca', form: JsonRecord, cor?: string | null): JsonRecord {
+  const payload = buildAtivoUpdatePayload(kind, form, cor)
+  if (kind === 'cliente') {
+    const { status, ...rest } = payload
+    return {
+      ...rest,
+      status_comercial: status,
+    }
+  }
+  return payload
+}
+
+export function cadastroMutationErrorMessage(error: unknown): string {
+  return isUseCadastroEndpoint(error)
+    ? 'Esta alteração exige o cadastro unificado. Peça ao administrador para habilitá-lo.'
+    : extractErrorMessage(error)
+}
+
 // GMV operacional = verdade das lives (gmv_mes vem de /clientes e /marcas, derivado de
 // lives+vídeos do mês). NÃO usa fat_anual (faturamento anual de contrato, dado cadastral
 // estático que não reflete as lives) — sem lives no mês, mostra 0.
@@ -228,6 +260,7 @@ export function ComercialPage() {
     queryKey: QK.cadastros(carregarInativos ? 'todos' : 'ativos'),
     queryFn: () => getCadastros({ incluirInativos: carregarInativos }),
   })
+  const cadastroUnificadoWritesAtivo = cadastroUnificadoHabilitado()
   const cadastroUnificadoAtivo = cadastrosQuery.data?.fonte === 'cadastros'
   const selectedAtivoId = asString(selectedAtivo?.id, '')
   const selectedAtivoKind = asString(selectedAtivo?.tipo_operacional) === 'cliente_ecommerce' ? 'cliente' : 'marca'
@@ -240,7 +273,7 @@ export function ComercialPage() {
   })
 
   const clienteMutation = useMutation({
-    mutationFn: createCliente,
+    mutationFn: (payload: JsonRecord) => cadastroUnificadoWritesAtivo ? createCadastro(payload) : createCliente(payload),
     onSuccess: () => {
       toast.push('Cliente criado com sucesso.', 'success')
       setClienteForm(emptyClienteForm)
@@ -253,7 +286,7 @@ export function ComercialPage() {
     },
   })
   const afiliadoMutation = useMutation({
-    mutationFn: createMarca,
+    mutationFn: (payload: JsonRecord) => cadastroUnificadoWritesAtivo ? createCadastro(payload) : createMarca(payload),
     onSuccess: () => {
       toast.push('Afiliado criado com sucesso.', 'success')
       setAfiliadoForm(emptyAfiliadoForm)
@@ -266,8 +299,10 @@ export function ComercialPage() {
     },
   })
   const ativoUpdateMutation = useMutation({
-    mutationFn: ({ id, kind, payload }: { id: string; kind: 'cliente' | 'marca'; payload: JsonRecord }) => (
-      kind === 'cliente' ? updateCliente(id, payload) : updateMarca(id, payload)
+    mutationFn: ({ id, cadastroId, kind, payload }: { id: string; cadastroId?: string; kind: 'cliente' | 'marca'; payload: JsonRecord }) => (
+      cadastroUnificadoWritesAtivo
+        ? updateCadastro(cadastroId || id, payload)
+        : kind === 'cliente' ? updateCliente(id, payload) : updateMarca(id, payload)
     ),
     onSuccess: (data, variables) => {
       if (data?.aviso === 'data_fim_expirada') {
@@ -547,7 +582,7 @@ export function ComercialPage() {
 
   function onClienteSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    clienteMutation.mutate({
+    const legacyPayload = {
       nome: clienteForm.nome,
       celular: clienteForm.whatsapp,
       email: clienteForm.email || undefined,
@@ -562,7 +597,8 @@ export function ComercialPage() {
         acesso_email: clienteForm.email,
         senha_temporaria: clienteForm.senha_temporaria,
       } : {}),
-    })
+    }
+    clienteMutation.mutate(cadastroUnificadoWritesAtivo ? buildCadastroClienteCreatePayload(clienteForm) : legacyPayload)
   }
 
   async function onAfiliadoSubmit(event: FormEvent<HTMLFormElement>) {
@@ -592,7 +628,7 @@ export function ComercialPage() {
       if (typeof cor === 'string' && ativoCorTouch === null) setAtivoForm((current) => ({ ...current, cor }))
       // Condições comerciais têm vigência própria. O modal cadastral só grava identidade;
       // qualquer alteração financeira passa pelo editor temporal abaixo.
-      const payload = kind === 'marca'
+      const legacyPayload = kind === 'marca'
         ? {
             nome: asString(ativoForm.nome, ''),
             status: asString(ativoForm.status, 'ativa'),
@@ -600,12 +636,14 @@ export function ComercialPage() {
             ...(cor !== undefined ? { cor } : {}),
           }
         : buildAtivoUpdatePayload(kind, ativoForm, cor)
-      await ativoUpdateMutation.mutateAsync({ id, kind, payload })
+      const cadastroId = asString((selectedAtivo.cadastro as Cadastro | undefined)?.marca_id, '')
+      const payload = cadastroUnificadoWritesAtivo ? buildCadastroUpdatePayload(kind, ativoForm, cor) : legacyPayload
+      await ativoUpdateMutation.mutateAsync({ id, cadastroId, kind, payload })
       toast.push(kind === 'cliente' ? 'Cadastro do cliente salvo. Condições comerciais permanecem inalteradas.' : 'Alterações salvas com sucesso.', kind === 'cliente' ? 'info' : 'success')
       ativoInitialRef.current = { ...ativoForm, ...(typeof cor === 'string' ? { cor } : {}) }
       setAtivoCorTouch(null)
     } catch (error) {
-      if (!ativoUpdateMutation.isError) toast.push(extractErrorMessage(error), 'error')
+      if (!ativoUpdateMutation.isError) toast.push(cadastroMutationErrorMessage(error), 'error')
     } finally {
       setAtivoSubmitting(false)
     }
@@ -622,8 +660,10 @@ export function ComercialPage() {
     const nextStatus = kind === 'cliente'
       ? operacional ? 'cancelado' : 'ativo'
       : operacional ? 'inativa' : 'ativa'
+    const cadastroId = asString((item.cadastro as Cadastro | undefined)?.marca_id, '')
+    const payload = cadastroUnificadoWritesAtivo && kind === 'cliente' ? { status_comercial: nextStatus } : { status: nextStatus }
     ativoUpdateMutation.mutate(
-      { id, kind, payload: { status: nextStatus } },
+      { id, cadastroId, kind, payload },
       { onSuccess: () => {
         ativoInitialRef.current = { ...ativoInitialRef.current, status: nextStatus }
         setAtivoForm((currentForm) => ({ ...currentForm, status: nextStatus }))
@@ -922,6 +962,11 @@ export function ComercialPage() {
           <label className="block"><span className="text-sm font-medium text-ink">CNPJ</span><input aria-label="CNPJ" className="design-input mt-1 h-11 w-full px-4" placeholder="CNPJ" value={clienteForm.cnpj} onChange={(event) => setClienteField('cnpj', event.target.value)} /></label>
           <label className="block"><span className="text-sm font-medium text-ink">Nicho</span><input className="design-input mt-1 h-11 w-full px-4" placeholder="Nicho" value={clienteForm.nicho} onChange={(event) => setClienteField('nicho', event.target.value)} /></label>
           <label className="block"><span className="text-sm font-medium text-ink">TikTok username</span><input className="design-input mt-1 h-11 w-full px-4" placeholder="TikTok username" value={clienteForm.tiktok_username} onChange={(event) => setClienteField('tiktok_username', event.target.value.replace(/@/g, ''))} /></label>
+          {cadastroUnificadoWritesAtivo ? (
+            <p className="rounded-2xl border border-line bg-surface-muted p-4 text-sm text-ink-muted md:col-span-2">
+              O acesso ao painel deve ser criado separadamente após salvar o cliente.
+            </p>
+          ) : (
           <section className="space-y-3 rounded-2xl border border-line bg-surface-muted p-4 md:col-span-2">
             <label className="flex items-start gap-3">
               <input
@@ -964,6 +1009,7 @@ export function ComercialPage() {
               </div>
             ) : null}
           </section>
+          )}
           <div className="md:col-span-2">
             <ImagePicker
               label="Imagem do cliente"
@@ -975,7 +1021,7 @@ export function ComercialPage() {
             />
           </div>
           {uploadClienteImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadClienteImage.error)}</p> : null}
-          {clienteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(clienteMutation.error)}</p> : null}
+          {clienteMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{cadastroMutationErrorMessage(clienteMutation.error)}</p> : null}
           <Button type="submit" isLoading={clienteMutation.isPending}>Salvar cliente</Button>
         </form>
       </Modal>
@@ -1014,7 +1060,7 @@ export function ComercialPage() {
           </div>
           <textarea aria-label="Observações" className="design-input min-h-24 px-4 py-3 md:col-span-2" placeholder="Observações" value={afiliadoForm.observacoes} onChange={(event) => setAfiliadoField('observacoes', event.target.value)} />
           {uploadAfiliadoImage.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(uploadAfiliadoImage.error)}</p> : null}
-          {afiliadoMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(afiliadoMutation.error)}</p> : null}
+          {afiliadoMutation.isError ? <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{cadastroMutationErrorMessage(afiliadoMutation.error)}</p> : null}
           <Button type="submit" isLoading={afiliadoMutation.isPending}>Salvar afiliado</Button>
         </form>
       </Modal>
@@ -1029,7 +1075,7 @@ export function ComercialPage() {
         footer={
           <>
             <UnsavedChangesNotice guard={ativoClose} />
-            {ativoUpdateMutation.isError ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{extractErrorMessage(ativoUpdateMutation.error)}</p> : null}
+            {ativoUpdateMutation.isError ? <p role="alert" className="w-full rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{cadastroMutationErrorMessage(ativoUpdateMutation.error)}</p> : null}
             <Button type="button" variant="secondary" disabled={ativoBusy} onClick={ativoClose.requestClose}>Cancelar</Button>
             <Button type="submit" form={ativoFormId} disabled={!ativoDetailQuery.data || ativoDetailQuery.isLoading} isLoading={ativoBusy}>Salvar alterações</Button>
           </>

@@ -114,6 +114,22 @@ describe('normalizarDreAnualV3', () => {
     expect(d.totais.custos_fixos).toEqual({ previsto: 3, realizado: 3 })
     expect(d.totais.classificacao).toBe('api')
   })
+
+  it('normaliza caixa mensal e preserva compatibilidade quando o bloco não existe', () => {
+    const d = normalizarDreAnualV3(
+      {
+        meses: [
+          { mes: '2026-01', ...linhaAntiga, caixa: { saldo_inicio_mes: '123.45' } },
+          { mes: '2026-02', ...linhaAntiga, caixa: { saldo_inicio_mes: 0 } },
+          { mes: '2026-03', ...linhaAntiga },
+          { mes: '2026-04', ...linhaAntiga, caixa: { saldo_inicio_mes: null } },
+          { mes: '2026-05', ...linhaAntiga, caixa: { saldo_inicio_mes: 'indisponível' } },
+        ],
+      },
+      { inicio: '2026-01', fim: '2026-12' },
+    )
+    expect(d.meses.map((m) => m.caixa.saldo_inicio_mes)).toEqual([123.45, 0, null, null, null])
+  })
 })
 
 describe('normalizarDreMesDetalhe', () => {

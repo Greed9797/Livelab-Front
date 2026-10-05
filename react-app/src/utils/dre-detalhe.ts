@@ -233,7 +233,19 @@ function somarLinhas(meses: DreLinhaV3[]): DreLinhaV3 {
 export function normalizarDreAnualV3(input: unknown, fallback: { inicio: string; fim: string }): DreAnualV3 {
   const raw = rec(input)
   const meses: DreMesV3[] = arr(raw.meses)
-    .map((m) => ({ ...normalizarLinhaV3(m), mes: (str(rec(m).mes) ?? '').slice(0, 7) }))
+    .map((m) => {
+      const item = rec(m)
+      const caixa = rec(item.caixa)
+      const saldoRaw = caixa.saldo_inicio_mes
+      const saldo = (typeof saldoRaw === 'number' || (typeof saldoRaw === 'string' && saldoRaw.trim() !== ''))
+        ? Number(saldoRaw)
+        : NaN
+      return {
+        ...normalizarLinhaV3(m),
+        mes: (str(item.mes) ?? '').slice(0, 7),
+        caixa: { saldo_inicio_mes: Number.isFinite(saldo) ? saldo : null },
+      }
+    })
     .filter((m) => isMes(m.mes))
     .sort((a, b) => a.mes.localeCompare(b.mes))
   const totaisRaw = rec(raw.totais)

@@ -1,7 +1,7 @@
 import { AxiosError, AxiosHeaders } from 'axios'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getCadastros, isEndpointCadastrosAusente, promoverCadastroACliente, resetCadastrosEndpointCache, retroativoDaPromocao } from './cadastros'
-import { apiGet, apiPost } from './api'
+import { createCadastro, getCadastros, isEndpointCadastrosAusente, isUseCadastroEndpoint, promoverCadastroACliente, resetCadastrosEndpointCache, retroativoDaPromocao, updateCadastro } from './cadastros'
+import { apiGet, apiPatch, apiPost } from './api'
 
 vi.mock('./api', () => ({
   apiDelete: vi.fn(),
@@ -32,6 +32,7 @@ function mockLegado() {
 describe('getCadastros — flag e fallback', () => {
   beforeEach(() => {
     vi.mocked(apiGet).mockReset()
+    vi.mocked(apiPatch).mockReset()
     vi.mocked(apiPost).mockReset()
     resetCadastrosEndpointCache()
   })
@@ -97,6 +98,22 @@ describe('getCadastros — flag e fallback', () => {
     vi.mocked(apiPost).mockResolvedValue({ id: 'm2' })
     await promoverCadastroACliente('m2', { celular: '47999' })
     expect(apiPost).toHaveBeenCalledWith('/cadastros/m2/promover-cliente', { celular: '47999' })
+  })
+
+  it('create e update usam /cadastros', async () => {
+    vi.mocked(apiPost).mockResolvedValue({ id: 'm1' })
+    vi.mocked(apiPatch).mockResolvedValue({ id: 'm1' })
+    await createCadastro({ nome: 'Loja', tipo: 'afiliada' })
+    await updateCadastro('m1', { nome: 'Loja 2' })
+    expect(apiPost).toHaveBeenCalledWith('/cadastros', { nome: 'Loja', tipo: 'afiliada' })
+    expect(apiPatch).toHaveBeenCalledWith('/cadastros/m1', { nome: 'Loja 2' })
+  })
+
+  it('reconhece o 409 USE_CADASTRO_ENDPOINT das rotas legadas', () => {
+    expect(isUseCadastroEndpoint(httpError(409, { code: 'USE_CADASTRO_ENDPOINT' }))).toBe(true)
+    expect(isUseCadastroEndpoint(httpError(409, { code: 'MARCA_NOME_DUPLICADA' }))).toBe(false)
+    expect(isUseCadastroEndpoint(httpError(400, { code: 'USE_CADASTRO_ENDPOINT' }))).toBe(false)
+    expect(isUseCadastroEndpoint(new Error('x'))).toBe(false)
   })
 
   it('reconhece o 409 de condição retroativa na promoção (e só ele)', () => {

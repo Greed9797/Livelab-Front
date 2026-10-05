@@ -110,7 +110,7 @@ export function DrePanel({ mes }: { mes: string }) {
       : []),
   ]
   const dataCorte = config.data?.data_corte && config.data.data_corte.slice(0, 4) === String(ano) ? config.data.data_corte : null
-  const nCols = colunas.length + 1
+  const nCols = colunas.length + 2
 
   const t = dre.totais
   const margem = (v: number, r: number) => (r > 0 ? (v / r) * 100 : 0)
@@ -195,6 +195,9 @@ export function DrePanel({ mes }: { mes: string }) {
               <thead>
                 <tr className="border-b border-line text-[11px] uppercase tracking-[0.1em] text-ink-muted">
                   <th scope="col" className="px-3 py-3 text-left font-bold sm:px-5">Mês</th>
+                  <th scope="col" title="Informativo, fora do resultado" className="px-2 py-3 text-right font-bold sm:px-3">
+                    Caixa inicial
+                  </th>
                   {colunas.map((c) => (
                     <th key={c.key} scope="col" title={c.dica} className={clsx('px-2 py-3 text-right font-bold sm:px-3', c.destaque && 'text-ink')}>
                       {c.label}
@@ -231,6 +234,13 @@ export function DrePanel({ mes }: { mes: string }) {
                             </span>
                           </button>
                         </th>
+                        <td className="px-2 py-2 text-right opacity-80 sm:px-3">
+                          {linha?.caixa.saldo_inicio_mes == null ? (
+                            <span className="whitespace-nowrap text-[12px] text-ink-muted">Não configurado</span>
+                          ) : (
+                            <span className="num whitespace-nowrap text-[13px] font-medium text-ink">{formatMoney(linha.caixa.saldo_inicio_mes)}</span>
+                          )}
+                        </td>
                         {colunas.map((c) => (
                           <td key={c.key} className={clsx('px-2 py-2 sm:px-3', c.informativa && 'opacity-80')}>
                             <Celula v={c.sel(linha ?? VAZIA)} visao={visao} destaque={c.destaque} negativo={c.sinal === '−'} />
@@ -251,6 +261,7 @@ export function DrePanel({ mes }: { mes: string }) {
                 })}
                 <tr className="border-t-2 border-t-[var(--border-strong)] bg-[color-mix(in_srgb,var(--bg-elev-3)_60%,transparent)]">
                   <th scope="row" className="px-3 py-3 text-left text-sm font-bold text-ink sm:px-5">Total</th>
+                  <td className="px-2 py-3 text-right text-[12px] text-ink-muted sm:px-3">Informativo</td>
                   {colunas.map((c) => (
                     <td key={c.key} className="px-2 py-3 sm:px-3">
                       <Celula v={c.sel(t)} visao={visao} destaque={c.destaque || c.key === 'receita'} negativo={c.sinal === '−'} />

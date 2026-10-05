@@ -406,7 +406,9 @@ function Conteudo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
           <dl className="grid gap-3 px-4 py-3 sm:grid-cols-2">
             <div>
               <dt className="text-xs text-ink-muted">Saldo de caixa no início do mês</dt>
-              <dd className={clsx('num mt-0.5 text-[13px] font-medium', d.caixa.saldo_inicio_mes < 0 ? 'text-[var(--danger)]' : 'text-ink')}>{formatMoney(d.caixa.saldo_inicio_mes, true)}</dd>
+              <dd className={clsx('num mt-0.5 text-[13px] font-medium', d.caixa.data_corte && d.caixa.saldo_inicio_mes < 0 ? 'text-[var(--danger)]' : 'text-ink')}>
+                {d.caixa.data_corte ? formatMoney(d.caixa.saldo_inicio_mes, true) : 'Não configurado'}
+              </dd>
             </div>
             {textoAberturaCaixa(d.caixa, d.mes, (v) => formatMoney(v, true)) ? (
               <div>
