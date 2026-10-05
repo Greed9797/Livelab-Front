@@ -33,6 +33,16 @@ export interface DreLinhaV3 extends Omit<DreMes, 'mes'> {
   classificacao: 'api' | 'estimada'
 }
 
+/** Bloco informativo de caixa de um mês (fora de atual/anterior/resultado). */
+export interface DreCaixa {
+  /** Saldo de caixa no início do mês. */
+  saldo_inicio_mes: number
+  saldo_abertura: number
+  /** 'YYYY-MM-DD' do corte configurado; null = sem corte. */
+  data_corte: string | null
+  origem: 'caixa' | 'padrao'
+}
+
 export interface DreMesV3 extends DreLinhaV3 {
   mes: string // YYYY-MM
 }
@@ -49,6 +59,8 @@ export interface DreAnualV3 {
 export interface DreDetalheMarca {
   marca_id: string
   marca_nome: string
+  /** 'cliente' | 'afiliada' | 'propria' | 'parceira'; null quando o backend não informa. */
+  marca_tipo: string | null
   fixo: PrevistoRealizado
   comissao: PrevistoRealizado
   total: PrevistoRealizado
@@ -58,7 +70,8 @@ export interface DreDetalheMarca {
 }
 
 export interface DreDetalheCliente {
-  cliente_id: string
+  /** null = marca sem ficha de cliente (afiliada/própria/parceira ou cadastro antigo). */
+  cliente_id: string | null
   cliente_nome: string
   marcas: DreDetalheMarca[]
   total: PrevistoRealizado
@@ -138,6 +151,8 @@ export interface DreMesDetalheResponse {
     imposto: DreImpostoDetalhe
   }
   aportes: DreDetalheItem[]
+  /** Ausente (null) quando o backend não manda o bloco. */
+  caixa?: DreCaixa | null
   /** Itens perdidos (receita) e cancelados (custo) do mês, com status e motivo — sem duplicatas. */
   encerrados: DreDetalheItem[]
   margem: {

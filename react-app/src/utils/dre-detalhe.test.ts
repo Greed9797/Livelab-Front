@@ -3,6 +3,7 @@ import {
   detalheVazio,
   margemPct,
   normalizarAportes,
+  normalizarCaixa,
   normalizarDreAnualV3,
   normalizarDreMesDetalhe,
   normalizarItem,
@@ -189,6 +190,18 @@ describe('normalizarDreMesDetalhe', () => {
   })
 })
 
+describe('caixa (bloco informativo do mês)', () => {
+  it('normaliza o bloco caixa do detalhe', () => {
+    const d = normalizarDreMesDetalhe({ mes: '2026-10', atual: linhaAntiga, caixa: { saldo_inicio_mes: '12500.5', saldo_abertura: 10000, data_corte: '2026-10-01T00:00:00Z', origem: 'caixa' } }, '2026-10')
+    expect(d.caixa).toEqual({ saldo_inicio_mes: 12500.5, saldo_abertura: 10000, data_corte: '2026-10-01', origem: 'caixa' })
+  })
+  it('backend sem caixa: null; origem desconhecida vira padrao; corte inválido vira null', () => {
+    expect(normalizarDreMesDetalhe({ mes: '2026-10', atual: linhaAntiga }, '2026-10').caixa).toBeNull()
+    expect(normalizarCaixa(undefined)).toBeNull()
+    expect(normalizarCaixa({ saldo_inicio_mes: 5, origem: 'x', data_corte: 'abc' })).toEqual({ saldo_inicio_mes: 5, saldo_abertura: 0, data_corte: null, origem: 'padrao' })
+  })
+})
+
 describe('apresentação', () => {
   it('valorVisao, margem, participação e variação', () => {
     expect(valorVisao({ previsto: 1, realizado: 2 }, 'previsto')).toBe(1)
@@ -306,5 +319,22 @@ describe('normalizarItem — valor encerrado (perda/cancelamento)', () => {
 
   it('sem o campo vem null (backend antigo ou item normal)', () => {
     expect(normalizarItem({ id: 'x', descricao: 'Normal', previsto: 10, realizado: 0 }).valor_encerrado).toBeNull()
+  })
+})
+
+describe('normalizarDreMesDetalhe — cliente × marca', () => {
+  it('cliente_id nulo (ou sem-cliente:<marca>) fica null; nome cai na marca; marca_tipo preservado', () => {
+    const d = normalizarDreMesDetalhe({
+      mes: '2026-09',
+      receita: { por_cliente: [
+        { cliente_id: null, marcas: [{ marca_id: 'm9', marca_nome: 'Rosa', marca_tipo: 'propria', fixo: { previsto: 0, realizado: 0 }, comissao: { previsto: 10, realizado: 0 } }] },
+        { cliente_id: 'sem-cliente:m8', cliente_nome: 'Farol', marcas: [{ marca_id: 'm8', marca_nome: 'Farol' }] },
+        { cliente_id: 'c1', cliente_nome: 'Grupo', marcas: [] },
+      ] },
+    }, '2026-09')
+    expect(d.receita.por_cliente.map((c) => c.cliente_id)).toEqual([null, null, 'c1'])
+    expect(d.receita.por_cliente[0].cliente_nome).toBe('Rosa')
+    expect(d.receita.por_cliente[0].marcas[0].marca_tipo).toBe('propria')
+    expect(d.receita.por_cliente[1].marcas[0].marca_tipo).toBeNull()
   })
 })

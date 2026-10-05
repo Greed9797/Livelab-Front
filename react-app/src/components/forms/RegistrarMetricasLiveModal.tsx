@@ -12,6 +12,7 @@ import { asString } from '../../utils/format'
 import { officialLiveGmv } from '../../utils/live-gmv'
 import { formatBRLWithoutSymbol } from '../../utils/money'
 import { buildFunilPayload, buildManualLivePayload, type ManualLiveForm, validateManualCounterInput } from '../../utils/live-manual'
+import { buildLiveAccountOptions, resolveLiveAccountValue } from '../../utils/live-account'
 import { isOperationalBrand, isOperationalClient } from '../../utils/operational-status'
 import type { JsonRecord } from '../../types/models'
 
@@ -217,22 +218,24 @@ export function RegistrarMetricasLiveModal({
   const agendaBrandUnavailable = preserveAgendaBrand
     && (form.marca_id !== asString(agendaEvent?.marca_id, '') || !marcas.some((item) => asString(item.id, '') === form.marca_id))
 
-  const clientesComMarca = useMemo(() => new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean)), [marcas])
   const accountOptions = useMemo(() => form.tipo === 'afiliado'
     ? marcas
       .filter((marca) => isOperationalBrand(marca) || asString(marca.id, '') === form.marca_id)
       .filter((marca) => ['afiliada', 'parceira', 'propria'].includes(asString(marca.tipo, '')))
       .map((marca) => ({ value: `marca:${asString(marca.id, '')}`, label: `${asString(marca.nome ?? marca.cliente_nome, 'Afiliada')}${isOperationalBrand(marca) ? '' : ' (inativa)'}` }))
-    : [
-      ...marcas
-        .filter((marca) => (isOperationalBrand(marca) || asString(marca.id, '') === form.marca_id) && asString(marca.tipo, 'cliente') === 'cliente')
-        .map((marca) => ({ value: `marca:${asString(marca.id, '')}`, label: `${asString(marca.nome ?? marca.cliente_nome, 'Marca')}${isOperationalBrand(marca) ? '' : ' (inativa)'}` })),
-      ...clientes
-        .filter((cliente) => (isOperationalClient(cliente) || asString(cliente.id, '') === form.cliente_id) && !clientesComMarca.has(asString(cliente.id, '')))
-        .map((cliente) => ({ value: `cliente:${asString(cliente.id, '')}`, label: `${asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente')}${isOperationalClient(cliente) ? '' : ' (inativo)'}` })),
-    ], [clientes, clientesComMarca, form.cliente_id, form.marca_id, form.tipo, marcas])
+    // Uma opção por cadastro (marca:<id>); cliente:<id> só para ficha sem nenhuma marca.
+    : buildLiveAccountOptions({
+      marcas,
+      clientes,
+      incluirMarca: (marca) => (isOperationalBrand(marca) || asString(marca.id, '') === form.marca_id || (Boolean(form.cliente_id) && asString(marca.cliente_id, '') === form.cliente_id))
+        && asString(marca.tipo, 'cliente') === 'cliente',
+      incluirCliente: (cliente) => isOperationalClient(cliente) || asString(cliente.id, '') === form.cliente_id,
+      marcaLabel: (marca) => `${asString(marca.nome ?? marca.cliente_nome, 'Marca')}${isOperationalBrand(marca) ? '' : ' (inativa)'}`,
+      clienteLabel: (cliente) => `${asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente')}${isOperationalClient(cliente) ? '' : ' (inativo)'}`,
+    }), [clientes, form.cliente_id, form.marca_id, form.tipo, marcas])
 
-  const accountValue = form.marca_id ? `marca:${form.marca_id}` : form.cliente_id ? `cliente:${form.cliente_id}` : ''
+  // Valor antigo cliente:<id> aparece como a marca principal, se ela estiver entre as opções.
+  const accountValue = resolveLiveAccountValue(form, marcas, accountOptions)
   const apresentadorasDisponiveis = useMemo(() => {
     if (!form.apresentador_id || apresentadoras.some((item) => asString(item.id ?? item.apresentadora_id, '') === form.apresentador_id)) return apresentadoras
     return [...apresentadoras, { id: form.apresentador_id, nome: asString(live?.apresentadora_nome ?? agendaEvent?.apresentadora_nome, 'Apresentadora'), ativo: true, historico_inativo: true }]

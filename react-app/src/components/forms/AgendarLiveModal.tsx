@@ -13,6 +13,8 @@ import { asArray, asNumber, asString } from '../../utils/format'
 import { presenterProfileId } from '../../utils/presenters'
 import { isOperationalBrand, isOperationalClient, isOperationalPresenter } from '../../utils/operational-status'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
+import { buildLiveAccountOptions, liveAccountValue } from '../../utils/live-account'
+import { tipoCadastroLabel } from '../../utils/cadastro'
 import type { AgendaTurno, JsonRecord } from '../../types/models'
 
 export type AgendarLiveModalMode = 'create' | 'edit' | 'now'
@@ -50,6 +52,8 @@ type AgendaFormTextKey = Exclude<keyof AgendaForm, 'turnos'>
 type LookupOption = {
   value: string
   label: string
+  /** Tipo do cadastro (cliente/afiliada/propria/parceira) para o rótulo lateral. */
+  tipo?: string
 }
 
 type AccountComboboxProps = {
@@ -417,7 +421,7 @@ function AccountCombobox({ value, options, required, invalid, onChange, onSelect
             >
               <span className="truncate">{option.label}</span>
               <span className="ml-2 shrink-0 text-[10px] uppercase tracking-wide text-ink-muted">
-                {option.value.startsWith('marca:') ? 'marca' : 'cliente'}
+                {tipoCadastroLabel(option.tipo ?? 'cliente')}
               </span>
             </button>
           ))}
@@ -477,24 +481,22 @@ export function AgendarLiveModal({
   const [turnoFalha, setTurnoFalha] = useState<TurnoFalha | null>(null)
   const [gravandoTurnos, setGravandoTurnos] = useState(false)
 
-  const clientesComMarca = useMemo(() => new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean)), [marcas])
-  const accountOptions = useMemo<LookupOption[]>(() => [
-    ...marcas.filter(isOperationalBrand).map((marca) => ({
-      value: `marca:${asString(marca.id, '')}`,
-      label: asString(marca.nome ?? marca.cliente_nome, 'Marca'),
-    })),
-    ...clientes
-      .filter((cliente) => isOperationalClient(cliente) && !clientesComMarca.has(asString(cliente.id, '')))
-      .map((cliente) => ({
-        value: `cliente:${asString(cliente.id, '')}`,
-        label: asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente'),
-      })),
-  ].filter((option) => option.value !== 'marca:' && option.value !== 'cliente:'), [clientes, clientesComMarca, marcas])
+  // Uma opção por cadastro (marca:<id>); cliente:<id> só para ficha sem nenhuma marca.
+  const accountOptions = useMemo<LookupOption[]>(() => buildLiveAccountOptions({
+    marcas,
+    clientes,
+    incluirMarca: isOperationalBrand,
+    incluirCliente: isOperationalClient,
+    marcaLabel: (marca) => asString(marca.nome ?? marca.cliente_nome, 'Marca'),
+    // Evento com marca histórica: a ficha dessa marca não vira uma segunda opção.
+    ocultarClienteIds: mode === 'edit' && event?.marca_id && event?.cliente_id ? [asString(event.cliente_id, '')] : [],
+  }), [clientes, event?.cliente_id, event?.marca_id, marcas, mode])
   const accountOptionsWithHistorical = useMemo<LookupOption[]>(() => {
     if (mode !== 'edit' || !event) return accountOptions
     const marcaId = asString(event.marca_id, '')
     const clienteId = asString(event.cliente_id, '')
-    const value = marcaId ? `marca:${marcaId}` : clienteId ? `cliente:${clienteId}` : ''
+    // Evento antigo só com cliente_id resolve para a marca principal do cliente.
+    const value = liveAccountValue({ marcaId, clienteId }, marcas)
     if (!value || accountOptions.some((option) => option.value === value)) return accountOptions
     const name = asString(event.marca_nome ?? event.cliente_nome, marcaId ? 'Marca da agenda' : 'Cliente da agenda')
     return [{ value, label: `${name} (inativo)` }, ...accountOptions]
@@ -578,7 +580,7 @@ export function AgendarLiveModal({
       }
       initialFormRef.current = nextForm
       setForm(nextForm)
-      setAccountLookup(optionLabel(accountOptionsWithHistorical, nextForm.marca_id ? `marca:${nextForm.marca_id}` : nextForm.cliente_id ? `cliente:${nextForm.cliente_id}` : ''))
+      setAccountLookup(optionLabel(accountOptionsWithHistorical, liveAccountValue({ marcaId: nextForm.marca_id, clienteId: nextForm.cliente_id }, marcas)))
       return
     }
 

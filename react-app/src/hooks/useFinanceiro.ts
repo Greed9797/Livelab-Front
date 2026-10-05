@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { type QueryClient, keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   BaixaPayload,
   CustoParceladoPayload,
@@ -84,15 +84,17 @@ export function useCustosRecorrentes(enabled = true) {
   return useQuery({ queryKey: FQK.recorrentes, queryFn: getCustosRecorrentes, enabled })
 }
 
-/** Invalida tudo que depende de lançamentos (novo financeiro + telas legadas que leem resumo/fluxo). */
+/** Invalida tudo que depende de lançamentos (novo financeiro + telas legadas que leem resumo/fluxo). Função pura: serve a quem não está no financeiro (ex.: Configurações → apresentadora). */
+export function invalidateFinanceiro(client: QueryClient) {
+  void client.invalidateQueries({ queryKey: FQK.all })
+  void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
+  void client.invalidateQueries({ queryKey: QK.financeiroFluxo() })
+  void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
+}
+
 export function useInvalidateFinanceiro() {
   const client = useQueryClient()
-  return () => {
-    void client.invalidateQueries({ queryKey: FQK.all })
-    void client.invalidateQueries({ queryKey: QK.financeiroResumo() })
-    void client.invalidateQueries({ queryKey: QK.financeiroFluxo() })
-    void client.invalidateQueries({ queryKey: QK.financeiroOperacional() })
-  }
+  return () => invalidateFinanceiro(client)
 }
 
 export function useBaixaMutation() {

@@ -2,11 +2,18 @@ import { describe, expect, it } from 'vitest'
 import { rotaBaixa } from './financeiro'
 import {
   agruparPorVencimento,
+  avisoMarcaNaoCliente,
   calcularAReceberMes,
+  chaveClienteReceita,
+  complementoMarcaUnica,
+  marcaUnicaDoCliente,
+  nomeLinhaCliente,
+  normalizarCliente,
   contextoTitulo,
   filtrarClientes,
   formatPct,
   isPerdido,
+  janelaInicioDia,
   labelTipoCobranca,
   motivoPerda,
   normalizarItemVencimento,
@@ -14,6 +21,7 @@ import {
   normalizarReceitaMensal,
   notaCompetenciaVencimento,
   notaFixoOuComissao,
+  notaJanelaComissao,
   pctRecebido,
   receitaVazia,
   totaisDaVisao,
@@ -149,6 +157,15 @@ describe('marca e títulos', () => {
     const m = normalizarMarca({ marca_id: 'm', marca_nome: 'M', pct: 8, gmv: 1000, fixo: null, comissao: null }, cli)!
     expect(m.em_apuracao).toBe(true)
     expect(m.comissao).toBeNull()
+  })
+
+  it('marca não-cliente (título antigo) recebe aviso; cliente e backend sem o campo, não', () => {
+    const propria = normalizarMarca({ marca_id: 'm', marca_nome: 'Rosa', marca_tipo: 'propria', gmv: 80000 }, cli)!
+    expect(propria.marca_tipo).toBe('propria')
+    expect(avisoMarcaNaoCliente(propria)).toMatch(/^Marca própria: o GMV dela não é receita da casa/)
+    expect(avisoMarcaNaoCliente({ marca_tipo: 'afiliada' })).toMatch(/^Marca afiliada/)
+    expect(avisoMarcaNaoCliente({ marca_tipo: 'cliente' })).toBeNull()
+    expect(avisoMarcaNaoCliente(normalizarMarca({ marca_id: 'm', marca_nome: 'M' }, cli)!)).toBeNull()
   })
 
   it('respeita em_apuracao explícito e deriva pct do GMV quando falta', () => {
@@ -322,5 +339,58 @@ describe('receita perdida (SPEC perdas)', () => {
     expect(g).toHaveLength(1)
     expect(g[0].previsto).toBe(400)
     expect(g[0].itens).toHaveLength(2)
+  })
+})
+
+describe('cliente × marca (cadastro unificado)', () => {
+  const marca = (id: string, nome: string, extra: Record<string, unknown> = {}) => ({ marca_id: id, marca_nome: nome, tipo_cobranca: 'fixo_mais_comissao', pct: 10, gmv: 0, ...extra })
+
+  it('marca sem cliente não ganha cliente_id inventado e usa o nome da marca', () => {
+    const c = normalizarCliente({ cliente_id: null, cliente_nome: null, marcas: [marca('m9', 'Rosa')] }, '2026-10-01')!
+    expect(c.cliente_id).toBe('')
+    expect(c.cliente_nome).toBe('Rosa')
+    const sintetico = normalizarCliente({ cliente_id: 'sem-cliente:m9', cliente_nome: 'Rosa', marcas: [marca('m9', 'Rosa', { fixo: { id: 'calc:1', componente: 'fixo', valor_previsto: 10 } })] }, '2026-10-01')!
+    expect(sintetico.cliente_id).toBe('')
+    expect(sintetico.marcas[0].fixo?.cliente_id ?? null).toBeNull()
+    expect(normalizarCliente({ id: 'c1', nome: 'Grupo', marcas: [] }, '2026-10-01')!.cliente_id).toBe('c1')
+  })
+
+  it('chave de lista: cliente; sem cliente, a marca (não colide entre marcas sem ficha)', () => {
+    const a = normalizarCliente({ cliente_id: null, cliente_nome: 'Sem cliente', marcas: [marca('m1', 'A')] }, '2026-10-01')!
+    const b = normalizarCliente({ cliente_id: null, cliente_nome: 'Sem cliente', marcas: [marca('m2', 'B')] }, '2026-10-01')!
+    expect(chaveClienteReceita(a)).toBe('marca:m1')
+    expect(chaveClienteReceita(b)).toBe('marca:m2')
+    expect(chaveClienteReceita({ cliente_id: 'c1', cliente_nome: 'X', marcas: [] })).toBe('c1')
+    expect(chaveClienteReceita({ cliente_id: '', cliente_nome: 'X', marcas: [] })).toBe('nome:X')
+  })
+
+  it('uma marca → linha única; complemento só quando o nome da marca difere', () => {
+    expect(marcaUnicaDoCliente({ marcas: [1] })).toBe(1)
+    expect(marcaUnicaDoCliente({ marcas: [1, 2] })).toBeNull()
+    expect(marcaUnicaDoCliente({ marcas: [] })).toBeNull()
+    expect(complementoMarcaUnica('Grupo Ação', 'Haag')).toBe('Haag')
+    expect(complementoMarcaUnica('Haag', 'haag')).toBeNull()
+    expect(complementoMarcaUnica('Ação', 'Acao')).toBeNull()
+    expect(complementoMarcaUnica('X', null)).toBeNull()
+    expect(nomeLinhaCliente({ cliente_id: '', cliente_nome: 'Sem cliente', marcas: [{ marca_nome: 'Farol' }] })).toBe('Farol')
+    expect(nomeLinhaCliente({ cliente_id: null, cliente_nome: 'Sem cliente', marcas: [{ marca_nome: 'A' }, { marca_nome: 'B' }] })).toBe('Sem cliente')
+    expect(nomeLinhaCliente({ cliente_id: 'c1', cliente_nome: 'Grupo', marcas: [{ marca_nome: 'Haag' }] })).toBe('Grupo')
+  })
+})
+
+describe('janela de comissão', () => {
+  const cli = { cliente_id: 'c1', cliente_nome: 'Grupo Ação' }
+
+  it('expõe janela_inicio_dia por marca (default 1 = mês civil, inválido cai em 1)', () => {
+    expect(normalizarMarca({ marca_id: 'm1', marca_nome: 'Pure Up', janela_inicio_dia: '16' }, cli, '2026-10-01')?.janela_inicio_dia).toBe(16)
+    expect(normalizarMarca({ marca_id: 'm1', marca_nome: 'Haag' }, cli, '2026-10-01')?.janela_inicio_dia).toBe(1)
+    expect(janelaInicioDia({ janela_inicio_dia: 40 })).toBe(1)
+    expect(janelaInicioDia({ janela_inicio_dia: 0 })).toBe(1)
+  })
+
+  it('hint da janela só aparece com janela diferente de 1', () => {
+    expect(notaJanelaComissao({ janela_inicio_dia: 1 })).toBeNull()
+    expect(notaJanelaComissao({})).toBeNull()
+    expect(notaJanelaComissao({ janela_inicio_dia: 16 })).toBe('Janela 16→15 · competência = mês de início · GMV da aba Comissões é por mês civil')
   })
 })

@@ -20,11 +20,11 @@ const TEXTOS: Record<ModoPerda, { title: string; efeito: string; cta: string; ok
     ok: 'Receita marcada como perdida.',
   },
   cancelar: {
-    title: 'Cancelar despesa?',
+    title: 'Cancelar lançamento?',
     efeito:
-      'Sai do “a pagar” e do previsto do mês. O registro continua no histórico, com o motivo. Dá para reativar depois.',
-    cta: 'Cancelar despesa',
-    ok: 'Despesa cancelada.',
+      'Sai do a pagar e do previsto do mês; o registro fica com o motivo. Dá para reativar.',
+    cta: 'Cancelar lançamento',
+    ok: 'Lançamento cancelado.',
   },
   desfazer: {
     title: 'Desfazer?',
@@ -34,15 +34,25 @@ const TEXTOS: Record<ModoPerda, { title: string; efeito: string; cta: string; ok
   },
 }
 
+/** Nome do item no título/CTA do cancelamento; origens ausentes usam o texto neutro. */
+const NOME_CANCELAMENTO: Partial<Record<Lancamento['origem'], string>> = {
+  apresentadora: 'pagamento',
+  imposto: 'imposto',
+  manual: 'despesa',
+  recorrente: 'despesa',
+  parcela: 'despesa',
+}
+
 /** Dar como perdida (receita), cancelar (custo) ou desfazer uma dessas ações. Chama a API e fecha ao concluir. */
 export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: ModoPerda; onClose: () => void }) {
   const toast = useToast()
   const mut = usePerdaMutation()
   const [motivo, setMotivo] = useState('')
   const textos = TEXTOS[modo]
+  const nome = NOME_CANCELAMENTO[item.origem]
   const receita = item.natureza === 'receita'
-  const title = modo === 'desfazer' ? (receita ? 'Desfazer perda?' : 'Desfazer cancelamento?') : textos.title
-  const cta = modo === 'desfazer' ? (receita ? 'Desfazer perda' : 'Desfazer cancelamento') : textos.cta
+  const title = modo === 'cancelar' && nome ? `Cancelar ${nome}?` : modo === 'desfazer' ? (receita ? 'Desfazer perda?' : 'Desfazer cancelamento?') : textos.title
+  const cta = modo === 'cancelar' && nome ? `Cancelar ${nome}` : modo === 'desfazer' ? (receita ? 'Desfazer perda' : 'Desfazer cancelamento') : textos.cta
   const ok = modo === 'desfazer' ? (receita ? 'Perda desfeita.' : 'Cancelamento desfeito.') : textos.ok
   const motivoAnterior = receita ? item.perdido_motivo : item.cancelado_motivo
 

@@ -25,6 +25,7 @@ function detalhe(mes: string, cliente: string) {
     custos_fixos: { total: pr(4200, 4200), por_grupo: [{ grupo: 'estrutural', total: pr(1000, 1000), itens: [{ id: 'i1', descricao: `Aluguel ${mes}`, origem: 'recorrente', previsto: 1000, realizado: 1000, status: 'pago' }] }], apresentadoras_fixo: [{ apresentadora_id: 'a1', nome: 'Ana', previsto: 2700, realizado: 2700 }] },
     custos_variaveis: { total: pr(175, 175), por_grupo: [], apresentadoras_variavel: [], imposto: { ...pr(0, 0), aliquota: 6, base: 0 } },
     aportes: [],
+    caixa: { saldo_inicio_mes: 8500, saldo_abertura: 10000, data_corte: '2026-09-01', origem: 'caixa' },
   }
 }
 
@@ -33,6 +34,11 @@ vi.mock('../../services/financeiro-dre', () => ({
   DRE_QK: { anual: (i: string, f: string) => ['fin2', 'dre-v3', i, f], mes: (m: string) => ['fin2', 'dre-mes', m] },
   getDreAnualV3: vi.fn(async () => normalizarDreAnualV3({ inicio: '2026-01', fim: '2026-12', meses: [setembro, outubro], totais: setembro }, { inicio: '2026-01', fim: '2026-12' })),
   getDreMesDetalhe: (mes: string) => getDreMesDetalhe(mes),
+}))
+
+vi.mock('../../hooks/useFinanceiro', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../hooks/useFinanceiro')>()),
+  useFinanceiroConfig: () => ({ data: { aliquota_imposto_pct: 6, data_corte: '2026-09-01', saldo_abertura: 10000 } }),
 }))
 
 beforeEach(() => {
@@ -106,5 +112,40 @@ describe('DrePanel linhas expansíveis', () => {
     fireEvent.click(out)
     expect(await screen.findByText('Cliente Out')).toBeTruthy()
     expect(getDreMesDetalhe.mock.calls.length).toBe(chamadas)
+  })
+
+  it('mostra o caixa: linha informativa no painel e bloco no detalhe do mês', async () => {
+    renderPanel()
+    expect(await screen.findByText(/abertura de .*10\.000,00.* em 01\/09\/2026/)).toBeTruthy()
+    fireEvent.click(await screen.findByRole('button', { name: 'Detalhe de setembro de 2026' }))
+    expect(await screen.findByText('Saldo de caixa no início do mês')).toBeTruthy()
+    expect(screen.getByText(/Abertura em 01\/09\/2026/)).toBeTruthy()
+  })
+})
+
+describe('DreMesInline cliente com uma marca', () => {
+  it('uma marca → uma linha com o detalhe direto; 2 marcas → aninha; marca sem cliente usa a marca como chave', async () => {
+    getDreMesDetalhe.mockImplementationOnce(async (mes: string) => normalizarDreMesDetalhe({
+      ...detalhe(mes, 'Cliente Set'),
+      receita: { total: pr(1450, 1450), avulsas: [], por_cliente: [
+        { cliente_id: 'c1', cliente_nome: 'Cliente Set', marcas: [{ marca_id: 'm1', marca_nome: 'Loja Set', fixo: pr(300, 300), comissao: pr(250, 250), gmv: 10000, pct: 2.5 }] },
+        { cliente_id: 'c2', cliente_nome: 'Duo', marcas: [
+          { marca_id: 'm2', marca_nome: 'Duo Um', fixo: pr(100, 100), comissao: pr(0, 0), gmv: 0, pct: 0 },
+          { marca_id: 'm3', marca_nome: 'Duo Dois', fixo: pr(100, 100), comissao: pr(0, 0), gmv: 0, pct: 0 },
+        ] },
+        { cliente_id: null, cliente_nome: null, marcas: [{ marca_id: 'm8', marca_nome: 'Farol', marca_tipo: 'afiliada', fixo: pr(0, 0), comissao: pr(50, 0), gmv: 1000, pct: 5 }] },
+        { cliente_id: null, cliente_nome: null, marcas: [{ marca_id: 'm9', marca_nome: 'Rosa', marca_tipo: 'propria', fixo: pr(0, 0), comissao: pr(50, 0), gmv: 1000, pct: 5 }] },
+      ] },
+    }, mes))
+    renderPanel()
+    fireEvent.click(await screen.findByRole('button', { name: 'Detalhe de setembro de 2026' }))
+    const cliente = await screen.findByRole('button', { name: /Cliente Set/ })
+    expect(cliente.textContent).toContain('Loja Set ·')
+    expect(cliente.textContent).not.toContain('1 marca')
+    expect(screen.getByRole('button', { name: /Duo/ }).textContent).toContain('2 marcas')
+    expect(screen.getByRole('button', { name: /Farol/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Rosa/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Farol/ }))
+    expect(screen.getByText(/Marca afiliada: o GMV dela não é receita da casa/)).toBeTruthy()
   })
 })

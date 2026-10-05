@@ -20,12 +20,16 @@ import { CondicoesComerciais } from '../components/comercial/CondicoesComerciais
 import { useToast } from '../components/ui/Toast'
 import { normalizeMoneyInputText } from '../utils/money'
 import { extractBrandColor, resolveMarcaCor } from '../utils/brandColor'
-import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getClientes, getMarcaOperacional, getMarcas, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
+import { createCliente, createMarca, deleteCliente, deleteMarca, getClienteOperacional, getMarcaOperacional, updateCliente, updateMarca, uploadImageAsset } from '../services/domain'
+import { getCadastros, promoverCadastroACliente, retroativoDaPromocao } from '../services/cadastros'
+import { FQK } from '../services/financeiro'
 import { extractErrorMessage } from '../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord } from '../utils/format'
 import { getBrandImage } from '../utils/favicon'
 import { downloadCsv } from '../utils/exportCsv'
 import { chaveAgrupamentoCarteira, isCarteiraAtiva, resolverLinkCarteira, resolverMarcaPrincipal, selecionarCarteiraPorVisibilidade, type CarteiraVisibilidade } from '../utils/carteira'
+import { cadastrosParaCarteira, normalizarTipoCadastro, podePromoverACliente, tipoCadastroLabel } from '../utils/cadastro'
+import { CADASTRO_TIPOS, type Cadastro } from '../types/cadastro'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
 import { canWriteMarcas } from '../utils/access'
@@ -67,6 +71,34 @@ export function perfilOperacionalLabel(tipo: string) {
     propria: 'Marca própria',
   }
   return labels[tipo] ?? 'Marca'
+}
+
+/** Tipo do cadastro da linha da carteira (cliente/afiliada/propria/parceira). */
+export function tipoDaLinha(item: JsonRecord): string {
+  return normalizarTipoCadastro(item.cadastro_tipo ?? item.tipo_operacional ?? item.tipo)
+}
+
+/** gera_receita declarado pela API; sem ele, só tipo cliente e não-sistema gera receita. */
+export function linhaGeraReceita(item: JsonRecord): boolean {
+  if (typeof item.gera_receita === 'boolean') return item.gera_receita
+  return tipoDaLinha(item) === 'cliente' && item.sistema !== true
+}
+
+const TITULO_MARCA: Record<string, string> = {
+  afiliada: 'Marca afiliada',
+  propria: 'Marca própria',
+  parceira: 'Marca parceira',
+  cliente: 'Marca de cliente',
+}
+
+export function tituloModalMarca(item: JsonRecord | null | undefined): string {
+  return item ? TITULO_MARCA[tipoDaLinha(item)] ?? 'Marca afiliada' : 'Marca afiliada'
+}
+
+/** Cadastro da linha selecionada pode virar cliente (só com o backend unificado). */
+export function linhaPodeSerPromovida(item: JsonRecord | null | undefined): boolean {
+  const cadastro = item?.cadastro as Cadastro | undefined
+  return Boolean(cadastro) && podePromoverACliente(cadastro as Cadastro)
 }
 
 // Busca insensível a acento/caixa (client-side).
@@ -174,8 +206,11 @@ export function ComercialPage() {
   // escolhido no picker, 'clear' = botão "Automática" (PATCH cor: null).
   const [ativoCorTouch, setAtivoCorTouch] = useState<'manual' | 'clear' | null>(null)
   const [auditMarcaId, setAuditMarcaId] = useState<string | null>(null)
+  // Promover a cliente: a ficha nova exige WhatsApp; data_inicio é opcional (backend usa hoje).
+  const [promoverForm, setPromoverForm] = useState<{ marcaId: string; nome: string; celular: string; email: string; cnpj: string; data_inicio: string } | null>(null)
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('todos')
+  const [filtroTipo, setFiltroTipo] = useState('todos')
   const [visibilidade, setVisibilidade] = useState<CarteiraVisibilidade>('ativos')
   const [mostrarTodos, setMostrarTodos] = useState(false)
   // Linha mesclada (N cadastros) clicada: guarda o item para o seletor de registro.
@@ -187,17 +222,13 @@ export function ComercialPage() {
   const queryClient = useQueryClient()
   const toast = useToast()
   const carregarInativos = visibilidade !== 'ativos'
-  // O endpoint de clientes separa arquivados; só pede essa lista ao abrir Todos/Inativos.
-  const clientesQuery = useQuery({ queryKey: QK.clientes('operacionais'), queryFn: () => getClientes() })
-  const clientesArquivadosQuery = useQuery({
-    queryKey: QK.clientes('arquivados'),
-    queryFn: () => getClientes({ status: 'arquivado' }),
-    enabled: carregarInativos,
+  // Cadastro unificado (/v1/cadastros) com fallback para a junção /clientes + /marcas
+  // (flag VITE_CADASTRO_UNIFICADO desligada ou backend antigo). Inativos só em Todos/Inativos.
+  const cadastrosQuery = useQuery({
+    queryKey: QK.cadastros(carregarInativos ? 'todos' : 'ativos'),
+    queryFn: () => getCadastros({ incluirInativos: carregarInativos }),
   })
-  const marcasQuery = useQuery({
-    queryKey: QK.marcas(visibilidade === 'ativos' ? 'ativas' : 'todos'),
-    queryFn: () => getMarcas({ status: visibilidade === 'ativos' ? 'ativa' : 'all' }),
-  })
+  const cadastroUnificadoAtivo = cadastrosQuery.data?.fonte === 'cadastros'
   const selectedAtivoId = asString(selectedAtivo?.id, '')
   const selectedAtivoKind = asString(selectedAtivo?.tipo_operacional) === 'cliente_ecommerce' ? 'cliente' : 'marca'
   const ativoDetailQuery = useQuery({
@@ -215,6 +246,7 @@ export function ComercialPage() {
       setClienteForm(emptyClienteForm)
       setShowClienteForm(false)
       void queryClient.invalidateQueries({ queryKey: QK.clientes() })
+      void queryClient.invalidateQueries({ queryKey: QK.cadastros() })
       void queryClient.invalidateQueries({ queryKey: QK.usuarios })
       void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
       void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
@@ -228,6 +260,7 @@ export function ComercialPage() {
       setShowAfiliadoForm(false)
       void queryClient.invalidateQueries({ queryKey: QK.marcas() })
       void queryClient.invalidateQueries({ queryKey: QK.marcas('ativas') })
+      void queryClient.invalidateQueries({ queryKey: QK.cadastros() })
       void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
       void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
     },
@@ -236,9 +269,18 @@ export function ComercialPage() {
     mutationFn: ({ id, kind, payload }: { id: string; kind: 'cliente' | 'marca'; payload: JsonRecord }) => (
       kind === 'cliente' ? updateCliente(id, payload) : updateMarca(id, payload)
     ),
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
+      if (data?.aviso === 'data_fim_expirada') {
+        toast.push(
+          variables.kind === 'cliente'
+            ? 'Cliente reativado, mas o contrato tem data de fim no passado. Ajuste as datas do contrato para voltar a cobrar o fixo.'
+            : 'Afiliado reativado, mas o contrato tem data de fim no passado. Ajuste as datas do contrato para voltar a cobrar o fixo.',
+          'warning',
+        )
+      }
       void queryClient.invalidateQueries({ queryKey: QK.clientes() })
       void queryClient.invalidateQueries({ queryKey: QK.marcas() })
+      void queryClient.invalidateQueries({ queryKey: QK.cadastros() })
       void queryClient.invalidateQueries({ queryKey: QK.ativoOperacional() })
       void queryClient.invalidateQueries({ queryKey: QK.agenda() })
       void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
@@ -265,9 +307,21 @@ export function ComercialPage() {
       void queryClient.invalidateQueries({ queryKey: QK.clientes() })
       void queryClient.invalidateQueries({ queryKey: QK.marcas() })
       void queryClient.invalidateQueries({ queryKey: QK.marcas('ativas') })
+      void queryClient.invalidateQueries({ queryKey: QK.cadastros() })
       void queryClient.invalidateQueries({ queryKey: QK.agenda() })
       void queryClient.invalidateQueries({ queryKey: QK.comissoesMarcas })
       void queryClient.invalidateQueries({ queryKey: QK.rankingMarcas() })
+    },
+  })
+  const promoverMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => promoverCadastroACliente(id, payload),
+    onSuccess: () => {
+      toast.push('Cadastro promovido a cliente. A partir de agora ele gera receita.', 'success')
+      setPromoverForm(null)
+      setSelectedAtivo(null)
+      for (const queryKey of [QK.cadastros(), QK.clientes(), QK.marcas(), QK.ativoOperacional(), QK.agenda(), QK.comissoesMarcas, QK.rankingMarcas(), QK.financeiroResumo(), QK.financeiroOperacional(), QK.financeiroFaturamento(), FQK.all]) {
+        void queryClient.invalidateQueries({ queryKey })
+      }
     },
   })
   const uploadClienteImage = useMutation({
@@ -283,53 +337,16 @@ export function ComercialPage() {
     onSuccess: (data) => setAtivoForm((current) => ({ ...current, logo_url: asString(data.url, '') })),
   })
 
-  const isLoading = clientesQuery.isLoading || marcasQuery.isLoading || (carregarInativos && clientesArquivadosQuery.isLoading)
-  const error = clientesQuery.error ?? marcasQuery.error ?? (carregarInativos ? clientesArquivadosQuery.error : null)
-  const clientes = useMemo(
-    () => [...(clientesQuery.data ?? []), ...(carregarInativos ? (clientesArquivadosQuery.data ?? []) : [])],
-    [clientesQuery.data, clientesArquivadosQuery.data, carregarInativos],
-  )
-  const marcas = useMemo(() => marcasQuery.data ?? [], [marcasQuery.data])
+  const isLoading = cadastrosQuery.isLoading
+  const error = cadastrosQuery.error ?? null
 
   const ativosCarregados = useMemo(() => {
-    const marcasPorCliente = new Map<string, JsonRecord[]>()
-    marcas.forEach((marca) => {
-      const clienteId = asString(marca.cliente_id, '')
-      if (!clienteId) return
-      marcasPorCliente.set(clienteId, [...(marcasPorCliente.get(clienteId) ?? []), marca])
-    })
-
-    const clientesRows = clientes.map((cliente) => {
-      const marcasDoCliente = marcasPorCliente.get(asString(cliente.id, '')) ?? []
-      const principal = resolverMarcaPrincipal(marcasDoCliente, cliente.nome)
-      return ({
-        ...cliente,
-        tipo_entidade: 'cliente',
-        tipo_operacional: 'cliente_ecommerce',
-        marca_principal: asString(principal?.nome, asString(cliente.nome)),
-        apresentadoras: principal?.apresentadoras,
-        // cor vive na marca principal do cliente (getMarcas traz cor), não no /clientes.
-        // Sem isto o avatar da lista do cliente cai no hash em vez da cor salva.
-        cor: asString(principal?.cor, ''),
-        // Seed do fallback por hash: precisa ser o id da MARCA, que é o que a agenda usa.
-        // Com o id do cliente, a mesma marca ganhava cores diferentes nas duas telas.
-        cor_seed_id: asString(principal?.id, asString(cliente.id, '')),
-        marcas_operacionais: marcasDoCliente,
-        configuracao_comercial: principal?.configuracao_comercial ?? null,
-      })
-    })
-    const marcasSemCliente = marcas
-      .filter((marca) => !marca.cliente_id)
-      .map((marca) => ({
-        ...marca,
-        tipo_entidade: 'marca',
-        tipo_operacional: asString(marca.tipo, 'marca'),
-        marca_principal: asString(marca.nome),
-      }))
+    // Linhas no formato de sempre (cliente_ecommerce com id do cliente; marca com id da marca),
+    // venham do /v1/cadastros ou da junção legada. Cor/seed vêm da marca principal.
+    const linhas = cadastrosParaCarteira(cadastrosQuery.data?.cadastros ?? [])
 
     const unique = new Map<string, JsonRecord>()
-    for (const itemRaw of [...clientesRows, ...marcasSemCliente]) {
-      const item = itemRaw as JsonRecord
+    for (const item of linhas) {
       // Cadastros de mesmo nome, porém status diferentes, precisam continuar separados:
       // esconderia um ativo se a cópia inativa fosse o primeiro registro mesclado.
       const key = chaveAgrupamentoCarteira(item)
@@ -352,7 +369,7 @@ export function ComercialPage() {
     }
 
     return [...unique.values()]
-  }, [clientes, marcas])
+  }, [cadastrosQuery.data])
 
   const ativos = useMemo(
     () => selecionarCarteiraPorVisibilidade(ativosCarregados, visibilidade),
@@ -372,11 +389,12 @@ export function ComercialPage() {
     const q = normalizarBusca(busca.trim())
     return ativos.filter((item) => {
       if (filtroStatus !== 'todos' && asString(item.status) !== filtroStatus) return false
+      if (filtroTipo !== 'todos' && tipoDaLinha(item) !== filtroTipo) return false
       if (!q) return true
-      return [item.nome, item.marca_principal, item.tipo_operacional, item.status, statusLabel(asString(item.status))]
+      return [item.nome, item.marca_principal, item.tipo_operacional, item.status, statusLabel(asString(item.status)), tipoCadastroLabel(tipoDaLinha(item))]
         .some((value) => normalizarBusca(asString(value)).includes(q))
     })
-  }, [ativos, busca, filtroStatus])
+  }, [ativos, busca, filtroStatus, filtroTipo])
   const quantidadeCadastrosFiltrados = useMemo(
     () => ativosFiltrados.reduce((total, item) => total + asNumber(item.duplicado_count, 1), 0),
     [ativosFiltrados],
@@ -385,7 +403,7 @@ export function ComercialPage() {
   // ponytail: paginação simples — mostra 50 e um "Mostrar todos"; troque por paginação real se a carteira passar de centenas.
   const LIMITE_LINHAS = 50
   const ativosVisiveis = mostrarTodos ? ativosFiltrados : ativosFiltrados.slice(0, LIMITE_LINHAS)
-  const temFiltros = Boolean(busca) || filtroStatus !== 'todos'
+  const temFiltros = Boolean(busca) || filtroStatus !== 'todos' || filtroTipo !== 'todos'
 
   // Carrega o % da marca (própria) ou da marca principal vinculada ao cliente.
   useEffect(() => {
@@ -459,9 +477,7 @@ export function ComercialPage() {
   const ativoClose = useUnsavedChanges({ open: Boolean(selectedAtivo), dirty: JSON.stringify(ativoForm) !== JSON.stringify(ativoInitialRef.current) || ativoCorTouch !== null, busy: ativoBusy, onClose: () => setSelectedAtivo(null) })
 
   function recarregarCarteira() {
-    void clientesQuery.refetch()
-    if (carregarInativos) void clientesArquivadosQuery.refetch()
-    void marcasQuery.refetch()
+    void cadastrosQuery.refetch()
   }
 
   function setClienteField(key: keyof typeof emptyClienteForm, value: string | boolean) {
@@ -474,7 +490,8 @@ export function ComercialPage() {
 
   function exportAtivosCsv() {
     downloadCsv('clientes-afiliados.csv', ativosFiltrados, [
-      { key: 'tipo_operacional', header: 'tipo' },
+      { key: 'tipo_operacional', header: 'tipo', value: (row) => tipoDaLinha(row) },
+      { key: 'gera_receita', header: 'gera_receita', value: (row) => (linhaGeraReceita(row) ? 'sim' : 'nao') },
       { key: 'nome', header: 'nome' },
       { key: 'marca_principal', header: 'marca_principal' },
       { key: 'status', header: 'status' },
@@ -627,6 +644,35 @@ export function ComercialPage() {
     ativoDeleteMutation.mutate({ id, kind })
   }
 
+  function promoverAtivo() {
+    const cadastro = selectedAtivo?.cadastro as Cadastro | undefined
+    if (!cadastro?.marca_id) return
+    promoverMutation.reset()
+    setPromoverForm({ marcaId: cadastro.marca_id, nome: cadastro.nome, celular: cadastro.ficha.celular ?? '', email: cadastro.ficha.email ?? '', cnpj: cadastro.ficha.cnpj ?? '', data_inicio: '' })
+  }
+
+  async function onPromoverSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!promoverForm || promoverMutation.isPending) return
+    const payload: JsonRecord = {
+      celular: promoverForm.celular.trim(),
+      ...(promoverForm.email.trim() ? { email: promoverForm.email.trim() } : {}),
+      ...(promoverForm.cnpj.trim() ? { cnpj: promoverForm.cnpj.trim() } : {}),
+      ...(promoverForm.data_inicio ? { data_inicio: promoverForm.data_inicio } : {}),
+    }
+    try {
+      await promoverMutation.mutateAsync({ id: promoverForm.marcaId, payload })
+    } catch (error) {
+      // Condição com fixo/% vigente antes do início: GMV antigo viraria receita. Só segue com confirmação explícita.
+      const retro = retroativoDaPromocao(error)
+      if (!retro) return
+      const ok = window.confirm(`${retro}\n\nConfirmar mesmo assim? O GMV anterior ao início do contrato passará a gerar receita.`)
+      if (!ok) return
+      promoverMutation.reset()
+      await promoverMutation.mutateAsync({ id: promoverForm.marcaId, payload: { ...payload, confirmar_retroativo: true } }).catch(() => undefined)
+    }
+  }
+
   const condicoesMarcaId = selectedAtivoKind === 'marca'
     ? selectedAtivoId || null
     : marcaPctId
@@ -636,7 +682,7 @@ export function ComercialPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Carteira de clientes" subtitle="Encontre, consulte e atualize os cadastros que sustentam a operação." />
+      <PageHeader title="Clientes" subtitle="Clientes, afiliadas, marcas próprias e parceiras num só lugar. Só cliente gera receita." />
 
       <div className="space-y-4">
           <Card>
@@ -700,6 +746,17 @@ export function ComercialPage() {
                     <option key={status} value={status}>{statusLabel(status)}</option>
                   ))}
                 </select>
+                <select
+                  className="design-input h-10 px-3"
+                  aria-label="Filtrar por tipo"
+                  value={filtroTipo}
+                  onChange={(event) => { setFiltroTipo(event.target.value); setMostrarTodos(false) }}
+                >
+                  <option value="todos">Todos os tipos</option>
+                  {CADASTRO_TIPOS.map((tipo) => (
+                    <option key={tipo} value={tipo}>{tipoCadastroLabel(tipo)}</option>
+                  ))}
+                </select>
                 {!isLoading && !error && temFiltros ? (
                   <span className="text-xs text-ink-muted">{quantidadeCadastrosFiltrados} de {quantidadeCadastros} cadastros</span>
                 ) : null}
@@ -728,7 +785,7 @@ export function ComercialPage() {
                     </p>
                   </div>
                   {temFiltros ? (
-                    <Button variant="secondary" onClick={() => { setBusca(''); setFiltroStatus('todos') }}>Limpar filtros</Button>
+                    <Button variant="secondary" onClick={() => { setBusca(''); setFiltroStatus('todos'); setFiltroTipo('todos') }}>Limpar filtros</Button>
                   ) : visibilidade === 'inativos' ? (
                     <Button variant="secondary" onClick={() => { setVisibilidade('ativos'); setMostrarTodos(false) }}>Ver ativos</Button>
                   ) : (
@@ -770,7 +827,6 @@ export function ComercialPage() {
                               {nome}
                               <BotBadge origem={item.origem_dados} className="ml-2 align-middle" />
                             </p>
-                            <p className="mt-0.5 text-xs text-ink-muted">{perfilOperacionalLabel(asString(item.tipo_operacional ?? item.tipo))}</p>
                             {mostraMarcaOperacional ? <p className="mt-0.5 truncate text-xs text-ink-muted">Marca operacional: {marcaPrincipal}</p> : null}
                             {asNumber(item.duplicado_count) > 1 ? <Badge className="mt-1" tone="warning">{asNumber(item.duplicado_count)} cadastros</Badge> : null}
                             {comercialAlertas.length > 0 ? <span className="mt-1 block truncate text-[11px] font-semibold text-[var(--warning)]" title={commercialConfigSummary(getRecord(item.configuracao_comercial), temMarcaOperacional)}>{commercialConfigSummary(getRecord(item.configuracao_comercial), temMarcaOperacional)}</span> : null}
@@ -778,6 +834,20 @@ export function ComercialPage() {
                         </div>
                       )
                     },
+                  },
+                  {
+                    key: 'tipo',
+                    header: 'Tipo',
+                    render: (item) => (
+                      <div className="flex min-w-24 flex-col items-start gap-1">
+                        <Badge tone={tipoDaLinha(item) === 'cliente' ? 'brand' : 'neutral'}>{tipoCadastroLabel(tipoDaLinha(item))}</Badge>
+                        {linhaGeraReceita(item) ? null : (
+                          <span className="text-[11px] text-ink-muted" title="Só cadastro do tipo cliente gera receita (fixo + % do GMV). O GMV continua contando na operação.">
+                            não gera receita
+                          </span>
+                        )}
+                      </div>
+                    ),
                   },
                   {
                     key: 'status',
@@ -951,7 +1021,7 @@ export function ComercialPage() {
 
       <Modal
         open={Boolean(selectedAtivo)}
-        title={selectedAtivoKind === 'cliente' ? 'Cliente e marca' : 'Marca afiliada'}
+        title={selectedAtivoKind === 'cliente' ? 'Cliente e marca' : tituloModalMarca(selectedAtivo)}
         subtitle={selectedAtivoKind === 'cliente' ? 'Dados do cliente e da marca operacional vinculada.' : 'Dados operacionais, histórico e configuração comercial.'}
         size="lg"
         onClose={ativoClose.requestClose}
@@ -1047,6 +1117,27 @@ export function ComercialPage() {
                   configuracaoComercial={getRecord(condicoesMarca?.configuracao_comercial ?? selectedAtivo?.configuracao_comercial)}
                   hasMarca={Boolean(condicoesMarcaId)}
                 />
+                {selectedAtivo && !linhaGeraReceita(selectedAtivo) ? (
+                  <ModalSection
+                    title="Tipo do cadastro"
+                    description={`${tipoCadastroLabel(tipoDaLinha(selectedAtivo))} · não gera receita. O GMV continua contando na operação; fixo e comissão só valem para cadastro do tipo cliente.`}
+                  >
+                    {cadastroUnificadoAtivo && podeEditarCondicoes && linhaPodeSerPromovida(selectedAtivo) ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={promoverAtivo}
+                          isLoading={promoverMutation.isPending}
+                          disabled={promoverMutation.isPending}
+                        >
+                          Promover a cliente
+                        </Button>
+                        <span className="text-xs text-ink-muted">Passa a ser cliente e a gerar receita pelas condições comerciais vigentes.</span>
+                      </div>
+                    ) : null}
+                  </ModalSection>
+                ) : null}
                 <ModalSection title="Ações administrativas" description="Desative, reative ou exclua este cadastro. O histórico é preservado." collapsible>
                   <div className="flex flex-wrap items-end gap-2">
                   <Button type="button" variant="secondary" onClick={() => toggleAtivoStatus()} disabled={ativoUpdateMutation.isPending}>
@@ -1061,6 +1152,7 @@ export function ComercialPage() {
                       Histórico
                     </Button>
                   ) : null}
+
                   <Button type="button" variant="ghost" icon={Trash2} onClick={deleteAtivo} disabled={ativoDeleteMutation.isPending}>
                     Excluir
                   </Button>
@@ -1135,6 +1227,29 @@ export function ComercialPage() {
             </button>
           ))}
         </div>
+      </Modal>
+
+      {/* ---- Promover a cliente (cadastro unificado) ---- */}
+      <Modal
+        open={Boolean(promoverForm)}
+        title="Promover a cliente"
+        subtitle={promoverForm ? `"${promoverForm.nome}" passa a ser cliente e a gerar receita (fixo + % do GMV) pelas condições comerciais vigentes.` : undefined}
+        onClose={() => { if (!promoverMutation.isPending) setPromoverForm(null) }}
+        closeDisabled={promoverMutation.isPending}
+      >
+        {promoverForm ? (
+          <form className="grid gap-3 md:grid-cols-2" onSubmit={onPromoverSubmit}>
+            <label className="block"><span className="text-sm font-medium text-ink">WhatsApp *</span><input aria-label="WhatsApp do cliente" className="design-input mt-1 h-11 w-full px-4" type="tel" value={promoverForm.celular} onChange={(event) => setPromoverForm((f) => f && { ...f, celular: event.target.value })} required /></label>
+            <label className="block"><span className="text-sm font-medium text-ink">E-mail</span><input aria-label="E-mail do cliente" className="design-input mt-1 h-11 w-full px-4" type="email" value={promoverForm.email} onChange={(event) => setPromoverForm((f) => f && { ...f, email: event.target.value })} /></label>
+            <label className="block"><span className="text-sm font-medium text-ink">CNPJ</span><input aria-label="CNPJ do cliente" className="design-input mt-1 h-11 w-full px-4" value={promoverForm.cnpj} onChange={(event) => setPromoverForm((f) => f && { ...f, cnpj: event.target.value })} /></label>
+            <label className="block"><span className="text-sm font-medium text-ink">Início do contrato</span><input aria-label="Início do contrato" className="design-input mt-1 h-11 w-full px-4" type="date" value={promoverForm.data_inicio} onChange={(event) => setPromoverForm((f) => f && { ...f, data_inicio: event.target.value })} /><span className="mt-1 block text-[11px] text-ink-muted">Vazio = data de início já cadastrada ou hoje.</span></label>
+            {promoverMutation.isError && !retroativoDaPromocao(promoverMutation.error) ? <p role="alert" className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] md:col-span-2">{extractErrorMessage(promoverMutation.error)}</p> : null}
+            <div className="flex flex-wrap gap-2 md:col-span-2">
+              <Button type="submit" isLoading={promoverMutation.isPending}>Promover a cliente</Button>
+              <Button type="button" variant="secondary" disabled={promoverMutation.isPending} onClick={() => setPromoverForm(null)}>Cancelar</Button>
+            </div>
+          </form>
+        ) : null}
       </Modal>
 
       {/* ---- Audit history modal — marca ---- */}

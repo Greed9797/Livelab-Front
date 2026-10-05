@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ArrowDownRight, ArrowUpRight, ChevronDown, Minus } from 'lucide-react'
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, ChevronDown, Minus } from 'lucide-react'
 import { useId, useState, type ReactNode } from 'react'
 import { useDreMes } from '../../hooks/useDreMes'
 import { extractErrorMessage } from '../../services/api'
@@ -8,13 +8,16 @@ import type {
   DreDeltas,
   DreDetalheCliente,
   DreDetalheGrupo,
+  DreDetalheMarca,
   DreDetalheItem,
   DreMesDetalheResponse,
   VisaoDre,
 } from '../../types/financeiro-dre'
 import { detalheVazio, itemEncerrado, margemPct, ordenarGrupos, participacao, tomDelta, valorVisao, variacaoPct } from '../../utils/dre-detalhe'
+import { textoAberturaCaixa } from '../../utils/caixa'
 import { formatDataCurta, grupoLabel, isStatus, mesLabel, origemLabel, shiftMes } from '../../utils/financeiro'
 import { formatMoney, formatPercent } from '../../utils/format'
+import { avisoMarcaNaoCliente, complementoMarcaUnica, marcaUnicaDoCliente, nomeLinhaCliente } from '../../utils/receita-mensal'
 import { EmptyState, ErrorState } from '../ui/States'
 import { StatusChip } from './primitives'
 
@@ -142,10 +145,46 @@ function Grupos({ grupos, visao, vazio }: { grupos: DreDetalheGrupo[]; visao: Vi
   )
 }
 
+function MarcaDetalhe({ m, visao }: { m: DreDetalheMarca; visao: VisaoDre }) {
+  const aviso = avisoMarcaNaoCliente(m)
+  return (
+    <>
+      <dl className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] sm:grid-cols-4">
+        <div>
+          <dt className="text-ink-muted">Fixo</dt>
+          <dd><Valor v={m.fixo} visao={visao} className="items-start text-left" /></dd>
+        </div>
+        <div>
+          <dt className="text-ink-muted">Comissão</dt>
+          <dd><Valor v={m.comissao} visao={visao} className="items-start text-left" /></dd>
+        </div>
+        <div>
+          <dt className="text-ink-muted">GMV</dt>
+          <dd className="num font-medium text-ink">{m.gmv ? formatMoney(m.gmv, true) : '—'}</dd>
+        </div>
+        <div>
+          <dt className="text-ink-muted">% comissão</dt>
+          <dd className="num font-medium text-ink">{m.pct ? formatPercent(m.pct) : '—'}</dd>
+        </div>
+      </dl>
+      {aviso ? (
+        <p role="note" className="mt-1.5 flex items-start gap-1.5 text-[11px] font-semibold text-[var(--warning)]">
+          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+          {aviso}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
 function Cliente({ c, visao, totalReceita }: { c: DreDetalheCliente; visao: VisaoDre; totalReceita: number }) {
   const [aberto, setAberto] = useState(false)
   const id = useId()
   const share = participacao(valorVisao(c.total, visao), totalReceita)
+  // Cliente com uma marca só: uma linha (o detalhe abre direto, sem a marca aninhada).
+  const unica = marcaUnicaDoCliente(c)
+  const titulo = nomeLinhaCliente(c)
+  const complemento = unica ? complementoMarcaUnica(titulo, unica.marca_nome) : null
   return (
     <li>
       <button
@@ -158,43 +197,34 @@ function Cliente({ c, visao, totalReceita }: { c: DreDetalheCliente; visao: Visa
         <span className="min-w-0">
           <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
             <ChevronDown className={clsx('h-3.5 w-3.5 shrink-0 text-ink-muted transition', !aberto && '-rotate-90')} aria-hidden />
-            <span className="truncate">{c.cliente_nome}</span>
+            <span className="truncate">{titulo}</span>
           </span>
           <span className="num ml-5 block text-[11px] text-ink-muted">
-            {c.marcas.length} {c.marcas.length === 1 ? 'marca' : 'marcas'} · {formatPercent(share)} da receita
+            {unica
+              ? `${complemento ? `${complemento} · ` : ''}${formatPercent(share)} da receita`
+              : `${c.marcas.length} ${c.marcas.length === 1 ? 'marca' : 'marcas'} · ${formatPercent(share)} da receita`}
           </span>
         </span>
         <Valor v={c.total} visao={visao} forte />
       </button>
-      <ul id={id} hidden={!aberto} className="divide-y divide-[var(--hairline)] bg-[color-mix(in_srgb,var(--bg-elev-3)_35%,transparent)]">
-        {c.marcas.map((m) => (
-          <li key={m.marca_id} className="px-4 py-2.5 pl-9">
-            <div className="flex items-start justify-between gap-3">
-              <p className="min-w-0 truncate text-[13px] font-medium text-ink">{m.marca_nome}</p>
-              <Valor v={m.total} visao={visao} />
-            </div>
-            <dl className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] sm:grid-cols-4">
-              <div>
-                <dt className="text-ink-muted">Fixo</dt>
-                <dd><Valor v={m.fixo} visao={visao} className="items-start text-left" /></dd>
+      {unica ? (
+        <div id={id} hidden={!aberto} className="bg-[color-mix(in_srgb,var(--bg-elev-3)_35%,transparent)] px-4 py-2.5 pl-9">
+          <MarcaDetalhe m={unica} visao={visao} />
+        </div>
+      ) : (
+        <ul id={id} hidden={!aberto} className="divide-y divide-[var(--hairline)] bg-[color-mix(in_srgb,var(--bg-elev-3)_35%,transparent)]">
+          {c.marcas.map((m) => (
+            <li key={m.marca_id} className="px-4 py-2.5 pl-9">
+              <div className="flex items-start justify-between gap-3">
+                <p className="min-w-0 truncate text-[13px] font-medium text-ink">{m.marca_nome}</p>
+                <Valor v={m.total} visao={visao} />
               </div>
-              <div>
-                <dt className="text-ink-muted">Comissão</dt>
-                <dd><Valor v={m.comissao} visao={visao} className="items-start text-left" /></dd>
-              </div>
-              <div>
-                <dt className="text-ink-muted">GMV</dt>
-                <dd className="num font-medium text-ink">{m.gmv ? formatMoney(m.gmv, true) : '—'}</dd>
-              </div>
-              <div>
-                <dt className="text-ink-muted">% comissão</dt>
-                <dd className="num font-medium text-ink">{m.pct ? formatPercent(m.pct) : '—'}</dd>
-              </div>
-            </dl>
-          </li>
-        ))}
-        {c.marcas.length === 0 ? <li><Vazio>Sem marcas no mês.</Vazio></li> : null}
-      </ul>
+              <MarcaDetalhe m={m} visao={visao} />
+            </li>
+          ))}
+          {c.marcas.length === 0 ? <li><Vazio>Sem marcas no mês.</Vazio></li> : null}
+        </ul>
+      )}
     </li>
   )
 }
@@ -292,7 +322,7 @@ function Conteudo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
         <SubTitulo visao={visao}>Por cliente</SubTitulo>
         {d.receita.por_cliente.length ? (
           <ul className="divide-y divide-[var(--hairline)]">
-            {d.receita.por_cliente.map((c) => <Cliente key={c.cliente_id} c={c} visao={visao} totalReceita={totalReceita} />)}
+            {d.receita.por_cliente.map((c, idx) => <Cliente key={c.cliente_id ?? c.marcas[0]?.marca_id ?? `cliente-${idx}`} c={c} visao={visao} totalReceita={totalReceita} />)}
           </ul>
         ) : (
           <Vazio>Nenhuma receita de marca no mês.</Vazio>
@@ -368,6 +398,23 @@ function Conteudo({ d, visao }: { d: DreMesDetalheResponse; visao: VisaoDre }) {
           {perdidos.length ? <ul className="divide-y divide-[var(--hairline)]">{perdidos.map((i) => <ItemLinha key={i.id} item={i} visao={visao} />)}</ul> : <Vazio>Nenhuma receita perdida.</Vazio>}
           <SubTitulo visao={visao}>Custos cancelados</SubTitulo>
           {cancelados.length ? <ul className="divide-y divide-[var(--hairline)]">{cancelados.map((i) => <ItemLinha key={i.id} item={i} visao={visao} />)}</ul> : <Vazio>Nenhum custo cancelado.</Vazio>}
+        </Secao>
+      ) : null}
+
+      {d.caixa ? (
+        <Secao titulo="Caixa" visao={visao} nota="Informativo: o saldo de caixa fica fora do DRE e não entra no resultado.">
+          <dl className="grid gap-3 px-4 py-3 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-ink-muted">Saldo de caixa no início do mês</dt>
+              <dd className={clsx('num mt-0.5 text-[13px] font-medium', d.caixa.saldo_inicio_mes < 0 ? 'text-[var(--danger)]' : 'text-ink')}>{formatMoney(d.caixa.saldo_inicio_mes, true)}</dd>
+            </div>
+            {textoAberturaCaixa(d.caixa, d.mes, (v) => formatMoney(v, true)) ? (
+              <div>
+                <dt className="text-xs text-ink-muted">Configuração</dt>
+                <dd className="mt-0.5 text-[13px] font-medium text-ink">{textoAberturaCaixa(d.caixa, d.mes, (v) => formatMoney(v, true))}</dd>
+              </div>
+            ) : null}
+          </dl>
         </Secao>
       ) : null}
 

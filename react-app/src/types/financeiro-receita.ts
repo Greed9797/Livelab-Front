@@ -41,6 +41,8 @@ export type TituloReceita = Lancamento & PerdaInfo & { componente: ComponenteRec
 export interface ReceitaMarca {
   marca_id: string
   marca_nome: string
+  /** Tipo da marca no cadastro ('cliente' | 'afiliada' | 'propria' | 'parceira'); null se o backend não informou. */
+  marca_tipo: string | null
   /** 'fixo_mais_comissao' | 'fixo_ou_comissao' | outro valor legado */
   tipo_cobranca: string
   /** % de comissão da franquia (ex.: 10 = 10%); null quando desconhecido. */
@@ -49,6 +51,8 @@ export interface ReceitaMarca {
   /** GMV × %, antes da regra fixo_ou_comissao; null quando não informado. */
   comissao_bruta: number | null
   em_apuracao: boolean
+  /** Dia de início da janela de apuração da comissão (1 = mês civil). */
+  janela_inicio_dia: number
   fixo: TituloReceita | null
   comissao: TituloReceita | null
   total: TotalReceita

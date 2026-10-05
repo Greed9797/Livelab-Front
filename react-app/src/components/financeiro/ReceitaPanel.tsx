@@ -31,6 +31,7 @@ import { acoesPerda, formatDataCurta, grupoLabel, mesLabel, partesData, valorEmA
 import { formatMoney } from '../../utils/format'
 import {
   agruparPorVencimento,
+  avisoMarcaNaoCliente,
   contextoTitulo,
   filtrarClientes,
   formatPct,
@@ -39,11 +40,17 @@ import {
   labelTipoCobranca,
   motivoPerda,
   notaCompetenciaVencimento,
+  janelaInicioDia,
   notaFixoOuComissao,
+  notaJanelaComissao,
   pctRecebido,
   receitaVazia,
   rotuloComponente,
   totaisDaVisao,
+  chaveClienteReceita,
+  complementoMarcaUnica,
+  marcaUnicaDoCliente,
+  nomeLinhaCliente,
 } from '../../utils/receita-mensal'
 import { Button } from '../ui/Button'
 import { EmptyState, ErrorState } from '../ui/States'
@@ -307,14 +314,17 @@ function ApuracaoLinha({ m }: { m: ReceitaMarca }) {
   )
 }
 
-function MarcaBloco({ m, ...acoes }: Acoes & { m: ReceitaMarca }) {
+/** `semNome`: cliente com uma marca só — a marca não é aninhada (o card já é a linha dela). */
+function MarcaBloco({ m, semNome = false, ...acoes }: Acoes & { m: ReceitaMarca; semNome?: boolean }) {
   const nota = notaFixoOuComissao(m)
+  const avisoTipo = avisoMarcaNaoCliente(m)
+  const notaJanela = janelaInicioDia(m) !== 1 ? notaJanelaComissao(m) : null
   const semTitulos = !m.fixo && !m.comissao && !m.em_apuracao
   return (
     <li className="border-t border-[var(--hairline)] first:border-t-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pt-3 sm:px-5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h4 className="truncate text-sm font-bold text-ink">{m.marca_nome}</h4>
+          {semNome ? null : <h4 className="truncate text-sm font-bold text-ink">{m.marca_nome}</h4>}
           <span className="rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-semibold text-ink-muted">{labelTipoCobranca(m.tipo_cobranca)}</span>
         </div>
         <dl className="num flex gap-4 text-xs text-ink-muted">
@@ -329,6 +339,13 @@ function MarcaBloco({ m, ...acoes }: Acoes & { m: ReceitaMarca }) {
         </dl>
       </div>
       {nota ? <p className="px-4 pt-1 text-[11px] text-[var(--text-secondary)] sm:px-5">{nota}</p> : null}
+      {avisoTipo ? (
+        <p role="note" className="flex items-start gap-1.5 px-4 pt-1 text-[11px] font-semibold text-[var(--warning)] sm:px-5">
+          <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+          {avisoTipo}
+        </p>
+      ) : null}
+      {notaJanela ? <p className="px-4 pt-1 text-[11px] text-[var(--text-secondary)] sm:px-5">{notaJanela}</p> : null}
       <ul className="pb-1" aria-label={`Títulos de ${m.marca_nome}`}>
         {m.fixo ? <TituloLinha t={m.fixo} {...acoes} /> : null}
         {m.comissao ? <TituloLinha t={m.comissao} {...acoes} /> : m.em_apuracao ? <ApuracaoLinha m={m} /> : null}
@@ -339,7 +356,11 @@ function MarcaBloco({ m, ...acoes }: Acoes & { m: ReceitaMarca }) {
 }
 
 function ClienteCard({ c, aberto, onToggle, ...acoes }: Acoes & { c: ReceitaCliente; aberto: boolean; onToggle: () => void }) {
-  const corpoId = `receita-cliente-${c.cliente_id || c.cliente_nome}`.replace(/\s+/g, '-')
+  const corpoId = `receita-cliente-${chaveClienteReceita(c)}`.replace(/[^\w-]+/g, '-')
+  // Cliente com uma marca só: uma linha (sem aninhar a marca dentro do cliente).
+  const unica = marcaUnicaDoCliente(c)
+  const titulo = nomeLinhaCliente(c)
+  const complemento = unica ? complementoMarcaUnica(titulo, unica.marca_nome) : null
   return (
     <article className="design-card overflow-hidden">
       <h3>
@@ -352,9 +373,11 @@ function ClienteCard({ c, aberto, onToggle, ...acoes }: Acoes & { c: ReceitaClie
         >
           <ChevronDown className={clsx('h-4 w-4 shrink-0 text-ink-muted transition-transform', !aberto && '-rotate-90')} aria-hidden />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-base font-bold text-ink">{c.cliente_nome}</span>
+            <span className="block truncate text-base font-bold text-ink">{titulo}</span>
             <span className="block text-xs font-normal text-ink-muted">
-              {c.marcas.length} marca{c.marcas.length === 1 ? '' : 's'} · {pctRecebido(c.total)}% recebido
+              {unica
+                ? `${complemento ? `${complemento} · ` : ''}${pctRecebido(c.total)}% recebido`
+                : `${c.marcas.length} marca${c.marcas.length === 1 ? '' : 's'} · ${pctRecebido(c.total)}% recebido`}
             </span>
           </span>
           <span className="num ml-auto text-right">
@@ -365,7 +388,9 @@ function ClienteCard({ c, aberto, onToggle, ...acoes }: Acoes & { c: ReceitaClie
       </h3>
       {aberto ? (
         <ul id={corpoId} className="border-t border-line">
-          {c.marcas.map((m) => (
+          {unica ? (
+            <MarcaBloco m={unica} semNome {...acoes} />
+          ) : c.marcas.map((m) => (
             <MarcaBloco key={m.marca_id || m.marca_nome} m={m} {...acoes} />
           ))}
         </ul>
@@ -459,7 +484,7 @@ function VisaoCompetencia({
         <h3 className="sr-only">Por cliente</h3>
         {clientes.length ? (
           clientes.map((c) => {
-            const key = c.cliente_id || c.cliente_nome
+            const key = chaveClienteReceita(c)
             return <ClienteCard key={key} c={c} aberto={!fechados.has(key)} onToggle={() => toggle(key)} {...acoes} />
           })
         ) : (

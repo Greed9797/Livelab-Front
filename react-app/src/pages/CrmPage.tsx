@@ -96,6 +96,7 @@ export function CrmPage() {
       closeModal()
       invalidateCrm()
       void client.invalidateQueries({ queryKey: QK.clientes() })
+      void client.invalidateQueries({ queryKey: QK.cadastros() })
     },
   })
   const perderMutation = useMutation({

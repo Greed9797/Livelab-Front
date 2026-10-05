@@ -60,9 +60,35 @@ export function labelTipoCobranca(tipo: string): string {
 }
 
 /** 10 → '10%'; 12.5 → '12,5%'; null → '—'. */
+const TIPO_MARCA_LABEL: Record<string, string> = { afiliada: 'afiliada', propria: 'própria', parceira: 'parceira' }
+
+/**
+ * Só marca de CLIENTE gera receita (fixo + % do GMV). Marca afiliada/própria/parceira
+ * só aparece aqui por título antigo materializado antes da regra — a tela avisa para
+ * revisar (dar como perdido ou corrigir o tipo no cadastro). null = backend antigo, sem aviso.
+ */
+export function avisoMarcaNaoCliente(m: Pick<ReceitaMarca, 'marca_tipo'>): string | null {
+  if (!m.marca_tipo || m.marca_tipo === 'cliente') return null
+  const tipo = TIPO_MARCA_LABEL[m.marca_tipo] ?? m.marca_tipo
+  return `Marca ${tipo}: o GMV dela não é receita da casa. Revise este título (cadastro da marca ou dar como perdido).`
+}
+
 export function formatPct(pct: number | null | undefined): string {
   if (pct === null || pct === undefined || !Number.isFinite(pct)) return '—'
   return `${pct.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
+}
+
+/** Dia de início da janela de apuração (1..28); ausente/inválido = mês civil. */
+export function janelaInicioDia(m: object): number {
+  const n = Math.trunc(asNumber((m as { janela_inicio_dia?: unknown }).janela_inicio_dia, 1))
+  return n >= 1 && n <= 28 ? n : 1
+}
+
+/** Hint da aba Receita: só para marca com janela ≠ 1. */
+export function notaJanelaComissao(m: object): string | null {
+  const j = janelaInicioDia(m)
+  if (j === 1) return null
+  return `Janela ${j}→${j - 1} · competência = mês de início · GMV da aba Comissões é por mês civil`
 }
 
 /** Nota da modalidade "fixo ou comissão": a comissão bruta e a regra do maior. */
@@ -202,22 +228,35 @@ export function normalizarMarca(input: unknown, cliente: { cliente_id: string; c
   return {
     marca_id,
     marca_nome,
+    marca_tipo: str(raw.marca_tipo),
     tipo_cobranca: str(raw.tipo_cobranca) ?? 'fixo_mais_comissao',
     pct,
     gmv,
     comissao_bruta,
     em_apuracao,
+    janela_inicio_dia: janelaInicioDia(raw),
     fixo,
     comissao,
     total: normalizarTotal(raw.total, somaTitulos(fixo, comissao)),
   }
 }
 
+/** Chave sintética do backend para marca sem ficha de cliente ('sem-cliente:<marca_id>'). */
+function idClienteReal(v: unknown): string | null {
+  const id = str(v)
+  return id && !id.startsWith('sem-cliente:') ? id : null
+}
+
 export function normalizarCliente(input: unknown, hoje: string = hojeSP()): ReceitaCliente | null {
   const raw = rec(input)
   if (!raw) return null
-  const cliente_id = str(raw.cliente_id) ?? str(raw.id) ?? ''
-  const cliente_nome = str(raw.cliente_nome) ?? str(raw.nome) ?? 'Sem cliente'
+  // Marca sem cliente (afiliada/própria ou chave 'sem-cliente:<marca>') não ganha id inventado:
+  // o id vai para os títulos e para a baixa. A chave de lista usa chaveClienteReceita.
+  const cliente_id = idClienteReal(raw.cliente_id) ?? (raw.cliente_id === undefined ? idClienteReal(raw.id) : null) ?? ''
+  const primeiraMarca = rec(arr(raw.marcas)[0])
+  const cliente_nome = str(raw.cliente_nome) ?? str(raw.nome)
+    ?? (primeiraMarca ? str(primeiraMarca.marca_nome) ?? str(primeiraMarca.nome) : null)
+    ?? 'Sem cliente'
   const marcas = arr(raw.marcas)
     .map((m) => normalizarMarca(m, { cliente_id, cliente_nome }, hoje))
     .filter((m): m is ReceitaMarca => m !== null)
@@ -355,6 +394,31 @@ export function pctRecebido(t: TotalReceita): number {
 
 function semAcento(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+
+/** Chave estável da linha: cliente; sem cliente, a marca (nunca colide entre marcas sem ficha). */
+export function chaveClienteReceita(c: Pick<ReceitaCliente, 'cliente_id' | 'cliente_nome' | 'marcas'>): string {
+  return c.cliente_id || (c.marcas[0]?.marca_id ? `marca:${c.marcas[0].marca_id}` : `nome:${c.cliente_nome}`)
+}
+
+/**
+ * Cliente com uma marca só vira uma linha (sem aninhar a marca). Devolve essa marca ou null.
+ * Com 0 ou 2+ marcas a tela mantém cliente → marcas.
+ */
+export function marcaUnicaDoCliente<M>(c: { marcas: M[] }): M | null {
+  return c.marcas.length === 1 ? c.marcas[0] : null
+}
+
+/** Título da linha: o cliente; marca sem ficha de cliente com uma marca só usa o nome da marca. */
+export function nomeLinhaCliente(c: { cliente_id: string | null; cliente_nome: string; marcas: { marca_nome: string }[] }): string {
+  if (!c.cliente_id && c.marcas.length === 1) return c.marcas[0].marca_nome || c.cliente_nome
+  return c.cliente_nome
+}
+
+/** Nome da marca como complemento da linha única, só quando difere do nome do cliente. */
+export function complementoMarcaUnica(clienteNome: string, marcaNome: string | null | undefined): string | null {
+  if (!marcaNome) return null
+  return semAcento(marcaNome.trim()) === semAcento(clienteNome.trim()) ? null : marcaNome
 }
 
 /** Busca por cliente ou marca (sem acento). Cliente que casa mantém todas as marcas. */

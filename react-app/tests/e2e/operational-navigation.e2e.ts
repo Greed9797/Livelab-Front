@@ -21,6 +21,7 @@ async function setup(page: Page, papel = 'franqueado') {
       return route.fulfill({ status: 405, json: { error: 'Fixture somente leitura' } })
     }
     if (url.pathname === '/v1/clientes') return route.fulfill({ json: [{ id: 'cliente-1', nome: 'Marca Aurora', status: 'ativo', gmv_mes: 1234, lives_mes: 7 }] })
+    if (url.pathname === '/v1/cadastros') return route.fulfill({ json: [{ id: 'marca-1', marca_id: 'marca-1', cliente_id: 'cliente-1', nome: 'Marca Aurora', tipo: 'cliente', status_operacional: 'ativa', status_comercial: 'ativo', gmv_mes: 1234, lives_mes: 7 }] })
     if (url.pathname === '/v1/financeiro/resumo') return route.fulfill({ json: {} })
     if (url.pathname === '/v1/financeiro/fluxo-caixa') return route.fulfill({ json: {} })
     if (url.pathname === '/v1/financeiro/faturamento') return route.fulfill({ json: {} })
@@ -33,7 +34,7 @@ test('Clientes abre diretamente sem CRM e mantém Configurações ao final do me
   const { calls, writes } = await setup(page)
   await page.goto('/comercial?tab=crm')
   await expect(page).toHaveURL(/\/clientes$/)
-  await expect(page.getByRole('heading', { name: /Carteira de clientes/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Clientes', exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Resumo da carteira' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Ativos', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('button', { name: 'CRM', exact: true })).toHaveCount(0)
@@ -77,7 +78,7 @@ test('franqueado navega entre apuração e regras dentro de Financeiro', async (
   expect(writes).toEqual([])
 })
 
-test('master mantém somente regras sem montar as consultas de apuração', async ({ page }) => {
+test('master abre as regras sem consultas de apuração e acessa Financeiro pelo menu próprio', async ({ page }) => {
   const { calls, writes } = await setup(page, 'franqueador_master')
   await page.goto('/comissoes/config')
   await expect(page).toHaveURL(/\/financeiro\/comissoes\/regras$/)
@@ -87,8 +88,9 @@ test('master mantém somente regras sem montar as consultas de apuração', asyn
   expect(calls).not.toContain('/v1/comissoes/apresentadoras')
   expect(calls).not.toContain('/v1/comissoes/marcas')
   await page.goto('/financeiro?tab=comissoes')
-  await expect(page).toHaveURL(/\/master$/)
-  expect(calls.some(path => path.startsWith('/v1/financeiro/'))).toBe(false)
+  // Desde 6a1709c o master entra em /financeiro (financeiroPageRoles), em vez de ser redirecionado para /master.
+  await expect(page).toHaveURL(/\/financeiro\?tab=comissoes$/)
+  await expect(page.getByRole('heading', { name: 'Comissões do período' })).toBeVisible()
   expect(writes).toEqual([])
 })
 

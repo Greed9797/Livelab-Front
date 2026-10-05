@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
+import { cadastrosDaFixture } from './support/cadastros'
 
 test.setTimeout(30_000)
 
@@ -30,6 +31,8 @@ const marca = {
 
 async function setup(page: Page, onWrite?: (route: Route) => Promise<void>, theme = 'light', papel = 'franqueado') {
   const unexpectedWrites: string[] = []
+  // As condições da fixture são relativas a set/2026 (2026-10 = futura); congela o relógio para não depender da data real.
+  await page.clock.setFixedTime(new Date('2026-09-15T15:00:00Z'))
   await page.addInitScript(({ tenantId, selectedTheme, userRole }) => {
     localStorage.setItem('livelab.react.remember', 'true')
     localStorage.setItem('livelab.react.access_token', 'local-test-token')
@@ -51,6 +54,7 @@ async function setup(page: Page, onWrite?: (route: Route) => Promise<void>, them
     if (url.pathname === '/v1/lives') return json(url.searchParams.get('paginado') === '1' ? { items: [live], total: 1, page: 0, limit: 50 } : [live])
     if (url.pathname === '/v1/cabines') return json([{ id: cabineId, numero: 1, status: 'disponivel' }])
     if (url.pathname === '/v1/marcas') return json([marca])
+    if (url.pathname === '/v1/cadastros') return json(cadastrosDaFixture([cliente], [marca], { incluirInativos: url.searchParams.get('status') === 'all' }))
     if (url.pathname === '/v1/clientes') return json(url.searchParams.get('status') === 'arquivado' ? [] : [cliente])
     if (url.pathname === '/v1/apresentadoras') return json([{ id: presenterId, nome: 'Ana', status: 'ativa' }])
     if (url.pathname === `/v1/clientes/${clienteId}/operacional`) return json({ cliente, marcas: [marca], metrics: {}, lives: [], videos: [] })
@@ -102,6 +106,7 @@ test('programa condição comercial por competência com prévia e idempotência
   await dialog.getByLabel('Competência da condição').fill('2026-10')
   await dialog.getByLabel('Fixo mensal').fill('1.200,00')
   await dialog.getByLabel('Comissão da franquia').fill('8')
+  await dialog.getByLabel('Comissão da franqueadora').fill('2')
   await dialog.getByRole('button', { name: 'Revisar impacto', exact: true }).click()
   await expect(dialog.getByText('Prévia antes de confirmar', { exact: true })).toBeVisible()
   expect(previewPayload).toMatchObject({ inicio_vigencia: '2026-10', fixo_mensal: 1200, comissao_franquia_pct: 8 })
@@ -154,6 +159,8 @@ test('409 de revisão exige nova prévia e preserva os valores digitados', async
   await dialog.getByRole('button', { name: 'Nova competência', exact: true }).click()
   const fixed = dialog.getByLabel('Fixo mensal')
   await fixed.fill('1.500,00')
+  await dialog.getByLabel('Comissão da franquia').fill('8')
+  await dialog.getByLabel('Comissão da franqueadora').fill('2')
   await dialog.getByRole('button', { name: 'Revisar impacto', exact: true }).click()
   await dialog.getByRole('button', { name: 'Confirmar condição', exact: true }).click()
   await expect(dialog.getByRole('alert')).toContainText('A revisão da marca mudou')
@@ -308,8 +315,32 @@ test('edição mantém a marca histórica ausente do catálogo ativo sem oferece
   const account = dialog.getByLabel('Marca ou cliente')
   await expect(account).toHaveValue(`marca:${marcaId}`)
   const labels = await account.locator('option').allTextContents()
-  expect(labels).toContain('Marca · Marca Aurora (inativo)')
+  // Cadastro unificado: uma opção por cadastro, sem prefixo "Marca ·"/"Cliente ·".
+  expect(labels).toContain('Marca Aurora (inativo)')
+  expect(labels.filter((label) => label.includes('Marca Aurora'))).toHaveLength(1)
   expect(labels).not.toContain('Outra marca inativa')
+  expect(writes).toEqual([])
+})
+
+test('live antiga só com cliente_id mostra a marca principal sem opção duplicada e não grava sozinha', async ({ page }) => {
+  const writes = await setup(page)
+  const liveLegada = { ...live, marca_id: null }
+  await page.route('**/v1/lives**', (route) => {
+    const url = new URL(route.request().url())
+    if (route.request().method() !== 'GET') return route.fallback()
+    if (url.pathname === `/v1/lives/${liveId}`) return route.fulfill({ json: liveLegada })
+    if (url.pathname === '/v1/lives') return route.fulfill({ json: url.searchParams.get('paginado') === '1' ? { items: [liveLegada], total: 1, page: 0, limit: 50 } : [liveLegada] })
+    return route.fallback()
+  })
+  const dialog = await openEdit(page)
+  const account = dialog.getByLabel('Marca ou cliente')
+  await expect(account).toHaveValue(`marca:${marcaId}`)
+  const values = await account.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))
+  expect(values.filter((value) => value.startsWith('cliente:'))).toEqual([])
+  expect(values.filter((value) => value === `marca:${marcaId}`)).toHaveLength(1)
+  const labels = await account.locator('option').allTextContents()
+  expect(labels.some((label) => label.startsWith('Marca ·') || label.startsWith('Cliente ·'))).toBe(false)
+  await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click()
   expect(writes).toEqual([])
 })
 

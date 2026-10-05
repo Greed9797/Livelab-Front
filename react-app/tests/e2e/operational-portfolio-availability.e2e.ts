@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { cadastroUnificadoLigado, cadastrosDaFixture } from './support/cadastros'
 
 const selectedDate = '2026-09-05'
 const tenant = '11111111-1111-4111-8111-111111111111'
@@ -36,10 +37,14 @@ const cell = (start: string, end: string, presenter: string) => ({
   hora_inicio: start, hora_fim: end, origem: 'padrao',
 })
 
+// Visão Todos/Inativos: junção legada pede /clientes?status=arquivado; o endpoint novo, status=all.
+const consultouInativos = (path: string) => path.includes('status=arquivado') || path.startsWith('/v1/cadastros?status=all')
+
 async function setup(page: Page) {
-  const state = { failArchives: false, failAgenda: false, failPresenters: false, archivedHomonym: false }
+  const state = { failArchives: false, failAgenda: false, failPresenters: false, archivedHomonym: false, cadastros404: false, allowPromote: false }
   const calls: string[] = []
   const writes: string[] = []
+  const promoteBodies: Record<string, unknown>[] = []
   await page.addInitScript(({ tenantId }) => {
     localStorage.setItem('livelab.react.remember', 'true')
     localStorage.setItem('livelab.react.access_token', 'synthetic-operations-test')
@@ -53,10 +58,24 @@ async function setup(page: Page) {
     calls.push(url.pathname + url.search)
     if (route.request().method() !== 'GET') {
       writes.push(route.request().method() + ' ' + url.pathname)
+      if (state.allowPromote && url.pathname === `/v1/cadastros/${m3}/promover-cliente`) {
+        const body = route.request().postDataJSON() as Record<string, unknown>
+        promoteBodies.push(body)
+        // 1ª tentativa: condição retroativa exige confirmação explícita.
+        if (body.confirmar_retroativo !== true) return route.fulfill({ status: 409, json: { code: 'PROMOCAO_CONDICAO_RETROATIVA', error: 'Há condição comercial com fixo ou % vigente antes do início do contrato.' } })
+        return route.fulfill({ status: 200, json: { id: m3, tipo: 'cliente' } })
+      }
       return route.fulfill({ status: 405, json: { error: 'Fixture somente leitura' } })
     }
     const ok = (json: unknown) => route.fulfill({ json })
     const fail = () => route.fulfill({ status: 503, json: { error: 'Falha de consulta simulada' } })
+    if (url.pathname === '/v1/cadastros') {
+      if (state.cadastros404) return route.fulfill({ status: 404, json: { error: 'Not Found' } })
+      const todos = url.searchParams.get('status') === 'all'
+      if (todos && state.failArchives) return fail()
+      const archived = { id: c3, nome: state.archivedHomonym ? 'Aurora' : 'Cedro', status: 'arquivado' }
+      return ok(cadastrosDaFixture([...clients, archived], brands, { incluirInativos: todos }))
+    }
     if (url.pathname === '/v1/clientes') {
       if (url.searchParams.get('status') === 'arquivado') return state.failArchives ? fail() : ok([{ id: c3, nome: state.archivedHomonym ? 'Aurora' : 'Cedro', status: 'arquivado' }])
       return ok(clients)
@@ -89,7 +108,7 @@ async function setup(page: Page) {
     if (url.pathname.startsWith('/v1/financeiro/')) return ok({})
     return ok([])
   })
-  return { state, calls, writes }
+  return { state, calls, writes, promoteBodies }
 }
 
 test('carteira prioriza ativos e mantém inativos acessíveis, por último e com busca', async ({ page }, info) => {
@@ -101,7 +120,7 @@ test('carteira prioriza ativos e mantém inativos acessíveis, por último e com
   await expect(table).toContainText('Lume')
   await expect(table).not.toContainText('Brisa')
   await expect(page.getByRole('region', { name: 'Resumo da carteira' })).toHaveCount(0)
-  expect(calls.some(path => path.includes('status=arquivado'))).toBe(false)
+  expect(calls.some(consultouInativos)).toBe(false)
   await page.getByRole('button', { name: 'Todos', exact: true }).click()
   await expect(table).toContainText('Brisa')
   await expect(table).toContainText('Cedro')
@@ -138,7 +157,7 @@ test('link direto de cadastro arquivado carrega Todos e abre o cadastro correto'
   await dialog.getByRole('button', { name: 'Fechar', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Todos', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('table')).toContainText('Cedro')
-  expect(calls.some(path => path.includes('status=arquivado'))).toBe(true)
+  expect(calls.some(consultouInativos)).toBe(true)
   expect(writes).toEqual([])
 })
 
@@ -149,7 +168,7 @@ test('link por nome com homônimo arquivado pede escolher o cadastro antes de ab
   const chooser = page.getByRole('dialog', { name: 'Escolher cadastro', exact: true })
   await expect(chooser).toBeVisible()
   await expect(chooser.getByText('Arquivado', { exact: true })).toBeVisible()
-  expect(calls.some(path => path.includes('status=arquivado'))).toBe(true)
+  expect(calls.some(consultouInativos)).toBe(true)
   expect(calls.some(path => path.includes('/operacional'))).toBe(false)
 })
 
@@ -208,4 +227,70 @@ test('financeiro abre o detalhe da marca pela identidade declarada pela API (aba
   expect(calls.some(path => path.startsWith(`/v1/clientes/${m3}/operacional`))).toBe(false)
   expect(writes).toEqual([])
   await page.screenshot({ path: info.outputPath('financeiro-identidade.png'), fullPage: true })
+})
+
+test('carteira usa /v1/cadastros só com a flag ligada e rotula tipo e receita', async ({ page }) => {
+  const { calls, writes } = await setup(page)
+  await page.goto('/clientes')
+  const table = page.getByRole('table')
+  await expect(table).toContainText('Aurora')
+  await expect(page.getByRole('heading', { name: 'Clientes', exact: true })).toBeVisible()
+  await expect(table.getByRole('columnheader', { name: 'Tipo', exact: true })).toBeVisible()
+  const farol = table.locator('tbody tr').filter({ hasText: 'Farol' })
+  await expect(farol).toContainText('Afiliada')
+  await expect(farol).toContainText('não gera receita')
+  await expect(table.locator('tbody tr').filter({ hasText: 'Lume' })).not.toContainText('não gera receita')
+  await page.getByLabel('Filtrar por tipo', { exact: true }).selectOption('afiliada')
+  await expect(table).toContainText('Farol')
+  await expect(table).not.toContainText('Lume')
+  expect(calls.some(path => path.startsWith('/v1/cadastros'))).toBe(cadastroUnificadoLigado)
+  if (cadastroUnificadoLigado) {
+    expect(calls.some(path => path === '/v1/clientes' || path.startsWith('/v1/clientes?'))).toBe(false)
+  }
+  expect(writes).toEqual([])
+})
+
+test('flag ligada e backend antigo (404 em /v1/cadastros) caem na junção /clientes + /marcas', async ({ page }) => {
+  test.skip(!cadastroUnificadoLigado, 'cenário só existe com VITE_CADASTRO_UNIFICADO=true')
+  const { state, calls } = await setup(page)
+  state.cadastros404 = true
+  await page.goto('/clientes')
+  const table = page.getByRole('table')
+  await expect(table).toContainText('Aurora')
+  await expect(table).toContainText('Farol')
+  await expect(table).toContainText('Lume')
+  await expect(table.locator('tbody tr').filter({ hasText: 'Farol' })).toContainText('não gera receita')
+  expect(calls.filter(path => path.startsWith('/v1/cadastros'))).toHaveLength(1)
+  expect(calls).toContain('/v1/clientes')
+  await page.getByRole('button', { name: 'Todos', exact: true }).click()
+  await expect(table).toContainText('Cedro')
+  // Depois do 404 a sessão não tenta a rota nova de novo.
+  expect(calls.filter(path => path.startsWith('/v1/cadastros'))).toHaveLength(1)
+  await page.getByRole('button', { name: 'Editar Farol', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Marca afiliada', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Promover a cliente', exact: true })).toHaveCount(0)
+})
+
+test('promover afiliada a cliente chama a rota nova e recarrega a lista', async ({ page }) => {
+  test.skip(!cadastroUnificadoLigado, 'promover só existe com o endpoint novo')
+  const { state, calls, writes, promoteBodies } = await setup(page)
+  state.allowPromote = true
+  await page.goto('/clientes')
+  await page.getByRole('button', { name: 'Editar Farol', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Marca afiliada', exact: true })
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('não gera receita')
+  const antes = calls.filter(path => path.startsWith('/v1/cadastros')).length
+  await dialog.getByRole('button', { name: 'Promover a cliente', exact: true }).click()
+  const promover = page.getByRole('dialog', { name: 'Promover a cliente', exact: true })
+  await promover.getByLabel('WhatsApp do cliente', { exact: true }).fill('47911112222')
+  page.once('dialog', d => d.accept())
+  await promover.getByRole('button', { name: 'Promover a cliente', exact: true }).click()
+  await expect.poll(() => promoteBodies.length).toBe(2)
+  expect(promoteBodies[0]).toEqual({ celular: '47911112222' })
+  expect(promoteBodies[1]).toEqual({ celular: '47911112222', confirmar_retroativo: true })
+  expect(writes).toEqual([`POST /v1/cadastros/${m3}/promover-cliente`, `POST /v1/cadastros/${m3}/promover-cliente`])
+  await expect(promover).not.toBeVisible()
+  await expect(dialog).not.toBeVisible()
+  await expect.poll(() => calls.filter(path => path.startsWith('/v1/cadastros')).length).toBeGreaterThan(antes)
 })

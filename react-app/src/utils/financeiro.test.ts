@@ -267,10 +267,14 @@ describe('perdas e cancelamentos', () => {
     expect(acoesPerda({ ...custo, status: 'pago' }).podeCancelar).toBe(false)
   })
 
-  it('apresentadora, imposto e aporte não ganham a ação', () => {
+  it('apresentadora e imposto cancelam/reativam; aporte não ganha a ação', () => {
     const nada = { podePerder: false, podeCancelar: false, podeDesfazer: false }
-    expect(acoesPerda({ natureza: 'custo', origem: 'apresentadora', status: 'pendente' })).toEqual(nada)
-    expect(acoesPerda({ natureza: 'custo', origem: 'imposto', status: 'pendente' })).toEqual(nada)
+    for (const origem of ['apresentadora', 'imposto'] as const) {
+      expect(acoesPerda({ natureza: 'custo', origem, status: 'pendente' })).toEqual({ podePerder: false, podeCancelar: true, podeDesfazer: false })
+      expect(acoesPerda({ natureza: 'custo', origem, status: 'parcial' }).podeCancelar).toBe(true)
+      expect(acoesPerda({ natureza: 'custo', origem, status: 'pago' })).toEqual(nada)
+      expect(acoesPerda({ natureza: 'custo', origem, status: 'cancelado' })).toEqual({ podePerder: false, podeCancelar: false, podeDesfazer: true })
+    }
     expect(acoesPerda({ natureza: 'receita', origem: 'avulsa', status: 'pendente', grupo: 'aporte' })).toEqual(nada)
   })
 
@@ -282,6 +286,41 @@ describe('perdas e cancelamentos', () => {
     expect(rotaPerda({ id: 'a1', natureza: 'receita', origem: 'avulsa' }, 'desfazer')).toBe('/financeiro/receitas-avulsas/a1/desperder')
     expect(rotaPerda({ id: 'c1', natureza: 'custo', origem: 'manual' }, 'cancelar')).toBe('/financeiro/custos/c1/cancelar')
     expect(rotaPerda({ id: 'rec:r1:2026-09', natureza: 'custo', origem: 'recorrente' }, 'desfazer')).toBe('/financeiro/custos/rec%3Ar1%3A2026-09/reativar')
+  })
+
+  it('rotaPerda de apresentadora e imposto', () => {
+    const ap = { id: 'apresentadora:u1:2026-09:fixo', natureza: 'custo' as const, origem: 'apresentadora' as const, competencia: '2026-09-01', apresentadora_id: 'u1', componente: 'fixo' }
+    expect(rotaPerda(ap, 'cancelar')).toBe('/financeiro/apresentadoras-pagamentos/u1/2026-09/fixo/cancelar')
+    expect(rotaPerda(ap, 'desfazer')).toBe('/financeiro/apresentadoras-pagamentos/u1/2026-09/fixo/reativar')
+    expect(rotaPerda({ id: 'apresentadora:u2:2026-10:variavel', natureza: 'custo', origem: 'apresentadora' }, 'cancelar')).toBe('/financeiro/apresentadoras-pagamentos/u2/2026-10/variavel/cancelar')
+    const imp = { id: 'imposto:2026-09', natureza: 'custo' as const, origem: 'imposto' as const, competencia: '2026-09-01' }
+    expect(rotaPerda(imp, 'cancelar')).toBe('/financeiro/impostos/2026-09/cancelar')
+    expect(rotaPerda(imp, 'desfazer')).toBe('/financeiro/impostos/2026-09/reativar')
+  })
+
+  it('aporte perdido não é descontado duas vezes no saldo_previsto (= DRE: aporte fora)', () => {
+    const t = totalizar([
+      l({ natureza: 'receita', origem: 'avulsa', grupo: 'aporte', valor_previsto: 1000, valor_pago: 0, perdido_em: '2026-09-10' }),
+      l({ natureza: 'receita', origem: 'comercial', valor_previsto: 300, valor_pago: 0 }),
+      l({ natureza: 'custo', origem: 'custo', valor_previsto: 100, valor_pago: 0 }),
+    ])
+    expect(t.saldo_previsto).toBe(200)
+  })
+
+  it('saldo_previsto/realizado descontam aportes (= resultado do DRE)', () => {
+    const itens = [
+      l({ natureza: 'receita', origem: 'comercial', valor_previsto: 1000, valor_pago: 400 }),
+      l({ natureza: 'receita', origem: 'avulsa', grupo: 'aporte', valor_previsto: 500, valor_pago: 500 }),
+      l({ natureza: 'receita', origem: 'comercial', valor_previsto: 200, perdido_em: '2026-09-01' }),
+      l({ valor_previsto: 300, valor_pago: 100 }),
+      l({ valor_previsto: 50, cancelado_em: '2026-09-01' }),
+    ]
+    const t = totalizar(itens)
+    expect(t.saldo_previsto).toBe(1000 + 500 + 200 - 200 - 500 - (350 - 50))
+    expect(t.saldo_previsto).toBe(700)
+    expect(t.saldo_realizado).toBe(400 + 500 - 500 - 100)
+    const r = normalizarLancamentosResponse({ itens, totais: { receita: { previsto: 1, pago: 1 }, custo: { previsto: 1, pago: 1 } } }, { inicio: '2026-09', fim: '2026-09' })
+    expect(r.totais.saldo_previsto).toBe(700)
   })
 
   it('totalizar separa perdido/cancelado de pendente/atrasado; totais do backend são defensivos', () => {

@@ -28,6 +28,7 @@ export const QK = {
   clientes: (scope?: string) => (scope ? ['clientes', scope] : ['clientes']) as readonly string[],
   clienteBriefing: (id: string) => ['cliente-briefing', id] as const,
   marcas: (scope?: string) => (scope ? ['marcas', scope] : ['marcas']) as readonly string[],
+  cadastros: (scope?: string) => (scope ? ['cadastros', scope] : ['cadastros']) as readonly string[],
   apresentadoras: (scope?: string) => (scope ? ['apresentadoras', scope] : ['apresentadoras']) as readonly string[],
   leads: ['leads'] as const,
   leadById: (id: string) => ['lead', id] as const,

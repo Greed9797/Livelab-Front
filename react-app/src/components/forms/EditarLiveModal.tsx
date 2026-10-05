@@ -20,6 +20,7 @@ import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../../utils/money
 import { QK, invalidateOperational } from '../../services/query-keys'
 import type { JsonRecord } from '../../types/models'
 import { isOperationalBrand, isOperationalClient } from '../../utils/operational-status'
+import { MARCA_PREFIX, buildLiveAccountOptions, liveAccountValue, type LiveAccountOption } from '../../utils/live-account'
 
 type EditForm = {
   cliente_id: string
@@ -81,21 +82,22 @@ const emptyForm: EditForm = {
   resumo: '',
 }
 
-export type LiveAccountOption = { value: string; label: string }
+export type { LiveAccountOption }
 
+/**
+ * Uma opção `marca:<id>` por cadastro. `cliente:<id>` só para ficha sem nenhuma marca
+ * (legado). Conta histórica fora da lista entra no topo como "(inativo)".
+ */
 export function liveAccountOptions(marcas: JsonRecord[], clientes: JsonRecord[], selected?: { marcaId?: string; clienteId?: string; historicalName?: string }): LiveAccountOption[] {
-  const clientesComMarca = new Set(marcas.map((marca) => asString(marca.cliente_id, '')).filter(Boolean))
-  const options = [
-    ...marcas.filter(isOperationalBrand).map((marca) => ({ value: `marca:${asString(marca.id, '')}`, label: `Marca · ${asString(marca.nome ?? marca.cliente_nome, 'Marca')}` })),
-    ...clientes
-      .filter((cliente) => isOperationalClient(cliente) && !clientesComMarca.has(asString(cliente.id, '')))
-      .map((cliente) => ({ value: `cliente:${asString(cliente.id, '')}`, label: `Cliente · ${asString(cliente.nome ?? cliente.razao_social ?? cliente.email, 'Cliente')}` })),
-  ].filter((option) => option.value !== 'marca:' && option.value !== 'cliente:')
-  const selectedValue = selected?.marcaId ? `marca:${selected.marcaId}` : selected?.clienteId ? `cliente:${selected.clienteId}` : ''
+  const selectedValue = liveAccountValue(selected, marcas)
+  // Live com marca histórica (fora do catálogo ativo): a ficha dessa marca não vira uma segunda opção.
+  const ocultarClienteIds = selected?.marcaId && selected.clienteId ? [selected.clienteId] : []
+  const options = buildLiveAccountOptions({ marcas, clientes, incluirMarca: isOperationalBrand, incluirCliente: isOperationalClient, ocultarClienteIds })
   if (!selectedValue || options.some((option) => option.value === selectedValue)) return options
-  const record = selected?.marcaId ? marcas.find((item) => asString(item.id, '') === selected.marcaId) : clientes.find((item) => asString(item.id, '') === selected?.clienteId)
-  const name = asString(record?.nome ?? record?.cliente_nome ?? record?.razao_social ?? record?.email, selected?.historicalName || (selected?.marcaId ? 'Marca' : 'Cliente'))
-  return [{ value: selectedValue, label: `${selected?.marcaId ? 'Marca' : 'Cliente'} · ${name} (inativo)` }, ...options]
+  const marcaId = selectedValue.startsWith(MARCA_PREFIX) ? selectedValue.slice(MARCA_PREFIX.length) : ''
+  const record = marcaId ? marcas.find((item) => asString(item.id, '') === marcaId) : clientes.find((item) => asString(item.id, '') === selected?.clienteId)
+  const name = asString(record?.nome ?? record?.cliente_nome ?? record?.razao_social ?? record?.email, selected?.historicalName || (marcaId ? 'Marca' : 'Cliente'))
+  return [{ value: selectedValue, label: `${name} (inativo)` }, ...options]
 }
 
 export function liveAccountSelection(value: string, marcas: JsonRecord[]): { marca_id: string; cliente_id: string } | null {
@@ -409,7 +411,8 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
 
   const rateioPlanejado = resumoRateioPlanejado(live)
   const rateioAtual = asArray<JsonRecord>(live.apresentadoras)
-  const accountValue = form.marca_id ? `marca:${form.marca_id}` : form.cliente_id ? `cliente:${form.cliente_id}` : ''
+  // Live antiga só com cliente_id mostra a marca principal (sem alterar o form até o usuário escolher).
+  const accountValue = liveAccountValue({ marcaId: form.marca_id, clienteId: form.cliente_id }, marcaRows)
   const accountKnown = !accountValue || accountOptions.some((option) => option.value === accountValue)
   const legacyPresenters = [
     asString(live.apresentadora_nome ?? live.apresentador_nome, ''),
