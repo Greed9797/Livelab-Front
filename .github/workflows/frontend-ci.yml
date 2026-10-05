@@ -4,7 +4,7 @@ on:
   push:
     branches: [migration/react-vercel, stabilization/core-restructure, codex/blumenau-operational-fase1]
   pull_request:
-    branches: [migration/react-vercel, codex/blumenau-operational-fase1]
+    branches: [migration/react-vercel, codex/blumenau-operational-fase1, feat/multi-apresentadora-agenda]
 
 jobs:
   build:
