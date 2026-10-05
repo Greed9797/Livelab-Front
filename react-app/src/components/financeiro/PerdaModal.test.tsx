@@ -55,6 +55,8 @@ describe('PerdaModal', () => {
     renderModal('perder')
 
     expect(screen.getByText(/Saldo máximo que pode ser encerrado:/).textContent).toContain('R$ 600,00')
+    expect(screen.getByText(/Já recebido:/).textContent).toContain('R$ 400,00 · Em aberto agora: R$ 600,00')
+    expect(screen.getByText(/Valor encerrado:/).textContent).toContain('R$ 600,00 · Em aberto depois: R$ 0,00')
     expect(screen.getByText(/efeito no Resultado será considerado no mês em que esta ação for registrada/)).toBeTruthy()
 
     const confirmar = screen.getByRole('button', { name: 'Dar como perdida' })
@@ -65,16 +67,17 @@ describe('PerdaModal', () => {
     fireEvent.click(confirmar)
 
     expect(mutate).toHaveBeenCalledWith(
-      { lancamento: item, modo: 'perder', motivo: 'Cliente encerrou sem quitar', valor: '600.00' },
+      { lancamento: item, modo: 'perder', motivo: 'Cliente encerrou sem quitar', valor: '600.00', chaveOperacao: expect.any(String) },
       expect.any(Object),
     )
   })
 
   it('também exige motivo na reversão e preserva o motivo anterior como contexto', () => {
-    const perdido = { ...item, status: 'perdido' as const, perdido_motivo: 'Cliente encerrou' }
+    const perdido = { ...item, status: 'perdido' as const, valor_perdido: 600, perdido_motivo: 'Cliente encerrou' }
     renderModal('desfazer', perdido)
 
     expect(screen.getByText(/Máximo que pode ser reaberto:/).textContent).toContain('R$ 600,00')
+    expect(screen.getByText(/Valor reaberto:/).textContent).toContain('R$ 600,00 · Em aberto depois: R$ 600,00')
     expect(screen.getByText('Motivo registrado anteriormente: Cliente encerrou')).toBeTruthy()
     const confirmar = screen.getByRole('button', { name: 'Desfazer perda' })
     expect((confirmar as HTMLButtonElement).disabled).toBe(true)
@@ -83,7 +86,7 @@ describe('PerdaModal', () => {
     fireEvent.click(confirmar)
 
     expect(mutate).toHaveBeenCalledWith(
-      { lancamento: perdido, modo: 'desfazer', motivo: 'Pagamento negociado novamente', valor: '600.00' },
+      { lancamento: perdido, modo: 'desfazer', motivo: 'Pagamento negociado novamente', valor: '600.00', chaveOperacao: expect.any(String) },
       expect.any(Object),
     )
   })
@@ -95,13 +98,50 @@ describe('PerdaModal', () => {
     fireEvent.change(screen.getByRole('textbox', { name: /^Motivo/ }), { target: { value: 'Sem perspectiva de pagamento' } })
     fireEvent.change(valor, { target: { value: '600,01' } })
     expect((confirmar as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.queryByText(/Em aberto depois:/)).toBeNull()
     fireEvent.change(valor, { target: { value: '125,50' } })
     expect((confirmar as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.getByText(/Valor encerrado:/).textContent).toContain('R$ 125,50 · Em aberto depois: R$ 474,50')
     fireEvent.click(confirmar)
     expect(mutate).toHaveBeenCalledWith(
-      { lancamento: item, modo: 'perder', motivo: 'Sem perspectiva de pagamento', valor: '125.50' },
+      { lancamento: item, modo: 'perder', motivo: 'Sem perspectiva de pagamento', valor: '125.50', chaveOperacao: expect.any(String) },
       expect.any(Object),
     )
+  })
+
+  it('bloqueia reversão de perda legada sem evento correspondente', () => {
+    renderModal('desfazer', { ...item, status: 'perdido', perdido_motivo: 'Histórico antigo' })
+    expect(screen.getByText(/Perda antiga sem evento reversível/)).toBeTruthy()
+    fireEvent.change(screen.getByRole('textbox', { name: /^Motivo da reversão/ }), { target: { value: 'Negociação retomada' } })
+    expect((screen.getByRole('button', { name: 'Desfazer perda' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('limita reversão parcial ao valor perdido e mostra o saldo reaberto', () => {
+    const perdido = { ...item, status: 'parcial' as const, valor_perdido: 250.01 }
+    renderModal('desfazer', perdido)
+    const valor = screen.getByRole('textbox', { name: /^Valor a reabrir/ })
+    const confirmar = screen.getByRole('button', { name: 'Desfazer perda' }) as HTMLButtonElement
+    fireEvent.change(screen.getByRole('textbox', { name: /^Motivo da reversão/ }), { target: { value: 'Acordo retomado' } })
+    fireEvent.change(valor, { target: { value: '250,02' } })
+    expect(confirmar.disabled).toBe(true)
+    fireEvent.change(valor, { target: { value: '0,01' } })
+    expect(screen.getByText(/Valor reaberto:/).textContent).toContain('R$ 0,01 · Em aberto depois: R$ 350,00')
+    fireEvent.click(confirmar)
+    expect(mutate).toHaveBeenCalledWith(
+      { lancamento: perdido, modo: 'desfazer', motivo: 'Acordo retomado', valor: '0.01', chaveOperacao: expect.any(String) },
+      expect.any(Object),
+    )
+  })
+
+  it('valida centavos exatos sem arredondar a entrada', () => {
+    renderModal('perder', { ...item, valor_previsto: 1000.01, valor_pago: 400 })
+    const valor = screen.getByRole('textbox', { name: /^Valor a encerrar/ })
+    const confirmar = screen.getByRole('button', { name: 'Dar como perdida' }) as HTMLButtonElement
+    fireEvent.change(screen.getByRole('textbox', { name: /^Motivo/ }), { target: { value: 'Saldo irrecuperável' } })
+    fireEvent.change(valor, { target: { value: '600,011' } })
+    expect(confirmar.disabled).toBe(true)
+    fireEvent.change(valor, { target: { value: '600,01' } })
+    expect(confirmar.disabled).toBe(false)
   })
 
   it('reativação de custo segue o contrato atual sem exigir motivo que o servidor ignora', () => {

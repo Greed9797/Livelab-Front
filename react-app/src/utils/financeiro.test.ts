@@ -25,6 +25,7 @@ import {
   shiftMes,
   statusLabel,
   totalizar,
+  valorEmAberto,
   vencimentoNoMes,
 } from './financeiro'
 
@@ -256,6 +257,7 @@ describe('perdas e cancelamentos', () => {
     const rec = { natureza: 'receita' as const, origem: 'comercial', status: 'pendente' as const }
     expect(acoesPerda(rec)).toEqual({ podePerder: true, podeCancelar: false, podeDesfazer: false })
     expect(acoesPerda({ ...rec, status: 'parcial' }).podePerder).toBe(true)
+    expect(acoesPerda({ ...rec, status: 'parcial', valor_perdido: 25 })).toEqual({ podePerder: true, podeCancelar: false, podeDesfazer: true })
     expect(acoesPerda({ ...rec, status: 'pago' })).toEqual({ podePerder: false, podeCancelar: false, podeDesfazer: false })
     expect(acoesPerda({ ...rec, status: 'perdido' })).toEqual({ podePerder: false, podeCancelar: false, podeDesfazer: true })
     expect(acoesPerda({ natureza: 'receita', origem: 'avulsa', status: 'atrasado', grupo: 'servico' }).podePerder).toBe(true)
@@ -265,6 +267,15 @@ describe('perdas e cancelamentos', () => {
     expect(acoesPerda({ ...custo, origem: 'parcela' }).podeCancelar).toBe(true)
     expect(acoesPerda({ ...custo, status: 'cancelado' })).toEqual({ podePerder: false, podeCancelar: false, podeDesfazer: true })
     expect(acoesPerda({ ...custo, status: 'pago' }).podeCancelar).toBe(false)
+  })
+
+  it('saldo de receita desconta perda parcial sem alterar o saldo de custo', () => {
+    expect(valorEmAberto({ natureza: 'receita', valor_previsto: 100, valor_pago: 40, valor_perdido: 25 })).toBe(35)
+    expect(valorEmAberto({ natureza: 'custo', valor_previsto: 100, valor_pago: 40, valor_perdido: 25 })).toBe(60)
+    const t = totalizar([l({ natureza: 'receita', origem: 'comercial', valor_previsto: 100,
+      valor_pago: 0, valor_perdido: 25, data_vencimento: '2026-09-01' })])
+    expect(t.receita).toMatchObject({ previsto: 100, pago: 0, perdido: 25, atrasado: 75 })
+    expect(t.saldo_previsto).toBe(75)
   })
 
   it('apresentadora e imposto cancelam/reativam; aporte não ganha a ação', () => {

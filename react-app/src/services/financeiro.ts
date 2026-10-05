@@ -101,12 +101,14 @@ export function baixarLancamento(l: Lancamento, acao: AcaoBaixa, payload: BaixaP
 
 // ── Perdas / cancelamentos ───────────────────────────────────────────────────
 
-export function perdaLancamento(l: Lancamento, modo: ModoPerda, motivo?: string, valor?: string) {
+export function perdaLancamento(l: Lancamento, modo: ModoPerda, motivo?: string, valor?: string, chaveOperacao?: string) {
   const texto = motivo?.trim()
   const valorCampo = l.natureza === 'receita' && valor
     ? { [modo === 'desfazer' ? 'valor_reversao' : 'valor_perda']: valor }
     : {}
-  return apiPatch<unknown>(rotaPerda(l, modo), texto ? { motivo: texto.slice(0, 300), ...valorCampo } : undefined)
+  return apiPatch<unknown>(rotaPerda(l, modo), texto
+    ? { motivo: texto.slice(0, 300), ...valorCampo, ...(l.natureza === 'receita' && chaveOperacao ? { chave_operacao: chaveOperacao } : {}) }
+    : undefined)
 }
 
 // ── Custos ───────────────────────────────────────────────────────────────────

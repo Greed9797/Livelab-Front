@@ -1,10 +1,8 @@
 import { Ban, RotateCcw } from 'lucide-react'
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useRef, useState } from 'react'
 import { usePerdaMutation } from '../../hooks/useFinanceiro'
 import { extractErrorMessage } from '../../services/api'
 import type { Lancamento, ModoPerda } from '../../types/financeiro'
-import { valorEmAberto } from '../../utils/financeiro'
-import { formatMoney } from '../../utils/format'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
@@ -12,6 +10,22 @@ import { Resumo } from './LancamentoModals'
 import { Field, InlineError } from './primitives'
 
 export const MOTIVO_MAX = 300
+
+function centavosExatos(valor: unknown): bigint | null {
+  if (typeof valor !== 'number' && typeof valor !== 'string') return null
+  const texto = String(valor).trim()
+  const match = texto.match(/^(\d{1,13})(?:\.(\d{1,2}))?$/)
+  if (!match) return null
+  return BigInt(match[1]) * 100n + BigInt((match[2] ?? '').padEnd(2, '0'))
+}
+
+function decimalExato(centavos: bigint): string {
+  return `${centavos / 100n}.${String(centavos % 100n).padStart(2, '0')}`
+}
+
+function reaisExatos(centavos: bigint): string {
+  return `R$ ${new Intl.NumberFormat('pt-BR').format(centavos / 100n)},${String(centavos % 100n).padStart(2, '0')}`
+}
 
 const TEXTOS: Record<ModoPerda, { title: string; efeito: string; cta: string; ok: string }> = {
   perder: {
@@ -51,6 +65,8 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
   const mut = usePerdaMutation()
   const [motivo, setMotivo] = useState('')
   const [valor, setValor] = useState('')
+  // Reutilizada em retry do mesmo formulário; nova abertura gera outra operação.
+  const chaveOperacao = useRef(crypto.randomUUID())
   const textos = TEXTOS[modo]
   const nome = NOME_CANCELAMENTO[item.origem]
   const receita = item.natureza === 'receita'
@@ -63,22 +79,27 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
   const motivoAnterior = receita ? item.perdido_motivo : item.cancelado_motivo
   const precisaMotivo = receita || modo !== 'desfazer'
   const motivoValido = !precisaMotivo || motivo.trim().length > 0
-  const saldoOriginal = valorEmAberto(item)
-  const saldoAfetado = receita
-    ? modo === 'desfazer' ? (item.valor_perdido ?? saldoOriginal) : Math.max(0, saldoOriginal - (item.valor_perdido ?? 0))
-    : saldoOriginal
-  const valorDigitado = valor.trim().replace(',', '.') || saldoAfetado.toFixed(2)
-  const formatoValido = /^\d{1,13}(?:\.\d{1,2})?$/.test(valorDigitado)
-  const centavos = formatoValido ? Math.round(Number(valorDigitado) * 100) : 0
-  const valorValido = !receita || (centavos > 0 && centavos <= Math.round(saldoAfetado * 100))
-  const valorNormalizado = formatoValido ? `${valorDigitado.split('.')[0]}.${(valorDigitado.split('.')[1] ?? '').padEnd(2, '0')}` : ''
+  const previsto = centavosExatos(item.valor_previsto)
+  const pago = centavosExatos(item.valor_pago)
+  const perdido = item.valor_perdido == null ? 0n : centavosExatos(item.valor_perdido)
+  const perdaLegada = receita && modo === 'desfazer' && item.status === 'perdido' && item.valor_perdido == null
+  const saldoAberto = previsto == null || pago == null || perdido == null ? null : previsto - pago - perdido
+  const saldoAfetado = receita && modo === 'desfazer' ? perdido : saldoAberto
+  const valorDigitado = valor.trim().replace(',', '.') || (saldoAfetado != null && saldoAfetado > 0n ? decimalExato(saldoAfetado) : '')
+  const centavos = centavosExatos(valorDigitado)
+  const valorValido = !receita || (!perdaLegada && saldoAfetado != null && saldoAfetado > 0n && centavos != null && centavos > 0n && centavos <= saldoAfetado)
+  const valorNormalizado = centavos == null ? '' : decimalExato(centavos)
   const saldoLabel = modo === 'desfazer' ? 'Máximo que pode ser reaberto' : 'Saldo máximo que pode ser encerrado'
+  const abertoDepois = receita && valorValido && saldoAberto != null && centavos != null
+    ? modo === 'desfazer' ? saldoAberto + centavos : saldoAberto - centavos
+    : null
 
   function submit(e: FormEvent) {
     e.preventDefault()
     if (mut.isPending || !motivoValido || !valorValido) return
     mut.mutate(
-      { lancamento: item, modo, ...(precisaMotivo ? { motivo: motivo.trim() } : {}), ...(receita ? { valor: valorNormalizado } : {}) },
+      { lancamento: item, modo, ...(precisaMotivo ? { motivo: motivo.trim() } : {}),
+        ...(receita ? { valor: valorNormalizado, chaveOperacao: chaveOperacao.current } : {}) },
       {
         onSuccess: () => {
           toast.push(ok, 'success')
@@ -93,8 +114,11 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
       <form className="space-y-4" onSubmit={submit}>
         <Resumo l={item} />
         <div className="rounded-xl border border-line bg-surface-muted px-3 py-2.5 text-sm text-ink">
-          <p>{saldoLabel}: <strong className="num">{formatMoney(saldoAfetado, true)}</strong></p>
+          <p>{saldoLabel}: <strong className="num">{saldoAfetado != null && saldoAfetado >= 0n ? reaisExatos(saldoAfetado) : 'Indisponível'}</strong></p>
+          {receita && pago != null && saldoAberto != null ? <p className="mt-1 text-xs text-ink-muted">Já recebido: {reaisExatos(pago)} · Em aberto agora: {reaisExatos(saldoAberto > 0n ? saldoAberto : 0n)}</p> : null}
+          {abertoDepois != null && centavos != null ? <p aria-live="polite" className="mt-1 text-xs font-medium">{modo === 'desfazer' ? 'Valor reaberto' : 'Valor encerrado'}: {reaisExatos(centavos)} · Em aberto depois: {reaisExatos(abertoDepois)}</p> : null}
           {receita ? <p className="mt-1 text-xs text-ink-muted">O efeito no Resultado será considerado no mês em que esta ação for registrada.</p> : null}
+          {perdaLegada ? <p role="alert" className="mt-1 text-xs text-[var(--danger)]">Perda antiga sem evento reversível. Solicite revisão financeira deste registro.</p> : null}
         </div>
         {receita ? <Field label={modo === 'desfazer' ? 'Valor a reabrir' : 'Valor a encerrar'} hint="Informe o valor total ou apenas uma parte, em reais.">
           <input
@@ -103,7 +127,7 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
             inputMode="decimal"
             value={valor}
             onChange={(e) => setValor(e.target.value)}
-            placeholder={saldoAfetado.toFixed(2).replace('.', ',')}
+            placeholder={saldoAfetado != null && saldoAfetado > 0n ? decimalExato(saldoAfetado).replace('.', ',') : ''}
             aria-invalid={valor.length > 0 && !valorValido}
           />
         </Field> : null}

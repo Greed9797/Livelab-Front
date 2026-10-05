@@ -61,12 +61,13 @@ function BaixaForm({
   error?: string | null
 }) {
   // valor_pago no backend é o TOTAL acumulado do título: pré-preenche o valor previsto inteiro.
-  const [valor, setValor] = useState(formatBRLWithoutSymbol(l.valor_previsto))
+  const valorCheio = Math.max(0, l.valor_previsto - (l.natureza === 'receita' ? l.valor_perdido ?? 0 : 0))
+  const [valor, setValor] = useState(formatBRLWithoutSymbol(valorCheio))
   const [data, setData] = useState(hojeSP())
   const entrada = l.natureza === 'receita'
   const decimal = parseBRMoneyToDecimal(valor)
-  const parcial = decimal > 0 && decimal < l.valor_previsto
-  const invalido = !(decimal > 0) || !data
+  const parcial = decimal > 0 && decimal < valorCheio
+  const invalido = !(decimal > 0) || decimal > valorCheio || !data
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -85,7 +86,7 @@ function BaixaForm({
       <form className="space-y-4" onSubmit={submit}>
         <Resumo l={l} />
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={entrada ? 'Valor recebido (total)' : 'Valor pago (total)'} hint={parcial ? `Parcial — faltam ${formatMoney(l.valor_previsto - decimal, true)}` : 'Valor cheio quita o lançamento'}>
+          <Field label={entrada ? 'Valor recebido (total)' : 'Valor pago (total)'} hint={parcial ? `Parcial — faltam ${formatMoney(valorCheio - decimal, true)}` : 'Valor cheio quita o lançamento'}>
             <MoneyInput className="design-input h-11 w-full px-4" value={valor} onChange={(raw) => setValor(raw)} required />
           </Field>
           <Field label={entrada ? 'Data do recebimento' : 'Data do pagamento'}>
@@ -93,7 +94,7 @@ function BaixaForm({
           </Field>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-ink-muted hover:bg-surface-muted hover:text-ink" onClick={() => setValor(formatBRLWithoutSymbol(l.valor_previsto))}>
+          <button type="button" className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-ink-muted hover:bg-surface-muted hover:text-ink" onClick={() => setValor(formatBRLWithoutSymbol(valorCheio))}>
             Valor cheio
           </button>
           <button type="button" className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-ink-muted hover:bg-surface-muted hover:text-ink" onClick={() => setData(hojeSP())}>

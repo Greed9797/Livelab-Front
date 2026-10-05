@@ -295,12 +295,16 @@ export function totalizar(itens: Lancamento[]): TotaisLancamentos {
       aportes.previsto += l.status === 'perdido' ? Math.min(l.valor_previsto, l.valor_pago) : l.valor_previsto
       aportes.pago += l.valor_pago
     }
-    const aberto = Math.max(0, l.valor_previsto - l.valor_pago)
+    const saldo = Math.max(0, l.valor_previsto - l.valor_pago)
+    const perda = l.natureza === 'receita'
+      ? Math.min(saldo, Math.max(0, l.valor_perdido ?? (l.status === 'perdido' ? saldo : 0))) : 0
+    const cancelamento = l.natureza === 'custo' && l.status === 'cancelado' ? saldo : 0
+    const aberto = Math.max(0, saldo - perda - cancelamento)
     alvo.previsto += l.valor_previsto
     alvo.pago += l.valor_pago
-    if (l.status === 'perdido') t.receita.perdido = (t.receita.perdido ?? 0) + aberto
-    else if (l.status === 'cancelado') t.custo.cancelado = (t.custo.cancelado ?? 0) + aberto
-    else if (l.status === 'atrasado') alvo.atrasado += aberto
+    if (perda > 0) t.receita.perdido = (t.receita.perdido ?? 0) + perda
+    if (cancelamento > 0) t.custo.cancelado = (t.custo.cancelado ?? 0) + cancelamento
+    if (l.status === 'atrasado') alvo.atrasado += aberto
     else if (l.status !== 'pago') alvo.pendente += aberto
   }
   for (const n of [t.receita, t.custo]) {
@@ -501,7 +505,7 @@ export interface AcoesPerda {
   podeDesfazer: boolean
 }
 
-type ParaPerda = Pick<Lancamento, 'natureza' | 'origem' | 'status'> & { grupo?: string | null }
+type ParaPerda = Pick<Lancamento, 'natureza' | 'origem' | 'status'> & { grupo?: string | null; valor_perdido?: number | null }
 
 /**
  * O que o item aceita: receita (comercial ou avulsa, exceto aporte) pode ser dada como perdida;
@@ -523,7 +527,7 @@ export function acoesPerda(item: ParaPerda): AcoesPerda {
     return {
       podePerder: item.status !== 'pago' && item.status !== 'perdido',
       podeCancelar: false,
-      podeDesfazer: item.status === 'perdido',
+      podeDesfazer: item.status === 'perdido' || (item.valor_perdido ?? 0) > 0,
     }
   }
   if (!isCustoManual(item)) return nenhuma
@@ -580,8 +584,8 @@ export function podeExcluir(l: Pick<Lancamento, 'natureza' | 'origem' | 'id'>): 
   return isReceitaAvulsa(l) || (isCustoManual(l) && !l.id.startsWith('rec:'))
 }
 
-export function valorEmAberto(l: Pick<Lancamento, 'valor_previsto' | 'valor_pago'>): number {
-  return r2(Math.max(0, l.valor_previsto - l.valor_pago))
+export function valorEmAberto(l: Pick<Lancamento, 'valor_previsto' | 'valor_pago'> & Partial<Pick<Lancamento, 'natureza' | 'valor_perdido'>>): number {
+  return r2(Math.max(0, l.valor_previsto - l.valor_pago - (l.natureza === 'receita' ? l.valor_perdido ?? 0 : 0)))
 }
 
 // ── DRE ──────────────────────────────────────────────────────────────────────
