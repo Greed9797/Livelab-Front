@@ -103,4 +103,17 @@ describe('PerdaModal', () => {
       expect.any(Object),
     )
   })
+
+  it('reativação de custo segue o contrato atual sem exigir motivo que o servidor ignora', () => {
+    const custo = { ...item, natureza: 'custo' as const, origem: 'manual' as const, status: 'cancelado' as const }
+    renderModal('desfazer', custo)
+    expect(screen.queryByRole('textbox', { name: /^Motivo da reversão/ })).toBeNull()
+    const confirmar = screen.getByRole('button', { name: 'Desfazer cancelamento' })
+    expect((confirmar as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(confirmar)
+    expect(mutate).toHaveBeenCalledWith(
+      { lancamento: custo, modo: 'desfazer' },
+      expect.any(Object),
+    )
+  })
 })

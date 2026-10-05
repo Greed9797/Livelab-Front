@@ -61,7 +61,8 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
     ? 'O lançamento volta ao a pagar e ao previsto conforme as regras do período.'
     : textos.efeito
   const motivoAnterior = receita ? item.perdido_motivo : item.cancelado_motivo
-  const motivoValido = motivo.trim().length > 0
+  const precisaMotivo = receita || modo !== 'desfazer'
+  const motivoValido = !precisaMotivo || motivo.trim().length > 0
   const saldoOriginal = valorEmAberto(item)
   const saldoAfetado = receita
     ? modo === 'desfazer' ? (item.valor_perdido ?? saldoOriginal) : Math.max(0, saldoOriginal - (item.valor_perdido ?? 0))
@@ -77,7 +78,7 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
     e.preventDefault()
     if (mut.isPending || !motivoValido || !valorValido) return
     mut.mutate(
-      { lancamento: item, modo, motivo: motivo.trim(), ...(receita ? { valor: valorNormalizado } : {}) },
+      { lancamento: item, modo, ...(precisaMotivo ? { motivo: motivo.trim() } : {}), ...(receita ? { valor: valorNormalizado } : {}) },
       {
         onSuccess: () => {
           toast.push(ok, 'success')
@@ -108,7 +109,7 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
         </Field> : null}
         {receita && valor.length > 0 && !valorValido ? <InlineError message="Informe um valor maior que zero e até o saldo disponível, com no máximo duas casas decimais." /> : null}
         {modo === 'desfazer' && motivoAnterior ? <p className="text-xs text-ink-muted">Motivo registrado anteriormente: {motivoAnterior}</p> : null}
-        <Field label={modo === 'desfazer' ? 'Motivo da reversão' : 'Motivo'} hint={`${motivo.length}/${MOTIVO_MAX}`}>
+        {precisaMotivo ? <Field label={modo === 'desfazer' ? 'Motivo da reversão' : 'Motivo'} hint={`${motivo.length}/${MOTIVO_MAX}`}>
           <textarea
             className="design-input min-h-20 w-full resize-y p-3 text-sm"
             value={motivo}
@@ -117,7 +118,7 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
             onChange={(e) => setMotivo(e.target.value)}
             placeholder={modo === 'desfazer' ? 'Explique por que esta ação está sendo revertida' : receita ? 'Ex.: cliente encerrou o contrato sem pagar' : 'Ex.: cobrança duplicada'}
           />
-        </Field>
+        </Field> : null}
         <InlineError message={mut.error ? extractErrorMessage(mut.error) : null} />
         <div className="flex justify-end gap-2 border-t border-line pt-4">
           <Button type="button" variant="ghost" onClick={onClose} disabled={mut.isPending}>Voltar</Button>
