@@ -51,6 +51,7 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
   const textos = TEXTOS[modo]
   const nome = NOME_CANCELAMENTO[item.origem]
   const receita = item.natureza === 'receita'
+  const motivoObrigatorio = modo === 'perder' && receita
   const title = modo === 'cancelar' && nome ? `Cancelar ${nome}?` : modo === 'desfazer' ? (receita ? 'Desfazer perda?' : 'Desfazer cancelamento?') : textos.title
   const cta = modo === 'cancelar' && nome ? `Cancelar ${nome}` : modo === 'desfazer' ? (receita ? 'Desfazer perda' : 'Desfazer cancelamento') : textos.cta
   const ok = modo === 'desfazer' ? (receita ? 'Perda desfeita.' : 'Cancelamento desfeito.') : textos.ok
@@ -58,7 +59,7 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
 
   function submit(e: FormEvent) {
     e.preventDefault()
-    if (mut.isPending) return
+    if (mut.isPending || (motivoObrigatorio && !motivo.trim())) return
     mut.mutate(
       { lancamento: item, modo, motivo: modo === 'desfazer' ? undefined : motivo },
       {
@@ -77,10 +78,11 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
         {modo === 'desfazer' ? (
           motivoAnterior ? <p className="text-xs text-ink-muted">Motivo registrado: {motivoAnterior}</p> : null
         ) : (
-          <Field label="Motivo (opcional)" hint={`${motivo.length}/${MOTIVO_MAX}`}>
+          <Field label={motivoObrigatorio ? 'Motivo (obrigatório)' : 'Motivo (opcional)'} hint={`${motivo.length}/${MOTIVO_MAX}`}>
             <textarea
               className="design-input min-h-20 w-full resize-y p-3 text-sm"
               value={motivo}
+              required={motivoObrigatorio}
               maxLength={MOTIVO_MAX}
               onChange={(e) => setMotivo(e.target.value)}
               placeholder={receita ? 'Ex.: cliente encerrou o contrato sem pagar' : 'Ex.: cobrança duplicada'}
@@ -90,7 +92,7 @@ export function PerdaModal({ item, modo, onClose }: { item: Lancamento; modo: Mo
         <InlineError message={mut.error ? extractErrorMessage(mut.error) : null} />
         <div className="flex justify-end gap-2 border-t border-line pt-4">
           <Button type="button" variant="ghost" onClick={onClose} disabled={mut.isPending}>Voltar</Button>
-          <Button type="submit" variant={modo === 'desfazer' ? 'primary' : 'danger'} icon={modo === 'desfazer' ? RotateCcw : Ban} isLoading={mut.isPending}>
+          <Button type="submit" variant={modo === 'desfazer' ? 'primary' : 'danger'} icon={modo === 'desfazer' ? RotateCcw : Ban} isLoading={mut.isPending} disabled={motivoObrigatorio && !motivo.trim()}>
             {cta}
           </Button>
         </div>

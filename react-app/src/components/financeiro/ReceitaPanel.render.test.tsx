@@ -45,6 +45,14 @@ describe('ReceitaPanel perdidos', () => {
     expect(screen.getByRole('button', { name: /Desfazer perda: Fixo/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Dar como perdida: Comissão/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Dar como perdida: Fixo/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Dar como perdida: Comissão/ }))
+    const confirmar = screen.getByRole('button', { name: 'Dar como perdida' }) as HTMLButtonElement
+    const motivo = screen.getByPlaceholderText('Ex.: cliente encerrou o contrato sem pagar')
+    expect(confirmar.disabled).toBe(true)
+    fireEvent.change(motivo, { target: { value: '   ' } })
+    expect(confirmar.disabled).toBe(true)
+    fireEvent.change(motivo, { target: { value: 'Cliente não pagará' } })
+    expect(confirmar.disabled).toBe(false)
   })
 })
 
