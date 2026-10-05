@@ -14,7 +14,15 @@ npm run build        # lint:hooks + tsc -b + vite build
 npm run e2e          # Playwright
 ```
 
-Backend: repositório `Livelab-back` (Fastify + Postgres com RLS), em produção no Railway.
+Backend: repositório `Livelab-back` (Fastify + Postgres com RLS), em produção no Railway a partir da branch `codex/blumenau-operational-fase1`. Quase toda feature toca os dois repositórios: número que aparece na tela quase sempre é calculado no backend.
+
+### Variáveis de ambiente (`react-app/.env.example`)
+- `VITE_API_URL` — URL da API (`…/v1`). Entra no bundle em tempo de build.
+- `VITE_DEV_API_PROXY_TARGET` / `VITE_DEV_API_PROXY_ORIGIN` — proxy do `npm run dev` para fugir do CORS.
+- `VITE_CADASTRO_UNIFICADO` — `true` liga a lista única "Clientes" via `GET /v1/cadastros` (padrão desligado; se o backend der 404, a tela volta à junção `/clientes` + `/marcas`).
+- `VITE_ENABLE_CLIENT_ONBOARDING`, `VITE_SENTRY_DSN` — opcionais.
+
+Mudou uma `VITE_*` na Vercel? Precisa de novo deploy.
 
 ---
 
