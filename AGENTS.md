@@ -11,8 +11,7 @@ cabines para marcas; daí saem GMV, comissão e metas.
 Quase toda feature toca os dois. Se a tarefa envolve um número que aparece na tela, o cálculo
 quase certamente mora no backend.
 
-A raiz deste repo ainda tem um app **Flutter legado**, que não é mais o produto. Ignore `lib/`,
-`pubspec.yaml` e `test/` da raiz salvo pedido explícito.
+O app Flutter legado que ficava na raiz foi removido em out/2026; o único app é `react-app/`.
 
 ## Comandos
 
@@ -55,7 +54,9 @@ E abra a página: ela precisa redirecionar para `/login` e renderizar o formulá
 
 ## Branches
 
-O trabalho recente acontece em **`feat/multi-apresentadora-agenda`**.
+O trabalho recente acontece em **`feat/multi-apresentadora-agenda`**. Push nela (ou em
+`migration/react-vercel`) dispara o deploy de produção pelo GitHub Actions
+(`.github/workflows/frontend-deploy.yml`).
 
 `migration/react-vercel` é nominalmente a branch de produção, mas está **defasada do que está no
 ar** — os últimos deploys saíram da branch de feature. Se for publicar, confira em qual commit o

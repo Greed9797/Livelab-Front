@@ -1,88 +1,34 @@
-# Contributing — LiveShop SaaS Frontend
+# Contribuindo — Frontend Livelab
 
-## Branch model
+## Branch e PR
 
-- `master` — produção. Push direto bloqueado.
-- `feat-ui-ux-architecture-v2` — branch ativa de UI redesign (em paralelo)
-- `feat/<descricao>` — feature
-- `fix/<descricao>` — bugfix
-- `sec/<descricao>` — security fix
-- `chore/<descricao>` — refactor, docs, deps
-
-## Commits — Conventional Commits
-
-Mesmo padrão do backend. Exemplos:
-- `feat(financeiro): pills Mês/Trimestre/12 meses funcionais`
-- `fix(analytics): cap deltas extremos em ±999%`
-- `chore(deps): bump dio de 5.6 para 6.0`
-
-## PR workflow
-
-1. Branch a partir de `master` (ou `feat-ui-ux-architecture-v2` durante UI v2)
-2. Commits Conventional Commits
-3. Push + `gh pr create`
-4. CI roda automaticamente (`frontend-ci.yml`):
-   - `flutter pub get`
-   - `flutter analyze --no-fatal-warnings --no-fatal-infos`
-   - `flutter build web --release`
-5. PR precisa: 1 review + CI verde
-6. Merge via "Squash and merge"
+1. Parta de `feat/multi-apresentadora-agenda` (é dela que sai a produção hoje).
+2. Commits em Conventional Commits, em português: `feat(financeiro): …`, `fix(agenda): …`, `chore: …`.
+3. Abra PR contra `feat/multi-apresentadora-agenda`. O merge publica em produção pelo GitHub Actions — só mergeie com as checagens verdes.
 
 ## Antes de abrir PR
 
 ```bash
-flutter analyze              # 0 errors esperado (warnings/infos OK)
-flutter test                 # smoke tests devem passar
-flutter build web --release  # confirma build prod
+cd react-app
+npm run typecheck
+npm run test
+npm run build
 ```
 
-Para mudanças de UI: rodar manualmente em `flutter run -d chrome` com 3 roles
-(franqueador_master, franqueado, cliente_parceiro) antes de pedir review.
+Mudança de tela: rode `npm run dev` e confira com os papéis afetados (master, franqueado, cliente_parceiro) e em largura de celular (390px).
 
 ## Regras de código
 
-- **Nova screen** em `lib/screens/<modulo>/`, `ConsumerStatefulWidget`
-- **Rota**: registrar em `lib/routes/app_routes.dart` com `RoleRouteGuard`
-- **State**: Riverpod (Notifier/AsyncNotifier/FamilyAsyncNotifier/StreamProvider)
-- **HTTP**: usar `ApiService.get/post/patch/delete` — nunca chamar Dio direto
-- **Erros**: `ApiService.extractErrorMessage(e)` em SnackBar
-- **Loading**: shimmer skeleton em listas, `CircularProgressIndicator` em full-screen
-- **Datas**: transportar como String ISO entre back/front, formatar pt_BR no display
-- **Money**: `(json['field'] as num? ?? 0).toDouble()` em `fromJson`
-- **Theme**: usar tokens de `lib/theme/` ou `lib/livelab/theme/` — nunca hardcode
-
-## Design system
-
-- Cores: `AppColors.primary` (#E8673C); livelab via `LlTokens`
-- Tipografia: `AppTypography` Inter + Instrument Serif
-- Spacing: base 4px (`x1=4 ... x8=32`)
-- Breakpoints: tablet=800, desktop=1100
+- Nova página: `react-app/src/pages/NomePage.tsx`, rota em `src/routes/AppRouter.tsx`, menu em `src/utils/access.ts`.
+- Estado remoto sempre via React Query (chaves em `src/services/query-keys.ts`); chamadas de API em `src/services/`.
+- Nunca hardcode cor: use os tokens CSS (`var(--primary)`, `var(--text-muted)`, …).
+- Datas como texto `YYYY-MM-DD`; dinheiro com `asNumber`; erros com `extractErrorMessage(e)` em toast.
 
 ## Nunca commitar
 
-- Arquivos `.env`, `firebase-debug.log`
-- Screenshots com PII (`flutter_*.png`)
-- `build/` (gitignored)
-- Tokens/keys em código
+- `.env*` com valores reais, tokens, chaves.
+- `dist/`, `node_modules/`, saídas de ferramentas locais (`.agent/`, `graphify-out/`, `.superpowers/`).
 
-## A11y
+## Depois do deploy
 
-- `WidgetsBinding.instance.ensureSemantics()` ativo em `main.dart` (semantics on por default)
-- Sempre adicionar `semanticsLabel` em widgets sem texto visual (ícones de ação)
-- Touch targets ≥ 44x44 em mobile
-
-## Performance
-
-- Bundle prod target: `main.dart.js` ≤ 15MB; canvaskit ~31MB (constraint Flutter)
-- Imagens: usar formato WebP quando possível
-- Listas grandes: `ListView.builder` com `itemCount`
-- Polling: max 1 por screen, cancelar em `ref.onDispose`
-
-## Hotfix workflow
-
-1. `git checkout -b fix/<descricao>`
-2. Fix + commit
-3. `flutter analyze` + `flutter build web --release` local
-4. Push + PR + reviewer aprova rápido
-5. Merge → manualmente: `firebase deploy --only hosting --project livelab-3601f`
-6. Smoke test em `https://livelab-3601f.web.app`
+`curl -s https://app.grupolivelab.com.br/version.json` — o timestamp `v` precisa ser novo. Rollback: reverter o merge (novo deploy publica a versão anterior).

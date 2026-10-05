@@ -192,8 +192,8 @@ O conic sheen requer `@property --cabine-ang` (suporte: Chrome 85+, Safari 15.4+
 
 ## Referências
 
-- `ROUTE_CONTRACT.md` — mapeamento rota×endpoint×roles×status
-- `MIGRATION_PLAN.md` — histórico da migração Flutter→React
+- `docs/legado/ROUTE_CONTRACT.md` — mapeamento rota×endpoint×roles×status
+- `docs/legado/MIGRATION_PLAN.md` — histórico da migração Flutter→React
 - `docs/audit/frontend-pages.md` — inventário de páginas e roles
 - `docs/audit/api-calls.md` — inventário de chamadas de API
 - Backend: `/tmp/Livelab-back/CLAUDE.md` (quando existir) ou `README.md`
