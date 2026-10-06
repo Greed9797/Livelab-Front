@@ -27,7 +27,7 @@ beforeEach(() => {
   consultar.mockReset().mockResolvedValue({ itens: [], total_registros: 0, totais: { previsto: '0.00', pago: '0.00', aberto: '0.00' }, pagina: 1, limite: 25, total_paginas: 0 })
   exportar.mockReset().mockResolvedValue(new Blob(['csv']))
 })
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('ReceberPagarPanel', () => {
   it('persiste filtros na URL e envia competência explícita para vencimento', async () => {
@@ -60,5 +60,30 @@ describe('ReceberPagarPanel', () => {
     expect(screen.getByRole('alert').textContent).toContain('Escolha competências em ordem')
     expect((screen.getByRole('button', { name: 'Exportar CSV' }) as HTMLButtonElement).disabled).toBe(true)
     expect(consultar).not.toHaveBeenCalled()
+  })
+
+  it('usa os mesmos filtros de contraparte, componente, origem, valor e ordem na lista e exportação', async () => {
+    mount()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Contraparte' }), { target: { value: 'Árvore' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Componente' }), { target: { value: 'fixo' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Origem' }), { target: { value: 'marca_fixo' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Valor mínimo' }), { target: { value: '1.20' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Valor máximo' }), { target: { value: '2.30' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Ordenar' }), { target: { value: 'valor' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Direção' }), { target: { value: 'desc' } })
+    await waitFor(() => expect(consultar).toHaveBeenLastCalledWith(expect.objectContaining({
+      contraparte: 'Árvore', componente: 'fixo', origem: 'marca_fixo',
+      valor_min: '1.20', valor_max: '2.30', ordenar: 'valor', direcao: 'desc',
+    })))
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Exportar CSV' }) as HTMLButtonElement).disabled).toBe(false))
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:test') })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar CSV' }))
+    await waitFor(() => expect(exportar).toHaveBeenCalledWith(expect.objectContaining({
+      contraparte: 'Árvore', componente: 'fixo', origem: 'marca_fixo',
+      valor_min: '1.20', valor_max: '2.30', ordenar: 'valor', direcao: 'desc',
+    })))
+    expect(screen.getByTestId('url').textContent).toContain('fin_contraparte=')
   })
 })

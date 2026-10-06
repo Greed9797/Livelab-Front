@@ -9,6 +9,13 @@ export interface ConsultaFiltro {
   competencia_inicio?: string
   competencia_fim?: string
   natureza: Natureza
+  componente?: string
+  contraparte?: string
+  origem?: string
+  valor_min?: string
+  valor_max?: string
+  ordenar?: 'data' | 'valor'
+  direcao?: 'asc' | 'desc'
   status?: string
   q?: string
   pagina: number
