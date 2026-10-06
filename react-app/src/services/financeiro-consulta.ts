@@ -12,6 +12,7 @@ export interface ConsultaFiltro {
   componente?: string
   contraparte?: string
   origem?: string
+  id?: string
   valor_min?: string
   valor_max?: string
   ordenar?: 'data' | 'valor'

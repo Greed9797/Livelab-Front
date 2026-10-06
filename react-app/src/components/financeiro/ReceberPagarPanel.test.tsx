@@ -7,10 +7,14 @@ import { ReceberPagarPanel } from './ReceberPagarPanel'
 
 const consultar = vi.fn()
 const exportar = vi.fn()
+const historico = vi.fn()
 vi.mock('../../services/financeiro-consulta', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../services/financeiro-consulta')>()
   return { ...original, consultarFinanceiro: (...args: unknown[]) => consultar(...args), exportarConsultaFinanceiro: (...args: unknown[]) => exportar(...args) }
 })
+vi.mock('../../services/financeiro-historico', () => ({ consultarHistorico: (...args: unknown[]) => historico(...args) }))
+
+const MATERIALIZED_ID = '00000000-0000-4000-8000-000000000001'
 
 function Harness() {
   const [params, setParams] = useSearchParams()
@@ -26,6 +30,9 @@ function mount(url = '/financeiro?mes=2026-09&tab=receber') {
 beforeEach(() => {
   consultar.mockReset().mockResolvedValue({ itens: [], total_registros: 0, totais: { previsto: '0.00', pago: '0.00', aberto: '0.00' }, pagina: 1, limite: 25, total_paginas: 0 })
   exportar.mockReset().mockResolvedValue(new Blob(['csv']))
+  historico.mockReset().mockResolvedValue({
+    estado_comparacao: 'matching', historico_incompleto: false, valor_legado: '0.00', valor_canonico: '0.00', liquidacoes: [],
+  })
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -85,5 +92,27 @@ describe('ReceberPagarPanel', () => {
       valor_min: '1.20', valor_max: '2.30', ordenar: 'valor', direcao: 'desc',
     })))
     expect(screen.getByTestId('url').textContent).toContain('fin_contraparte=')
+  })
+
+  it('sinaliza histórico legado incompleto antes de listar eventos canônicos', async () => {
+    consultar.mockResolvedValue({
+      itens: [{ id: MATERIALIZED_ID, natureza: 'receita', origem: 'avulsa', descricao: 'Título',
+        cliente_nome: 'Cliente', componente: null, competencia: '2026-09-01', data_vencimento: '2026-09-10',
+        valor_previsto_exato: '10.00', valor_pago_exato: '8.00', saldo_aberto: '2.00',
+        status: 'parcial', virtual: false, inconsistente: false }],
+      total_registros: 1, totais: { previsto: '10.00', pago: '8.00', aberto: '2.00' },
+      pagina: 1, limite: 25, total_paginas: 1,
+    })
+    historico.mockResolvedValue({
+      estado_comparacao: 'legacy-only', historico_incompleto: true,
+      valor_legado: '8.00', valor_canonico: null,
+      liquidacoes: [{ id: MATERIALIZED_ID, valor: '2.00', data_liquidacao: '2026-09-01',
+        total_estornado: '1.00', total_liquido: '1.00', estornos: [{ id: MATERIALIZED_ID,
+          data_estorno: '2026-09-02', valor: '1.00' }] }],
+    })
+    mount(`/financeiro?mes=2026-09&tab=receber&fin_id=${MATERIALIZED_ID}`)
+    expect(await screen.findByText(/Histórico parcial/)).toBeTruthy()
+    expect(screen.getByText(/Estorno em/)).toBeTruthy()
+    expect(historico).toHaveBeenCalledWith('avulsa', MATERIALIZED_ID)
   })
 })

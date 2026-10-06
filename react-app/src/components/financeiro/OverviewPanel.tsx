@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { extractErrorMessage } from '../../services/api'
 import { consultarExceptions, consultarOverview } from '../../services/financeiro-overview'
@@ -8,6 +9,7 @@ import { ErrorState } from '../ui/States'
 
 export function OverviewPanel({ mes }: { mes: string }) {
   const [pagina, setPagina] = useState(1)
+  const [params, setParams] = useSearchParams()
   const referencia = hojeSP()
   const overview = useQuery({
     queryKey: ['financeiro', 'overview', mes, referencia],
@@ -17,6 +19,19 @@ export function OverviewPanel({ mes }: { mes: string }) {
     queryKey: ['financeiro', 'exceptions', mes, referencia, pagina],
     queryFn: () => consultarExceptions(mes, referencia, pagina),
   })
+
+  function abrirLancamento(item: { natureza: string | null; origem: string | null; id: string | null; componente: string | null }) {
+    if (!['receita', 'custo'].includes(item.natureza ?? '')) return
+    const next = new URLSearchParams(params)
+    for (const key of [...next.keys()]) if (key.startsWith('fin_')) next.delete(key)
+    next.set('tab', item.natureza === 'receita' ? 'receber' : 'pagar')
+    if (item.origem) next.set('fin_origem', item.origem)
+    if (item.id && item.origem) {
+      next.set('fin_titulo_id', item.id)
+      next.set('fin_id', `${item.origem}:${item.id}:${item.componente ?? ''}`)
+    }
+    setParams(next)
+  }
 
   return <section className="space-y-5" aria-label="Visão geral financeira">
     <div>
@@ -46,6 +61,7 @@ export function OverviewPanel({ mes }: { mes: string }) {
                   <strong className="text-ink">{item.tipo === 'vencido' ? 'Vencido' : 'Revisar dados'}</strong>
                   <span className="ml-2 text-ink-muted">{item.origem ?? 'Origem ausente'} · {item.id ?? 'Identidade ausente'}{item.motivo ? ` · ${item.motivo}` : ''}</span>
                   {item.saldo_aberto !== null ? <span className="ml-2 text-ink">{formatConsultaMoney(item.saldo_aberto)}</span> : null}
+                  {['receita', 'custo'].includes(item.natureza ?? '') ? <button type="button" className="ml-2 underline" onClick={() => abrirLancamento(item)}>{item.id && item.origem ? 'Abrir lançamento' : 'Abrir lista'}</button> : null}
                 </li>)}
               </ul>
               <div className="flex items-center justify-between pt-3 text-sm text-ink-muted">

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { extractErrorMessage } from '../../services/api'
 import { consultarFinanceiro, exportarConsultaFinanceiro, formatConsultaMoney, type ConsultaFiltro, type ConsultaItem } from '../../services/financeiro-consulta'
+import { consultarHistorico } from '../../services/financeiro-historico'
 import type { Natureza } from '../../types/financeiro'
 import { formatDataCurta, isMes } from '../../utils/financeiro'
 import { Button } from '../ui/Button'
@@ -18,6 +19,10 @@ function inputCents(value: string): bigint {
   return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0') || '0')
 }
 
+function itemKey(item: ConsultaItem): string {
+  return `${item.origem}:${item.id}:${item.componente ?? ''}`
+}
+
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -30,6 +35,12 @@ function download(blob: Blob, filename: string) {
 }
 
 function Detail({ item, onClose }: { item: ConsultaItem; onClose: () => void }) {
+  const materializado = !item.virtual && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.id)
+  const historico = useQuery({
+    queryKey: ['financeiro', 'historico', item.origem, item.id],
+    queryFn: () => consultarHistorico(item.origem, item.id),
+    enabled: materializado,
+  })
   return (
     <aside aria-label={`Detalhe de ${item.descricao}`} className="rounded-2xl border border-line bg-surface p-5 lg:sticky lg:top-4 lg:w-80 lg:shrink-0">
       <div className="flex items-start justify-between gap-3">
@@ -48,6 +59,22 @@ function Detail({ item, onClose }: { item: ConsultaItem; onClose: () => void }) 
         <dt className="text-ink-muted">Situação</dt><dd className="text-right text-ink">{item.status}</dd>
       </dl>
       {item.observacao ? <p className="mt-4 border-t border-line pt-4 text-sm text-ink-muted">{item.observacao}</p> : null}
+      <div className="mt-4 border-t border-line pt-4">
+        <h4 className="font-semibold text-ink">Pagamentos e estornos</h4>
+        {!materializado ? <p className="mt-2 text-sm text-ink-muted">Previsão sem obrigação materializada; histórico canônico indisponível.</p>
+          : historico.isError ? <ErrorState message={extractErrorMessage(historico.error)} onRetry={() => void historico.refetch()} />
+            : historico.isPending ? <p role="status" className="mt-2 text-sm text-ink-muted">Carregando histórico…</p>
+              : historico.data ? <>
+                {historico.data.historico_incompleto ? <p role="status" className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  Histórico parcial: o valor legado e os eventos canônicos não estão conciliados. {historico.data.valor_legado !== null ? `Legado: ${formatConsultaMoney(historico.data.valor_legado)}.` : ''}
+                </p> : null}
+                {historico.data.liquidacoes.length === 0 ? <p className="mt-2 text-sm text-ink-muted">Nenhuma liquidação canônica registrada.</p>
+                  : <ul className="mt-2 space-y-3">{historico.data.liquidacoes.map((liquidacao) => <li key={liquidacao.id} className="rounded-lg border border-line p-3 text-sm">
+                    <p className="text-ink">{formatDataCurta(liquidacao.data_liquidacao)} · {formatConsultaMoney(liquidacao.valor)}</p>
+                    {liquidacao.estornos.length ? <ul className="mt-1 text-ink-muted">{liquidacao.estornos.map((estorno) => <li key={estorno.id}>Estorno em {formatDataCurta(estorno.data_estorno)}: {formatConsultaMoney(estorno.valor)}</li>)}</ul> : null}
+                  </li>)}</ul>}
+              </> : null}
+      </div>
     </aside>
   )
 }
@@ -67,6 +94,7 @@ export function ReceberPagarPanel({ mes, natureza }: { mes: string; natureza: Na
   const componente = params.get('fin_componente') ?? ''
   const origemParam = params.get('fin_origem') ?? ''
   const origem = ORIGENS.includes(origemParam as typeof ORIGENS[number]) ? origemParam : ''
+  const tituloId = params.get('fin_titulo_id') ?? ''
   const valorMin = params.get('fin_valor_min') ?? ''
   const valorMax = params.get('fin_valor_max') ?? ''
   const ordenar = params.get('fin_ordenar') === 'valor' ? 'valor' : 'data'
@@ -86,12 +114,15 @@ export function ReceberPagarPanel({ mes, natureza }: { mes: string; natureza: Na
     natureza, status: status || undefined, q: q.trim().slice(0, 120) || undefined,
     contraparte: contraparte.trim().slice(0, 120) || undefined,
     componente: componente.trim().slice(0, 80) || undefined,
-    origem: origem || undefined, valor_min: valorMin || undefined, valor_max: valorMax || undefined,
+    origem: origem || undefined, id: tituloId || undefined,
+    valor_min: valorMin || undefined, valor_max: valorMax || undefined,
     ordenar, direcao,
     pagina, limite: 25,
   }
   const query = useQuery({ queryKey: ['fin2', 'consulta', filtro], queryFn: () => consultarFinanceiro(filtro), enabled: filtersValid })
-  const selected = query.data?.itens.find((item) => item.id === params.get('fin_id'))
+  const selectedParam = params.get('fin_id')
+  const selectedMatches = query.data?.itens.filter((item) => selectedParam === itemKey(item) || selectedParam === item.id) ?? []
+  const selected = selectedMatches.length === 1 ? selectedMatches[0] : undefined
   const title = natureza === 'receita' ? 'Receber' : 'Pagar'
 
   function patch(values: Record<string, string | null>) {
@@ -141,11 +172,12 @@ export function ReceberPagarPanel({ mes, natureza }: { mes: string; natureza: Na
       {eixo !== 'competencia' ? <p className="text-sm text-ink-muted">O recorte por {eixo} considera apenas títulos das competências {competenciaInicio} a {competenciaFim}. Escolha uma janela maior para incluir títulos de outras competências.</p> : null}
       {!scopeValid ? <p role="alert" className="text-sm text-[var(--danger)]">Escolha competências em ordem, em um intervalo de até 36 meses.</p> : null}
       {!moneyValid ? <p role="alert" className="text-sm text-[var(--danger)]">Informe valores válidos em ordem, com até duas casas decimais.</p> : null}
+      {tituloId ? <p className="text-sm text-ink-muted">Título selecionado: {tituloId} <button type="button" className="underline" onClick={() => patch({ fin_titulo_id: null, fin_id: null })}>Limpar seleção</button></p> : null}
       {exportError ? <p role="alert" className="text-sm text-[var(--danger)]">{exportError}</p> : null}
       {!filtersValid ? null : query.isError ? <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} /> : query.isPending ? <p role="status" className="text-sm text-ink-muted">Carregando lançamentos…</p> : query.data ? (
         <>
           <div className="grid gap-3 sm:grid-cols-3">{([['Previsto', query.data.totais.previsto], ['Liquidado', query.data.totais.pago], ['Em aberto', query.data.totais.aberto]] as const).map(([label, amount]) => <div key={label} className="rounded-2xl border border-line bg-surface p-4"><p className="text-sm text-ink-muted">{label}</p><p className="num mt-1 text-xl font-semibold text-ink">{formatConsultaMoney(amount)}</p></div>)}</div>
-          <div className="flex flex-col gap-4 lg:flex-row"><div className="min-w-0 flex-1 overflow-x-auto rounded-2xl border border-line bg-surface"><table className="w-full text-left text-sm"><caption className="sr-only">Lançamentos a {title.toLowerCase()} no recorte selecionado</caption><thead className="border-b border-line text-ink-muted"><tr><th scope="col" className="px-4 py-3">Contraparte / título</th><th scope="col" className="px-4 py-3">Vencimento</th><th scope="col" className="px-4 py-3">Valor</th><th scope="col" className="px-4 py-3">Liquidado</th><th scope="col" className="px-4 py-3">Aberto</th><th scope="col" className="px-4 py-3">Situação</th></tr></thead><tbody>{query.data.itens.map((item) => <tr key={item.id} className="border-b border-line last:border-0"><td className="px-4 py-3"><button type="button" aria-expanded={selected?.id === item.id} onClick={() => patch({ fin_id: item.id })} className="text-left font-medium text-ink hover:underline">{item.cliente_nome ?? item.marca_nome ?? item.descricao}<span className="block text-xs font-normal text-ink-muted">{item.descricao}</span></button></td><td className="px-4 py-3 text-ink-muted">{formatDataCurta(item.data_vencimento)}</td><td className="num px-4 py-3 text-ink">{formatConsultaMoney(item.valor_previsto_exato)}</td><td className="num px-4 py-3 text-ink">{formatConsultaMoney(item.valor_pago_exato)}</td><td className="num px-4 py-3 text-ink">{formatConsultaMoney(item.saldo_aberto)}{item.inconsistente ? <span className="block text-xs text-ink-muted">Conferir baixa</span> : null}</td><td className="px-4 py-3 text-ink-muted">{item.status}</td></tr>)}</tbody></table>{query.data.itens.length === 0 ? <p className="p-6 text-sm text-ink-muted">Nenhum lançamento neste recorte.</p> : null}</div>{selected ? <Detail item={selected} onClose={() => patch({ fin_id: null })} /> : null}</div>
+          <div className="flex flex-col gap-4 lg:flex-row"><div className="min-w-0 flex-1 overflow-x-auto rounded-2xl border border-line bg-surface"><table className="w-full text-left text-sm"><caption className="sr-only">Lançamentos a {title.toLowerCase()} no recorte selecionado</caption><thead className="border-b border-line text-ink-muted"><tr><th scope="col" className="px-4 py-3">Contraparte / título</th><th scope="col" className="px-4 py-3">Vencimento</th><th scope="col" className="px-4 py-3">Valor</th><th scope="col" className="px-4 py-3">Liquidado</th><th scope="col" className="px-4 py-3">Aberto</th><th scope="col" className="px-4 py-3">Situação</th></tr></thead><tbody>{query.data.itens.map((item, index) => <tr key={`${itemKey(item)}:${index}`} className="border-b border-line last:border-0"><td className="px-4 py-3"><button type="button" aria-expanded={selected ? itemKey(selected) === itemKey(item) : false} onClick={() => patch({ fin_id: itemKey(item) })} className="text-left font-medium text-ink hover:underline">{item.cliente_nome ?? item.marca_nome ?? item.descricao}<span className="block text-xs font-normal text-ink-muted">{item.descricao}</span></button></td><td className="px-4 py-3 text-ink-muted">{formatDataCurta(item.data_vencimento)}</td><td className="num px-4 py-3 text-ink">{formatConsultaMoney(item.valor_previsto_exato)}</td><td className="num px-4 py-3 text-ink">{formatConsultaMoney(item.valor_pago_exato)}</td><td className="num px-4 py-3 text-ink">{formatConsultaMoney(item.saldo_aberto)}{item.inconsistente ? <span className="block text-xs text-ink-muted">Conferir baixa</span> : null}</td><td className="px-4 py-3 text-ink-muted">{item.status}</td></tr>)}</tbody></table>{query.data.itens.length === 0 ? <p className="p-6 text-sm text-ink-muted">Nenhum lançamento neste recorte.</p> : null}</div>{selected ? <Detail item={selected} onClose={() => patch({ fin_id: null })} /> : null}</div>
           <div className="flex items-center justify-between text-sm text-ink-muted"><span>{query.data.total_registros} registros no recorte</span><div className="flex items-center gap-3"><Button variant="secondary" disabled={pagina <= 1} onClick={() => patch({ fin_pagina: String(pagina - 1), fin_id: null })}>Anterior</Button><span>Página {pagina} de {Math.max(1, query.data.total_paginas)}</span><Button variant="secondary" disabled={pagina >= query.data.total_paginas} onClick={() => patch({ fin_pagina: String(pagina + 1), fin_id: null })}>Próxima</Button></div></div>
         </>
       ) : null}
