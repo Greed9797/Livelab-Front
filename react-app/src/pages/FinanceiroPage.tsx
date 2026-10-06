@@ -7,6 +7,10 @@ import { ErrorState } from '../components/ui/States'
 import { useToast } from '../components/ui/Toast'
 import { MonthSwitcher, Segmented } from '../components/financeiro/primitives'
 import { PainelMes } from '../components/financeiro/PainelMes'
+import { AgingPanel } from '../components/financeiro/AgingPanel'
+import { ReceberPagarPanel } from '../components/financeiro/ReceberPagarPanel'
+import { ResultadoVersionsPanel } from '../components/financeiro/ResultadoVersionsPanel'
+import { OverviewPanel } from '../components/financeiro/OverviewPanel'
 import { FILTRO_VAZIO, type FiltroLocal, LancamentosList } from '../components/financeiro/LancamentosList'
 import { BaixaModal, DesfazerModal, ExcluirModal } from '../components/financeiro/LancamentoModals'
 import { type CustoModalState, CustoFormModal } from '../components/financeiro/CustoFormModal'
@@ -31,8 +35,8 @@ import { filtrarPorVencimentoNoMes, hojeSP, isMes, isReceitaAvulsa, janelaLancam
 import { formatPercent } from '../utils/format'
 import type { PeriodRange } from '../utils/period'
 
-type FinanceiroTab = 'lancamentos' | 'receita' | 'custos-fixos' | 'custos-variaveis' | 'dre' | 'fluxo' | 'conciliacao' | 'comissoes'
-const TABS: FinanceiroTab[] = ['lancamentos', 'receita', 'custos-fixos', 'custos-variaveis', 'dre', 'fluxo', 'conciliacao', 'comissoes']
+type FinanceiroTab = 'lancamentos' | 'visao-geral' | 'receber' | 'pagar' | 'aging' | 'fechamentos' | 'receita' | 'custos-fixos' | 'custos-variaveis' | 'dre' | 'fluxo' | 'conciliacao' | 'comissoes'
+const TABS: FinanceiroTab[] = ['lancamentos', 'visao-geral', 'receber', 'pagar', 'aging', 'fechamentos', 'receita', 'custos-fixos', 'custos-variaveis', 'dre', 'fluxo', 'conciliacao', 'comissoes']
 // Links antigos: "Por cliente" virou Receita e "Recorrentes" vive dentro de Custos fixos.
 const TAB_ALIASES: Record<string, FinanceiroTab> = { cliente: 'receita', recorrentes: 'custos-fixos' }
 function parseTab(v: string | null): FinanceiroTab | null {
@@ -49,12 +53,14 @@ export function FinanceiroPage() {
   const podeEscrever = canWrite(user)
   const podeReprocessar = user?.papel === 'franqueado' || user?.papel === 'franqueador_master'
   const podeConfigurarComissoes = user?.papel === 'franqueado'
+  const podeVerFechamentos = ['financeiro', 'franqueador_master', 'financeiro_readonly', 'auditor'].includes(user?.papel ?? '')
   const navigate = useNavigate()
 
   const paramMes = params.get('mes')
   const mes = isMes(paramMes) ? paramMes : mesAtualSP()
   const paramTab = params.get('tab')
-  const tab: FinanceiroTab = parseTab(paramTab) ?? 'lancamentos'
+  const parsedTab = parseTab(paramTab)
+  const tab: FinanceiroTab = parsedTab === 'fechamentos' && !podeVerFechamentos ? 'lancamentos' : parsedTab ?? 'lancamentos'
 
   const [filtro, setFiltro] = useState<FiltroLocal>(FILTRO_VAZIO)
   const [baixa, setBaixa] = useState<Lancamento | null>(null)
@@ -147,6 +153,11 @@ export function FinanceiroPage() {
 
   const tabs = [
     { value: 'lancamentos' as const, label: 'Lançamentos', icon: <ListChecks className="h-4 w-4" /> },
+    { value: 'visao-geral' as const, label: 'Visão geral', icon: <BarChart3 className="h-4 w-4" /> },
+    { value: 'receber' as const, label: 'Receber', icon: <Wallet className="h-4 w-4" /> },
+    { value: 'pagar' as const, label: 'Pagar', icon: <Receipt className="h-4 w-4" /> },
+    { value: 'aging' as const, label: 'Aging', icon: <CalendarRange className="h-4 w-4" /> },
+    ...(podeVerFechamentos ? [{ value: 'fechamentos' as const, label: 'Fechamentos', icon: <ListChecks className="h-4 w-4" /> }] : []),
     { value: 'receita' as const, label: 'Receita', icon: <TrendingUp className="h-4 w-4" /> },
     { value: 'custos-fixos' as const, label: 'Custos fixos', icon: <Repeat className="h-4 w-4" /> },
     { value: 'custos-variaveis' as const, label: 'Custos variáveis', icon: <Receipt className="h-4 w-4" /> },
@@ -163,7 +174,7 @@ export function FinanceiroPage() {
         subtitle={`${mesLabel(mes).replace(/^./, (c) => c.toUpperCase())} · o que entra, o que sai e o que está vencendo.`}
         actions={
           <>
-            <MonthSwitcher value={mes} onChange={(v) => updateParams({ mes: v === mesAtualSP() ? null : v })} />
+            <MonthSwitcher value={mes} onChange={(v) => updateParams({ mes: v === mesAtualSP() ? null : v, fin_comp_mes: null, fin_comp_inicio: null, fin_comp_fim: null, fin_pagina: null, fin_id: null })} />
             {podeEscrever ? (
               <Button variant="secondary" icon={Plus} className="min-h-11 sm:min-h-0" onClick={() => setReceitaModal({ kind: 'nova' })}>
                 Nova receita
@@ -239,6 +250,12 @@ export function FinanceiroPage() {
           )}
         </div>
       ) : null}
+
+      {tab === 'receber' ? <ReceberPagarPanel mes={mes} natureza="receita" /> : null}
+      {tab === 'visao-geral' ? <OverviewPanel key={mes} mes={mes} /> : null}
+      {tab === 'pagar' ? <ReceberPagarPanel mes={mes} natureza="custo" /> : null}
+      {tab === 'aging' ? <AgingPanel /> : null}
+      {tab === 'fechamentos' ? <ResultadoVersionsPanel mes={mes} /> : null}
 
       {tab === 'dre' ? <DrePanel key={mes.slice(0, 4)} mes={mes} /> : null}
 
