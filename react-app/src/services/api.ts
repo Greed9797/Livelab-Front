@@ -135,13 +135,13 @@ export async function apiPost<T>(path: string, data?: unknown, config?: AxiosReq
   return response.data
 }
 
-export async function apiPatch<T>(path: string, data?: unknown): Promise<T> {
-  const response = await api.patch<T>(path, data)
+export async function apiPatch<T>(path: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  const response = await api.patch<T>(path, data, config)
   return response.data
 }
 
-export async function apiDelete<T>(path: string): Promise<T> {
-  const response = await api.delete<T>(path)
+export async function apiDelete<T>(path: string, config?: AxiosRequestConfig): Promise<T> {
+  const response = await api.delete<T>(path, config)
   return response.data
 }
 

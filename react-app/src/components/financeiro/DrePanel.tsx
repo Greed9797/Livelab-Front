@@ -5,7 +5,7 @@ import { useFinanceiroConfig } from '../../hooks/useFinanceiro'
 import { useDreAnualV3, usePrefetchDreMes } from '../../hooks/useDreMes'
 import { extractErrorMessage } from '../../services/api'
 import type { PrevistoRealizado } from '../../types/financeiro'
-import type { DreLinhaV3, VisaoDre } from '../../types/financeiro-dre'
+import type { DreLinhaV3, VisaoDre, RegimeDre } from '../../types/financeiro-dre'
 import { formatDataBR } from '../../utils/caixa'
 import { somarPR, ZERO_PR } from '../../utils/dre-detalhe'
 import { mesLabel } from '../../utils/financeiro'
@@ -70,19 +70,27 @@ function Celula({ v, visao, destaque, negativo }: { v: PrevistoRealizado; visao:
 
 export function DrePanel({ mes }: { mes: string }) {
   const [ano, setAno] = useState(Number(mes.slice(0, 4)))
+  const [regime, setRegime] = useState<RegimeDre>('caixa_vencimento')
   const [visao, setVisao] = useState<Visao>('ambos')
   // Meses com o detalhe aberto (vários ao mesmo tempo); persiste enquanto o painel está na tela.
   const [abertos, setAbertos] = useState<ReadonlySet<string>>(() => new Set())
   const inicio = `${ano}-01`
   const fim = `${ano}-12`
-  const q = useDreAnualV3(inicio, fim)
+  const q = useDreAnualV3(inicio, fim, true, regime)
   const config = useFinanceiroConfig()
-  const prefetch = usePrefetchDreMes()
+  const prefetch = usePrefetchDreMes(regime)
   const sm = useMinWidth(640)
   const lg = useMinWidth(1024)
 
-  if (q.isLoading && !q.data) return <LoadingState label="Montando DRE" />
-  if (q.isError && !q.data) return <ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} />
+  const seletorRegime = (
+      <label className="flex items-center gap-3 text-sm text-ink">Regime do DRE
+        <select aria-label="Regime do DRE" className="design-input min-h-11 px-3" value={regime} onChange={(e) => setRegime(e.target.value as RegimeDre)}>
+          <option value="caixa_vencimento">Caixa / vencimento</option><option value="competencia">Competência</option>
+        </select>
+      </label>
+  )
+  if (q.isLoading && !q.data) return <section className="space-y-4">{seletorRegime}<LoadingState label="Montando DRE" /></section>
+  if (q.isError) return <section className="space-y-4">{seletorRegime}<ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} /></section>
   const dre = q.data
   if (!dre) return null
 
@@ -127,6 +135,7 @@ export function DrePanel({ mes }: { mes: string }) {
 
   return (
     <section className="space-y-4">
+      {seletorRegime}
       <div className="grid gap-3 sm:grid-cols-3">
         {[
           { label: 'Receita no ano', v: t.receita, color: 'var(--success)' },
@@ -150,7 +159,7 @@ export function DrePanel({ mes }: { mes: string }) {
               DRE <span className="serif font-normal text-brand">mensal</span>
             </h2>
             <p className="mt-0.5 text-xs text-ink-muted">
-              Regime de competência · margem {visao === 'previsto' ? 'prevista' : 'realizada'} {formatPercent(margemMain)}
+              {regime === 'competencia' ? 'Regime de competência' : 'Caixa: previsto por vencimento e realizado por pagamento'} · margem {visao === 'previsto' ? 'prevista' : 'realizada'} {formatPercent(margemMain)}
               {q.isFetching ? ' · atualizando…' : ''}
             </p>
           </div>
@@ -251,7 +260,7 @@ export function DrePanel({ mes }: { mes: string }) {
                         <tr id={id} className="border-b border-line bg-[var(--bg-base)]">
                           <td colSpan={nCols} className="p-0">
                             <div className="px-3 py-4 sm:px-5">
-                              <DreMesInline mes={m} visao={visao} />
+                              <DreMesInline mes={m} visao={visao} regime={regime} />
                             </div>
                           </td>
                         </tr>

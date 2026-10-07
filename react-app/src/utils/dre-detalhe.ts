@@ -1,3 +1,4 @@
+import { normalizarMovimentoFinanceiro } from './receita-mensal'
 // Helpers puros do DRE v3 (sem React / sem rede) — cobertos por dre-detalhe.test.ts.
 // Normalização defensiva do DRE anual (com custos_fixos / custos_variaveis /
 // aportes) e do detalhe do mês (GET /financeiro/dre/mes). Reaproveita o
@@ -76,6 +77,8 @@ export function normalizarItem(input: unknown, idx = 0): DreDetalheItem {
   const r = rec(input)
   return {
     id: str(r.id) ?? `item-${idx}`,
+    competencia_original: str(r.competencia_original),
+    movimentos: arr(r.movimentos).map(normalizarMovimentoFinanceiro),
     descricao: str(r.descricao) ?? str(r.nome) ?? 'Sem descrição',
     origem: str(r.origem),
     grupo: str(r.grupo),

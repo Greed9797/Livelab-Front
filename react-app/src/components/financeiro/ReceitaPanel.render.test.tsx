@@ -1,9 +1,9 @@
 /** @vitest-environment jsdom */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../ui/Toast'
-import { ReceitaPanel } from './ReceitaPanel'
+import { ReceitaPanel, ResumoReceita } from './ReceitaPanel'
 import { normalizarReceitaMensal } from '../../utils/receita-mensal'
 import { normalizarPainel } from '../../utils/painel'
 
@@ -163,4 +163,66 @@ describe('ReceitaPanel janela', () => {
     expect(await screen.findByText('Grupo Ação')).toBeTruthy()
     expect(screen.queryByText(/Janela \d+→/)).toBeNull()
   })
+})
+
+describe('recebimentos pelo mês do pagamento', () => {
+  it('outubro mostra 20 mil recebidos mesmo com vencimentos e baixas acumuladas distintos', () => {
+    const data = normalizarReceitaMensal({
+      mes: '2026-10', vencimento: { total: { previsto: 10000, pago: 3000, aberto: 7000 }, itens: [] },
+      recebimentos_mes: { operacional: '20000.00', aportes: '5000.00', total: '25000.00', itens: [
+        { id: 'p1', tipo: 'liquidacao', data: '2026-10-05', valor: '20500', descricao: 'Título de agosto', grupo: 'comercial' },
+        { id: 'e1', tipo: 'estorno', data: '2026-10-06', valor: '-500', descricao: 'Estorno de agosto', grupo: 'comercial' },
+        { id: 'a1', tipo: 'liquidacao', data: '2026-10-07', valor: '5000', descricao: 'Capital', grupo: 'aporte' },
+      ] },
+    }, '2026-10')
+    render(<ResumoReceita data={data} visao="vencimento" />)
+    expect(screen.getByRole('group', { name: 'Recebido no mês: R$ 20.000,00' })).toBeTruthy()
+    expect(screen.getByRole('group', { name: 'Aportes recebidos no mês: R$ 5.000,00' })).toBeTruthy()
+    expect(screen.getByRole('group', { name: 'Em aberto dos vencimentos do mês: R$ 7.000,00' })).toBeTruthy()
+    fireEvent.click(screen.getByText('Detalhar recebimentos do mês'))
+    expect(screen.getByText('Título de agosto')).toBeTruthy()
+    expect(screen.getByText('-R$ 500,00')).toBeTruthy()
+    expect(screen.queryByText('previsto − recebido')).toBeNull()
+    expect(data.vencimento.total.pago).toBe(3000)
+  })
+  it('não inventa recebido zero quando os eventos do mês estão indisponíveis', () => {
+    render(<ResumoReceita data={normalizarReceitaMensal({}, '2026-10')} visao="vencimento" />)
+    expect(screen.getByRole('status').textContent).toContain('indisponíveis')
+    expect(screen.queryByRole('group', { name: /^Recebido no mês:/ })).toBeNull()
+  })
+})
+
+it('esconde totais em cache quando a atualização exige reconciliação financeira', async () => {
+  const api = await import('../../services/financeiro-receita')
+  vi.mocked(api.getReceitaMensal).mockResolvedValueOnce(normalizarReceitaMensal(raw, '2026-09')).mockRejectedValueOnce(new Error('Conciliação financeira necessária.'))
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={client}><ToastProvider><ReceitaPanel mes="2026-09" podeEscrever={false} /></ToastProvider></QueryClientProvider>)
+  await screen.findByText('Grupo Ação')
+  await act(async () => { await client.invalidateQueries({ queryKey: ['fin2', 'receita'] }) })
+  expect(await screen.findByText('Conciliação financeira necessária.')).toBeTruthy()
+  expect(screen.queryByRole('region', { name: 'Totais da receita' })).toBeNull()
+  expect(screen.queryByRole('group', { name: /^Previsto:/ })).toBeNull()
+})
+
+it.each([
+  { status: 'cancelado', suspensao_comercial: undefined },
+  { status: 'parcial', suspensao_comercial: { ativa: true } },
+])('não oferece novas baixas/perdas em cobrança suspensa e preserva reversões: $status', async (suspensao) => {
+  const api = await import('../../services/financeiro-receita')
+  const data = normalizarReceitaMensal({
+    mes: '2026-10',
+    competencia: { clientes: [{ cliente_id: 'c-susp', cliente_nome: 'Cliente suspenso', marcas: [{
+      marca_id: 'm-susp', marca_nome: 'Marca suspensa', fixo: {
+        id: 'titulo-suspenso', descricao: 'Fixo suspenso', componente: 'fixo', valor_previsto: 1000,
+        valor_pago: 400, valor_perdido: 100, data_vencimento: '2026-10-05', competencia: '2026-10-01', ...suspensao,
+      },
+    }] }] },
+  }, '2026-10')
+  vi.mocked(api.getReceitaMensal).mockResolvedValueOnce(data)
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastProvider><ReceitaPanel mes="2026-10" podeEscrever /></ToastProvider></QueryClientProvider>)
+  await screen.findByRole('button', { name: 'Desfazer recebimento: Fixo suspenso' })
+  expect(screen.queryByRole('button', { name: 'Receber: Fixo suspenso' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Dar como perdida: Fixo suspenso' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Desfazer recebimento: Fixo suspenso' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Desfazer perda: Fixo suspenso' })).toBeTruthy()
 })

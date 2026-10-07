@@ -4,6 +4,7 @@
 import type { Lancamento, StatusLancamento } from '../types/financeiro'
 import type {
   ComponenteReceita,
+  FinanceiroMovimento,
   LancamentoReceita,
   PerdaInfo,
   ReceitaCliente,
@@ -109,9 +110,9 @@ export function notaCompetenciaVencimento(mes: string): { competencia: string; v
   const nomeAnterior = mesLabel(anterior).split(' de ')[0]
   const nomeMes = mesLabel(mes).split(' de ')[0]
   return {
-    competencia: 'Competência é o mês em que a receita foi ganha (bate com a receita do DRE).',
-    vencimento: 'Vencimento é o mês em que o dinheiro cai no caixa (bate com as entradas do fluxo de caixa).',
-    exemplo: `Ex.: o fixo de ${nomeAnterior} vence em 05/${mm} — conta na competência de ${nomeAnterior}, mas entra no caixa em ${nomeMes}.`,
+    competencia: 'Competência é o mês em que a receita foi ganha (regime de competência do DRE).',
+    vencimento: 'Vencimento é a data prevista para pagar. Recebido no mês considera a data efetiva do pagamento, inclusive de títulos de outros meses.',
+    exemplo: `Ex.: o fixo de ${nomeAnterior} vence em 05/${mm} — conta na competência de ${nomeAnterior}, mas tem vencimento em ${nomeMes}.`,
   }
 }
 
@@ -379,6 +380,12 @@ export function normalizarReceitaMensal(input: unknown, mesPedido: string): Rece
     competencia: { total: totalCompetencia, clientes, avulsas, aportes },
     vencimento: { total: totalVencimento, itens: itensVenc },
     a_receber_mes: aReceberRaw ?? calcularAReceberMes(fonteAReceber, mes),
+    recebimentos_mes: rec(raw.recebimentos_mes) ? {
+      operacional: asNumber(rec(raw.recebimentos_mes)?.operacional),
+      aportes: asNumber(rec(raw.recebimentos_mes)?.aportes),
+      total: asNumber(rec(raw.recebimentos_mes)?.total),
+      itens: arr(rec(raw.recebimentos_mes)?.itens).map(normalizarMovimentoFinanceiro),
+    } : null,
   }
 }
 
@@ -466,4 +473,15 @@ export function receitaVazia(data: ReceitaMensal, visao: VisaoReceita): boolean 
   if (visao === 'vencimento') return data.vencimento.itens.length === 0
   const c = data.competencia
   return c.clientes.length === 0 && c.avulsas.length === 0 && c.aportes.length === 0
+}
+
+/** Mantém os sinais e a origem dos eventos entregues pelo servidor. */
+export function normalizarMovimentoFinanceiro(value: unknown): FinanceiroMovimento {
+  const item = rec(value) ?? {}
+  return {
+    id: str(item.id) ?? '', tipo: item.tipo === 'estorno' ? 'estorno' : 'liquidacao',
+    natureza: str(item.natureza) ?? '', origem_tipo: str(item.origem_tipo) ?? '', origem_id: str(item.origem_id) ?? '',
+    data: str(item.data) ?? '', valor: asNumber(item.valor), descricao: str(item.descricao) ?? 'Recebimento', grupo: str(item.grupo) ?? '',
+    marca_id: str(item.marca_id) ?? undefined, marca_nome: str(item.marca_nome) ?? undefined, cliente_nome: str(item.cliente_nome) ?? undefined, classe: str(item.classe) ?? undefined, fonte: str(item.fonte) ?? undefined,
+  }
 }

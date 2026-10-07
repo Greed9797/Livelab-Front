@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, ChevronDown, Minus } from 'lucide-react'
 import { useId, useState, type ReactNode } from 'react'
+import type { RegimeDre } from '../../types/financeiro-dre'
 import { useDreMes } from '../../hooks/useDreMes'
 import { extractErrorMessage } from '../../services/api'
 import type { PrevistoRealizado } from '../../types/financeiro'
@@ -109,9 +110,11 @@ function ItemLinha({ item, visao }: { item: DreDetalheItem; visao: VisaoDre }) {
         <p className="truncate text-[13px] font-medium text-ink" title={item.descricao}>{item.descricao}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-muted">
           {item.origem ? <span>{origemLabel({ origem: item.origem, componente: null })}</span> : null}
+          {item.competencia_original ? <span>competência {item.competencia_original.slice(0, 7)}</span> : null}
           {item.data_vencimento ? <span>vence {formatDataCurta(item.data_vencimento)}</span> : null}
           {isStatus(item.status) ? <StatusChip status={item.status} natureza={item.status === 'perdido' ? 'receita' : 'custo'} className="h-5 px-2 text-[10px]" /> : item.status ? <span>{item.status}</span> : null}
         </p>
+        {item.movimentos?.length ? <details className="mt-1 text-xs text-ink-muted"><summary className="cursor-pointer">Movimentos de caixa</summary><ul>{item.movimentos.map((movimento) => <li key={`${movimento.tipo}:${movimento.id}`}>{formatDataCurta(movimento.data)} · {movimento.tipo === 'estorno' ? 'Estorno' : 'Pagamento'} · {formatMoney(movimento.valor, true)}{movimento.fonte === 'legado' ? ' · Registro legado' : ''}</li>)}</ul></details> : null}
         {encerrado ? (
           <p className="mt-0.5 text-[11px] text-[var(--danger)]" title={item.motivo ? `Motivo: ${item.motivo}` : undefined}>
             {item.status === 'perdido' ? 'Perdido' : 'Cancelado'}
@@ -453,23 +456,23 @@ function DetalheSkeleton() {
  * Detalhe de um mês do DRE (GET /financeiro/dre/mes) renderizado inline, logo abaixo da linha do mês
  * na tabela anual. Sem overlay: a visão (real × previsto) vem do painel que o contém.
  */
-export function DreMesInline({ mes, visao }: { mes: string; visao: VisaoDre }) {
-  const q = useDreMes(mes)
+export function DreMesInline({ mes, visao, regime = 'caixa_vencimento' }: { mes: string; visao: VisaoDre; regime?: RegimeDre }) {
+  const q = useDreMes(mes, regime)
   const d = q.data
   return (
     <div className="min-w-0 space-y-3" data-testid={`dre-detalhe-${mes}`}>
       {q.isFetching && d ? <p className="text-[11px] text-ink-muted" aria-live="polite">atualizando…</p> : null}
       {q.isLoading && !d ? (
         <DetalheSkeleton />
-      ) : q.isError && !d ? (
+      ) : q.isError ? (
         <ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} />
       ) : d && detalheVazio(d) ? (
-        <EmptyState title="Mês sem movimento" description="Nenhuma receita, custo ou aporte com competência neste mês." />
+        <EmptyState title="Mês sem movimento" description="Nenhuma receita, custo ou aporte no regime e mês selecionados." />
       ) : d ? (
         <Conteudo d={d} visao={visao} />
       ) : null}
       <p className="text-[11px] text-ink-muted">
-        Regime de competência. Resultado = receita − receita perdida − custos fixos − custos variáveis (imposto incluso). Aportes ficam fora.
+        {regime === 'competencia' ? 'Regime de competência.' : 'Caixa: previsto por vencimento; realizado por pagamento e estornos do mês.'} Resultado = receita − receita perdida − custos fixos − custos variáveis (imposto incluso). Aportes ficam fora.
       </p>
     </div>
   )

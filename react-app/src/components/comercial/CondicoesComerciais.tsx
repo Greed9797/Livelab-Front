@@ -8,12 +8,12 @@ import { LoadingState } from '../ui/States'
 import { MoneyInput } from '../ui/MoneyInput'
 import { extractErrorMessage } from '../../services/api'
 import { confirmMarcaCondicao, getMarcaCondicoes, previewMarcaCondicao } from '../../services/domain'
-import { patchVencimentoCondicao } from '../../services/condicoes'
+import { editarCondicao, excluirCondicao, previewAlteracaoCondicao, patchVencimentoCondicao } from '../../services/condicoes'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { MES_OFFSET_OPTIONS, condicaoVigente, parseVencimentoForm, previewJanelaComissao, resumoJanela, resumoVencimento, vencimentoDaCondicao } from '../../utils/condicoes-vencimento'
 import { QK } from '../../services/query-keys'
 import { formatMoney } from '../../utils/format'
-import { parseBRMoneyToDecimal } from '../../utils/money'
+import { normalizeMoneyInputText, parseBRMoneyToDecimal } from '../../utils/money'
 import { commercialConfigCodes, commercialConfigLabel } from '../../utils/comercial-config'
 import type { JsonRecord } from '../../types/models'
 
@@ -112,6 +112,7 @@ function conditionTitle(condition: JsonRecord) {
 }
 
 function conditionPeriodLabel(condition: JsonRecord) {
+  if (condition.cancelled_at) return 'Excluída'
   const month = dateForCondition(condition.inicio_vigencia)
   const current = currentMonth()
   if (month === '1900-01') return 'Histórico'
@@ -159,6 +160,10 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
   const queryClient = useQueryClient()
   const [form, setForm] = useState<CondicaoForm>(() => initialForm())
   const [editorOpen, setEditorOpen] = useState(false)
+  const [selectedCondition, setSelectedCondition] = useState<JsonRecord | null>(null)
+  const [operation, setOperation] = useState<'criar' | 'editar' | 'excluir'>('criar')
+  const [confirmedImpact, setConfirmedImpact] = useState(false)
+  const [editVencimento, setEditVencimento] = useState(() => vencimentoDaCondicao(null))
   const [previewData, setPreviewData] = useState<JsonRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
   const idempotencyKeyRef = useRef<string | null>(null)
@@ -207,19 +212,31 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
   const alerts = useMemo(() => commercialConfigCodes(configuracaoComercial, hasMarca), [configuracaoComercial, hasMarca])
 
   const previewMutation = useMutation({
-    mutationFn: () => previewMarcaCondicao(marcaId as string, buildMarcaCondicaoProposal(form)),
-    onSuccess: (data) => { setPreviewData(data); setError(null) },
+    mutationFn: () => operation === 'criar'
+      ? previewMarcaCondicao(marcaId as string, buildMarcaCondicaoProposal(form))
+      : previewAlteracaoCondicao(marcaId as string, String(selectedCondition?.id), {
+        operacao: operation, motivo: form.motivo.trim(),
+        ...(operation === 'editar' ? { proposta: { ...buildMarcaCondicaoProposal(form), ...editVencimento } } : {}),
+      }),
+    onSuccess: (data) => { setPreviewData({ ...data, expected_revision: data.expected_revision ?? expectedRevision }); setConfirmedImpact(false); setError(null) },
     onError: (cause) => { setError(extractErrorMessage(cause)); setPreviewData(null) },
   })
   const confirmMutation = useMutation({
     mutationFn: () => {
       const idempotencyKey = idempotencyKeyRef.current ?? (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`)
       idempotencyKeyRef.current = idempotencyKey
-      return confirmMarcaCondicao(marcaId as string, { ...buildMarcaCondicaoProposal(form), expected_revision: expectedRevision }, idempotencyKey)
+      const revision = numberValue(previewData?.expected_revision)
+      if (!previewData || revision < 1) throw new Error('Revise o impacto antes de confirmar.')
+      if (operation === 'excluir') return excluirCondicao(marcaId as string, String(selectedCondition?.id), { expected_revision: revision, motivo: form.motivo.trim() }, idempotencyKey)
+      const payload = { ...buildMarcaCondicaoProposal(form), expected_revision: revision }
+      if (operation === 'editar') return editarCondicao(marcaId as string, String(selectedCondition?.id), { ...payload, ...editVencimento }, idempotencyKey)
+      return confirmMarcaCondicao(marcaId as string, payload, idempotencyKey)
     },
     onSuccess: () => {
       setPreviewData(null)
       setEditorOpen(false)
+      setSelectedCondition(null)
+      setOperation('criar')
       idempotencyKeyRef.current = null
       setForm(initialForm())
       setError(null)
@@ -227,6 +244,7 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
       void queryClient.invalidateQueries({ queryKey: QK.marcas() })
       void queryClient.invalidateQueries({ queryKey: QK.cadastros() })
       void queryClient.invalidateQueries({ queryKey: QK.financeiroOperacional() })
+      void queryClient.invalidateQueries({ queryKey: ['fin2'] })
     },
     onError: (cause) => {
       setPreviewData(null)
@@ -243,6 +261,8 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
     onSuccess: () => {
       setError(null)
       vencimentoSeed.current = null
+      void queryClient.invalidateQueries({ queryKey: ['fin2'] })
+      void queryClient.invalidateQueries({ queryKey: QK.cadastros() })
       void queryClient.invalidateQueries({ queryKey: QK.marcaCondicoes(marcaId ?? undefined) })
     },
     onError: (cause) => setError(extractErrorMessage(cause)),
@@ -256,11 +276,47 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
   }
 
   function openEditor() {
+    setOperation('criar')
+    setSelectedCondition(null)
+    setForm(initialForm())
+    setPreviewData(null)
+    idempotencyKeyRef.current = null
+    setEditorOpen(true)
+    setError(null)
+  }
+
+  function openExisting(condition: JsonRecord, op: 'editar' | 'excluir') {
+    setSelectedCondition(condition)
+    setOperation(op)
+    setForm({
+      competencia: dateForCondition(condition.inicio_vigencia),
+      fixo_mensal: normalizeMoneyInputText(String(condition.fixo_mensal ?? 0)),
+      comissao_franquia_pct: String(condition.comissao_franquia_pct ?? 0),
+      comissao_franqueadora_pct: String(condition.comissao_franqueadora_pct ?? 0),
+      tipo_cobranca: condition.tipo_cobranca === 'fixo_ou_comissao' ? 'fixo_ou_comissao' : 'fixo_mais_comissao',
+      fixo_confirmado: boolValue(condition.fixo_confirmado), comissao_confirmada: boolValue(condition.comissao_confirmada), motivo: '',
+    })
+    setEditVencimento(vencimentoDaCondicao(condition))
+    setPreviewData(null)
+    setConfirmedImpact(false)
+    idempotencyKeyRef.current = null
     setEditorOpen(true)
     setError(null)
   }
 
   function rejectIncompleteCondicao() {
+    if (operation !== 'criar' && !form.motivo.trim()) { setError('Informe o motivo da alteração.'); return true }
+    if (operation === 'excluir') return false
+    if (operation === 'editar') {
+      const parsed = parseVencimentoForm({
+        fixo_vencimento_dia: String(editVencimento.fixo_vencimento_dia),
+        fixo_vencimento_mes_offset: String(editVencimento.fixo_vencimento_mes_offset),
+        comissao_vencimento_dia: String(editVencimento.comissao_vencimento_dia),
+        comissao_vencimento_mes_offset: String(editVencimento.comissao_vencimento_mes_offset),
+        comissao_janela_inicio_dia: String(editVencimento.comissao_janela_inicio_dia),
+      })
+      if (!parsed.ok) { setError(parsed.error); return true }
+    }
     const message = condicaoSubmitError(form)
     if (!message) return false
     setError(message)
@@ -278,6 +334,8 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
   const previous = getRecord(previewData?.condicao_anterior)
   const proposal = getRecord(previewData?.proposta)
   const impact = getRecord(previewData?.impacto)
+  const financeiro = getRecord(previewData?.financeiro)
+  const busy = previewMutation.isPending || confirmMutation.isPending
 
   return (
     <section className="space-y-4 border-t border-line pt-5" aria-labelledby="condicoes-comerciais-title">
@@ -286,16 +344,16 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
           <h3 id="condicoes-comerciais-title" className="flex items-center gap-2 text-sm font-semibold text-ink"><History aria-hidden="true" className="h-4 w-4 text-brand" />Condições comerciais</h3>
           <p className="mt-1 text-sm text-ink-muted">Histórico mensal da condição usada no fato gerador financeiro{marcaNome ? ` de ${marcaNome}` : ''}.</p>
         </div>
-        {marcaId && canEdit ? <Button type="button" size="default" variant="secondary" icon={Plus} onClick={openEditor}>Nova competência</Button> : null}
+        {marcaId && canEdit ? <Button type="button" size="default" variant="secondary" icon={Plus} disabled={busy} onClick={openEditor}>Nova competência</Button> : null}
       </div>
 
       {!marcaId ? (
-        <Card className="border-[var(--warning)]/30"><CardBody><ul className="space-y-2"><AlertItem canCorrect={canEdit} onCorrect={openEditor}>Sem marca operacional vinculada. Cadastre a marca antes de informar fixo e comissão.</AlertItem></ul></CardBody></Card>
+        <Card className="border-[var(--warning)]/30"><CardBody><ul className="space-y-2"><AlertItem canCorrect={canEdit && !busy} onCorrect={openEditor}>Sem marca operacional vinculada. Cadastre a marca antes de informar fixo e comissão.</AlertItem></ul></CardBody></Card>
       ) : conditionsQuery.isLoading ? <LoadingState label="Carregando histórico comercial…" /> : conditionsQuery.isError ? <p role="alert" className="rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{extractErrorMessage(conditionsQuery.error)}</p> : (
         <>
           {alerts.length > 0 ? (
             <Card className="border-[var(--warning)]/30"><CardBody><div className="flex items-center gap-2 text-sm font-semibold text-ink"><AlertTriangle aria-hidden="true" className="h-4 w-4 text-[var(--warning)]" />Pendências do cadastro</div><ul className="mt-3 space-y-2">
-              {alerts.map((code) => <AlertItem key={code} canCorrect={canEdit && Boolean(marcaId)} onCorrect={openEditor}>{commercialConfigLabel(code)}</AlertItem>)}
+              {alerts.map((code) => <AlertItem key={code} canCorrect={canEdit && Boolean(marcaId) && !busy} onCorrect={openEditor}>{commercialConfigLabel(code)}</AlertItem>)}
             </ul></CardBody></Card>
           ) : <p className="flex items-center gap-2 text-sm text-[var(--success)]"><CheckCircle2 aria-hidden="true" className="h-4 w-4" />Fixo e comissão vigentes confirmados.</p>}
           <div className="space-y-2">
@@ -305,10 +363,14 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
                   <span className="min-w-0"><span className="block truncate text-sm font-semibold text-ink"><Badge className="mr-2" tone={conditionPeriodLabel(condition) === 'Vigente' ? 'success' : conditionPeriodLabel(condition) === 'Futura' ? 'info' : 'neutral'}>{conditionPeriodLabel(condition)}</Badge>{conditionTitle(condition)}{condition.origem === 'legado_nao_verificado' ? <Badge className="ml-2" tone="warning">A revisar</Badge> : null}</span><span className="mt-1 block text-xs text-ink-muted">{conditionSummary(condition)} · fixo {resumoVencimento(vencimentoDaCondicao(condition).fixo_vencimento_dia, vencimentoDaCondicao(condition).fixo_vencimento_mes_offset)} · comissão {resumoVencimento(vencimentoDaCondicao(condition).comissao_vencimento_dia, vencimentoDaCondicao(condition).comissao_vencimento_mes_offset)}{resumoJanela(vencimentoDaCondicao(condition).comissao_janela_inicio_dia) ? ` (${resumoJanela(vencimentoDaCondicao(condition).comissao_janela_inicio_dia)})` : ''} · revisão {numberValue(condition.revision)}</span></span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-ink-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="grid gap-3 border-t border-line p-4 text-sm sm:grid-cols-3"><div><span className="block text-xs text-ink-muted">Vigência</span><span className="font-medium text-ink">{monthLabel(condition.inicio_vigencia)}</span></div><div><span className="block text-xs text-ink-muted">Fixo mensal</span><span className="font-medium text-ink">{formatMoney(conditionValue(condition, 'fixo_mensal'))} {boolValue(condition.fixo_confirmado) ? '· confirmado' : '· a revisar'}</span></div><div><span className="block text-xs text-ink-muted">Comissões</span><span className="font-medium text-ink">{conditionValue(condition, 'comissao_franquia_pct').toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% franquia · {conditionValue(condition, 'comissao_franqueadora_pct').toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% franqueadora</span></div></div>
+                {condition.cancelled_at ? <p className="px-4 pb-4 text-sm text-ink-muted">Excluída do cálculo. Histórico e recebimentos preservados. Uma nova condição pode ser criada para esta competência.</p> : canEdit ? <div className="flex flex-wrap gap-2 px-4 pb-4">
+                  <Button type="button" variant="secondary" disabled={busy} onClick={() => openExisting(condition, 'editar')}>Editar competência</Button>
+                  <Button type="button" variant="secondary" disabled={busy} onClick={() => openExisting(condition, 'excluir')}>Excluir competência</Button>
+                </div> : null}
               </details>
             ))}
           </div>
-          {marcaId && canEdit ? (
+          {marcaId && canEdit && !editorOpen ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <fieldset className="space-y-2 rounded-xl border border-line p-3">
                 <legend className="px-1 text-xs font-bold uppercase tracking-wide text-ink-muted">Vencimento do fixo</legend>
@@ -336,17 +398,31 @@ export function CondicoesComerciais({ marcaId, marcaNome, canEdit = true, config
 
       {marcaId && editorOpen && canEdit ? (
         <Card className="border-brand/30"><CardBody>
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><h4 className="text-base font-bold text-ink">Definir condição por competência</h4><p className="mt-1 text-xs text-ink-muted">A competência passa a valer somente a partir do mês informado; condições futuras não alteram o mês vigente.</p></div><Button type="button" size="icon" variant="ghost" aria-label="Cancelar edição da condição" title="Cancelar edição" onClick={cancelEditor}><RotateCcw aria-hidden="true" className="h-4 w-4" /><span className="sr-only">Cancelar</span></Button></div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <label className="block"><span className="text-sm font-semibold text-ink">Competência</span><input aria-label="Competência da condição" type="month" className="design-input mt-2 h-11 w-full px-4" value={form.competencia} onChange={(event) => setField('competencia', event.target.value)} /></label>
-            <label className="block"><span className="text-sm font-semibold text-ink">Modelo de cobrança</span><select aria-label="Modelo de cobrança" className="design-input mt-2 h-11 w-full px-4" value={form.tipo_cobranca} onChange={(event) => setField('tipo_cobranca', event.target.value as CondicaoForm['tipo_cobranca'])}><option value="fixo_mais_comissao">Fixo + comissão</option><option value="fixo_ou_comissao">Fixo ou comissão (maior)</option></select></label>
-            <label className="block"><span className="text-sm font-semibold text-ink">Fixo mensal</span><MoneyInput aria-label="Fixo mensal" className="design-input mt-2 h-11 w-full px-4" value={form.fixo_mensal} onChange={(value) => setField('fixo_mensal', value)} /></label>
-            <label className="block"><span className="text-sm font-semibold text-ink">Comissão da franquia (%)</span><input aria-label="Comissão da franquia" type="number" min="0" max="100" step="0.01" className="design-input mt-2 h-11 w-full px-4" value={form.comissao_franquia_pct} onChange={(event) => setField('comissao_franquia_pct', event.target.value)} /></label>
-            <label className="block"><span className="text-sm font-semibold text-ink">Comissão da franqueadora (%)</span><input aria-label="Comissão da franqueadora" type="number" min="0" max="100" step="0.01" className="design-input mt-2 h-11 w-full px-4" value={form.comissao_franqueadora_pct} onChange={(event) => setField('comissao_franqueadora_pct', event.target.value)} /></label>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><h4 className="text-base font-bold text-ink">{operation === 'excluir' ? 'Excluir competência' : operation === 'editar' ? 'Editar competência' : 'Definir condição por competência'}</h4><p className="mt-1 text-xs text-ink-muted">A competência passa a valer somente a partir do mês informado; condições futuras não alteram o mês vigente.</p></div><Button type="button" size="icon" variant="ghost" aria-label="Cancelar edição da condição" title="Cancelar edição" disabled={busy} onClick={cancelEditor}><RotateCcw aria-hidden="true" className="h-4 w-4" /><span className="sr-only">Cancelar</span></Button></div>
+          <fieldset disabled={busy} className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="block"><span className="text-sm font-semibold text-ink">Competência</span><input aria-label="Competência da condição" disabled={operation !== 'criar'} type="month" className="design-input mt-2 h-11 w-full px-4" value={form.competencia} onChange={(event) => setField('competencia', event.target.value)} /></label>
+            <label className="block"><span className="text-sm font-semibold text-ink">Modelo de cobrança</span><select aria-label="Modelo de cobrança" disabled={operation === 'excluir'} className="design-input mt-2 h-11 w-full px-4" value={form.tipo_cobranca} onChange={(event) => setField('tipo_cobranca', event.target.value as CondicaoForm['tipo_cobranca'])}><option value="fixo_mais_comissao">Fixo + comissão</option><option value="fixo_ou_comissao">Fixo ou comissão (maior)</option></select></label>
+            <label className="block"><span className="text-sm font-semibold text-ink">Fixo mensal</span><MoneyInput aria-label="Fixo mensal" disabled={operation === 'excluir'} className="design-input mt-2 h-11 w-full px-4" value={form.fixo_mensal} onChange={(value) => setField('fixo_mensal', value)} /></label>
+            <label className="block"><span className="text-sm font-semibold text-ink">Comissão da franquia (%)</span><input aria-label="Comissão da franquia" disabled={operation === 'excluir'} type="number" min="0" max="100" step="0.01" className="design-input mt-2 h-11 w-full px-4" value={form.comissao_franquia_pct} onChange={(event) => setField('comissao_franquia_pct', event.target.value)} /></label>
+            <label className="block"><span className="text-sm font-semibold text-ink">Comissão da franqueadora (%)</span><input aria-label="Comissão da franqueadora" disabled={operation === 'excluir'} type="number" min="0" max="100" step="0.01" className="design-input mt-2 h-11 w-full px-4" value={form.comissao_franqueadora_pct} onChange={(event) => setField('comissao_franqueadora_pct', event.target.value)} /></label>
             <label className="block sm:col-span-2"><span className="text-sm font-semibold text-ink">Motivo da alteração</span><textarea aria-label="Motivo da alteração" className="design-input mt-2 min-h-20 w-full px-4 py-3" maxLength={255} value={form.motivo} onChange={(event) => setField('motivo', event.target.value)} placeholder="Ex.: novo contrato a partir de setembro" /></label>
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2"><label className="flex items-start gap-2 text-sm text-ink"><input type="checkbox" className="mt-1 h-4 w-4 accent-brand" checked={form.fixo_confirmado} onChange={(event) => setField('fixo_confirmado', event.target.checked)} /><span>Confirmo o valor fixo para esta competência.</span></label><label className="flex items-start gap-2 text-sm text-ink"><input type="checkbox" className="mt-1 h-4 w-4 accent-brand" checked={form.comissao_confirmada} onChange={(event) => setField('comissao_confirmada', event.target.checked)} /><span>Confirmo as comissões para esta competência.</span></label></div>
-          {previewData ? <div className="mt-5 rounded-2xl border border-brand/30 bg-brand-soft p-4"><div className="flex items-center gap-2 text-sm font-bold text-ink"><Pencil aria-hidden="true" className="h-4 w-4" />Prévia antes de confirmar</div><div className="mt-3 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-line bg-surface p-3"><p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Antes</p><p className="mt-2 text-sm text-ink">{conditionSummary(previous)}</p></div><div className="rounded-xl border border-brand/30 bg-surface p-3"><p className="text-xs font-semibold uppercase tracking-wide text-brand">Depois · {monthLabel(proposal.inicio_vigencia)}</p><p className="mt-2 text-sm text-ink">{conditionSummary(proposal)}</p></div></div><p className="mt-3 text-xs text-ink-muted">Impacto no intervalo: {numberValue(impact.movimentos_abertos)} movimentos abertos · {numberValue(impact.movimentos_fechados)} fechados · GMV aberto {formatMoney(impact.gmv_aberto)}.</p><div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="primary" isLoading={confirmMutation.isPending} onClick={() => { if (rejectIncompleteCondicao()) return; confirmMutation.mutate() }}>Confirmar condição</Button><Button type="button" variant="secondary" onClick={() => { setPreviewData(null); idempotencyKeyRef.current = null }}>Voltar e editar</Button></div></div> : <Button type="button" className="mt-5" isLoading={previewMutation.isPending} onClick={() => { if (rejectIncompleteCondicao()) return; previewMutation.mutate() }}>Revisar impacto</Button>}
+          </fieldset>
+          {operation === 'editar' ? <fieldset disabled={busy} className="mt-4 grid gap-3 sm:grid-cols-2">
+            <legend className="text-sm font-semibold">Vencimentos e apuração desta competência</legend>
+            {(['fixo_vencimento_dia', 'fixo_vencimento_mes_offset', 'comissao_vencimento_dia', 'comissao_vencimento_mes_offset', 'comissao_janela_inicio_dia'] as const).map((key) => <label key={key} className="text-sm text-ink">
+              {{fixo_vencimento_dia: 'Dia do fixo', fixo_vencimento_mes_offset: 'Mês do fixo', comissao_vencimento_dia: 'Dia da comissão', comissao_vencimento_mes_offset: 'Mês da comissão', comissao_janela_inicio_dia: 'Dia inicial da apuração'}[key]}
+              {key.endsWith('mes_offset') ? <select className="design-input mt-1 w-full" value={editVencimento[key]} onChange={(e) => { setEditVencimento((v) => ({ ...v, [key]: Number(e.target.value) })); setPreviewData(null); idempotencyKeyRef.current = null }}>{MES_OFFSET_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
+                : <input type="number" min="1" max={key === 'comissao_janela_inicio_dia' ? 28 : 31} className="design-input mt-1 w-full" value={editVencimento[key]} onChange={(e) => { setEditVencimento((v) => ({ ...v, [key]: Number(e.target.value) })); setPreviewData(null); idempotencyKeyRef.current = null }} />}
+            </label>)}
+          </fieldset> : null}
+          <div className="mt-4 grid gap-2 sm:grid-cols-2"><label className="flex items-start gap-2 text-sm text-ink"><input type="checkbox" disabled={busy || operation === 'excluir'} className="mt-1 h-4 w-4 accent-brand" checked={form.fixo_confirmado} onChange={(event) => setField('fixo_confirmado', event.target.checked)} /><span>Confirmo o valor fixo para esta competência.</span></label><label className="flex items-start gap-2 text-sm text-ink"><input type="checkbox" disabled={busy || operation === 'excluir'} className="mt-1 h-4 w-4 accent-brand" checked={form.comissao_confirmada} onChange={(event) => setField('comissao_confirmada', event.target.checked)} /><span>Confirmo as comissões para esta competência.</span></label></div>
+          {previewData ? <div className="mt-5 rounded-2xl border border-brand/30 bg-brand-soft p-4"><div className="flex items-center gap-2 text-sm font-bold text-ink"><Pencil aria-hidden="true" className="h-4 w-4" />Prévia antes de confirmar</div><div className="mt-3 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-line bg-surface p-3"><p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Antes</p><p className="mt-2 text-sm text-ink">{conditionSummary(previous)}</p></div><div className="rounded-xl border border-brand/30 bg-surface p-3"><p className="text-xs font-semibold uppercase tracking-wide text-brand">Depois · {monthLabel(proposal.inicio_vigencia ?? selectedCondition?.inicio_vigencia)}</p><p className="mt-2 text-sm text-ink">{operation === 'excluir' ? 'Condição excluída do cálculo; o histórico permanece disponível.' : conditionSummary(proposal)}</p></div></div><p className="mt-3 text-xs text-ink-muted">Impacto no intervalo: {numberValue(impact.movimentos_abertos)} movimentos abertos · {numberValue(impact.movimentos_fechados)} fechados · GMV aberto {formatMoney(impact.gmv_aberto)}.</p>{operation !== 'criar' ? <div className="mt-3 space-y-2 text-sm text-ink">
+              <p>{numberValue(financeiro.titulos)} títulos já gerados · previsto {formatMoney(financeiro.valor_previsto_antes)} → {formatMoney(financeiro.valor_previsto_depois)}.</p>
+              <p>Em aberto: {formatMoney(financeiro.saldo_aberto_antes)} → {formatMoney(financeiro.saldo_aberto_depois)}. Recebido preservado: {formatMoney(financeiro.valor_pago_preservado)}. Perdas preservadas: {formatMoney(financeiro.valor_perdido_preservado)}.</p>
+              <p>Excesso recebido: {formatMoney(financeiro.excesso_recebido)} · títulos suspensos: {numberValue(financeiro.titulos_suspensos)}.</p>
+              <p>A alteração pode recalcular valores históricos. Pagamentos registrados são preservados; nenhuma devolução ou estorno será realizado.</p>
+              <label className="flex gap-2"><input type="checkbox" disabled={busy} checked={confirmedImpact} onChange={(e) => setConfirmedImpact(e.target.checked)} />Conferi os valores e confirmo o impacto histórico.</label>
+            </div> : null}<div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="primary" disabled={busy || (operation !== 'criar' && (!confirmedImpact || previewData.bloqueada === true || !previewData.financeiro))} isLoading={confirmMutation.isPending} onClick={() => { if (rejectIncompleteCondicao()) return; confirmMutation.mutate() }}>{operation === 'excluir' ? 'Confirmar exclusão' : operation === 'editar' ? 'Confirmar edição' : 'Confirmar condição'}</Button><Button type="button" variant="secondary" disabled={busy} onClick={() => { setPreviewData(null); idempotencyKeyRef.current = null }}>Voltar e editar</Button></div></div> : <Button type="button" className="mt-5" isLoading={previewMutation.isPending} onClick={() => { if (rejectIncompleteCondicao()) return; previewMutation.mutate() }}>Revisar impacto</Button>}
           {error ? <p role="alert" className="mt-3 rounded-xl bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
           <p className="mt-3 text-xs text-ink-muted">Revisão atual: {expectedRevision}. A confirmação verifica se outra pessoa alterou a marca desde a prévia.</p>
         </CardBody></Card>

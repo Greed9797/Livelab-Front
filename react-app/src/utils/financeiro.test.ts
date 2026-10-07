@@ -248,9 +248,10 @@ describe('perdas e cancelamentos', () => {
     expect(l({ natureza: 'receita', origem: 'comercial', status: 'perdido', perdido_motivo: 'sumiu' }).status).toBe('perdido')
     expect(l({ natureza: 'receita', origem: 'comercial', perdido_em: '2026-09-10T12:00:00Z' }).status).toBe('perdido')
     expect(l({ cancelado_em: '2026-09-10T12:00:00Z', cancelado_motivo: 'duplicada' })).toMatchObject({ status: 'cancelado', cancelado_motivo: 'duplicada' })
-    // pago integral vence perdido; status trocado de natureza é ignorado
+    // pago integral vence perdido; cancelado em receita preserva suspensão comercial
     expect(l({ natureza: 'receita', perdido_em: '2026-09-10', valor_pago: 100 }).status).toBe('pago')
-    expect(l({ natureza: 'receita', status: 'cancelado' }).status).not.toBe('cancelado')
+    expect(l({ natureza: 'receita', status: 'cancelado' }).status).toBe('cancelado')
+    expect(l({ natureza: 'receita', status: 'parcial', suspensao_comercial: { ativa: true }, valor_pago: 10 })).toMatchObject({ status: 'cancelado', valor_pago: 10, suspensao_comercial: { ativa: true } })
   })
 
   it('acoesPerda: receita perde, custo cancela, encerrado só desfaz', () => {
