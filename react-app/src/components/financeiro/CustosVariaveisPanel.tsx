@@ -8,6 +8,7 @@ import { formatMoney, formatPercent } from '../../utils/format'
 import { Button } from '../ui/Button'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
 import { CustoAcoesModais, CustoGrupoBloco, CustoItemRow, ResumoCusto, useCustoAcoes } from './CustosCommon'
+import { ComparacaoPainelMes } from './ComparacaoPainelMes'
 
 /** Custos variáveis do mês: pontuais, apresentadoras (comissão/bônus) e imposto. */
 export function CustosVariaveisPanel({ mes, podeEscrever }: { mes: string; podeEscrever: boolean }) {
@@ -34,8 +35,9 @@ export function CustosVariaveisPanel({ mes, podeEscrever }: { mes: string; podeE
 
   return (
     <div className="space-y-5">
+      <ComparacaoPainelMes mes={mes} natureza="custo" />
       <ResumoCusto
-        titulo={`Custos variáveis de ${mesLabel(mes, true)}`}
+        titulo={`Custos variáveis · Competência ${mesLabel(mes, true)}`}
         totais={totais}
         extra={
           podeEscrever ? (

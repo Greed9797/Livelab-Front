@@ -32,7 +32,7 @@ import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
 import type { Lancamento, Natureza } from '../types/financeiro'
 import { canWrite } from '../utils/access'
-import { filtrarPorVencimentoNoMes, hojeSP, isMes, isReceitaAvulsa, janelaLancamentos, mesAtualSP, mesLabel, type VisaoLista } from '../utils/financeiro'
+import { filtrarPorVencimentoNoMes, hojeSP, isMes, isReceitaAvulsa, janelaLancamentos, mesAtualSP, mesLabel, ultimoDiaMes, type VisaoLista } from '../utils/financeiro'
 import { formatPercent } from '../utils/format'
 import type { PeriodRange } from '../utils/period'
 
@@ -76,7 +76,7 @@ export function FinanceiroPage() {
   // Cada aba só busca o que usa: lançamentos na lista e no fluxo (fallback); painel só na lista.
   const usaLancamentos = tab === 'lancamentos' || tab === 'fluxo'
   const janela = janelaLancamentos(mes, visao, visao === 'vencimento' && incluirAnteriores)
-  const lancamentos = useLancamentos(janela, !isCliente && usaLancamentos)
+  const lancamentos = useLancamentos({ ...janela, ...(visao === 'vencimento' ? { vencimento_ate: `${mes}-${String(ultimoDiaMes(mes)).padStart(2, '0')}` } : {}) }, !isCliente && usaLancamentos)
   const painel = usePainel(mes, !isCliente && tab === 'lancamentos')
   const config = useFinanceiroConfig(!isCliente)
   const baixaMut = useBaixaMutation()

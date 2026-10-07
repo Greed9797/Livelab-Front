@@ -93,6 +93,7 @@ export interface TotaisLancamentos {
 }
 
 export interface LancamentosFiltro {
+  vencimento_ate?: string // YYYY-MM-DD: inclui obrigações fora da janela de competência
   inicio: string // YYYY-MM
   fim: string // YYYY-MM
   natureza?: Natureza | ''
