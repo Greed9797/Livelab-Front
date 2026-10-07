@@ -30,7 +30,7 @@ export function CustosVariaveisPanel({ mes, podeEscrever }: { mes: string; podeE
   const aliquota = config.data?.aliquota_imposto_pct
   const base = imposto && aliquota && aliquota > 0 ? (imposto.valor_previsto * 100) / aliquota : null
 
-  if (q.isError && !q.data) return <ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} />
+  if (q.isError) return <ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} />
   if (q.isLoading && !q.data) return <LoadingState label="Carregando custos variáveis" />
 
   return (

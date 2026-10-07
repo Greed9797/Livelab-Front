@@ -51,6 +51,22 @@ describe('ComparacaoPainelMes', () => {
     expect(screen.queryByText('R$ 49.902,06')).toBeNull()
   })
 
+  it('prioriza erro de reconciliação sobre cache e mantém cache no refetch normal', () => {
+    const refetch = vi.fn()
+    consulta({ refetch })
+    const { rerender } = render(<ComparacaoPainelMes mes="2026-10" natureza="receita" />)
+    expect(screen.getByText('R$ 49.902,06')).toBeTruthy()
+    consulta({ isFetching: true, refetch })
+    rerender(<ComparacaoPainelMes mes="2026-10" natureza="receita" />)
+    expect(screen.getByText('R$ 49.902,06')).toBeTruthy()
+    consulta({ isError: true, error: { isAxiosError: true, response: { status: 409, data: { error: 'Reconciliação necessária' } } }, refetch })
+    rerender(<ComparacaoPainelMes mes="2026-10" natureza="receita" />)
+    expect(screen.getByRole('alert').textContent).toContain('Reconciliação necessária')
+    expect(screen.queryByText('R$ 49.902,06')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Recarregar' }))
+    expect(refetch).toHaveBeenCalledOnce()
+  })
+
   it('informa falha e permite repetir, sem substituir saldo por zero', () => {
     const refetch = vi.fn()
     consulta({ data: undefined, isError: true, error: new Error('Consulta indisponível'), refetch })

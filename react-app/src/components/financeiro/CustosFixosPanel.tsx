@@ -16,12 +16,12 @@ export function CustosFixosPanel({ mes, podeEscrever }: { mes: string; podeEscre
   const grupos = useMemo(() => agruparPorGrupo(itens), [itens])
   const totais = totaisCusto(itens)
 
+  if (q.isError) return <ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} />
+
   return (
     <div className="space-y-5">
       <ComparacaoPainelMes mes={mes} natureza="custo" />
-      {q.isError && !q.data ? (
-        <ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} />
-      ) : q.isLoading && !q.data ? (
+      {q.isLoading && !q.data ? (
         <LoadingState label="Carregando custos fixos" />
       ) : (
         <>

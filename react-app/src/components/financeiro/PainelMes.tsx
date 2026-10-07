@@ -203,15 +203,16 @@ export function PainelMes({
 }) {
   const [detalhesAbertos, setDetalhesAbertos] = useState(false)
   const detalhesId = useId()
-  if (isLoading && !painel) return <PainelMesSkeleton />
-  if (!painel) {
-    return isError ? (
+  if (isError) {
+    return (
       <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink-muted">
         Não foi possível carregar o painel do mês.
         <Button variant="ghost" className="min-h-11 sm:min-h-0" onClick={onRetry}>Tentar de novo</Button>
       </div>
-    ) : null
+    )
   }
+  if (isLoading && !painel) return <PainelMesSkeleton />
+  if (!painel) return null
 
   if (!painel.configurado) {
     return (

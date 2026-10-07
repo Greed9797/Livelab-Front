@@ -11,7 +11,7 @@ export function ComparacaoPainelMes({ mes, natureza }: { mes: string; natureza: 
   const query = usePainel(mes)
   // usePainel mantém o resultado anterior durante a troca de mês. Não rotular esse saldo como o novo mês.
   const painel = query.data?.mes === mes ? query.data : undefined
-  if (query.isError && !painel) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+  if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
   if (!painel) return <LoadingState label="Carregando comparação com o painel" />
 
   const lado = natureza === 'receita' ? painel.a_receber : painel.a_pagar
