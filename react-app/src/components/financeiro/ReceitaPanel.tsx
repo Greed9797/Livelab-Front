@@ -25,6 +25,7 @@ import type { LucideIcon } from 'lucide-react'
 import { type ReactNode, useMemo, useState } from 'react'
 import { useBaixaMutation, useInvalidateFinanceiro } from '../../hooks/useFinanceiro'
 import { useReceitaMensal } from '../../hooks/useReceitaMensal'
+import { ComparacaoPainelMes } from './ComparacaoPainelMes'
 import { extractErrorMessage } from '../../services/api'
 import { gerarTitulosReceita } from '../../services/financeiro-receita'
 import type { Lancamento } from '../../types/financeiro'
@@ -790,6 +791,7 @@ export function ReceitaPanel({ mes, podeEscrever }: { mes: string; podeEscrever:
         </div>
       </header>
 
+      <ComparacaoPainelMes mes={mes} natureza="receita" />
       {corpo}
 
       <BaixaModal

@@ -5,6 +5,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../ui/Toast'
 import { ReceitaPanel } from './ReceitaPanel'
 import { normalizarReceitaMensal } from '../../utils/receita-mensal'
+import { normalizarPainel } from '../../utils/painel'
+
+vi.mock('../../services/financeiro', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../services/financeiro')>(),
+  getPainel: vi.fn(async (mes: string) => normalizarPainel({ mes, fim_mes: `${mes}-30`, a_receber: { no_mes: 900, atrasado_anterior: 100, total: 1000 } }, mes)),
+}))
 
 const raw = {
   mes: '2026-09', hoje: '2026-10-01',
@@ -80,7 +86,9 @@ describe('ReceitaPanel smoke', () => {
     expect(await screen.findByText('Grupo Ação')).toBeTruthy()
     expect(screen.getByText('Em apuração')).toBeTruthy()
     expect(screen.getByText(/cobra-se o maior/)).toBeTruthy()
-    // O "A receber" do mês vive só no painel de Lançamentos (caixa), não nesta aba.
+    expect(await screen.findByText('A receber no painel')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ver painel em Lançamentos' }).getAttribute('href')).toBe('/financeiro?tab=lancamentos&mes=2026-09')
+    // A comparação identifica o escopo do painel; o resumo da aba mantém a competência.
     expect(screen.queryByText('A receber em setembro')).toBeNull()
     expect(screen.getByText('Consultoria')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Receber: Fixo · Haag/ }))

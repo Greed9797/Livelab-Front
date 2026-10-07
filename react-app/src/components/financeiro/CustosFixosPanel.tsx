@@ -6,6 +6,7 @@ import { mesLabel } from '../../utils/financeiro'
 import { EmptyState, ErrorState, LoadingState } from '../ui/States'
 import { CustoAcoesModais, CustoGrupoBloco, ResumoCusto, useCustoAcoes } from './CustosCommon'
 import { RecorrentesPanel } from './RecorrentesPanel'
+import { ComparacaoPainelMes } from './ComparacaoPainelMes'
 
 /** Custos fixos do mês (recorrentes, parcelas, apresentadora fixo) + gestão dos recorrentes. */
 export function CustosFixosPanel({ mes, podeEscrever }: { mes: string; podeEscrever: boolean }) {
@@ -17,13 +18,14 @@ export function CustosFixosPanel({ mes, podeEscrever }: { mes: string; podeEscre
 
   return (
     <div className="space-y-5">
+      <ComparacaoPainelMes mes={mes} natureza="custo" />
       {q.isError && !q.data ? (
         <ErrorState message={extractErrorMessage(q.error)} onRetry={() => void q.refetch()} />
       ) : q.isLoading && !q.data ? (
         <LoadingState label="Carregando custos fixos" />
       ) : (
         <>
-          <ResumoCusto titulo={`Custos fixos de ${mesLabel(mes, true)}`} totais={totais} />
+          <ResumoCusto titulo={`Custos fixos · Competência ${mesLabel(mes, true)}`} totais={totais} />
           {grupos.length === 0 ? (
             <EmptyState title="Nenhum custo fixo neste mês" description="Use “Gerar mês” abaixo para materializar os recorrentes, ou cadastre um novo recorrente." />
           ) : (
