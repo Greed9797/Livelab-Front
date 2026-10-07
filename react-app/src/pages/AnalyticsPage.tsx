@@ -8,6 +8,7 @@ import { PulsoDiarioSection } from '../components/analytics/PulsoDiarioSection'
 import { BrandComparisonSection } from '../components/analytics/BrandComparisonSection'
 import { BrandAudienceComparisonSection } from '../components/analytics/BrandAudienceComparisonSection'
 import { MonthlyUnitGoals } from '../components/analytics/MonthlyUnitGoals'
+import { OperationalGoalsSection } from '../components/analytics/OperationalGoalsSection'
 import { AssiduidadeStrip } from '../components/dashboard/AssiduidadeStrip'
 import { AnalyticsFilterBar, presetRange, ymd, type Preset } from '../components/analytics/AnalyticsFilterBar'
 import {
@@ -229,6 +230,9 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
       {/* Filtro único — rege Pulso + gráficos de série + relatório por entidade */}
       {filterBar}
+
+      {/* Acompanhamento diário editável da capacidade, meta mensal, pisos e GMV/h. */}
+      <OperationalGoalsSection />
 
       {/* Metas são sempre mensais e da unidade inteira. Elas não reutilizam o
           recorte ativo para não comparar um período parcial com uma meta mensal. */}

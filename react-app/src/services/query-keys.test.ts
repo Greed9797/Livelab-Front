@@ -48,6 +48,11 @@ describe('invalidateOperational', () => {
 })
 
 describe('analytics daily query key', () => {
+  it('isolates operational goals by tenant and selected calendar day', () => {
+    expect(QK.operationalGoals('2026-10-07', 'tenant-a')).not.toEqual(QK.operationalGoals('2026-10-07', 'tenant-b'))
+    expect(QK.operationalGoals('2026-10-07', 'tenant-a')).not.toEqual(QK.operationalGoals('2026-10-08', 'tenant-a'))
+  })
+
   it('identifies one daily series by its complete operational filter', () => {
     expect(QK.analyticsDailyRange('2026-09-01', '2026-09-07', 'marca-1', 'ap-1'))
       .toEqual(['daily-pulse', '2026-09-01', '2026-09-07', 'marca-1', 'ap-1'])

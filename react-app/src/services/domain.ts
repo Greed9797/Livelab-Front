@@ -676,6 +676,33 @@ export function getDailyAnalytics(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/analytics/diario', filters)
 }
 
+export type OperationalGoalsConfig = {
+  horas_por_apresentador: number
+  cabines_consideradas: number
+  turnos: { inicio: string; fim: string }[]
+}
+
+export type OperationalGoalsPatch = {
+  ano_mes: string
+  meta_gmv: number
+  meta_gmv_hora: number
+  configuracao: OperationalGoalsConfig
+  pisos_apresentadoras?: { id: string; meta_gmv_hora: number | null }[]
+  pisos_marcas?: { id: string; meta_gmv_hora: number | null }[]
+}
+
+export function getOperationalGoals(data: string) {
+  return apiGet<JsonRecord>('/analytics/operacao', { data })
+}
+
+export function saveOperationalGoals(payload: OperationalGoalsPatch) {
+  return apiPut<JsonRecord>('/analytics/metas-operacionais', payload)
+}
+
+export function consolidateOperationalDay(data: string) {
+  return apiPost<JsonRecord>('/analytics/operacao/consolidar-dia', { data })
+}
+
 /**
  * Assiduidade das apresentadoras — um status por apresentadora por dia da janela.
  *

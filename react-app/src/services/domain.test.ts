@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { archiveLive, archivePresenterSubmission, confirmMarcaCondicao, createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getMarcaCondicoes, getVideos, iniciarLive, previewMarcaCondicao, publishLive, type LiveResumoDiaResponse, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
-import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import { archiveLive, archivePresenterSubmission, confirmMarcaCondicao, consolidateOperationalDay, createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getMarcaCondicoes, getOperationalGoals, getVideos, iniciarLive, previewMarcaCondicao, publishLive, saveOperationalGoals, type LiveResumoDiaResponse, type OperationalGoalsPatch, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
 vi.mock('./api', () => ({
   apiDelete: vi.fn(),
   apiGet: vi.fn(),
   apiPatch: vi.fn(),
   apiPost: vi.fn(),
+  apiPut: vi.fn(),
 }))
 
 describe('domain live operations', () => {
@@ -15,6 +16,7 @@ describe('domain live operations', () => {
     vi.mocked(apiDelete).mockReset()
     vi.mocked(apiPatch).mockReset()
     vi.mocked(apiPost).mockReset()
+    vi.mocked(apiPut).mockReset()
   })
 
   it('posts the old start-live flow to /lives', async () => {
@@ -126,6 +128,24 @@ describe('domain live operations', () => {
     await getDailyAnalytics({ mesAno: '2026-05', marca_id: 'marca-1', apresentadora_id: 'ap-1' })
 
     expect(apiGet).toHaveBeenCalledWith('/analytics/diario', { mesAno: '2026-05', marca_id: 'marca-1', apresentadora_id: 'ap-1' })
+  })
+
+  it('wires operational analytics read, settings update and day consolidation', async () => {
+    vi.mocked(apiGet).mockResolvedValue({ data: '2026-10-07' })
+    vi.mocked(apiPut).mockResolvedValue({ ano_mes: '2026-10' })
+    vi.mocked(apiPost).mockResolvedValue({ estado: 'consolidado' })
+    const patch: OperationalGoalsPatch = {
+      ano_mes: '2026-10', meta_gmv: 600000, meta_gmv_hora: 300,
+      configuracao: { horas_por_apresentador: 5.5, cabines_consideradas: 6, turnos: [{ inicio: '08:00', fim: '19:00' }] },
+    }
+
+    await getOperationalGoals('2026-10-07')
+    await saveOperationalGoals(patch)
+    await consolidateOperationalDay('2026-10-07')
+
+    expect(apiGet).toHaveBeenCalledWith('/analytics/operacao', { data: '2026-10-07' })
+    expect(apiPut).toHaveBeenCalledWith('/analytics/metas-operacionais', patch)
+    expect(apiPost).toHaveBeenCalledWith('/analytics/operacao/consolidar-dia', { data: '2026-10-07' })
   })
 
   it('loads TikTok connector status for the selected live', async () => {
