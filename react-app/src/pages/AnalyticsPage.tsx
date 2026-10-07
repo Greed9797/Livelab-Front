@@ -8,9 +8,9 @@ import { PulsoDiarioSection } from '../components/analytics/PulsoDiarioSection'
 import { BrandComparisonSection } from '../components/analytics/BrandComparisonSection'
 import { BrandAudienceComparisonSection } from '../components/analytics/BrandAudienceComparisonSection'
 import { MonthlyUnitGoals } from '../components/analytics/MonthlyUnitGoals'
-import { OperationalGoalsSection } from '../components/analytics/OperationalGoalsSection'
+import { OperationalGoalsHeaderAction, OperationalGoalsSection } from '../components/analytics/OperationalGoalsSection'
 import { AssiduidadeStrip } from '../components/dashboard/AssiduidadeStrip'
-import { AnalyticsFilterBar, presetRange, ymd, type Preset } from '../components/analytics/AnalyticsFilterBar'
+import { AnalyticsFilterBar, presetRange, validateAnalyticsRange, ymd, type Preset } from '../components/analytics/AnalyticsFilterBar'
 import {
   exportarComissoesCSV,
   getApresentadoras,
@@ -27,6 +27,7 @@ import { previousPeriodRange } from '../utils/brandComparison'
 import { QK } from '../services/query-keys'
 import { useToast } from '../components/ui/Toast'
 import { useCurrentUser } from '../stores/auth-store'
+import { useOperationalGoals } from '../hooks/useOperationalGoals'
 import { masterRoles, financeRoles, commercialRoles } from '../utils/access'
 import type { JsonRecord } from '../types/models'
 
@@ -42,6 +43,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
   // Filtro ÚNICO: período (range) + marca + apresentadora rege a página toda.
   const { from, to } = presetRange(preset, customFrom, customTo)
+  const today = ymd(new Date())
+  const rangeError = validateAnalyticsRange(from, to, today)
   const previousPeriod = useMemo(() => previousPeriodRange(from, to), [from, to])
   // Seções mensais legadas usam o mês do FIM do intervalo (mês corrente), não o
   // início — senão "7 dias" cruzando meses (31/05→06/06) cairia em maio e zeraria.
@@ -54,6 +57,11 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   // para papéis com acesso a comissões — apresentador/operacional/cabine veem /conteudo
   // mas não devem disparar 403; para eles a seção simplesmente não renderiza.
   const user = useCurrentUser()
+  const operationalQuery = useOperationalGoals({ from, to, tenantId: user?.tenant_id, marcaId, apresentadoraId, enabled: !rangeError })
+  const [operationalEditKey, setOperationalEditKey] = useState<string | null>(null)
+  const operationalContextKey = JSON.stringify([user?.tenant_id ?? '', from, to, marcaId, apresentadoraId])
+  const operationalMonthly = operationalQuery.data && 'tipo' in operationalQuery.data ? operationalQuery.data.contexto_mensal.dados : operationalQuery.data
+  const canConfigureOperational = !rangeError && Boolean(operationalMonthly?.pode_editar && operationalMonthly.editavel)
   const canSeeComissoes = useMemo(
     () => [...masterRoles, ...financeRoles, ...commercialRoles].some((r) => r === user?.papel),
     [user?.papel],
@@ -71,13 +79,14 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     queryKey: QK.analyticsDailyRange(from, to, marcaId, apresentadoraId),
     queryFn: () => getDailyAnalytics({ from, to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
     staleTime: 60_000,
+    enabled: !rangeError,
   })
   // Consulta separada, com a mesma duração-calendário e os mesmos filtros. Uma falha
   // aqui não interfere no recorte atual nem transforma ausência de marca em zero.
   const previousQuery = useQuery({
     queryKey: QK.analyticsDailyRange(previousPeriod?.from ?? '', previousPeriod?.to ?? '', marcaId, apresentadoraId),
     queryFn: () => getDailyAnalytics({ from: previousPeriod!.from, to: previousPeriod!.to, marca_id: marcaId || undefined, apresentadora_id: apresentadoraId || undefined }),
-    enabled: Boolean(previousPeriod) && !apresentadoraId,
+    enabled: Boolean(previousPeriod) && !apresentadoraId && !rangeError,
     staleTime: 60_000,
   })
 
@@ -86,26 +95,26 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const comissoesApresentadorasQ = useQuery({
     queryKey: ['comissoes-apresentadoras', from, to, marcaId, apresentadoraId],
     queryFn: () => getComissoesApresentadoras(comissaoFiltros),
-    enabled: hasFilter,
+    enabled: hasFilter && !rangeError,
   })
   const comissoesMarcasQ = useQuery({
     queryKey: ['comissoes-marcas', from, to, marcaId, apresentadoraId],
     queryFn: () => getComissoesMarcas(comissaoFiltros),
-    enabled: hasFilter,
+    enabled: hasFilter && !rangeError,
   })
   // Ranking de marcas do período — TODAS as marcas, sem filtro de entidade, sempre
   // visível no Analytics (o comissoesMarcasQ acima é só o drill por entidade).
   const rankingMarcasQ = useQuery({
     queryKey: ['ranking-marcas', from, to],
     queryFn: () => getComissoesMarcas({ data_inicio: from, data_fim: to }),
-    enabled: canSeeComissoes,
+    enabled: canSeeComissoes && !rangeError,
     staleTime: 60_000,
   })
   // Ranking de apresentadoras do período — fonte das entidades COM atividade (filtra zerados).
   const rankingApresentadorasQ = useQuery({
     queryKey: ['ranking-apresentadoras', from, to],
     queryFn: () => getComissoesApresentadoras({ data_inicio: from, data_fim: to }),
-    enabled: canSeeComissoes,
+    enabled: canSeeComissoes && !rangeError,
     staleTime: 60_000,
   })
 
@@ -148,6 +157,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   }, [rankingApresentadorasQ.data, apresentadorasOpts.data, apresentadoraId])
 
   function refreshAll() {
+    if (rangeError) return
     // A série atual é compartilhada por página, Pulso e relatório: refetch só
     // aqui atualiza os três sem invalidar a mesma chave em seguida.
     void query.refetch()
@@ -167,6 +177,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
     // O resumo de metas é da unidade/mês e não recebe os filtros da página,
     // mas o refresh explícito deve atualizá-lo uma vez para a competência ativa.
     if (user?.tenant_id) void queryClient.refetchQueries({ queryKey: QK.analyticsUnidadeMensal(mes, user.tenant_id), exact: true, type: 'active' })
+    void operationalQuery.refetch()
   }
 
   async function handleExport() {
@@ -204,7 +215,8 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
       marcas={marcas}
       apresentadoras={apresentadoras}
       onRefresh={refreshAll}
-      refreshing={query.isFetching}
+      refreshing={query.isFetching || operationalQuery.isFetching}
+      rangeError={rangeError}
       // CSV de comissões — só para papéis com acesso (os demais levariam 403 do backend).
       onExport={canSeeComissoes ? handleExport : undefined}
       exporting={exporting}
@@ -217,14 +229,21 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
   const previousStatus = previousQuery.isSuccess ? 'ready' : previousQuery.isError ? 'error' : 'loading'
   const apresentadorasRows = asArray<JsonRecord>(comissoesApresentadorasQ.data)
   const marcasRows = asArray<JsonRecord>(comissoesMarcasQ.data)
+  const configureAction = canConfigureOperational ? (
+    <OperationalGoalsHeaderAction
+      onConfigure={() => setOperationalEditKey(operationalContextKey)}
+    />
+  ) : null
+
   return (
     <div className="space-y-8">
       {embedded ? (
-        <p className="text-base font-bold text-ink">Resultados da operação</p>
+        <div className="flex justify-end">{configureAction}</div>
       ) : (
         <PageHeader
           title="Resultados da operação"
-          subtitle="Compare marcas, acompanhe a eficiência das lives e entenda a audiência."
+          subtitle="Acompanhe resultados, metas e produtividade da operação. Compare marcas, apresentadoras e audiência."
+          actions={configureAction}
         />
       )}
 
@@ -232,13 +251,22 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
       {filterBar}
 
       {/* Acompanhamento diário editável da capacidade, meta mensal, pisos e GMV/h. */}
-      <OperationalGoalsSection />
+      {!rangeError ? <OperationalGoalsSection
+        key={operationalContextKey}
+        from={from}
+        to={to}
+        marcaId={marcaId}
+        apresentadoraId={apresentadoraId}
+        enabled={!rangeError}
+        editing={operationalEditKey === operationalContextKey}
+        onEditingChange={(open) => setOperationalEditKey(open ? operationalContextKey : null)}
+      /> : null}
 
       {/* Metas são sempre mensais e da unidade inteira. Elas não reutilizam o
           recorte ativo para não comparar um período parcial com uma meta mensal. */}
-      <MonthlyUnitGoals mes={mes} />
+      {!rangeError ? <MonthlyUnitGoals mes={mes} /> : null}
 
-      {!query.isLoading && !query.isError ? (
+      {!rangeError && !query.isLoading && !query.isError ? (
         <>
           <BrandComparisonSection rows={diarioRows} marcaId={marcaId} apresentadoraId={apresentadoraId} onSelectMarca={setMarcaId} onClearMarca={() => setMarcaId('')} onClearApresentadora={() => setApresentadoraId('')} previousRows={previousDiarioRows} currentPeriod={{ from, to }} previousPeriod={previousQuery.isSuccess ? previousPeriod : null} previousStatus={previousStatus} currentPeriodEndsToday={to === ymd(new Date())} />
           {!apresentadoraId ? <BrandAudienceComparisonSection from={from} to={to} marcaId={marcaId} /> : null}
@@ -247,7 +275,7 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
 
       {/* Relatório por entidade — logo abaixo do filtro: é o que se vem buscar para
           exportar. Sem filtro, um hint ensina o caminho em vez da seção surgir do nada. */}
-      {hasFilter ? (
+      {!rangeError && hasFilter ? (
         <RelatorioEntidadeSection
           from={from}
           to={to}
@@ -260,32 +288,32 @@ export function AnalyticsPage({ embedded = false }: { embedded?: boolean }) {
           comissaoRow={marcaId ? marcasRows[0] : apresentadorasRows[0]}
           franquiaPct={marcaId ? asNumber(unwrapList<JsonRecord>(marcasOpts.data).find((m) => asString(m.id) === marcaId)?.comissao_franquia_pct) : undefined}
         />
-      ) : (
+      ) : !rangeError ? (
         <div className="flex items-start gap-2.5 rounded-2xl border border-dashed border-line bg-surface-muted/40 px-4 py-3">
           <FileDown className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
           <p className="text-sm text-ink-muted">
             <span className="font-bold text-ink">Relatório em PDF:</span> selecione uma marca ou apresentadora para ver e exportar o resultado do período.
           </p>
         </div>
-      )}
+      ) : null}
 
-      <FunilAnalyticsSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
+      {!rangeError ? <FunilAnalyticsSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} /> : null}
 
-      <PulsoDiarioSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} />
+      {!rangeError ? <PulsoDiarioSection from={from} to={to} marcaId={marcaId} apresentadoraId={apresentadoraId} /> : null}
 
       {/* Assiduidade obedece o filtro de período da página (decisão do dono). marcaId NÃO entra:
           presença é física — com recorte por marca, quem naquele dia fez live de outra marca
           sumiria e viraria falta. apresentadoraId só estreita a lista, não muda a classificação. */}
-      <AssiduidadeStrip
+      {!rangeError ? <AssiduidadeStrip
         inicio={from}
         fim={to}
         apresentadoraId={apresentadoraId || undefined}
         subtitulo={`Período do filtro · ${periodNoun}`}
-      />
+      /> : null}
 
-      {query.isLoading ? (
+      {!rangeError && query.isLoading ? (
         <LoadingState />
-      ) : query.isError ? (
+      ) : !rangeError && query.isError ? (
         <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
       ) : null}
     </div>

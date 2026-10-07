@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { presetRange, ymd } from './AnalyticsFilterBar'
+import { presetRange, validateAnalyticsRange, ymd } from './AnalyticsFilterBar'
 
 /**
  * O período do Analytics viaja para um backend que define "hoje" em São Paulo. Enquanto `ymd` lia
@@ -46,5 +46,14 @@ describe('período do Analytics é ancorado em São Paulo, não no relógio do c
       expect(to).toMatch(/^\d{4}-\d{2}-\d{2}$/)
       expect(from <= to).toBe(true)
     }
+  })
+
+  it('valida data customizada vazia, inválida, invertida, futura e acima do limite da API', () => {
+    expect(validateAnalyticsRange('', '2026-10-07', '2026-10-07')).toMatch(/Informe as datas/)
+    expect(validateAnalyticsRange('2026-02-30', '2026-10-07', '2026-10-07')).toMatch(/datas válidas/)
+    expect(validateAnalyticsRange('2026-10-08', '2026-10-07', '2026-10-07')).toMatch(/anterior ou igual/)
+    expect(validateAnalyticsRange('2026-10-07', '2026-10-08', '2026-10-07')).toMatch(/futura/)
+    expect(validateAnalyticsRange('2025-10-06', '2026-10-07', '2026-10-07')).toMatch(/366 dias/)
+    expect(validateAnalyticsRange('2026-10-07', '2026-10-07', '2026-10-07')).toBeNull()
   })
 })

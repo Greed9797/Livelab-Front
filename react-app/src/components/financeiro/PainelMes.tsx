@@ -33,12 +33,14 @@ function CartaoLado({
   nome,
   lado,
   fimMes,
+  mostrarDetalhes,
   onVerAtrasados,
 }: {
   natureza: Natureza
   nome: string
   lado: PainelLado
   fimMes: string
+  mostrarDetalhes: boolean
   onVerAtrasados?: (n: Natureza) => void
 }) {
   const entrada = natureza === 'receita'
@@ -55,29 +57,31 @@ function CartaoLado({
         </span>
       </div>
       <p className="num break-words text-[24px] font-bold leading-none tracking-[-0.025em] text-ink sm:text-[30px]">{formatMoney(lado.total, true)}</p>
-      <dl className="space-y-1.5 border-t border-line pt-3">
-        <LinhaValor label="Vence no mês" value={lado.no_mes} />
-        <LinhaValor label="Atrasado de meses anteriores" value={lado.atrasado_anterior} />
-      </dl>
-      {atrasados.qtd > 0 ? (
-        onVerAtrasados ? (
-          <button
-            type="button"
-            onClick={() => onVerAtrasados(natureza)}
-            className="inline-flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-full bg-[var(--danger-soft)] px-3 text-left text-xs font-bold text-[var(--danger)] transition hover:brightness-95 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 sm:min-h-8 sm:w-fit"
-            aria-label={`Ver ${atrasados.qtd} atrasados, ${formatMoney(atrasados.valor, true)}`}
-          >
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="truncate">
-              {atrasados.qtd} {atrasados.qtd === 1 ? 'atrasado' : 'atrasados'} · {formatMoney(atrasados.valor, true)}
-            </span>
-          </button>
-        ) : (
-          <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[var(--danger-soft)] px-3 text-xs font-bold text-[var(--danger)]">
-            <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+      {mostrarDetalhes ? (
+        <dl className="space-y-1.5 border-t border-line pt-3">
+          <LinhaValor label="Vence no mês" value={lado.no_mes} />
+          <LinhaValor label="Atrasado de meses anteriores" value={lado.atrasado_anterior} />
+        </dl>
+      ) : null}
+      {atrasados.qtd > 0 && onVerAtrasados ? (
+        <button
+          type="button"
+          onClick={() => onVerAtrasados(natureza)}
+          className="inline-flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-full bg-[var(--danger-soft)] px-3 text-left text-xs font-bold text-[var(--danger)] transition hover:brightness-95 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 sm:min-h-8 sm:w-fit"
+          aria-label={`Ver ${atrasados.qtd} atrasados, ${formatMoney(atrasados.valor, true)}`}
+        >
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="truncate">
             {atrasados.qtd} {atrasados.qtd === 1 ? 'atrasado' : 'atrasados'} · {formatMoney(atrasados.valor, true)}
           </span>
-        )
+        </button>
+      ) : atrasados.qtd > 0 ? (
+        <span className="inline-flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-full bg-[var(--danger-soft)] px-3 text-left text-xs font-bold text-[var(--danger)] sm:min-h-8 sm:w-fit" aria-label={`${atrasados.qtd} atrasados, ${formatMoney(atrasados.valor, true)}`}>
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="truncate">
+            {atrasados.qtd} {atrasados.qtd === 1 ? 'atrasado' : 'atrasados'} · {formatMoney(atrasados.valor, true)}
+          </span>
+        </span>
       ) : (
         <p className="text-[11px] text-ink-muted">
           {lado.qtd} {lado.qtd === 1 ? 'título em aberto' : 'títulos em aberto'} · nada atrasado
@@ -197,6 +201,8 @@ export function PainelMes({
   onRetry: () => void
   onVerAtrasados?: (n: Natureza) => void
 }) {
+  const [detalhesAbertos, setDetalhesAbertos] = useState(false)
+  const detalhesId = useId()
   if (isLoading && !painel) return <PainelMesSkeleton />
   if (!painel) {
     return isError ? (
@@ -242,37 +248,79 @@ export function PainelMes({
 
   return (
     <section aria-label="Painel do mês" className="space-y-4">
-      <div className="design-panel fin-rise p-4 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">
-              <Landmark className="h-4 w-4 text-brand" aria-hidden /> {caixaRotulo}
-            </p>
-            <p
-              className="num mt-2 break-words text-[30px] font-bold leading-none tracking-[-0.03em] sm:text-[40px]"
-              style={{ color: TOM_COR[tomCaixa] }}
-              aria-label={`Saldo atual ${formatMoney(painel.caixa.saldo_atual, true)}${tomCaixa === 'negativo' ? ', negativo' : ''}`}
-            >
-              {formatMoney(painel.caixa.saldo_atual, true)}
-            </p>
-            <p className="mt-1.5 text-xs text-ink-muted">
-              Saldo de abertura {formatMoney(painel.saldo_abertura, true)}
-              {painel.data_corte ? ` em ${formatDataBR(painel.data_corte)}` : ''}
-            </p>
-          </div>
-          {podeEscrever ? (
-            <Button variant="secondary" icon={Wallet} className="min-h-11 sm:min-h-0" onClick={onConfigurar} title="Saldo de abertura e data de corte">
-              Configurar saldo
-            </Button>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="design-panel fin-rise min-w-0 p-4 sm:p-5" role="group" aria-label={`Saldo atual ${formatMoney(painel.caixa.saldo_atual, true)}`}>
+          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+            <Landmark className="h-4 w-4 text-brand" aria-hidden /> {caixaRotulo}
+          </p>
+          <p
+            className="num mt-2 break-words text-[26px] font-bold leading-none tracking-[-0.03em] sm:text-[30px]"
+            style={{ color: TOM_COR[tomCaixa] }}
+          >
+            {formatMoney(painel.caixa.saldo_atual, true)}
+          </p>
+          <p className="mt-2 text-xs text-ink-muted">Disponível até {formatDataBR(ate)}.</p>
+        </div>
+
+        <CartaoLado natureza="receita" nome="A receber" lado={painel.a_receber} fimMes={painel.fim_mes} mostrarDetalhes={detalhesAbertos} onVerAtrasados={onVerAtrasados} />
+        <CartaoLado natureza="custo" nome="A pagar" lado={painel.a_pagar} fimMes={painel.fim_mes} mostrarDetalhes={detalhesAbertos} onVerAtrasados={onVerAtrasados} />
+
+        <div className="design-card min-w-0 p-4 sm:p-5" role="group" aria-label={`Projetado no fim do mês: ${formatMoney(painel.projetado_fim_mes, true)}`}>
+          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+            <CalendarClock className="h-4 w-4 text-brand" aria-hidden /> Projetado no fim do mês
+          </p>
+          <p className="num mt-2 break-words text-[26px] font-bold leading-none tracking-[-0.025em] sm:text-[30px]" style={{ color: TOM_COR[tomProj] }}>
+            {formatMoney(painel.projetado_fim_mes, true)}
+          </p>
+          <p className="mt-2 text-xs text-ink-muted">Caixa + a receber − a pagar.{inclui.length ? ` Inclui ${inclui.join(' e ')}.` : ''}</p>
+          {temProjecaoRitmo(painel) ? (
+            <div className="mt-3 rounded-2xl border border-dashed border-line bg-surface-muted px-3 py-2.5" aria-label="Projeção pelo ritmo atual">
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink">
+                <span className="inline-flex h-5 items-center gap-1 rounded-full bg-[var(--info-soft)] px-2 text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--info)]">
+                  <TrendingUp className="h-3 w-3" aria-hidden /> projeção
+                </span>
+                <span>Ritmo atual: <strong className="num whitespace-nowrap">{formatMoney(painel.projetado_fim_mes_ritmo, true)}</strong></span>
+              </p>
+              <p className="sr-only">
+                Se a comissão de {painel.projecao_comissao.competencia ? nomeMes(painel.projecao_comissao.competencia) : 'o mês'} seguir no ritmo atual. Estimativa: não entra nos totais acima.
+              </p>
+              <details className="mt-2 border-t border-line pt-2 text-xs text-ink-muted">
+                <summary className="min-h-9 cursor-pointer py-2 font-semibold text-ink">Memória da projeção</summary>
+                <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                  <div className="flex justify-between gap-2"><dt>Comissão acumulada</dt><dd className="num">{formatMoney(painel.projecao_comissao.previsto_atual, true)}</dd></div>
+                  <div className="flex justify-between gap-2"><dt>Comissão projetada</dt><dd className="num">{formatMoney(painel.projecao_comissao.projetado, true)}</dd></div>
+                  <div className="flex justify-between gap-2"><dt>Ajuste estimado</dt><dd className="num">{formatMoney(painel.projecao_comissao.ajuste, true)}</dd></div>
+                  <div className="flex justify-between gap-2"><dt>Dias do ritmo</dt><dd>{painel.projecao_comissao.dias_decorridos} de {painel.projecao_comissao.dias_mes}</dd></div>
+                  <div className="flex justify-between gap-2"><dt>Vencimento estimado</dt><dd>{painel.projecao_comissao.vence_em ? formatDataBR(painel.projecao_comissao.vence_em) : '—'}</dd></div>
+                  <div className="flex justify-between gap-2"><dt>Entra no caixa deste mês</dt><dd>{painel.projecao_comissao.entra_no_painel ? 'Sim' : 'Não'}</dd></div>
+                </dl>
+              </details>
+            </div>
           ) : null}
         </div>
-        {nota ? <p className="mt-3 text-xs text-ink-muted">{nota}</p> : null}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <CartaoLado natureza="receita" nome="A receber" lado={painel.a_receber} fimMes={painel.fim_mes} onVerAtrasados={onVerAtrasados} />
-        <CartaoLado natureza="custo" nome="A pagar" lado={painel.a_pagar} fimMes={painel.fim_mes} onVerAtrasados={onVerAtrasados} />
+      <div className="design-card overflow-hidden">
+        <button
+          type="button"
+          aria-expanded={detalhesAbertos}
+          aria-controls={detalhesId}
+          onClick={() => setDetalhesAbertos((aberto) => !aberto)}
+          className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm font-bold text-ink transition hover:bg-surface-muted focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+        >
+          <span>Detalhamento do caixa</span>
+          <ChevronDown className={clsx('h-4 w-4 shrink-0 text-ink-muted transition', !detalhesAbertos && '-rotate-90')} aria-hidden />
+        </button>
+        <div id={detalhesId} hidden={!detalhesAbertos} className="border-t border-line px-4 py-3 text-sm text-ink-muted">
+          <p>
+            Saldo de abertura {formatMoney(painel.saldo_abertura, true)}
+            {painel.data_corte ? ` em ${formatDataBR(painel.data_corte)}` : ''}. O projetado considera só títulos já lançados.
+            {inclui.length ? ` Inclui ${inclui.join(' e ')}.` : ''}
+          </p>
+        </div>
       </div>
+
+      {nota ? <p className="text-xs text-ink-muted">{nota}</p> : null}
 
       {rec ? (
         <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
@@ -285,39 +333,6 @@ export function PainelMes({
           <CartaoRealizado label={`Pago em ${nomeMes(painel.mes)}`} value={painel.pago_mes.total} icon={ArrowUpRight} />
         </div>
       ) : null}
-
-      <div className="design-card p-4 sm:p-5" role="group" aria-label={`Projetado no fim do mês: ${formatMoney(painel.projetado_fim_mes, true)}`}>
-        <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">
-          <CalendarClock className="h-4 w-4 text-brand" aria-hidden /> Projetado no fim do mês
-        </p>
-        <p className="num mt-2 break-words text-[26px] font-bold leading-none tracking-[-0.025em] sm:text-[32px]" style={{ color: TOM_COR[tomProj] }}>
-          {formatMoney(painel.projetado_fim_mes, true)}
-        </p>
-        <p className="mt-1.5 text-xs text-ink-muted">
-          Caixa + a receber − a pagar, só com títulos já lançados.
-          {inclui.length ? ` Inclui ${inclui.join(' e ')}.` : ''}
-        </p>
-        {temProjecaoRitmo(painel) ? (
-          <div className="mt-3 rounded-2xl border border-dashed border-line bg-surface-muted px-3.5 py-3" aria-label="Projeção pelo ritmo atual">
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink">
-              <span className="inline-flex h-5 items-center gap-1 rounded-full bg-[var(--info-soft)] px-2 text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--info)]">
-                <TrendingUp className="h-3 w-3" aria-hidden /> projeção
-              </span>
-              <span className="min-w-0">
-                Se a comissão de {painel.projecao_comissao.competencia ? nomeMes(painel.projecao_comissao.competencia) : 'o mês'} seguir no ritmo atual:{' '}
-                <strong className="num whitespace-nowrap">{formatMoney(painel.projetado_fim_mes_ritmo, true)}</strong>
-              </span>
-            </p>
-            <p className="mt-1 text-[11px] text-ink-muted">
-              Comissão apurada até aqui {formatMoney(painel.projecao_comissao.previsto_atual, true)} → projetada {formatMoney(painel.projecao_comissao.projetado, true)} (
-              {painel.projecao_comissao.ajuste >= 0 ? '+' : '−'}
-              {formatMoney(Math.abs(painel.projecao_comissao.ajuste), true)}), dia {painel.projecao_comissao.dias_decorridos} de {painel.projecao_comissao.dias_mes}
-              {painel.projecao_comissao.vence_em ? `, vence em ${formatDataBR(painel.projecao_comissao.vence_em)}` : ''}
-              {painel.projecao_comissao.entra_no_painel ? '' : ' (fora deste mês)'}. Estimativa: não entra nos totais acima.
-            </p>
-          </div>
-        ) : null}
-      </div>
 
       <Referencia p={painel} />
     </section>

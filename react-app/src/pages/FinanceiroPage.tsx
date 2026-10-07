@@ -1,11 +1,12 @@
-import { BarChart3, CalendarRange, ChevronDown, ListChecks, Percent, Plus, Receipt, Repeat, Scale, Settings2, Table2, TrendingUp, Wallet, Waves } from 'lucide-react'
+import { CalendarRange, ChevronDown, Percent, Plus, Settings2, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Button } from '../components/ui/Button'
 import { ErrorState } from '../components/ui/States'
 import { useToast } from '../components/ui/Toast'
-import { MonthSwitcher, Segmented } from '../components/financeiro/primitives'
+import { MonthSwitcher } from '../components/financeiro/primitives'
+import { FinanceiroNavigation, type FinanceiroTab } from '../components/financeiro/FinanceiroNavigation'
 import { PainelMes } from '../components/financeiro/PainelMes'
 import { AgingPanel } from '../components/financeiro/AgingPanel'
 import { ReceberPagarPanel } from '../components/financeiro/ReceberPagarPanel'
@@ -35,7 +36,6 @@ import { filtrarPorVencimentoNoMes, hojeSP, isMes, isReceitaAvulsa, janelaLancam
 import { formatPercent } from '../utils/format'
 import type { PeriodRange } from '../utils/period'
 
-type FinanceiroTab = 'lancamentos' | 'visao-geral' | 'receber' | 'pagar' | 'aging' | 'fechamentos' | 'receita' | 'custos-fixos' | 'custos-variaveis' | 'dre' | 'fluxo' | 'conciliacao' | 'comissoes'
 const TABS: FinanceiroTab[] = ['lancamentos', 'visao-geral', 'receber', 'pagar', 'aging', 'fechamentos', 'receita', 'custos-fixos', 'custos-variaveis', 'dre', 'fluxo', 'conciliacao', 'comissoes']
 // Links antigos: "Por cliente" virou Receita e "Recorrentes" vive dentro de Custos fixos.
 const TAB_ALIASES: Record<string, FinanceiroTab> = { cliente: 'receita', recorrentes: 'custos-fixos' }
@@ -151,22 +151,6 @@ export function FinanceiroPage() {
     )
   }
 
-  const tabs = [
-    { value: 'lancamentos' as const, label: 'Lançamentos', icon: <ListChecks className="h-4 w-4" /> },
-    { value: 'visao-geral' as const, label: 'Visão geral', icon: <BarChart3 className="h-4 w-4" /> },
-    { value: 'receber' as const, label: 'Receber', icon: <Wallet className="h-4 w-4" /> },
-    { value: 'pagar' as const, label: 'Pagar', icon: <Receipt className="h-4 w-4" /> },
-    { value: 'aging' as const, label: 'Aging', icon: <CalendarRange className="h-4 w-4" /> },
-    ...(podeVerFechamentos ? [{ value: 'fechamentos' as const, label: 'Fechamentos', icon: <ListChecks className="h-4 w-4" /> }] : []),
-    { value: 'receita' as const, label: 'Receita', icon: <TrendingUp className="h-4 w-4" /> },
-    { value: 'custos-fixos' as const, label: 'Custos fixos', icon: <Repeat className="h-4 w-4" /> },
-    { value: 'custos-variaveis' as const, label: 'Custos variáveis', icon: <Receipt className="h-4 w-4" /> },
-    { value: 'dre' as const, label: 'DRE', icon: <Table2 className="h-4 w-4" /> },
-    { value: 'fluxo' as const, label: 'Fluxo de caixa', icon: <Waves className="h-4 w-4" /> },
-    { value: 'conciliacao' as const, label: 'Conciliação', icon: <Scale className="h-4 w-4" /> },
-    { value: 'comissoes' as const, label: 'Comissões', icon: <BarChart3 className="h-4 w-4" /> },
-  ]
-
   return (
     <div className="min-w-0 space-y-6">
       <PageHeader
@@ -194,14 +178,11 @@ export function FinanceiroPage() {
         }
       />
 
-      <div className="min-w-0 max-w-full">
-        <Segmented<FinanceiroTab>
-          label="Seções do financeiro"
-          value={tab}
-          onChange={(v) => updateParams({ tab: v === 'lancamentos' ? null : v })}
-          options={tabs}
-        />
-      </div>
+      <FinanceiroNavigation
+        tab={tab}
+        podeVerFechamentos={podeVerFechamentos}
+        onChange={(v) => updateParams({ tab: v === 'lancamentos' ? null : v })}
+      />
 
       {tab === 'lancamentos' ? (
         <div className="space-y-5">

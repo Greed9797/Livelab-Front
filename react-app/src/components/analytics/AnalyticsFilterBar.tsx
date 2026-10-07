@@ -51,6 +51,21 @@ export function presetRange(preset: Preset, customFrom: string, customTo: string
   }
 }
 
+export function validateAnalyticsRange(from: string, to: string, today = ymd(new Date())): string | null {
+  const validDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+    const parsed = new Date(`${value}T00:00:00.000Z`)
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+  }
+  if (!from || !to) return 'Informe as datas inicial e final do período.'
+  if (!validDate(from) || !validDate(to)) return 'Informe datas válidas no formato de calendário.'
+  if (from > to) return 'A data inicial precisa ser anterior ou igual à data final.'
+  if (to > today) return 'O período não pode terminar em uma data futura.'
+  const days = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 + 1
+  if (days > 366) return 'Selecione um período de até 366 dias.'
+  return null
+}
+
 function FilterSelect({ value, onChange, ariaLabel, children }: { value: string; onChange: (v: string) => void; ariaLabel: string; children: ReactNode }) {
   return (
     <div className="relative">
@@ -101,6 +116,7 @@ interface AnalyticsFilterBarProps {
   refreshing?: boolean
   onExport?: () => void
   exporting?: boolean
+  rangeError?: string | null
 }
 
 // Filtro ÚNICO do Analytics — período (presets + intervalo custom) + cliente/marca
@@ -145,6 +161,8 @@ export function AnalyticsFilterBar(props: AnalyticsFilterBarProps) {
           <FilterDate ariaLabel="Data final" value={props.customTo} min={props.customFrom} max={today} onChange={props.onCustomTo} />
         </div>
       ) : null}
+
+      {props.rangeError ? <p role="alert" className="text-sm font-medium text-[var(--danger)]">{props.rangeError}</p> : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <FilterSelect ariaLabel="Filtrar por cliente ou marca" value={props.marcaId} onChange={props.onMarca}>

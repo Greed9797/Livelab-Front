@@ -34,12 +34,35 @@ function ui(over: Record<string, unknown> = {}, props: Partial<Parameters<typeof
 }
 
 describe('PainelMes', () => {
+  it('mantém as quatro métricas principais e os realizados secundários perceptíveis', () => {
+    render(ui())
+    expect(screen.getByLabelText('Saldo atual R$ 1.500,00')).toBeTruthy()
+    expect(screen.getByRole('group', { name: /^A receber: R\$ 4\.500,00/ })).toBeTruthy()
+    expect(screen.getByRole('group', { name: /^A pagar: R\$ 2\.500,00/ })).toBeTruthy()
+    expect(screen.getByRole('group', { name: /^Projetado no fim do mês: R\$ 3\.500,00/ })).toBeTruthy()
+    expect(screen.getByRole('group', { name: /^Recebido em outubro: R\$ 800,00/ })).toBeTruthy()
+    expect(screen.getByRole('group', { name: /^Pago em outubro: R\$ 300,00/ })).toBeTruthy()
+  })
+
+  it('colapsa detalhamentos acessíveis mantendo alertas e estimativas perceptíveis', () => {
+    render(ui())
+    const detalhamento = screen.getByRole('button', { name: 'Detalhamento do caixa' })
+    expect(detalhamento.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByText('Vence no mês')).toBeNull()
+    expect(screen.getByLabelText('2 atrasados, R$ 700,00')).toBeTruthy()
+    expect(screen.getByLabelText('Projeção pelo ritmo atual').textContent).toContain('R$ 4.900,00')
+    fireEvent.click(detalhamento)
+    expect(detalhamento.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getAllByText('Vence no mês')).toHaveLength(2)
+  })
+
   it('mostra caixa, a receber/a pagar em caixa com atrasados, projetado e projeção rotulada', () => {
     const onVer = vi.fn()
     render(ui({}, { onVerAtrasados: onVer }))
     expect(screen.getByText('Caixa hoje')).toBeTruthy()
     expect(screen.getByRole('group', { name: /^A receber: R\$ 4\.500,00/ })).toBeTruthy()
     expect(screen.getByRole('group', { name: /^A pagar: R\$ 2\.500,00/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhamento do caixa' }))
     expect(screen.getAllByText('Vence no mês')).toHaveLength(2)
     expect(screen.getAllByText('Atrasado de meses anteriores')).toHaveLength(2)
     const chip = screen.getByRole('button', { name: /Ver 2 atrasados/ })
@@ -55,6 +78,15 @@ describe('PainelMes', () => {
     expect(ritmo.textContent).toContain('Se a comissão de outubro seguir no ritmo atual')
     expect(ritmo.textContent).toContain('R$ 4.900,00')
     expect(ritmo.textContent).toContain('não entra nos totais')
+    const memoria = within(ritmo).getByText('Memória da projeção')
+    expect(memoria.closest('details')?.open).toBe(false)
+    fireEvent.click(memoria)
+    expect(within(ritmo).getByText('Comissão acumulada').parentElement?.textContent).toContain('R$ 1.000,00')
+    expect(within(ritmo).getByText('Comissão projetada').parentElement?.textContent).toContain('R$ 2.400,00')
+    expect(within(ritmo).getByText('Ajuste estimado').parentElement?.textContent).toContain('R$ 1.400,00')
+    expect(within(ritmo).getByText('Dias do ritmo').parentElement?.textContent).toContain('12 de 31')
+    expect(within(ritmo).getByText('Vencimento estimado').parentElement?.textContent).toContain('05/11/2026')
+    expect(within(ritmo).getByText('Entra no caixa deste mês').parentElement?.textContent).toContain('Não')
   })
 
   it('sem projeção do backend não mostra a linha de ritmo', () => {
@@ -84,6 +116,14 @@ describe('PainelMes', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cadastrar saldo de hoje' }))
     expect(onConfigurar).toHaveBeenCalled()
     expect(screen.queryByRole('group', { name: /^A receber/ })).toBeNull()
+  })
+
+  it('não duplica a configuração de saldo quando o painel já está configurado', () => {
+    const onConfigurar = vi.fn()
+    render(ui({}, { onConfigurar }))
+    expect(screen.queryByRole('button', { name: 'Configurar saldo' })).toBeNull()
+    expect(screen.getByLabelText('Saldo atual R$ 1.500,00')).toBeTruthy()
+    expect(onConfigurar).not.toHaveBeenCalled()
   })
 
   it('skeleton enquanto carrega e erro com retry', () => {

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Download, Search, X } from 'lucide-react'
+import { ChevronDown, Download, Search, X } from 'lucide-react'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { extractErrorMessage } from '../../services/api'
@@ -83,6 +83,7 @@ export function ReceberPagarPanel({ mes, natureza }: { mes: string; natureza: Na
   const [params, setParams] = useSearchParams()
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [maisFiltrosAbertos, setMaisFiltrosAbertos] = useState(false)
   const paginaParam = Number(params.get('fin_pagina'))
   const pagina = Number.isSafeInteger(paginaParam) && paginaParam >= 1 && paginaParam <= 1_000_000 ? paginaParam : 1
   const eixo = params.get('fin_eixo') === 'vencimento' ? 'vencimento' : params.get('fin_eixo') === 'pagamento' ? 'pagamento' : 'competencia'
@@ -150,25 +151,60 @@ export function ReceberPagarPanel({ mes, natureza }: { mes: string; natureza: Na
     }
   }
 
+  const filtroAtivo = (label: string, key: string, values: Record<string, string | null>) => ({ label, key, values })
+  const filtrosAtivos = [
+    status ? filtroAtivo(`Situação: ${status}`, 'Situação', { fin_status: null }) : null,
+    q ? filtroAtivo(`Busca: ${q}`, 'Busca', { fin_q: null }) : null,
+    eixo !== 'competencia' ? filtroAtivo(`Data: ${eixo}`, 'Data', { fin_eixo: null, fin_comp_mes: null, fin_comp_inicio: null, fin_comp_fim: null }) : null,
+    contraparte ? filtroAtivo(`Contraparte: ${contraparte}`, 'Contraparte', { fin_contraparte: null }) : null,
+    componente ? filtroAtivo(`Componente: ${componente}`, 'Componente', { fin_componente: null }) : null,
+    origem ? filtroAtivo(`Origem: ${origem.replaceAll('_', ' ')}`, 'Origem', { fin_origem: null }) : null,
+    valorMin ? filtroAtivo(`Valor mínimo: ${valorMin}`, 'Valor mínimo', { fin_valor_min: null }) : null,
+    valorMax ? filtroAtivo(`Valor máximo: ${valorMax}`, 'Valor máximo', { fin_valor_max: null }) : null,
+    ordenar !== 'data' ? filtroAtivo(`Ordenar: ${ordenar}`, 'Ordenar', { fin_ordenar: null }) : null,
+    direcao !== 'asc' ? filtroAtivo(`Direção: ${direcao}`, 'Direção', { fin_direcao: null }) : null,
+  ].filter((filtro): filtro is ReturnType<typeof filtroAtivo> => filtro !== null)
+
+  function limparFiltros() {
+    patch({
+      fin_eixo: null, fin_comp_mes: null, fin_comp_inicio: null, fin_comp_fim: null,
+      fin_status: null, fin_q: null, fin_contraparte: null, fin_componente: null,
+      fin_origem: null, fin_titulo_id: null, fin_valor_min: null, fin_valor_max: null,
+      fin_ordenar: null, fin_direcao: null, fin_pagina: null, fin_id: null,
+    })
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><h2 className="text-xl font-semibold text-ink">{title}</h2><p className="text-sm text-ink-muted">Obrigações, baixas e saldo no recorte selecionado.</p></div>
         <Button variant="secondary" icon={Download} disabled={exporting || !filtersValid || query.isPending || query.isError} onClick={() => void exportCsv()}>{exporting ? 'Exportando…' : 'Exportar CSV'}</Button>
       </div>
-      <div className="flex flex-wrap gap-3 rounded-2xl border border-line bg-surface p-4">
-        <label className="text-sm text-ink-muted">Data<br /><select aria-label="Eixo de data" value={eixo} onChange={(event) => patch({ fin_eixo: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1"><option value="competencia">Competência</option><option value="vencimento">Vencimento</option><option value="pagamento">Pagamento</option></select></label>
-        {eixo !== 'competencia' ? <><label className="text-sm text-ink-muted">Competências desde<br /><input type="month" value={competenciaInicio} aria-invalid={!scopeValid} onChange={(event) => patch({ fin_comp_mes: mes, fin_comp_inicio: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1" /></label><label className="text-sm text-ink-muted">Competências até<br /><input type="month" value={competenciaFim} aria-invalid={!scopeValid} onChange={(event) => patch({ fin_comp_mes: mes, fin_comp_fim: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1" /></label></> : null}
-        <label className="text-sm text-ink-muted">Situação<br /><select aria-label="Situação" value={status} onChange={(event) => patch({ fin_status: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1"><option value="">Todas</option>{STATUSES.slice(1).filter((value) => natureza === 'receita' ? value !== 'cancelado' : value !== 'perdido').map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-        <label className="min-w-40 text-sm text-ink-muted">Contraparte<br /><input aria-label="Contraparte" value={contraparte} maxLength={120} onChange={(event) => patch({ fin_contraparte: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1 w-full" /></label>
-        <label className="min-w-32 text-sm text-ink-muted">Componente<br /><input aria-label="Componente" value={componente} maxLength={80} onChange={(event) => patch({ fin_componente: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1 w-full" /></label>
-        <label className="text-sm text-ink-muted">Origem<br /><select aria-label="Origem" value={origem} onChange={(event) => patch({ fin_origem: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1"><option value="">Todas</option>{ORIGENS.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
-        <label className="w-28 text-sm text-ink-muted">Valor mínimo<br /><input aria-label="Valor mínimo" inputMode="decimal" value={valorMin} maxLength={16} onChange={(event) => patch({ fin_valor_min: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1 w-full" /></label>
-        <label className="w-28 text-sm text-ink-muted">Valor máximo<br /><input aria-label="Valor máximo" inputMode="decimal" value={valorMax} maxLength={16} onChange={(event) => patch({ fin_valor_max: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1 w-full" /></label>
-        <label className="text-sm text-ink-muted">Ordenar<br /><select aria-label="Ordenar" value={ordenar} onChange={(event) => patch({ fin_ordenar: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1"><option value="data">Data</option><option value="valor">Valor</option></select></label>
-        <label className="text-sm text-ink-muted">Direção<br /><select aria-label="Direção" value={direcao} onChange={(event) => patch({ fin_direcao: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1"><option value="asc">Crescente</option><option value="desc">Decrescente</option></select></label>
-        <label className="min-w-48 flex-1 text-sm text-ink-muted">Buscar<br /><span className="relative mt-1 block"><Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" /><input value={q} maxLength={120} onChange={(event) => patch({ fin_q: event.target.value, fin_pagina: null, fin_id: null })} className="design-input w-full pl-9" /></span></label>
+      <div className="rounded-2xl border border-line bg-surface p-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="min-w-48 text-sm text-ink-muted xl:col-span-2">Buscar<br /><span className="relative mt-1 block"><Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" /><input aria-label="Buscar" value={q} maxLength={120} onChange={(event) => patch({ fin_q: event.target.value, fin_pagina: null, fin_id: null })} className="design-input w-full pl-9" /></span></label>
+          <label className="text-sm text-ink-muted">Data<br /><select aria-label="Eixo de data" value={eixo} onChange={(event) => patch({ fin_eixo: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1"><option value="competencia">Competência</option><option value="vencimento">Vencimento</option><option value="pagamento">Pagamento</option></select></label>
+          <label className="text-sm text-ink-muted">Situação<br /><select aria-label="Situação" value={status} onChange={(event) => patch({ fin_status: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1"><option value="">Todas</option>{STATUSES.slice(1).filter((value) => natureza === 'receita' ? value !== 'cancelado' : value !== 'perdido').map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+          {eixo !== 'competencia' ? <><label className="text-sm text-ink-muted">Competências desde<br /><input type="month" value={competenciaInicio} aria-invalid={!scopeValid} onChange={(event) => patch({ fin_comp_mes: mes, fin_comp_inicio: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1" /></label><label className="text-sm text-ink-muted">Competências até<br /><input type="month" value={competenciaFim} aria-invalid={!scopeValid} onChange={(event) => patch({ fin_comp_mes: mes, fin_comp_fim: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1" /></label></> : null}
+        </div>
+
+        <button type="button" aria-expanded={maisFiltrosAbertos} onClick={() => setMaisFiltrosAbertos((aberto) => !aberto)} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-ink hover:bg-surface-muted focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/20">
+          Mais filtros <ChevronDown className={maisFiltrosAbertos ? 'h-4 w-4' : 'h-4 w-4 -rotate-90'} aria-hidden />
+        </button>
+        <div hidden={!maisFiltrosAbertos} className="grid gap-3 border-t border-line pt-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="min-w-40 text-sm text-ink-muted">Contraparte<br /><input aria-label="Contraparte" value={contraparte} maxLength={120} onChange={(event) => patch({ fin_contraparte: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1 w-full" /></label>
+          <label className="min-w-32 text-sm text-ink-muted">Componente<br /><input aria-label="Componente" value={componente} maxLength={80} onChange={(event) => patch({ fin_componente: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1 w-full" /></label>
+          <label className="text-sm text-ink-muted">Origem<br /><select aria-label="Origem" value={origem} onChange={(event) => patch({ fin_origem: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1"><option value="">Todas</option>{ORIGENS.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
+          <label className="w-28 text-sm text-ink-muted">Valor mínimo<br /><input aria-label="Valor mínimo" inputMode="decimal" value={valorMin} maxLength={16} onChange={(event) => patch({ fin_valor_min: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1 w-full" /></label>
+          <label className="w-28 text-sm text-ink-muted">Valor máximo<br /><input aria-label="Valor máximo" inputMode="decimal" value={valorMax} maxLength={16} onChange={(event) => patch({ fin_valor_max: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1 w-full" /></label>
+          <label className="text-sm text-ink-muted">Ordenar<br /><select aria-label="Ordenar" value={ordenar} onChange={(event) => patch({ fin_ordenar: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1"><option value="data">Data</option><option value="valor">Valor</option></select></label>
+          <label className="text-sm text-ink-muted">Direção<br /><select aria-label="Direção" value={direcao} onChange={(event) => patch({ fin_direcao: event.target.value, fin_pagina: null, fin_id: null })} className="design-input mt-1"><option value="asc">Crescente</option><option value="desc">Decrescente</option></select></label>
+        </div>
       </div>
+      {filtrosAtivos.length ? <div className="flex flex-wrap items-center gap-2" aria-label="Filtros ativos">
+        {filtrosAtivos.map((filtroAtivo) => <button key={filtroAtivo.label} type="button" aria-label={`Remover filtro: ${filtroAtivo.key}`} onClick={() => patch({ ...filtroAtivo.values, fin_pagina: null, fin_id: null })} className="inline-flex min-h-8 items-center rounded-full bg-surface-muted px-3 text-xs font-semibold text-ink hover:brightness-95">{filtroAtivo.label} <span aria-hidden="true">×</span></button>)}
+        <button type="button" onClick={limparFiltros} className="min-h-8 px-2 text-xs font-semibold text-ink-muted underline hover:text-ink">Limpar filtros</button>
+      </div> : null}
       {eixo !== 'competencia' ? <p className="text-sm text-ink-muted">O recorte por {eixo} considera apenas títulos das competências {competenciaInicio} a {competenciaFim}. Escolha uma janela maior para incluir títulos de outras competências.</p> : null}
       {!scopeValid ? <p role="alert" className="text-sm text-[var(--danger)]">Escolha competências em ordem, em um intervalo de até 36 meses.</p> : null}
       {!moneyValid ? <p role="alert" className="text-sm text-[var(--danger)]">Informe valores válidos em ordem, com até duas casas decimais.</p> : null}

@@ -51,6 +51,8 @@ describe('analytics daily query key', () => {
   it('isolates operational goals by tenant and selected calendar day', () => {
     expect(QK.operationalGoals('2026-10-07', 'tenant-a')).not.toEqual(QK.operationalGoals('2026-10-07', 'tenant-b'))
     expect(QK.operationalGoals('2026-10-07', 'tenant-a')).not.toEqual(QK.operationalGoals('2026-10-08', 'tenant-a'))
+    expect(QK.operationalGoalsRange('2026-10-01', '2026-10-07', 'tenant-a', 'brand-a', 'presenter-a')).not.toEqual(QK.operationalGoalsRange('2026-10-01', '2026-10-07', 'tenant-a', 'brand-b', 'presenter-a'))
+    expect(QK.operationalGoalsRange('2026-10-01', '2026-10-07', 'tenant-a', 'brand-a', 'presenter-a')).not.toEqual(QK.operationalGoalsRange('2026-10-01', '2026-10-07', 'tenant-b', 'brand-a', 'presenter-a'))
   })
 
   it('identifies one daily series by its complete operational filter', () => {

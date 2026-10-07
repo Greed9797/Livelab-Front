@@ -127,31 +127,35 @@ test('chip de atrasados do painel filtra a lista', async ({ page }) => {
 test('abas só buscam o que usam (enabled por aba)', async ({ page }) => {
   const { calls } = await setup(page)
   await page.goto('/financeiro?tab=custos-fixos&mes=2026-10')
-  await expect(page.getByRole('tab', { name: 'Custos fixos', selected: true })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Seções de Receitas e custos' }).getByRole('button', { name: 'Custos fixos', current: 'page' })).toBeVisible()
   await page.waitForLoadState('networkidle')
   expect(calls).not.toContain('/v1/financeiro/painel')
   expect(calls).not.toContain('/v1/financeiro/caixa')
 })
 
-test('mobile 390x844: tablist rola dentro de si, sem estourar a página; alvos de toque ≥44px', async ({ page }) => {
+test('mobile 390x844: navegação agrupada cabe na página e mantém alvos de toque ≥44px', async ({ page }) => {
   await setup(page)
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/financeiro?mes=2026-10')
   await expect(page.getByRole('group', { name: /^A receber:/ })).toBeVisible()
 
-  const tablist = page.getByRole('tablist', { name: 'Seções do financeiro' })
-  const m = await tablist.evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, snap: getComputedStyle(el).scrollSnapType, ox: getComputedStyle(el).overflowX }))
-  expect(m.sw).toBeGreaterThan(m.cw)
-  expect(m.ox).toBe('auto')
-  expect(m.snap).toContain('x')
+  const groups = page.getByRole('group', { name: 'Grupos do financeiro' })
+  await expect(groups.getByRole('button')).toHaveCount(4)
+  await expect(groups.getByRole('button', { name: 'Lançamentos', current: 'page' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Seções de Lançamentos' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Seções de Lançamentos' }).getByRole('button', { name: 'Receber' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Seções de Lançamentos' }).getByRole('button', { name: 'Pagar' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Seções de Lançamentos' }).getByRole('button', { name: 'Conferir: Visão geral' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Seções de Lançamentos' }).getByRole('button', { name: 'Conferir: Conciliação' })).toBeVisible()
+  await expect(page.getByRole('tablist', { name: 'Seções do financeiro' })).toHaveCount(0)
   const page1 = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }))
   expect(page1.sw).toBeLessThanOrEqual(page1.iw)
 
   const alvos = [
-    tablist.getByRole('tab').first(),
+    groups.getByRole('button').first(),
+    page.getByRole('group', { name: 'Seções de Lançamentos' }).getByRole('button', { name: 'Pagar' }),
     page.getByRole('button', { name: 'Mês anterior' }),
     page.getByRole('button', { name: 'Próximo mês' }),
-    page.getByRole('button', { name: /Configurar saldo/ }),
     page.getByRole('button', { name: /Ver 2 atrasados/ }),
     page.getByRole('button', { name: /Exportar CSV/ }),
     page.getByRole('button', { name: /^Receber: Fixo Marca A/ }),
@@ -163,9 +167,41 @@ test('mobile 390x844: tablist rola dentro de si, sem estourar a página; alvos d
     if (box!.width < 44) expect(box!.width).toBeGreaterThanOrEqual(43.5)
   }
 
-  // rolar o tablist até a última aba não move a página
-  await tablist.getByRole('tab', { name: 'Comissões' }).scrollIntoViewIfNeeded()
+  await page.getByRole('button', { name: /Configurar/ }).click()
+  const caixaConfig = page.getByRole('menuitem', { name: 'Caixa (abertura e corte)' })
+  await expect(caixaConfig).toBeVisible()
+  const menuBox = await caixaConfig.boundingBox()
+  expect(menuBox?.height).toBeGreaterThanOrEqual(43.5)
+
+  // Todos os quatro grupos permanecem visíveis sem uma faixa horizontal de 13 abas.
+  await expect(groups.getByRole('button', { name: 'Receitas e custos' })).toBeVisible()
+  await expect(groups.getByRole('button', { name: 'Comissões' })).toBeVisible()
+  await expect(groups.getByRole('button', { name: 'Relatórios' })).toBeVisible()
   const page2 = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth, x: window.scrollX }))
   expect(page2.sw).toBeLessThanOrEqual(page2.iw)
   expect(page2.x).toBe(0)
+})
+
+test('navegação agrupada preserva filtros e usa destinos explícitos', async ({ page }) => {
+  await setup(page)
+  await page.goto('/financeiro?tab=receber&mes=2026-10&fin_status=atrasado&fin_eixo=vencimento')
+  const grupoLancamentos = page.getByRole('group', { name: 'Grupos do financeiro' })
+  const receber = page.getByRole('group', { name: 'Seções de Lançamentos' })
+
+  await grupoLancamentos.getByRole('button', { name: 'Lançamentos', current: 'page' }).click()
+  await expect(page).toHaveURL(/tab=receber/)
+
+  await receber.getByRole('button', { name: 'Pagar' }).click()
+  await expect(page).toHaveURL(/tab=pagar/)
+  let url = new URL(page.url())
+  expect(url.searchParams.get('mes')).toBe('2026-10')
+  expect(url.searchParams.get('fin_status')).toBe('atrasado')
+  expect(url.searchParams.get('fin_eixo')).toBe('vencimento')
+
+  await grupoLancamentos.getByRole('button', { name: 'Receitas e custos' }).click()
+  await expect(page).toHaveURL(/tab=receita/)
+  url = new URL(page.url())
+  expect(url.searchParams.get('mes')).toBe('2026-10')
+  expect(url.searchParams.get('fin_status')).toBe('atrasado')
+  expect(url.searchParams.get('fin_eixo')).toBe('vencimento')
 })

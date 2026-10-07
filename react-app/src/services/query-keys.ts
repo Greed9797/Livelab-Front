@@ -97,6 +97,8 @@ export const QK = {
     anoMes ? ['meta-unidade', anoMes] as const : ['meta-unidade'] as const,
   analyticsUnidadeMensal: (anoMes: string, tenantId: string) => ['analytics-unidade-mensal', tenantId, anoMes] as const,
   operationalGoals: (data: string, tenantId?: string) => ['analytics-operacao', tenantId ?? '', data] as const,
+  operationalGoalsRange: (from: string, to: string, tenantId?: string, marcaId?: string, apresentadoraId?: string) =>
+    ['analytics-operacao', tenantId ?? '', from, to, marcaId ?? '', apresentadoraId ?? ''] as const,
   metasApresentadoras: (mes?: string) =>
     mes ? ['metas-apresentadoras', mes] as const : ['metas-apresentadoras'] as const,
   metasSupervisor: (mes?: string) =>

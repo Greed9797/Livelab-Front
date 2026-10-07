@@ -2,6 +2,7 @@ import type { AgendaTurno, Cabine, JsonRecord, Lead, LiveAtual, Period } from '.
 import { api, apiDelete, apiGet, apiGetBlob, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
 import { fetchAllPaginatedRows } from '../utils/fetchPaginatedExport'
+import type { OperationalGoalsPatch, OperationalGoalsRangeParams, OperationalGoalsResponse } from '../types/operational-goals'
 
 export function getHomeDashboard(params: { mes?: string } = {}) {
   return apiGet<JsonRecord>('/home/dashboard', params.mes ? { mes: params.mes } : undefined)
@@ -676,23 +677,15 @@ export function getDailyAnalytics(filters: Record<string, unknown> = {}) {
   return apiGet<JsonRecord>('/analytics/diario', filters)
 }
 
-export type OperationalGoalsConfig = {
-  horas_por_apresentador: number
-  cabines_consideradas: number
-  turnos: { inicio: string; fim: string }[]
+export type { OperationalGoalsConfig, OperationalGoalsPatch, OperationalGoalsRangeParams, OperationalGoalsResponse } from '../types/operational-goals'
+
+export function operationalGoalsRequest(from: string, to: string, marcaId?: string, apresentadoraId?: string): string | OperationalGoalsRangeParams {
+  if (from === to && !marcaId && !apresentadoraId) return from
+  return { from, to, ...(marcaId ? { marca_id: marcaId } : {}), ...(apresentadoraId ? { apresentadora_id: apresentadoraId } : {}) }
 }
 
-export type OperationalGoalsPatch = {
-  ano_mes: string
-  meta_gmv: number
-  meta_gmv_hora: number
-  configuracao: OperationalGoalsConfig
-  pisos_apresentadoras?: { id: string; meta_gmv_hora: number | null }[]
-  pisos_marcas?: { id: string; meta_gmv_hora: number | null }[]
-}
-
-export function getOperationalGoals(data: string) {
-  return apiGet<JsonRecord>('/analytics/operacao', { data })
+export function getOperationalGoals(query: string | OperationalGoalsRangeParams) {
+  return apiGet<OperationalGoalsResponse>('/analytics/operacao', typeof query === 'string' ? { data: query } : query)
 }
 
 export function saveOperationalGoals(payload: OperationalGoalsPatch) {

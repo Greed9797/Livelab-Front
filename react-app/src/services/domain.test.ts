@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { archiveLive, archivePresenterSubmission, confirmMarcaCondicao, consolidateOperationalDay, createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getMarcaCondicoes, getOperationalGoals, getVideos, iniciarLive, previewMarcaCondicao, publishLive, saveOperationalGoals, type LiveResumoDiaResponse, type OperationalGoalsPatch, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
+import { operationalGoalsRequest } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
 vi.mock('./api', () => ({
@@ -146,6 +147,12 @@ describe('domain live operations', () => {
     expect(apiGet).toHaveBeenCalledWith('/analytics/operacao', { data: '2026-10-07' })
     expect(apiPut).toHaveBeenCalledWith('/analytics/metas-operacionais', patch)
     expect(apiPost).toHaveBeenCalledWith('/analytics/operacao/consolidar-dia', { data: '2026-10-07' })
+  })
+
+  it('uses the daily compatibility request only for an unfiltered single day', () => {
+    expect(operationalGoalsRequest('2026-10-07', '2026-10-07')).toBe('2026-10-07')
+    expect(operationalGoalsRequest('2026-10-07', '2026-10-07', 'brand-1')).toEqual({ from: '2026-10-07', to: '2026-10-07', marca_id: 'brand-1' })
+    expect(operationalGoalsRequest('2026-10-01', '2026-10-07', undefined, 'presenter-1')).toEqual({ from: '2026-10-01', to: '2026-10-07', apresentadora_id: 'presenter-1' })
   })
 
   it('loads TikTok connector status for the selected live', async () => {

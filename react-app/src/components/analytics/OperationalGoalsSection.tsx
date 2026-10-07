@@ -1,48 +1,38 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Check, ChevronDown, Gauge, Pencil, Plus, Save, Settings2, Trash2 } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, Check, ChevronDown, Gauge, Plus, Save, Settings2, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Modal } from '../ui/Modal'
 import { ErrorState, LoadingState } from '../ui/States'
 import { useToast } from '../ui/Toast'
 import { extractErrorMessage } from '../../services/api'
-import { consolidateOperationalDay, getOperationalGoals, saveOperationalGoals, type OperationalGoalsConfig, type OperationalGoalsPatch } from '../../services/domain'
-import { QK } from '../../services/query-keys'
+import { consolidateOperationalDay, saveOperationalGoals, type OperationalGoalsPatch } from '../../services/domain'
+import { useOperationalGoals } from '../../hooks/useOperationalGoals'
+import type { OperationalGoalEntity as GoalEntity, OperationalGoalsDaily as OperationalData, OperationalGoalsRange, OperationalGoalsStatus } from '../../types/operational-goals'
 import { useCurrentUser } from '../../stores/auth-store'
 import { formatDate, formatMoney } from '../../utils/format'
-import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 
-type Status = 'dentro_da_meta' | 'abaixo_do_ritmo' | 'abaixo_da_meta' | 'dados_pendentes' | 'nao_iniciado' | 'sem_meta' | 'sem_dados' | 'nao_util' | 'consolidado' | 'em_andamento' | 'sem_permissao'
-type LiveDetail = { id: string; dia: string; marca_nome?: string | null; cabine_nome?: string | null; status?: string; gmv: number; horas: number; tempo_incompleto?: boolean }
-type GoalEntity = { id: string; nome: string; horas: number; gmv: number; gmv_hora: number | null; meta_horas: number | null; piso: number | null; piso_origem: string; desvio: number | null; status: Status; status_horas: Status | null; lives: LiveDetail[] }
-type OperationalData = {
-  data: string; ano_mes: string; editavel: boolean; configurado: boolean; configuracao: OperationalGoalsConfig | null; pode_editar: boolean; equipe_ativa: number; dias_uteis: number; estado: Status
-  pendencias: { submissoes: number; videos: number; lives_abertas: number; tempos_incompletos: number }
-  horas: { realizado: number; meta: number | null; esperado_agora: number | null; faltante: number | null; status: Status }
-  gmv: { realizado: number; lives: number; videos: number; meta_diaria: number | null; meta_mensal: number | null; esperado_agora: number | null; faltante_dia: number | null; realizado_mes: number; esperado_mes: number | null; faltante_mes: number | null; necessario_dia: number | null; dias_restantes_equivalentes: number; status: Status }
-  produtividade: { realizado: number | null; piso: number | null; necessario: number | null; potencial_mensal_piso: number | null; piso_sustenta_meta: boolean | null }
-  capacidade: { horas_apresentadores: number | null; horas_operacao: number; horas_cabines: number | null; horas_cabines_realizadas: number; gmv_hora_operacao_necessario: number | null; cabines_ativas?: number }
-  serie: { dia: string; realizado: number; esperado: number | null }[]; apresentadoras: GoalEntity[]; marcas: GoalEntity[]
-}
+type DailyStatus = OperationalGoalsStatus
+type LiveDetail = GoalEntity['lives'][number]
 
-const STATUS_LABEL: Record<Status, string> = {
+const STATUS_LABEL: Record<DailyStatus, string> = {
   dentro_da_meta: 'Dentro da meta', abaixo_do_ritmo: 'Abaixo do ritmo', abaixo_da_meta: 'Abaixo da meta', dados_pendentes: 'Dados pendentes',
   nao_iniciado: 'Ainda não iniciado', sem_meta: 'Meta não definida', sem_dados: 'Sem dados', nao_util: 'Dia não útil', consolidado: 'Consolidado',
-  em_andamento: 'Em andamento', sem_permissao: 'Sem permissão',
+  em_andamento: 'Em andamento', sem_permissao: 'Sem permissão', indisponivel: 'Indisponível',
 }
-const STATUS_STYLE: Record<Status, string> = {
+const STATUS_STYLE: Record<DailyStatus, string> = {
   dentro_da_meta: 'bg-[var(--success-soft)] text-[var(--success)]', abaixo_do_ritmo: 'bg-[var(--warning-soft)] text-[var(--warning)]', abaixo_da_meta: 'bg-[var(--danger-soft)] text-[var(--danger)]',
   dados_pendentes: 'bg-[var(--warning-soft)] text-[var(--warning)]', nao_iniciado: 'bg-surface-muted text-ink-muted', sem_meta: 'bg-surface-muted text-ink-muted',
   sem_dados: 'bg-surface-muted text-ink-muted', nao_util: 'bg-surface-muted text-ink-muted', consolidado: 'bg-[var(--success-soft)] text-[var(--success)]',
-  em_andamento: 'bg-[var(--alt-soft)] text-[var(--alt)]', sem_permissao: 'bg-surface-muted text-ink-muted',
+  em_andamento: 'bg-[var(--alt-soft)] text-[var(--alt)]', sem_permissao: 'bg-surface-muted text-ink-muted', indisponivel: 'bg-surface-muted text-ink-muted',
 }
 
-function StatusPill({ status }: { status: Status }) {
+function StatusPill({ status }: { status: DailyStatus }) {
   return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[status]}`}>{STATUS_LABEL[status]}</span>
 }
 
-function Metric({ label, value, note, status }: { label: string; value: string; note: string; status?: Status }) {
+function Metric({ label, value, note, status }: { label: string; value: string; note: string; status?: DailyStatus }) {
   return (
     <div className="min-w-0 border-t border-line px-4 py-4 first:border-t-0 sm:border-l sm:border-t-0 sm:first:border-l-0">
       <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">{label}</p>
@@ -52,7 +42,7 @@ function Metric({ label, value, note, status }: { label: string; value: string; 
   )
 }
 
-function dateGroups(lives: LiveDetail[]) {
+function dateGroups(lives: GoalEntity['lives']) {
   const grouped = new Map<string, LiveDetail[]>()
   for (const live of lives) grouped.set(live.dia, [...(grouped.get(live.dia) ?? []), live])
   return [...grouped.entries()].sort(([a], [b]) => b.localeCompare(a))
@@ -104,6 +94,51 @@ function EntityTable({ title, description, rows, kind }: { title: string; descri
       </div> : <p className="px-4 py-8 text-center text-sm text-ink-muted sm:px-6">Sem registros para este dia.</p>}
     </Card>
   )
+}
+
+function OperationalRangeSection({ data, isFetching }: { data: OperationalGoalsRange; isFetching: boolean }) {
+  const moneyValue = (value: number | null) => value == null ? 'Sem dados suficientes' : formatMoney(value, true)
+  const hoursValue = (value: number | null, label = 'h') => value == null ? 'Sem dados suficientes' : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${label}`
+  const pendingTotal = Object.values(data.pendencias).reduce((total, count) => total + count, 0)
+  const monthly = data.contexto_mensal.dados
+  return <section className="space-y-4" aria-label="Indicadores operacionais">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="text-sm text-ink-muted">Resultados de {formatDate(data.from)} a {formatDate(data.to)} conforme os filtros superiores.</p>
+      {isFetching ? <span role="status" className="text-xs text-ink-muted">Atualizando dados…</span> : null}
+    </div>
+    {pendingTotal > 0 || data.resumo.dados_incompletos.gmv || data.resumo.dados_incompletos.horas ? (
+      <div role="status" className="flex items-start gap-2 rounded-xl border border-[var(--warning)]/25 bg-[var(--warning-soft)] px-3 py-2.5 text-sm text-[var(--warning)]">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>Há fontes pendentes ou incompletas neste intervalo. Os totais afetados são indicados como indisponíveis; nenhuma classificação automática foi aplicada.</span>
+      </div>
+    ) : null}
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <Card className="p-4"><p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">GMV do período</p><p className="num mt-2 text-2xl font-bold text-ink">{moneyValue(data.resumo.gmv)}</p><p className="mt-2 text-xs text-ink-muted">Lives {moneyValue(data.resumo.gmv_lives)} · vídeos {moneyValue(data.resumo.gmv_videos)}</p></Card>
+      <Card className="p-4"><p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">Horas no período</p><p className="num mt-2 text-2xl font-bold text-ink">{hoursValue(data.resumo.horas_apresentadoras)}</p><p className="mt-2 text-xs text-ink-muted">Presença das apresentadoras, sem confundir com cabine-h.</p></Card>
+      <Card className="p-4"><p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">GMV/h no período</p><p className="num mt-2 text-2xl font-bold text-ink">{data.resumo.gmv_hora == null ? 'Sem base' : `${formatMoney(data.resumo.gmv_hora, true)}/h`}</p><p className="mt-2 text-xs text-ink-muted">GMV total dividido pelas horas compatíveis.</p></Card>
+      <Card className="p-4"><p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted">Capacidade utilizada</p><p className="num mt-2 text-2xl font-bold text-ink">{hoursValue(data.resumo.horas_cabines, 'cabine-h')}</p><p className="mt-2 text-xs text-ink-muted">{data.resumo.lives} lives no recorte.</p></Card>
+    </div>
+
+    <Card className="overflow-hidden">
+      <div className="border-b border-line px-4 py-4"><h3 className="font-bold text-ink">Resultados por dia</h3><p className="mt-1 text-sm text-ink-muted">Totais diários do intervalo; meta e situação agregadas não são classificadas.</p></div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[580px] text-sm"><thead className="bg-surface-muted/45 text-left text-xs text-ink-muted"><tr><th className="px-4 py-3">Dia</th><th className="px-4 py-3 text-right">GMV</th><th className="px-4 py-3 text-right">Horas de apresentadoras</th><th className="px-4 py-3 text-right">Cabine-h</th></tr></thead><tbody className="divide-y divide-line">{data.serie.map((day) => <tr key={day.dia}><th className="px-4 py-3 text-left font-medium text-ink">{formatDate(day.dia)}</th><td className="num px-4 py-3 text-right text-ink">{moneyValue(day.gmv)}</td><td className="num px-4 py-3 text-right text-ink">{hoursValue(day.horas_apresentadoras)}</td><td className="num px-4 py-3 text-right text-ink">{hoursValue(day.horas_cabines, 'cabine-h')}</td></tr>)}</tbody></table></div>
+    </Card>
+
+    <RangeEntityTable title="Apresentadoras no período" rows={data.apresentadoras} hoursLabel="Presença" />
+    <RangeEntityTable title="Marcas no período" rows={data.marcas} hoursLabel={data.filtros.apresentadora_id ? 'Horas de apresentadora' : 'Cabine-h'} />
+
+    <Card className="p-4 sm:p-5" aria-label="Contexto mensal da unidade">
+      <h3 className="font-bold text-ink">Contexto mensal da unidade · {data.contexto_mensal.ano_mes}</h3>
+      <p className="mt-1 text-sm text-ink-muted">Competência até {formatDate(data.contexto_mensal.corte)} · dados da unidade inteira, sem os filtros de entidade.</p>
+      <p className="num mt-3 font-semibold text-ink">GMV no mês {moneyValue(monthly.gmv.realizado_mes)} · meta {moneyValue(monthly.gmv.meta_mensal)}</p>
+      <div className="mt-2 flex flex-wrap gap-2 text-xs text-ink-muted">{data.competencias.map((month) => <span key={month.ano_mes} className="rounded-full border border-line px-2.5 py-1">{month.ano_mes}: {month.configurado ? 'configuração registrada' : 'sem configuração registrada'}</span>)}</div>
+    </Card>
+    <p className="text-xs text-ink-muted">Dados pendentes: {data.pendencias.submissoes} envios · {data.pendencias.videos} vídeos · {data.pendencias.lives_abertas} lives abertas · {data.pendencias.tempos_incompletos} tempos incompletos · {data.pendencias.gmv_incompletos} GMV incompletos.</p>
+  </section>
+}
+
+function RangeEntityTable({ title, rows, hoursLabel }: { title: string; rows: OperationalGoalsRange['apresentadoras']; hoursLabel: string }) {
+  return <Card className="overflow-hidden"><div className="border-b border-line px-4 py-4"><h3 className="font-bold text-ink">{title}</h3></div>{rows.length ? <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-surface-muted/45 text-xs text-ink-muted"><tr><th className="px-4 py-3">Entidade</th><th className="px-4 py-3 text-right">{hoursLabel}</th><th className="px-4 py-3 text-right">GMV</th><th className="px-4 py-3 text-right">GMV/h</th></tr></thead><tbody className="divide-y divide-line">{rows.map((row) => <tr key={row.id}><th className="px-4 py-3 text-left font-semibold text-ink"><details><summary className="cursor-pointer">{row.nome} · {row.lives.length} lives</summary><ul className="mt-2 space-y-1 text-xs font-normal text-ink-muted">{row.lives.map((live) => <li key={`${live.id}-${live.dia}`}>{formatDate(live.dia)} · {live.marca_nome ?? 'Marca sem nome'} · {live.gmv == null ? 'GMV indisponível' : formatMoney(live.gmv, true)} · {live.horas == null ? 'horas indisponíveis' : `${live.horas.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} h`}{live.tempo_incompleto || live.gmv_incompleto ? ' · dado pendente' : ''}</li>)}</ul></details></th><td className="num px-4 py-3 text-right">{row.horas == null ? '—' : `${row.horas.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} h`}</td><td className="num px-4 py-3 text-right">{row.gmv == null ? '—' : formatMoney(row.gmv, true)}</td><td className="num px-4 py-3 text-right">{row.gmv_hora == null ? '—' : `${formatMoney(row.gmv_hora, true)}/h`}</td></tr>)}</tbody></table></div> : <p className="px-4 py-6 text-sm text-ink-muted">Sem registros para este recorte.</p>}</Card>
 }
 
 function moneyString(value: number | null | undefined) {
@@ -184,20 +219,22 @@ function ExceptionEditor({ title, rows, values, onChange }: { title: string; row
   </section>
 }
 
-export function OperationalGoalsSection() {
+type OperationalContextProps = { from: string; to: string; marcaId?: string; apresentadoraId?: string; enabled?: boolean; editing?: boolean; onEditingChange?: (open: boolean) => void }
+
+export function OperationalGoalsHeaderAction({ onConfigure }: { onConfigure: () => void }) {
+  return <Button variant="secondary" icon={Settings2} onClick={onConfigure}>Configurar metas</Button>
+}
+
+export function OperationalGoalsSection({ from, to, marcaId, apresentadoraId, enabled = true, editing = false, onEditingChange }: OperationalContextProps) {
   const user = useCurrentUser()
   const tenantId = user?.tenant_id
-  const today = getSaoPauloDateInput(new Date())
-  const [day, setDay] = useState(today)
-  const [editing, setEditing] = useState(false)
   const [confirmingClose, setConfirmingClose] = useState(false)
   const toast = useToast()
   const client = useQueryClient()
-  const query = useQuery({
-    queryKey: QK.operationalGoals(day, tenantId), queryFn: () => getOperationalGoals(day), staleTime: 15_000,
-    refetchInterval: day === today ? 60_000 : false,
-  })
-  const data = query.data as OperationalData | undefined
+  const query = useOperationalGoals({ from, to, tenantId, marcaId, apresentadoraId, enabled })
+  const response = query.data
+  const data = response && !('tipo' in response) ? response : undefined
+  const setEditing = (open: boolean) => onEditingChange?.(open)
   const save = useMutation({
     mutationFn: saveOperationalGoals,
     onSuccess: async () => {
@@ -221,22 +258,18 @@ export function OperationalGoalsSection() {
   const liveRows = useMemo(() => new Set(data?.apresentadoras.flatMap((row) => row.lives.map((live) => live.id)) ?? []).size, [data?.apresentadoras])
   const configuredCabins = data && data.capacidade.horas_operacao > 0 && data.capacidade.horas_cabines != null ? data.capacidade.horas_cabines / data.capacidade.horas_operacao : null
 
-  if (query.isLoading && !data) return <section aria-label="Acompanhamento operacional" className="space-y-3"><LoadingState /></section>
-  if (query.isError && !data) return <section aria-label="Acompanhamento operacional"><ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} /></section>
+  if (!enabled) return null
+  if (response && 'tipo' in response) return <OperationalRangeSection data={response} isFetching={query.isFetching} />
+
+  if (query.isLoading && !data) return <section aria-label="Indicadores operacionais" className="space-y-3"><LoadingState /></section>
+  if (query.isError && !data) return <section aria-label="Indicadores operacionais"><ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} /></section>
   if (!data) return null
 
-  return <section className="space-y-4" aria-labelledby="operational-goals-title">
-    <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-3">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">Analytics · unidade</p><h2 id="operational-goals-title" className="mt-1 text-xl font-bold tracking-tight text-ink">Acompanhamento operacional</h2><p className="mt-1 text-sm text-ink-muted">Ritmo diário de horas e GMV, produtividade e metas por pessoa e marca.</p></div>
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="sr-only" htmlFor="operational-date">Dia da operação</label><input id="operational-date" type="date" value={day} max={today} onChange={(event) => setDay(event.target.value)} className="design-input h-[42px] w-44 px-3 [color-scheme:dark]" />
-        {data.pode_editar && data.editavel ? <Button variant="secondary" icon={Settings2} onClick={() => setEditing(true)}>Configurar metas</Button> : null}
-      </div>
-    </div>
+  return <section className="space-y-4" aria-label="Indicadores operacionais">
 
     {data.estado === 'dados_pendentes' ? <div className="flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm" style={{ borderColor: 'color-mix(in srgb, var(--warning) 25%, transparent)', background: 'var(--warning-soft)', color: 'var(--warning)' }}><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><span>Há lives abertas, dados incompletos, envios ou vídeos aguardando revisão. O resultado final só aparece após revisar e consolidar o dia.</span></div> : null}
     {data.estado === 'consolidado' ? <div className="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm" style={{ borderColor: 'color-mix(in srgb, var(--success) 20%, transparent)', background: 'var(--success-soft)', color: 'var(--success)' }}><Check className="h-4 w-4" />Dia consolidado · números finais deste dia.</div> : null}
-    {!data.configurado ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-surface-muted/40 px-4 py-3"><div><p className="font-semibold text-ink">Configure a capacidade da operação</p><p className="mt-1 text-sm text-ink-muted">Defina horas por apresentador, turnos, cabines e piso de GMV/h para habilitar o ritmo e os alertas.</p></div>{data.pode_editar && data.editavel ? <Button icon={Pencil} onClick={() => setEditing(true)}>Configurar</Button> : null}</div> : null}
+    {!data.configurado ? <div className="rounded-xl border border-[var(--border)] bg-surface-muted/40 px-4 py-3"><p className="font-semibold text-ink">Configure a capacidade da operação</p><p className="mt-1 text-sm text-ink-muted">Defina horas por apresentador, turnos, cabines e piso de GMV/h para habilitar o ritmo e os alertas.</p></div> : null}
 
     <Card className="grid grid-cols-1 divide-y divide-line sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4">
       <Metric label="Horas das apresentadoras" value={`${data.horas.realizado.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} h`} note={data.horas.meta == null ? 'Meta diária não configurada' : `${data.horas.meta} h/dia · ${data.equipe_ativa} ativas · esperado agora ${data.horas.esperado_agora?.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) ?? '—'} h · faltam ${data.horas.faltante?.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) ?? '—'} h`} status={data.horas.status} />

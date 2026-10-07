@@ -37,6 +37,49 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('ReceberPagarPanel', () => {
+  it('mantém busca, eixo e situação à vista e filtros avançados dentro de Mais filtros', async () => {
+    mount('/financeiro?mes=2026-09&tab=receber&fin_status=atrasado&fin_origem=avulsa')
+    expect(screen.getByRole('textbox', { name: 'Buscar' })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: 'Eixo de data' })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: 'Situação' })).toBeTruthy()
+    const mais = screen.getByRole('button', { name: 'Mais filtros' })
+    expect(mais.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('combobox', { name: 'Origem' })).toBeNull()
+    expect(screen.getByText('Situação: atrasado')).toBeTruthy()
+    expect(screen.getByText('Origem: avulsa')).toBeTruthy()
+
+    fireEvent.click(mais)
+    expect(mais.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.change(screen.getByRole('combobox', { name: 'Origem' }), { target: { value: 'manual' } })
+    await waitFor(() => expect(consultar).toHaveBeenLastCalledWith(expect.objectContaining({ origem: 'manual', status: 'atrasado' })))
+    expect(screen.getByTestId('url').textContent).toContain('fin_origem=manual')
+    fireEvent.click(mais)
+    expect(mais.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByTestId('url').textContent).toContain('fin_origem=manual')
+    expect(consultar).toHaveBeenLastCalledWith(expect.objectContaining({ origem: 'manual', status: 'atrasado' }))
+  })
+
+  it('remove filtros individualmente e oferece limpeza explícita do resumo', () => {
+    mount('/financeiro?mes=2026-09&fin_status=atrasado&fin_origem=avulsa')
+    fireEvent.click(screen.getByRole('button', { name: 'Remover filtro: Origem' }))
+    expect(screen.getByTestId('url').textContent).not.toContain('fin_origem=')
+    expect(screen.getByText('Situação: atrasado')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }))
+    expect(screen.getByTestId('url').textContent).not.toContain('fin_status=')
+    expect(screen.queryByText('Situação: atrasado')).toBeNull()
+  })
+
+  it('mantém validação de intervalo inválido visível com Mais filtros recolhido', () => {
+    mount('/financeiro?mes=2026-09&fin_eixo=pagamento&fin_comp_mes=2026-09&fin_comp_inicio=2026-10&fin_comp_fim=2026-09')
+    const alerta = screen.getByRole('alert')
+    const mais = screen.getByRole('button', { name: 'Mais filtros' })
+    expect(mais.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(mais)
+    fireEvent.click(mais)
+    expect(alerta.textContent).toContain('Escolha competências em ordem')
+    expect(alerta.isConnected).toBe(true)
+  })
+
   it('persiste filtros na URL e envia competência explícita para vencimento', async () => {
     mount()
     fireEvent.change(screen.getByRole('combobox', { name: 'Eixo de data' }), { target: { value: 'vencimento' } })
@@ -71,6 +114,7 @@ describe('ReceberPagarPanel', () => {
 
   it('usa os mesmos filtros de contraparte, componente, origem, valor e ordem na lista e exportação', async () => {
     mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Mais filtros' }))
     fireEvent.change(screen.getByRole('textbox', { name: 'Contraparte' }), { target: { value: 'Árvore' } })
     fireEvent.change(screen.getByRole('textbox', { name: 'Componente' }), { target: { value: 'fixo' } })
     fireEvent.change(screen.getByRole('combobox', { name: 'Origem' }), { target: { value: 'marca_fixo' } })
