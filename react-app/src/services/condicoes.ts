@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 import type { JsonRecord } from '../types/models'
 import type { VencimentoCondicao } from '../utils/condicoes-vencimento'
 
@@ -30,4 +30,16 @@ export interface NovaCondicaoPayload extends Partial<VencimentoCondicao> {
 /** Cria nova versão da condição (Idempotency-Key obrigatório no back). */
 export function createCondicaoMarca(marcaId: string, payload: NovaCondicaoPayload, idempotencyKey: string) {
   return apiPost<JsonRecord>(`/marcas/${marcaId}/condicoes`, payload, { headers: { 'Idempotency-Key': idempotencyKey } })
+}
+
+export function previewAlteracaoCondicao(marcaId: string, condicaoId: string, payload: JsonRecord) {
+  return apiPost<JsonRecord>(`/marcas/${marcaId}/condicoes/${condicaoId}/preview`, payload)
+}
+
+export function editarCondicao(marcaId: string, condicaoId: string, payload: JsonRecord, key: string) {
+  return apiPatch<JsonRecord>(`/marcas/${marcaId}/condicoes/${condicaoId}`, payload, { headers: { 'Idempotency-Key': key } })
+}
+
+export function excluirCondicao(marcaId: string, condicaoId: string, payload: JsonRecord, key: string) {
+  return apiDelete<JsonRecord>(`/marcas/${marcaId}/condicoes/${condicaoId}`, { data: payload, headers: { 'Idempotency-Key': key } })
 }

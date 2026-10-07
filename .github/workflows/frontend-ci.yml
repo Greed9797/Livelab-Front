@@ -30,7 +30,7 @@ jobs:
         run: cd react-app && npx tsc -b --noEmit
 
       - name: Run unit tests
-        run: cd react-app && npx vitest run
+        run: cd react-app && npx vitest run --maxWorkers=2
 
       - name: Build
         env:

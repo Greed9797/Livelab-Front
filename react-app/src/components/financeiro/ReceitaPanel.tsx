@@ -1,7 +1,7 @@
 // Aba Receita do Financeiro (substitui "Por cliente"). Fonte: GET /financeiro/receita?mes= —
 // mesma base do DRE (condições comerciais vigentes), não o GMV de lives encerradas.
 // Competência (padrão) = o ganho do mês, bate com DRE.receita.previsto.
-// Vencimento = o que cai no caixa no mês, bate com as entradas do fluxo de caixa.
+// Vencimento = títulos previstos para o mês. Recebimentos usam eventos pela data de pagamento.
 import clsx from 'clsx'
 import { useMutation } from '@tanstack/react-query'
 import {
@@ -114,10 +114,31 @@ function Tile({
   )
 }
 
-function ResumoReceita({ data, visao }: { data: ReceitaMensal; visao: VisaoReceita }) {
+export function ResumoReceita({ data, visao }: { data: ReceitaMensal; visao: VisaoReceita }) {
   const t = totaisDaVisao(data, visao)
   const nomeMes = mesLabel(data.mes).split(' de ')[0]
   const base = visao === 'competencia' ? `competência de ${nomeMes}` : `vencendo em ${nomeMes}`
+  if (visao === 'vencimento') {
+    const recebimentos = data.recebimentos_mes
+    return <section aria-label="Totais da receita" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Tile label="Previsto com vencimento no mês" value={t.previsto} hint={base} icon={CircleDollarSign} color="var(--primary)" soft="var(--primary-soft)" />
+      {recebimentos ? <>
+        <Tile label="Recebido no mês" value={recebimentos.operacional} hint="Recebimentos operacionais pela data do pagamento, incluindo títulos de outros meses." icon={Wallet} color="var(--success)" soft="var(--success-soft)" />
+        <Tile label="Aportes recebidos no mês" value={recebimentos.aportes} hint="Fora da receita operacional." icon={Landmark} color="var(--info)" soft="var(--info-soft)" />
+      </> : <p role="status" className="text-sm text-ink-muted">Recebimentos do mês indisponíveis. Atualize os dados para consultar os movimentos de caixa.</p>}
+      <Tile label="Em aberto dos vencimentos do mês" value={t.aberto} hint="Saldo restante dos títulos com vencimento neste mês, após baixas e perdas." icon={Hourglass} color="var(--warning)" soft="var(--warning-soft)" />
+      {t.perdido > 0 ? <p className="sm:col-span-2 lg:col-span-4 text-sm text-ink-muted">Perdido: {formatMoney(t.perdido, true)}. Fora do saldo em aberto.</p> : null}
+      {recebimentos ? <details className="sm:col-span-2 lg:col-span-4 design-card p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-ink">Detalhar recebimentos do mês</summary>
+        <p className="mt-2 text-xs text-ink-muted">Pagamentos e estornos registrados em {nomeMes}, independentemente do vencimento. O recebido de cada título na lista é acumulado.</p>
+        <ul className="mt-3 divide-y divide-line">{recebimentos.itens.map((item) => <li key={`${item.tipo}:${item.id}`} className="flex flex-wrap justify-between gap-3 py-3 text-sm">
+          <span>{item.descricao}<span className="block text-xs text-ink-muted">{formatDataCurta(item.data)} · {item.tipo === 'estorno' ? 'Estorno' : 'Pagamento'}{item.marca_nome ? ` · ${item.marca_nome}` : ''}{item.fonte === 'legado' ? ' · Registro legado' : ''}{item.grupo === 'aporte' || item.classe === 'aporte' ? ' · Aporte' : ''}</span></span>
+          <span className="num font-semibold">{formatMoney(item.valor, true)}</span>
+        </li>)}</ul>
+        {recebimentos.itens.length === 0 ? <p className="mt-3 text-sm text-ink-muted">Nenhum recebimento no mês.</p> : null}
+      </details> : null}
+    </section>
+  }
   return (
     <section aria-label="Totais da receita" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
       <Tile destaque label="Previsto" value={t.previsto} hint={base} icon={CircleDollarSign} color="var(--primary)" soft="var(--primary-soft)">
@@ -167,6 +188,7 @@ function NotaCompetencia({ mes }: { mes: string }) {
 function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar }: Acoes & { l: Lancamento; onEditar?: (l: Lancamento) => void }) {
   if (!podeEscrever) return null
   const perdido = isPerdido(l)
+  const suspenso = l.status === 'cancelado' || l.suspensao_comercial?.ativa === true
   // Aporte não perde (SPEC); acoesPerda (FA) decide o resto (título 100% pago, etc.).
   const perda = isAporte(l) ? null : acoesPerda(l)
   return (
@@ -181,7 +203,7 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar 
           <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Desfazer perda
         </button>
       ) : null}
-      {!perdido && l.status !== 'pago' ? (
+      {!suspenso && !perdido && l.status !== 'pago' ? (
         <button
           type="button"
           onClick={() => onBaixar(l)}
@@ -191,7 +213,7 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar 
           <Check className="h-3.5 w-3.5" aria-hidden /> Receber
         </button>
       ) : null}
-      {!perdido && perda?.podePerder ? (
+      {!suspenso && !perdido && perda?.podePerder ? (
         <button
           type="button"
           onClick={() => onPerda(l, 'perder')}
@@ -710,7 +732,7 @@ export function ReceitaPanel({ mes, podeEscrever }: { mes: string; podeEscrever:
 
   let corpo: ReactNode
   if (query.isLoading && !data) corpo = <ReceitaSkeleton />
-  else if (query.isError && !data) corpo = <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+  else if (query.isError) corpo = <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
   else if (data) {
     corpo = (
       <>

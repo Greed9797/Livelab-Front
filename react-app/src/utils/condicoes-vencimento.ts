@@ -136,15 +136,16 @@ export function previewJanelaComissao(competencia: string, janela: number, diaVe
   return `${inicio} → ${fim} · competência ${ab(mes)} · vence ${venc.slice(8, 10)}/${ab(Number(venc.slice(5, 7)) - 1)}`
 }
 
-/** Versão vigente em `hoje` ('YYYY-MM-DD'): maior inicio_vigencia <= hoje, não cancelada; empate pela maior revision. */
+/** A última versão aplicável define a vigência; cancelamento interrompe o intervalo até a próxima versão. */
 export function condicaoVigente(condicoes: JsonRecord[], hoje: string): JsonRecord | null {
   const validas = condicoes
-    .filter((c) => c && c.cancelled_at == null && typeof c.inicio_vigencia === 'string' && c.inicio_vigencia.slice(0, 10) <= hoje)
+    .filter((c) => c && typeof c.inicio_vigencia === 'string' && c.inicio_vigencia.slice(0, 10) <= hoje)
     .sort((a, b) => {
       const byInicio = String(b.inicio_vigencia).localeCompare(String(a.inicio_vigencia))
       return byInicio !== 0 ? byInicio : Number(b.revision ?? 0) - Number(a.revision ?? 0)
     })
-  return validas[0] ?? null
+  const ultima = validas[0]
+  return ultima && ultima.cancelled_at == null ? ultima : null
 }
 
 /** Revisão atual da marca (maior `revision` entre as condições) — enviada como expected_revision. */

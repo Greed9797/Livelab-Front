@@ -81,6 +81,7 @@ export interface ReceitaVencimento {
 }
 
 export interface ReceitaMensal {
+  recebimentos_mes?: { operacional: number; aportes: number; total: number; itens: FinanceiroMovimento[] } | null
   mes: string // YYYY-MM
   hoje: string // YYYY-MM-DD
   data_corte: string | null
@@ -88,4 +89,22 @@ export interface ReceitaMensal {
   vencimento: ReceitaVencimento
   /** O que ainda falta receber com vencimento no mês (independe da visão). */
   a_receber_mes: number
+}
+
+/** Movimentos de caixa no mês; estornos chegam com valor assinado pelo servidor. */
+export interface FinanceiroMovimento {
+  id: string
+  tipo: 'liquidacao' | 'estorno'
+  natureza: string
+  origem_tipo: string
+  origem_id: string
+  data: string
+  valor: number
+  descricao: string
+  grupo: string
+  marca_id?: string
+  marca_nome?: string
+  cliente_nome?: string
+  classe?: string
+  fonte?: string
 }

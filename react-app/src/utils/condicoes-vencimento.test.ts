@@ -56,9 +56,23 @@ describe('condicoes-vencimento', () => {
       { id: 'a', inicio_vigencia: '1900-01-01', revision: 1 },
       { id: 'x', inicio_vigencia: '2026-07-01', revision: 9, cancelled_at: '2026-07-02' },
     ]
-    expect(condicaoVigente(lista, '2026-09-30')?.id).toBe('b')
+    expect(condicaoVigente(lista, '2026-09-30')).toBeNull()
+    expect(condicaoVigente(lista, '2026-06-30')?.id).toBe('b')
     expect(condicaoVigente([], '2026-09-30')).toBeNull()
-    expect(revisaoAtual(lista.filter((c) => !c.cancelled_at))).toBe(3)
+    expect(revisaoAtual(lista)).toBe(9)
     expect(revisaoAtual([])).toBe(1)
   })
+})
+
+it('cancelamento em março interrompe janeiro até maio e aceita nova revisão ativa no mesmo mês', () => {
+  const janeiro = { id: 'jan', inicio_vigencia: '2026-01-01', revision: 1 }
+  const marco = { id: 'mar', inicio_vigencia: '2026-03-01', revision: 3, cancelled_at: '2026-03-15' }
+  const maio = { id: 'mai', inicio_vigencia: '2026-05-01', revision: 2 }
+  const lista = [maio, janeiro, marco]
+  expect(condicaoVigente(lista, '2026-02-28')?.id).toBe('jan')
+  expect(condicaoVigente(lista, '2026-03-01')).toBeNull()
+  expect(condicaoVigente(lista, '2026-04-30')).toBeNull()
+  expect(condicaoVigente(lista, '2026-05-01')?.id).toBe('mai')
+  expect(condicaoVigente([...lista, { id: 'mar-novo', inicio_vigencia: '2026-03-01', revision: 4 }], '2026-04-30')?.id).toBe('mar-novo')
+  expect(lista).toEqual([maio, janeiro, marco])
 })

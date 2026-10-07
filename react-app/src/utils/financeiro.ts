@@ -213,13 +213,14 @@ function componenteDoId(id: string | null): string | null {
   return c === 'fixo' || c === 'variavel' ? c : null
 }
 
-/** Status do backend quando válido (perdido só em receita, cancelado só em custo); senão deriva, respeitando perdido_em/cancelado_em. */
+/** Respeita suspensão comercial e status encerrado; senão deriva pelas baixas e datas. */
 function statusDoItem(
   raw: Record<string, unknown>,
   natureza: Natureza,
   base: { valor_previsto: number; valor_pago: number; data_vencimento: string | null },
   hoje: string,
 ): StatusLancamento {
+  if (natureza === 'receita' && (raw.status === 'cancelado' || rec(raw.suspensao_comercial).ativa === true)) return 'cancelado'
   const encerradoProprio: StatusLancamento = natureza === 'receita' ? 'perdido' : 'cancelado'
   if (isStatus(raw.status)) {
     if (raw.status === 'perdido' || raw.status === 'cancelado') {
@@ -275,6 +276,7 @@ export function normalizarLancamento(input: unknown, hoje: string = hojeSP()): L
     cancelado_em: str(raw.cancelado_em),
     cancelado_motivo: str(raw.cancelado_motivo),
     cancelado_por: str(raw.cancelado_por),
+    suspensao_comercial: raw.suspensao_comercial && typeof raw.suspensao_comercial === 'object' ? { ativa: rec(raw.suspensao_comercial).ativa === true } : null,
   }
 }
 
@@ -505,7 +507,7 @@ export interface AcoesPerda {
   podeDesfazer: boolean
 }
 
-type ParaPerda = Pick<Lancamento, 'natureza' | 'origem' | 'status'> & { grupo?: string | null; valor_perdido?: number | null }
+type ParaPerda = Pick<Lancamento, 'natureza' | 'origem' | 'status'> & { grupo?: string | null; valor_perdido?: number | null; suspensao_comercial?: Lancamento['suspensao_comercial'] }
 
 /**
  * O que o item aceita: receita (comercial ou avulsa, exceto aporte) pode ser dada como perdida;
@@ -525,7 +527,7 @@ export function acoesPerda(item: ParaPerda): AcoesPerda {
   if (item.natureza === 'receita') {
     if (item.origem === 'avulsa' && item.grupo === 'aporte') return nenhuma
     return {
-      podePerder: item.status !== 'pago' && item.status !== 'perdido',
+      podePerder: item.status !== 'pago' && item.status !== 'perdido' && item.status !== 'cancelado' && !item.suspensao_comercial?.ativa,
       podeCancelar: false,
       podeDesfazer: item.status === 'perdido' || (item.valor_perdido ?? 0) > 0,
     }

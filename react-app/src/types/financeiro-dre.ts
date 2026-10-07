@@ -3,7 +3,10 @@
 // um mês (GET /financeiro/dre/mes?mes=YYYY-MM). Tudo passa pela normalização
 // defensiva de utils/dre-detalhe.ts — o backend pode mandar string, faltar chave
 // ou ainda responder no formato antigo.
+import type { FinanceiroMovimento } from './financeiro-receita'
 import type { DreMes, PrevistoRealizado } from './financeiro'
+
+export type RegimeDre = 'caixa_vencimento' | 'competencia'
 
 export type VisaoDre = 'ambos' | 'realizado' | 'previsto'
 
@@ -50,6 +53,7 @@ export interface DreMesV3 extends DreLinhaV3 {
 }
 
 export interface DreAnualV3 {
+  regime?: RegimeDre
   inicio: string
   fim: string
   meses: DreMesV3[]
@@ -81,6 +85,8 @@ export interface DreDetalheCliente {
 
 /** Item genérico (receita avulsa, aporte, item de custo). */
 export interface DreDetalheItem {
+  competencia_original?: string | null
+  movimentos?: FinanceiroMovimento[]
   id: string
   descricao: string
   origem: string | null
@@ -132,6 +138,7 @@ export interface DreDeltas {
 }
 
 export interface DreMesDetalheResponse {
+  regime?: RegimeDre
   mes: string
   atual: DreLinhaV3
   anterior: DreLinhaV3 | null

@@ -30,11 +30,11 @@ function detalhe(mes: string, cliente: string) {
   }
 }
 
-const getDreMesDetalhe = vi.fn(async (mes: string) => normalizarDreMesDetalhe(detalhe(mes, mes === '2026-09' ? 'Cliente Set' : 'Cliente Out'), mes))
+const getDreMesDetalhe = vi.fn(async (mes: string, _regime?: string) => normalizarDreMesDetalhe(detalhe(mes, mes === '2026-09' ? 'Cliente Set' : 'Cliente Out'), mes))
 vi.mock('../../services/financeiro-dre', () => ({
-  DRE_QK: { anual: (i: string, f: string) => ['fin2', 'dre-v3', i, f], mes: (m: string) => ['fin2', 'dre-mes', m] },
+  DRE_QK: { anual: (i: string, f: string, r: string) => ['fin2', 'dre-v3', i, f, r], mes: (m: string, r: string) => ['fin2', 'dre-mes', m, r] },
   getDreAnualV3: vi.fn(async () => normalizarDreAnualV3({ inicio: '2026-01', fim: '2026-12', meses: [setembro, outubro], totais: setembro }, { inicio: '2026-01', fim: '2026-12' })),
-  getDreMesDetalhe: (mes: string) => getDreMesDetalhe(mes),
+  getDreMesDetalhe: (mes: string, regime: string) => getDreMesDetalhe(mes, regime),
 }))
 
 vi.mock('../../hooks/useFinanceiro', async (importOriginal) => ({
@@ -116,7 +116,7 @@ describe('DrePanel linhas expansíveis', () => {
     renderPanel()
     const out = await screen.findByRole('button', { name: 'Detalhe de outubro de 2026' })
     fireEvent.mouseEnter(out.closest('tr') as HTMLElement)
-    await waitFor(() => expect(getDreMesDetalhe).toHaveBeenCalledWith('2026-10'))
+    await waitFor(() => expect(getDreMesDetalhe).toHaveBeenCalledWith('2026-10', 'caixa_vencimento'))
     // já em cache: abrir não refaz a requisição
     const chamadas = getDreMesDetalhe.mock.calls.length
     fireEvent.click(out)
@@ -179,4 +179,17 @@ describe('DreMesInline cliente com uma marca', () => {
     fireEvent.click(screen.getByRole('button', { name: /Farol/ }))
     expect(screen.getByText(/Marca afiliada: o GMV dela não é receita da casa/)).toBeTruthy()
   })
+})
+
+it('mantém regime no detalhe e no prefetch após alternar a consulta', async () => {
+  const api = await import('../../services/financeiro-dre')
+  renderPanel()
+  await screen.findByRole('heading', { name: /DRE/ })
+  expect(api.getDreAnualV3).toHaveBeenCalledWith('2026-01', '2026-12', 'caixa_vencimento')
+  fireEvent.mouseEnter(screen.getByRole('button', { name: 'Detalhe de outubro de 2026' }))
+  await waitFor(() => expect(getDreMesDetalhe).toHaveBeenCalledWith('2026-10', 'caixa_vencimento'))
+  fireEvent.change(screen.getByRole('combobox', { name: 'Regime do DRE' }), { target: { value: 'competencia' } })
+  await waitFor(() => expect(api.getDreAnualV3).toHaveBeenCalledWith('2026-01', '2026-12', 'competencia'))
+  fireEvent.click(await screen.findByRole('button', { name: 'Detalhe de outubro de 2026' }))
+  await waitFor(() => expect(getDreMesDetalhe).toHaveBeenCalledWith('2026-10', 'competencia'))
 })
