@@ -126,6 +126,20 @@ describe('PainelMes', () => {
     expect(onConfigurar).not.toHaveBeenCalled()
   })
 
+  it('oculta saldo em cache no erro e mantém o saldo durante atualização sem erro', () => {
+    const onRetry = vi.fn()
+    const { rerender } = render(ui({}, { onRetry }))
+    expect(screen.getByLabelText('Saldo atual R$ 1.500,00')).toBeTruthy()
+    rerender(ui({}, { isLoading: true, onRetry }))
+    expect(screen.getByLabelText('Saldo atual R$ 1.500,00')).toBeTruthy()
+    rerender(ui({}, { isError: true, onRetry }))
+    expect(screen.getByRole('alert')).toBeTruthy()
+    expect(screen.queryByLabelText('Saldo atual R$ 1.500,00')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Ver 2 atrasados/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
   it('skeleton enquanto carrega e erro com retry', () => {
     const { rerender } = render(<PainelMes painel={undefined} isLoading isError={false} podeEscrever onConfigurar={() => {}} onRetry={() => {}} />)
     expect(screen.getByLabelText('Carregando painel do mês')).toBeTruthy()

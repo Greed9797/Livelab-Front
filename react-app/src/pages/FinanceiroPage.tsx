@@ -125,7 +125,7 @@ export function FinanceiroPage() {
   }
 
   function confirmarBaixa(payload: { valor_pago: number; data_pagamento: string }) {
-    if (!baixa) return
+    if (!baixa || lancamentos.isError) return
     const entrada = baixa.natureza === 'receita'
     baixaMut.mutate(
       { lancamento: baixa, acao: 'pagar', payload },
@@ -139,7 +139,7 @@ export function FinanceiroPage() {
   }
 
   function confirmarDesfazer() {
-    if (!desfazer) return
+    if (!desfazer || lancamentos.isError) return
     baixaMut.mutate(
       { lancamento: desfazer, acao: 'desfazer' },
       {
@@ -195,7 +195,7 @@ export function FinanceiroPage() {
             onRetry={() => void painel.refetch()}
             onVerAtrasados={verAtrasados}
           />
-          {lancamentos.isError && !data ? (
+          {lancamentos.isError ? (
             <ErrorState message={extractErrorMessage(lancamentos.error)} onRetry={() => void lancamentos.refetch()} />
           ) : lancamentos.isLoading && !data ? (
             <LancamentosSkeleton />
@@ -277,14 +277,14 @@ export function FinanceiroPage() {
       ) : null}
 
       <BaixaModal
-        lancamento={baixa}
+        lancamento={lancamentos.isError ? null : baixa}
         onClose={() => setBaixa(null)}
         onConfirm={confirmarBaixa}
         isPending={baixaMut.isPending}
         error={baixaMut.error ? extractErrorMessage(baixaMut.error) : null}
       />
       <DesfazerModal
-        lancamento={desfazer}
+        lancamento={lancamentos.isError ? null : desfazer}
         onClose={() => setDesfazer(null)}
         onConfirm={confirmarDesfazer}
         isPending={baixaMut.isPending}
@@ -292,7 +292,7 @@ export function FinanceiroPage() {
       />
       <ExcluirModal
         key={excluir?.id ?? 'none'}
-        lancamento={excluir}
+        lancamento={lancamentos.isError ? null : excluir}
         onClose={() => setExcluir(null)}
         isPending={excluir && isReceitaAvulsa(excluir) ? receitas.excluir.isPending : custos.excluir.isPending}
         error={
