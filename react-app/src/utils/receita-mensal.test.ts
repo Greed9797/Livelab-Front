@@ -211,6 +211,7 @@ describe('apresentação', () => {
 
   it('nota competência × vencimento usa o mês selecionado no exemplo', () => {
     const n = notaCompetenciaVencimento('2026-10')
+    expect(n.competencia).toBe('Competência é o mês em que a receita foi ganha. No DRE por caixa, o realizado entra pela data do recebimento.')
     expect(n.exemplo).toBe('Ex.: o fixo de setembro vence em 05/10 — conta na competência de setembro, mas tem vencimento em outubro.')
     expect(notaCompetenciaVencimento('2026-01').exemplo).toMatch(/fixo de dezembro vence em 05\/01/)
   })

@@ -62,7 +62,7 @@ import { useToast } from '../ui/Toast'
 import { BaixaModal, DesfazerModal } from './LancamentoModals'
 import { PerdaModal } from './PerdaModal'
 import { type ReceitaModalState, ReceitaAvulsaModal } from './ReceitaAvulsaModal'
-import { ProgressBar, Segmented, StatusChip } from './primitives'
+import { Segmented, StatusChip } from './primitives'
 import './financeiro.css'
 
 type Acoes = {
@@ -81,8 +81,6 @@ function Tile({
   icon: Icon,
   color,
   soft,
-  destaque,
-  children,
 }: {
   label: string
   value: number
@@ -90,12 +88,10 @@ function Tile({
   icon: LucideIcon
   color: string
   soft: string
-  destaque?: boolean
-  children?: ReactNode
 }) {
   return (
     <div
-      className={clsx('fin-rise flex min-w-0 flex-col gap-2 p-4 sm:p-5', destaque ? 'design-panel col-span-2 lg:col-span-1' : 'design-card')}
+      className="design-card fin-rise flex min-w-0 flex-col gap-2 p-4 sm:p-5"
       aria-label={`${label}: ${formatMoney(value, true)}`}
       role="group"
     >
@@ -108,10 +104,41 @@ function Tile({
       <p className="num break-words text-[20px] font-bold leading-tight tracking-[-0.02em] text-ink sm:text-[26px] sm:leading-none">
         {formatMoney(value, true)}
       </p>
-      {children}
       <p className="text-xs text-ink-muted">{hint}</p>
     </div>
   )
+}
+
+function itensAindaAReceber(itens: LancamentoReceita[]) {
+  return itens.filter((item) => !isPerdido(item) && item.status !== 'cancelado'
+    && !item.cancelado_em && !item.suspensao_comercial?.ativa && valorEmAberto(item) > 0)
+}
+
+function somarSaldoAberto(itens: LancamentoReceita[]) {
+  return itens.reduce((centavos, item) => centavos + Math.round(valorEmAberto(item) * 100), 0) / 100
+}
+
+function DetalheAReceber({ data }: { data: ReceitaMensal }) {
+  const itens = itensAindaAReceber(data.vencimento.itens)
+  const total = somarSaldoAberto(itens)
+  const grupos = [
+    { titulo: 'Receita operacional', itens: itens.filter((item) => !isAporte(item)) },
+    { titulo: 'Aportes — fora da receita operacional', itens: itens.filter(isAporte) },
+  ]
+  return <details className="design-card p-4 sm:col-span-2">
+    <summary className="cursor-pointer text-sm font-semibold text-ink">O que falta receber</summary>
+    <p className="mt-2 text-xs text-ink-muted">Saldos dos vencimentos do mês, após recebimentos e perdas. Aportes estão incluídos no total, separados abaixo.</p>
+    {grupos.filter((grupo) => grupo.itens.length > 0).map((grupo) => <section key={grupo.titulo} aria-label={grupo.titulo} className="mt-4">
+      <h3 className="text-xs font-semibold text-ink-muted">{grupo.titulo}</h3>
+      <ul className="divide-y divide-line">{grupo.itens.map((item) => <li key={item.id} className="flex flex-wrap justify-between gap-3 py-3 text-sm">
+        <span>{item.descricao}<span className="block text-xs text-ink-muted">{formatDataCurta(item.data_vencimento)}{item.marca_nome ? ` · ${item.marca_nome}` : ''}</span></span>
+        <span className="num font-semibold">{formatMoney(valorEmAberto(item), true)}</span>
+      </li>)}</ul>
+    </section>)}
+    {itens.length === 0 ? <p className="mt-3 text-sm text-ink-muted">Nenhum saldo a receber nos vencimentos do mês.</p> : null}
+    <p className="mt-3 flex justify-between gap-3 border-t border-line pt-3 text-sm font-semibold" aria-label={`Total detalhado a receber: ${formatMoney(total, true)}`}><span>Total detalhado a receber</span><span className="num">{formatMoney(total, true)}</span></p>
+    {Math.round(total * 100) !== Math.round(data.vencimento.total.aberto * 100) ? <p role="status" className="mt-2 text-xs text-ink-muted">O total dos itens detalhados difere do saldo informado no resumo em {formatMoney(Math.abs(total - data.vencimento.total.aberto), true)}. O resumo mantém o total informado pelo financeiro.</p> : null}
+  </details>
 }
 
 export function ResumoReceita({ data, visao }: { data: ReceitaMensal; visao: VisaoReceita }) {
@@ -120,15 +147,17 @@ export function ResumoReceita({ data, visao }: { data: ReceitaMensal; visao: Vis
   const base = visao === 'competencia' ? `competência de ${nomeMes}` : `vencendo em ${nomeMes}`
   if (visao === 'vencimento') {
     const recebimentos = data.recebimentos_mes
-    return <section aria-label="Totais da receita" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Tile label="Previsto com vencimento no mês" value={t.previsto} hint={base} icon={CircleDollarSign} color="var(--primary)" soft="var(--primary-soft)" />
-      {recebimentos ? <>
-        <Tile label="Recebido no mês" value={recebimentos.operacional} hint="Recebimentos operacionais pela data do pagamento, incluindo títulos de outros meses." icon={Wallet} color="var(--success)" soft="var(--success-soft)" />
-        <Tile label="Aportes recebidos no mês" value={recebimentos.aportes} hint="Fora da receita operacional." icon={Landmark} color="var(--info)" soft="var(--info-soft)" />
-      </> : <p role="status" className="text-sm text-ink-muted">Recebimentos do mês indisponíveis. Atualize os dados para consultar os movimentos de caixa.</p>}
-      <Tile label="Em aberto dos vencimentos do mês" value={t.aberto} hint="Saldo restante dos títulos com vencimento neste mês, após baixas e perdas." icon={Hourglass} color="var(--warning)" soft="var(--warning-soft)" />
-      {t.perdido > 0 ? <p className="sm:col-span-2 lg:col-span-4 text-sm text-ink-muted">Perdido: {formatMoney(t.perdido, true)}. Fora do saldo em aberto.</p> : null}
-      {recebimentos ? <details className="sm:col-span-2 lg:col-span-4 design-card p-4">
+    return <section aria-label="Totais da receita" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {recebimentos ? <Tile label="Recebido no mês" value={recebimentos.operacional} hint="Recebimentos operacionais pela data do pagamento, incluindo títulos de outros meses." icon={Wallet} color="var(--success)" soft="var(--success-soft)" />
+        : <p role="status" className="design-card p-4 text-sm text-ink-muted">Recebimentos do mês indisponíveis. Atualize os dados para consultar os movimentos de caixa.</p>}
+      <Tile label="Ainda a receber" value={t.aberto} hint="Dos vencimentos do mês: saldo após recebimentos e perdas, incluindo aportes." icon={Hourglass} color="var(--warning)" soft="var(--warning-soft)" />
+      <dl aria-label="Informações complementares da receita" className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-ink-muted sm:col-span-2">
+        <div role="group" aria-label={`Previsto com vencimento no mês: ${formatMoney(t.previsto, true)}`}><dt className="inline">Previsto com vencimento no mês: </dt><dd className="num inline font-medium">{formatMoney(t.previsto, true)}</dd></div>
+        <div><dt className="inline">Perdido: </dt><dd className="num inline font-medium">{formatMoney(t.perdido, true)} <span className="font-normal">· fora do saldo em aberto</span></dd></div>
+        {recebimentos ? <div role="group" aria-label={`Aportes recebidos no mês: ${formatMoney(recebimentos.aportes, true)}`}><dt className="inline">Aportes recebidos no mês: </dt><dd className="num inline font-medium">{formatMoney(recebimentos.aportes, true)} <span className="font-normal">· fora da receita operacional</span></dd></div> : null}
+      </dl>
+      <DetalheAReceber data={data} />
+      {recebimentos ? <details className="sm:col-span-2 design-card p-4">
         <summary className="cursor-pointer text-sm font-semibold text-ink">Detalhar recebimentos do mês</summary>
         <p className="mt-2 text-xs text-ink-muted">Pagamentos e estornos registrados em {nomeMes}, independentemente do vencimento. O recebido de cada título na lista é acumulado.</p>
         <ul className="mt-3 divide-y divide-line">{recebimentos.itens.map((item) => <li key={`${item.tipo}:${item.id}`} className="flex flex-wrap justify-between gap-3 py-3 text-sm">
@@ -140,22 +169,13 @@ export function ResumoReceita({ data, visao }: { data: ReceitaMensal; visao: Vis
     </section>
   }
   return (
-    <section aria-label="Totais da receita" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-      <Tile destaque label="Previsto" value={t.previsto} hint={base} icon={CircleDollarSign} color="var(--primary)" soft="var(--primary-soft)">
-        <ProgressBar value={t.pago} max={t.previsto} color="var(--success)" label="Recebido sobre o previsto" />
-      </Tile>
-      <Tile label="Recebido" value={t.pago} hint={`${pctRecebido(t)}% do previsto`} icon={Wallet} color="var(--success)" soft="var(--success-soft)" />
-      <Tile
-        label="Em aberto"
-        value={t.aberto}
-        hint={t.perdido > 0 ? 'previsto − recebido − perdido' : 'previsto − recebido'}
-        icon={Hourglass}
-        color="var(--warning)"
-        soft="var(--warning-soft)"
-      />
+    <section aria-label="Totais da receita" className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+      <Tile label="Recebido" value={t.pago} hint={`Recebimentos acumulados dos títulos da ${base}.`} icon={Wallet} color="var(--success)" soft="var(--success-soft)" />
+      <Tile label="Ainda a receber" value={t.aberto} hint="Saldo restante dos títulos desta competência, após recebimentos e perdas." icon={Hourglass} color="var(--warning)" soft="var(--warning-soft)" />
+      <p role="group" aria-label={`Previsto: ${formatMoney(t.previsto, true)}`} className="text-xs text-ink-muted sm:col-span-2">Previsto na {base}: <span className="num font-medium">{formatMoney(t.previsto, true)}</span></p>
       {t.perdido > 0 ? (
         <p
-          className="col-span-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-line bg-surface-muted px-4 py-2.5 text-xs text-[var(--text-secondary)] lg:col-span-3"
+          className="sm:col-span-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-line bg-surface-muted px-4 py-2.5 text-xs text-[var(--text-secondary)]"
           aria-label={`Perdido: ${formatMoney(t.perdido, true)}`}
         >
           <Ban className="h-4 w-4 shrink-0 text-[var(--danger)]" aria-hidden />
@@ -583,7 +603,7 @@ function VisaoVencimento({ data, ...acoes }: Acoes & { data: ReceitaMensal }) {
                 ) : (
                   <span className="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">Sem vencimento</span>
                 )}
-                <span className="num text-xs font-semibold text-[var(--success)]">+ {formatMoney(g.previsto)}</span>
+                <span className="num text-xs font-semibold text-ink">Ainda a receber: {formatMoney(somarSaldoAberto(itensAindaAReceber(g.itens)), true)}</span>
               </div>
               <ul className="divide-y divide-[var(--hairline)]">
                 {g.itens.map((l) => {
@@ -766,7 +786,7 @@ export function ReceitaPanel({ mes, podeEscrever }: { mes: string; podeEscrever:
             Receita <span className="serif font-normal text-brand">{visao === 'competencia' ? 'por competência' : 'por vencimento'}</span>
           </h2>
           <p className="mt-0.5 text-xs text-ink-muted" aria-live="polite">
-            {visao === 'competencia' ? 'O que foi ganho no mês — bate com a receita do DRE.' : 'O que cai no caixa no mês — bate com as entradas do fluxo de caixa.'}
+            {visao === 'competencia' ? 'O que foi ganho no mês, com os recebimentos acumulados de cada título.' : 'Vencimentos do mês e recebimentos pela data do pagamento.'}
             {query.isFetching && data ? ' · atualizando…' : ''}
           </p>
           {corte ? <p className="mt-0.5 text-xs text-ink-muted">{corte}</p> : null}
@@ -813,8 +833,8 @@ export function ReceitaPanel({ mes, podeEscrever }: { mes: string; podeEscrever:
         </div>
       </header>
 
-      <ComparacaoPainelMes mes={mes} natureza="receita" />
       {corpo}
+      <ComparacaoPainelMes mes={mes} natureza="receita" />
 
       <BaixaModal
         lancamento={baixa}

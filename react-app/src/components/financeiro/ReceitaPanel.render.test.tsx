@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../ui/Toast'
 import { ReceitaPanel, ResumoReceita } from './ReceitaPanel'
@@ -168,7 +168,7 @@ describe('ReceitaPanel janela', () => {
 describe('recebimentos pelo mês do pagamento', () => {
   it('outubro mostra 20 mil recebidos mesmo com vencimentos e baixas acumuladas distintos', () => {
     const data = normalizarReceitaMensal({
-      mes: '2026-10', vencimento: { total: { previsto: 10000, pago: 3000, aberto: 7000 }, itens: [] },
+      mes: '2026-10', vencimento: { total: { previsto: 10000, pago: 3000, aberto: 7000 }, itens: [{ id: 'parcial', descricao: 'Saldo de outubro', valor_previsto: 10000, valor_pago: 3000, data_vencimento: '2026-10-05' }] },
       recebimentos_mes: { operacional: '20000.00', aportes: '5000.00', total: '25000.00', itens: [
         { id: 'p1', tipo: 'liquidacao', data: '2026-10-05', valor: '20500', descricao: 'Título de agosto', grupo: 'comercial' },
         { id: 'e1', tipo: 'estorno', data: '2026-10-06', valor: '-500', descricao: 'Estorno de agosto', grupo: 'comercial' },
@@ -178,7 +178,7 @@ describe('recebimentos pelo mês do pagamento', () => {
     render(<ResumoReceita data={data} visao="vencimento" />)
     expect(screen.getByRole('group', { name: 'Recebido no mês: R$ 20.000,00' })).toBeTruthy()
     expect(screen.getByRole('group', { name: 'Aportes recebidos no mês: R$ 5.000,00' })).toBeTruthy()
-    expect(screen.getByRole('group', { name: 'Em aberto dos vencimentos do mês: R$ 7.000,00' })).toBeTruthy()
+    expect(screen.getByRole('group', { name: 'Ainda a receber: R$ 7.000,00' })).toBeTruthy()
     fireEvent.click(screen.getByText('Detalhar recebimentos do mês'))
     expect(screen.getByText('Título de agosto')).toBeTruthy()
     expect(screen.getByText('-R$ 500,00')).toBeTruthy()
@@ -225,4 +225,83 @@ it.each([
   expect(screen.queryByRole('button', { name: 'Dar como perdida: Fixo suspenso' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Desfazer recebimento: Fixo suspenso' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Desfazer perda: Fixo suspenso' })).toBeTruthy()
+})
+
+
+function receitaComSeteSaldos() {
+  const saldos = [169.44, 3159.20, 61.24, 28806.69, 3500, 4412.38, 3500]
+  return normalizarReceitaMensal({
+    mes: '2026-10', hoje: '2026-10-08',
+    vencimento: { total: { previsto: 79000, pago: 20000, aberto: 43608.95 }, itens: [
+      ...saldos.map((saldo, i) => ({
+        id: `aberto-${i}`, descricao: `Cobrança ${i + 1}`, natureza: 'receita',
+        valor_previsto: i === 0 ? 1000 : saldo, valor_pago: i === 0 ? 830.56 : 0,
+        data_vencimento: `2026-10-${i < 5 ? '05' : '20'}`,
+        grupo: i === 6 ? 'aporte' : 'comercial',
+      })),
+      { id: 'pago', descricao: 'Cobrança recebida', valor_previsto: 600, valor_pago: 600, data_vencimento: '2026-10-05' },
+      { id: 'perdido', descricao: 'Cobrança perdida', valor_previsto: 900, valor_pago: 0, status: 'perdido', data_vencimento: '2026-10-05' },
+      { id: 'cancelado', descricao: 'Cobrança cancelada', valor_previsto: 800, valor_pago: 0, status: 'cancelado', data_vencimento: '2026-10-05' },
+      { id: 'suspenso', descricao: 'Cobrança suspensa', valor_previsto: 700, valor_pago: 100, suspensao_comercial: { ativa: true }, data_vencimento: '2026-10-05' },
+      { id: 'cancelamento', descricao: 'Cobrança com cancelamento', valor_previsto: 500, valor_pago: 0, cancelado_em: '2026-10-07', data_vencimento: '2026-10-05' },
+    ] },
+    recebimentos_mes: { operacional: 20000, aportes: 1500, total: 21500, itens: [] },
+  }, '2026-10')
+}
+
+it('prioriza recebido e saldo; detalha sete saldos reais, com parcial e aportes separados', () => {
+  const data = receitaComSeteSaldos()
+  render(<ResumoReceita data={data} visao="vencimento" />)
+  const resumo = screen.getByRole('region', { name: 'Totais da receita' })
+  const grupos = within(resumo).getAllByRole('group')
+  expect(grupos.slice(0, 2).map((grupo) => grupo.getAttribute('aria-label'))).toEqual([
+    'Recebido no mês: R$ 20.000,00', 'Ainda a receber: R$ 43.608,95',
+  ])
+  expect(grupos[0].classList.contains('design-card')).toBe(true)
+  expect(grupos[1].classList.contains('design-card')).toBe(true)
+  const secundario = screen.getByRole('group', { name: 'Previsto com vencimento no mês: R$ 79.000,00' })
+  expect(secundario.closest('dl')?.classList.contains('text-xs')).toBe(true)
+  expect(secundario.classList.contains('design-card')).toBe(false)
+  const detalhes = screen.getByText('O que falta receber').closest('details')!
+  fireEvent.click(screen.getByText('O que falta receber'))
+  expect(detalhes.open).toBe(true)
+  expect(within(detalhes).getAllByRole('listitem')).toHaveLength(7)
+  expect(within(detalhes).getByText('R$ 169,44')).toBeTruthy()
+  expect(within(detalhes).queryByText('R$ 1.000,00')).toBeNull()
+  expect(within(detalhes).getByLabelText('Total detalhado a receber: R$ 43.608,95')).toBeTruthy()
+  const aportes = within(detalhes).getByRole('region', { name: 'Aportes — fora da receita operacional' })
+  expect(within(aportes).getByText('Cobrança 7')).toBeTruthy()
+  for (const nome of ['Cobrança recebida', 'Cobrança perdida', 'Cobrança cancelada', 'Cobrança suspensa', 'Cobrança com cancelamento']) {
+    expect(within(detalhes).queryByText(nome)).toBeNull()
+  }
+  expect(within(detalhes).queryByRole('status')).toBeNull()
+})
+
+it('preserva o total da API e informa divergência entre total e itens sem substituição silenciosa', () => {
+  const data = receitaComSeteSaldos()
+  data.vencimento.total.aberto = 44000
+  render(<ResumoReceita data={data} visao="vencimento" />)
+  expect(screen.getByRole('group', { name: 'Ainda a receber: R$ 44.000,00' })).toBeTruthy()
+  fireEvent.click(screen.getByText('O que falta receber'))
+  expect(screen.getByRole('status').textContent).toContain('R$ 391,05')
+})
+
+it('competência mantém recebido e saldo antes do previsto secundário', () => {
+  render(<ResumoReceita data={normalizarReceitaMensal(raw, '2026-09')} visao="competencia" />)
+  const grupos = screen.getAllByRole('group')
+  expect(grupos.map((grupo) => grupo.getAttribute('aria-label')?.split(':')[0])).toEqual(['Recebido', 'Ainda a receber', 'Previsto'])
+  expect(grupos[2].classList.contains('text-xs')).toBe(true)
+})
+
+it('cabeçalhos diários mostram só saldo restante e comparação vem após as receitas', async () => {
+  const api = await import('../../services/financeiro-receita')
+  vi.mocked(api.getReceitaMensal).mockResolvedValueOnce(receitaComSeteSaldos())
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastProvider><ReceitaPanel mes="2026-10" podeEscrever={false} /></ToastProvider></QueryClientProvider>)
+  await screen.findByRole('region', { name: 'Totais da receita' })
+  fireEvent.click(screen.getByRole('tab', { name: 'Vencimento' }))
+  const vencimentos = screen.getByRole('region', { name: 'Receitas por vencimento' })
+  expect(within(vencimentos).getByText('Ainda a receber: R$ 35.696,57')).toBeTruthy()
+  expect(within(vencimentos).getByText('Ainda a receber: R$ 7.912,38')).toBeTruthy()
+  const comparacao = await screen.findByRole('region', { name: 'Comparação com o painel do mês' })
+  expect(vencimentos.compareDocumentPosition(comparacao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
