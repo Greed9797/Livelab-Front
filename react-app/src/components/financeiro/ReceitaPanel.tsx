@@ -271,24 +271,58 @@ function BaixaBotoes({ l, podeEscrever, onBaixar, onDesfazer, onPerda, onEditar 
 }
 
 /** Registro da perda: quando e por quê (linha visível; o motivo também vai no tooltip). */
+function valorPerdido(l: Lancamento) {
+  return (l.valor_perdido ?? 0) > 0 ? l.valor_perdido! : (isPerdido(l) ? Math.max(0, l.valor_previsto - l.valor_pago) : 0)
+}
+
 function InfoPerda({ l }: { l: LancamentoReceita }) {
   const motivo = motivoPerda(l)
   const em = l.perdido_em ? formatDataCurta(l.perdido_em.slice(0, 10)) : null
+  const parcial = perdaParcial(l)
   return (
-    <span className="mt-0.5 block text-[11px] text-[var(--danger)]" title={motivo ? `Motivo: ${motivo}` : 'Sem motivo informado'}>
-      {isPerdido(l) ? 'Perdido' : 'Perda parcial'}{em ? ` em ${em}` : ''} · {motivo ? `motivo: ${motivo}` : 'sem motivo informado'}
+    <span className={clsx('mt-0.5 block text-[11px]', parcial ? 'text-[var(--warning)]' : 'text-[var(--danger)]')} title={motivo ? `Motivo: ${motivo}` : 'Sem motivo informado'}>
+      {parcial ? 'Perda parcial' : isPerdido(l) ? 'Perdido' : 'Perda parcial'}{em ? ` em ${em}` : ''} · {motivo ? `motivo: ${motivo}` : 'sem motivo informado'}
     </span>
   )
 }
 
+function perdaParcial(l: Lancamento) {
+  const perdido = valorPerdido(l)
+  return perdido > 0 && (l.valor_pago > 0 || !isPerdido(l))
+}
+
+function perdaEncerrada(l: Lancamento) {
+  const perdido = valorPerdido(l)
+  return isPerdido(l) || l.valor_previsto - l.valor_pago - perdido <= 0
+}
+
+function ReceitaStatus({ l, className }: { l: Lancamento; className?: string }) {
+  if (l.status === 'cancelado' || l.suspensao_comercial?.ativa) {
+    return <StatusChip status={l.status} natureza="receita" className={className} />
+  }
+  if (perdaParcial(l)) {
+    return <span className={clsx('inline-flex w-fit items-center rounded-full border border-[var(--warning)] bg-[var(--warning-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--warning)]', className)}>
+      {perdaEncerrada(l) && l.valor_pago > 0 ? 'Recebido com perda' : 'Perda parcial'}
+    </span>
+  }
+  return <StatusChip status={l.status} natureza="receita" className={className} />
+}
+
 function ValorTitulo({ l }: { l: Lancamento }) {
-  const aberto = valorEmAberto(l)
+  const aberto = isPerdido(l) || l.status === 'cancelado' || Boolean(l.cancelado_em) || l.suspensao_comercial?.ativa ? 0 : valorEmAberto(l)
+  if (perdaParcial(l)) {
+    return <div className="min-w-0 text-right">
+      {l.valor_pago > 0 ? <p className="num break-words text-sm font-bold text-[var(--success)]">Recebido {formatMoney(l.valor_pago, true)}</p> : null}
+      <p className="num break-words text-[11px] font-medium text-[var(--warning)]">Perdido {formatMoney(valorPerdido(l), true)}</p>
+      {aberto > 0 ? <p className="num break-words text-[11px] text-ink-muted">Em aberto {formatMoney(aberto, true)}</p> : null}
+    </div>
+  }
   if (isPerdido(l)) {
     return (
       <div className="text-right">
-        <p className="num text-sm font-bold text-ink-muted line-through decoration-1">{formatMoney(l.valor_previsto, true)}</p>
+        <p className="num text-sm font-bold text-[var(--warning)]">Perdido {formatMoney(valorPerdido(l), true)}</p>
         <p className="num text-[11px] text-ink-muted">
-          {l.valor_pago > 0 ? `recebido ${formatMoney(l.valor_pago, true)} · ` : ''}perdido {formatMoney(l.valor_perdido ?? Math.max(0, l.valor_previsto - l.valor_pago), true)}
+          {l.valor_pago > 0 ? `Recebido ${formatMoney(l.valor_pago, true)}` : `Valor original ${formatMoney(l.valor_previsto, true)}`}
         </p>
       </div>
     )
@@ -314,7 +348,7 @@ function TituloLinha({ t, ...acoes }: Acoes & { t: TituloReceita }) {
     <li
       className={clsx(
         'fin-row grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-2.5 sm:grid-cols-[7.5rem_1fr_auto_auto_auto] sm:px-5',
-        isPerdido(t) && 'opacity-70',
+        isPerdido(t) && !perdaParcial(t) && 'opacity-70',
       )}
       data-status={t.status}
     >
@@ -332,7 +366,7 @@ function TituloLinha({ t, ...acoes }: Acoes & { t: TituloReceita }) {
         {isPerdido(t) || (t.valor_perdido ?? 0) > 0 ? <InfoPerda l={t} /> : null}
       </div>
       <span className="hidden sm:block" aria-hidden />
-      <StatusChip status={t.status} natureza="receita" className="justify-self-start sm:justify-self-end" />
+      <ReceitaStatus l={t} className="justify-self-start sm:justify-self-end" />
       <ValorTitulo l={t} />
       <div className="col-span-2 sm:col-span-1">
         <BaixaBotoes l={t} {...acoes} />
@@ -449,7 +483,7 @@ function ClienteCard({ c, aberto, onToggle, ...acoes }: Acoes & { c: ReceitaClie
 function AvulsaLinha({ l, onEditar, ...acoes }: Acoes & { l: LancamentoReceita; onEditar?: (l: Lancamento) => void }) {
   return (
     <li
-      className={clsx('fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5', isPerdido(l) && 'opacity-70')}
+      className={clsx('fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5', isPerdido(l) && !perdaParcial(l) && 'opacity-70')}
       data-status={l.status}
     >
       <div className="min-w-0 flex-1 basis-full sm:basis-auto">
@@ -460,7 +494,7 @@ function AvulsaLinha({ l, onEditar, ...acoes }: Acoes & { l: LancamentoReceita; 
         </p>
         {isPerdido(l) || (l.valor_perdido ?? 0) > 0 ? <InfoPerda l={l} /> : null}
       </div>
-      <StatusChip status={l.status} natureza="receita" />
+      <ReceitaStatus l={l} />
       <div className="ml-auto sm:ml-0 sm:w-36">
         <ValorTitulo l={l} />
       </div>
@@ -614,7 +648,7 @@ function VisaoVencimento({ data, ...acoes }: Acoes & { data: ReceitaMensal }) {
                   return (
                     <li
                       key={l.id}
-                      className={clsx('fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5', isPerdido(l) && 'opacity-70')}
+                      className={clsx('fin-row flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap sm:px-5', isPerdido(l) && !perdaParcial(l) && 'opacity-70')}
                       data-status={l.status}
                     >
                       <span
@@ -631,7 +665,7 @@ function VisaoVencimento({ data, ...acoes }: Acoes & { data: ReceitaMensal }) {
                         </p>
                         {isPerdido(l) || (l.valor_perdido ?? 0) > 0 ? <InfoPerda l={l} /> : null}
                       </div>
-                      <StatusChip status={l.status} natureza="receita" />
+                      <ReceitaStatus l={l} />
                       <div className="ml-auto sm:ml-0 sm:w-36">
                         <ValorTitulo l={l} />
                       </div>
