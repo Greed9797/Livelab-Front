@@ -110,7 +110,7 @@ export function notaCompetenciaVencimento(mes: string): { competencia: string; v
   const nomeAnterior = mesLabel(anterior).split(' de ')[0]
   const nomeMes = mesLabel(mes).split(' de ')[0]
   return {
-    competencia: 'Competência é o mês em que a receita foi ganha (regime de competência do DRE).',
+    competencia: 'Competência é o mês em que a receita foi ganha. No DRE por caixa, o realizado entra pela data do recebimento.',
     vencimento: 'Vencimento é a data prevista para pagar. Recebido no mês considera a data efetiva do pagamento, inclusive de títulos de outros meses.',
     exemplo: `Ex.: o fixo de ${nomeAnterior} vence em 05/${mm} — conta na competência de ${nomeAnterior}, mas tem vencimento em ${nomeMes}.`,
   }
