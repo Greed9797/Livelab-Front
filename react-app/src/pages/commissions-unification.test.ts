@@ -23,9 +23,8 @@ describe('comissões: apuração e regras', () => {
     expect(regrasSource).not.toContain('getComissoesMarcas')
   })
 
-  it('does not present the legacy flat commission as an active presenter base', () => {
-    expect(usuariosSource).toContain('FaixaBadge')
-    expect(usuariosSource).toContain('formatMoney(item.fixo_mensal ?? item.fixo)')
+  it('keeps legacy flat commission out of the compact user directory', () => {
+    expect(usuariosSource).not.toContain('comissao_pct')
     expect(usuariosSource).not.toContain('base {asNumber(item.comissao_pct)')
   })
 })

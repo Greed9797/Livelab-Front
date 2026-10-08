@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { queryClient } from '../services/query-client'
 import { QK } from '../services/query-keys'
 import * as authService from '../services/auth'
+import { saveUser } from '../services/auth-storage'
 import { useAuthStore } from './auth-store'
 
 vi.mock('../services/auth', () => ({ login: vi.fn(), logout: vi.fn().mockResolvedValue(undefined) }))
@@ -23,6 +24,34 @@ describe('isolamento de sessão do portal', () => {
     await useAuthStore.getState().login(user.email, 'fixture')
     expect(useAuthStore.getState().user?.id).toBe(user.id)
     expect(queryClient.getQueryData(priorKey)).toBeUndefined()
+  })
+
+  it('não chama credenciais recusadas de sessão expirada no formulário de login', async () => {
+    vi.mocked(authService.login).mockRejectedValue({ isAxiosError: true, response: { status: 401 } })
+
+    await useAuthStore.getState().login('a@example.test', 'incorrect')
+
+    expect(useAuthStore.getState().error).toBe('E-mail ou senha inválidos. Confira os dados e tente novamente.')
+  })
+
+  it('atualiza somente o nome de exibição do tenant da sessão', async () => {
+    useAuthStore.setState({ user })
+
+    useAuthStore.getState().updateTenantDisplayName('unit-a', 'Unidade Atualizada')
+
+    expect(useAuthStore.getState().user).toEqual({ ...user, tenant_nome: 'Unidade Atualizada' })
+    expect(useAuthStore.getState().user?.nome).toBe(user.nome)
+    expect(useAuthStore.getState().user?.papel).toBe(user.papel)
+    expect(useAuthStore.getState().user?.tenant_id).toBe(user.tenant_id)
+    expect(saveUser).toHaveBeenCalledWith({ ...user, tenant_nome: 'Unidade Atualizada' })
+  })
+
+  it('ignora atualização para um tenant diferente', () => {
+    useAuthStore.setState({ user })
+
+    useAuthStore.getState().updateTenantDisplayName('unit-b', 'Outra unidade')
+
+    expect(useAuthStore.getState().user).toEqual(user)
   })
 
   it.each(['logout', 'expire'] as const)('remove dados privados ao executar %s', async (action) => {

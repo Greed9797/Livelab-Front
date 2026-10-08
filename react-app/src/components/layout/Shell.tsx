@@ -135,6 +135,7 @@ function Sidebar({
             <div className="flex min-w-0 items-center gap-3">
               <AccountAvatar user={user} />
               <div className="min-w-0">
+                <p className="text-[10px] font-semibold text-ink-muted">Conta conectada</p>
                 <p className="truncate text-sm font-bold text-ink">{user?.nome}</p>
                 <p className="mt-1 truncate text-xs text-ink-muted">{roleLabel(user?.papel)}</p>
               </div>

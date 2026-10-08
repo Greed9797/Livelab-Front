@@ -28,20 +28,31 @@ import {
   getApresentadoraFaixasComissao,
   getApresentadoras,
   getClientes,
+  getConvitesPendentes,
   getUsuarios,
-  reenviarConviteUsuario,
   resetSenhaUsuario,
+  reenviarConviteUsuario,
   uploadImageAsset,
   updateApresentadora,
   updateUsuario,
 } from '../services/domain'
 import type { JsonRecord } from '../types/models'
 import { UsuariosList } from '../components/configuracoes/UsuariosList'
+import { ResetSenhaModal } from '../components/configuracoes/ResetSenhaModal'
 import { UsuarioForm, type CreateFormState } from '../components/configuracoes/UsuarioForm'
 import { UsuarioPapelSelect } from '../components/configuracoes/UsuarioPapelSelect'
 import { ApresentadoraRemuneracao } from '../components/configuracoes/ApresentadoraRemuneracao'
 import { ApresentadoraFaixas } from '../components/configuracoes/ApresentadoraFaixas'
 import { HistoricoAuditModal } from '../components/audit/HistoricoAuditModal'
+import { useCurrentUser } from '../stores/auth-store'
+import {
+  attachPendingInvites,
+  consolidateSettingsUserRows,
+  filterSettingsUserRows,
+  rowsMatchingSettingsToolbar,
+  settingsViewCounts,
+  type SettingsUserView,
+} from '../components/configuracoes/settings-user-rows'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,22 +71,17 @@ function isPresenterUser(item: JsonRecord | null | undefined) {
 }
 
 function presenterFixedValue(item: JsonRecord | null | undefined) {
-  const value = asNumber(item?.fixo_mensal ?? item?.fixo)
-  return value > 0 ? String(value) : '2700'
+  const value = item?.fixo_mensal ?? item?.fixo
+  return value === null || value === undefined || value === '' ? '' : String(asNumber(value))
 }
 
-function matchesSearch(item: JsonRecord, term: string) {
-  if (!term) return true
-  const haystack = [item.nome, item.email, item.telefone, item.cidade, item.papel, item.origem_perfil]
-    .map((v) => asString(v, '').toLowerCase())
-    .join(' ')
-  return haystack.includes(term)
-}
-
-const statusOptions = [
-  { value: 'true', label: 'Ativos' },
-  { value: 'all', label: 'Todos' },
-  { value: 'false', label: 'Inativos' },
+const papelOptions = [
+  { value: 'gerente', label: 'Gerente' },
+  { value: 'gerente_comercial', label: 'Gerente comercial' },
+  { value: 'financeiro', label: 'Financeiro' },
+  { value: 'operacional', label: 'Operacional' },
+  { value: 'apresentador', label: 'Apresentadora' },
+  { value: 'cliente_parceiro', label: 'Cliente parceiro' },
 ]
 
 // comissao_pct plano saiu dos formulários: o cálculo de comissão ignora esse campo —
@@ -104,25 +110,40 @@ const emptyEditForm = {
 
 const emptyFaixaForm = { gmv_inicio: '0', gmv_fim: '', comissao_pct: '0' }
 
+function sameEditForm(a: typeof emptyEditForm, b: typeof emptyEditForm) {
+  return Object.keys(emptyEditForm).every((key) => a[key as keyof typeof emptyEditForm] === b[key as keyof typeof emptyEditForm])
+}
+
 // ---------------------------------------------------------------------------
 // Panel
 // ---------------------------------------------------------------------------
 
 export function SettingsUsuariosPanel() {
   const client = useQueryClient()
+  const currentUser = useCurrentUser()
   const [form, setForm] = useState<CreateFormState>(emptyForm)
   const [isCreateOpen, setCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<JsonRecord | null>(null)
   const [editForm, setEditForm] = useState(emptyEditForm)
+  const [originalEditForm, setOriginalEditForm] = useState(emptyEditForm)
   const [faixaForm, setFaixaForm] = useState(emptyFaixaForm)
   const [searchTerm, setSearchTerm] = useState('')
   const [papelFilter, setPapelFilter] = useState('all')
-  const [ativoFilter, setAtivoFilter] = useState('true')
-  const [auditUserId, setAuditUserId] = useState<string | null>(null)
+  const [view, setView] = useState<SettingsUserView>('active')
+  const [auditTarget, setAuditTarget] = useState<{ id: string; type: 'user' | 'apresentadora'; title: string } | null>(null)
+  const [resetUser, setResetUser] = useState<JsonRecord | null>(null)
+  const [inviteNotice, setInviteNotice] = useState('')
 
-  const usuarios = useQuery({ queryKey: QK.usuarios, queryFn: getUsuarios })
+  const usuariosQueryKey = QK.configuracaoUsuarios(currentUser?.tenant_id, 'usuarios')
+  const apresentadorasQueryKey = QK.configuracaoUsuarios(currentUser?.tenant_id, 'apresentadoras')
+  const convitesQueryKey = QK.configuracaoUsuarios(currentUser?.tenant_id, 'convites')
+  const usuarios = useQuery({ queryKey: usuariosQueryKey, queryFn: () => getUsuarios({ include_inactive: true }) })
+  const convites = useQuery({ queryKey: convitesQueryKey, queryFn: getConvitesPendentes })
   const clientes = useQuery({ queryKey: QK.clientes(), queryFn: () => getClientes() })
-  const apresentadoras = useQuery({ queryKey: QK.apresentadoras(), queryFn: getApresentadoras })
+  const apresentadoras = useQuery({
+    queryKey: apresentadorasQueryKey,
+    queryFn: () => getApresentadoras({ include_inactive: true }),
+  })
 
   const presenterProfileOptions = useMemo(
     () => toPresenterOptions((apresentadoras.data ?? []).filter((item) => !asString(item.user_id, ''))),
@@ -138,13 +159,22 @@ export function SettingsUsuariosPanel() {
     enabled: Boolean(editingPresenterId) && editingHasPresenterProfile,
   })
 
+  function invalidateUserDirectory() {
+    void client.invalidateQueries({ queryKey: usuariosQueryKey })
+    void client.invalidateQueries({ queryKey: apresentadorasQueryKey })
+    void client.invalidateQueries({ queryKey: convitesQueryKey })
+    // Consumers outside Configurações intentionally retain their active-only cache keys.
+    void client.invalidateQueries({ queryKey: QK.usuarios })
+    void client.invalidateQueries({ queryKey: QK.apresentadoras() })
+  }
+
   // ---- Mutations ------------------------------------------------------------
   const inviteMutation = useMutation({
     mutationFn: convidarUsuario,
     onSuccess: () => {
       setForm(emptyForm)
       setCreateOpen(false)
-      void client.invalidateQueries({ queryKey: QK.usuarios })
+      invalidateUserDirectory()
       void client.invalidateQueries({ queryKey: QK.clientes() })
       void client.invalidateQueries({ queryKey: QK.cadastros() })
       void client.invalidateQueries({ queryKey: QK.apresentadoras() })
@@ -163,7 +193,7 @@ export function SettingsUsuariosPanel() {
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateUsuario(id, payload),
     onSuccess: () => {
       setEditingUser(null); setEditForm(emptyEditForm)
-      void client.invalidateQueries({ queryKey: ['usuarios'] })
+      invalidateUserDirectory()
       invalidateFinanceiro(client)
     },
   })
@@ -171,37 +201,41 @@ export function SettingsUsuariosPanel() {
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateApresentadora(id, payload),
     onSuccess: () => {
       setEditingUser(null); setEditForm(emptyEditForm)
-      void client.invalidateQueries({ queryKey: ['usuarios'] })
-      void client.invalidateQueries({ queryKey: ['apresentadoras'] })
+      invalidateUserDirectory()
       invalidateFinanceiro(client)
     },
   })
   const deleteMutation = useMutation({
     mutationFn: deleteUsuario,
     onSuccess: (_data, id) => {
-      setAtivoFilter('true'); setEditingUser(null); setEditForm(emptyEditForm)
+      setView('active'); setEditingUser(null); setEditForm(emptyEditForm); setOriginalEditForm(emptyEditForm)
       client.setQueriesData<JsonRecord[]>({ queryKey: QK.usuarios }, (old) =>
         Array.isArray(old) ? old.filter((item) => asString(item.id, '') !== id) : old)
-      void client.invalidateQueries({ queryKey: ['usuarios'] })
+      invalidateUserDirectory()
       invalidateFinanceiro(client)
     },
   })
   const deletePresenterMutation = useMutation({
     mutationFn: deleteApresentadora,
     onSuccess: (_data, id) => {
-      setAtivoFilter('true'); setEditingUser(null); setEditForm(emptyEditForm)
+      setView('active'); setEditingUser(null); setEditForm(emptyEditForm); setOriginalEditForm(emptyEditForm)
       client.setQueriesData<JsonRecord[]>({ queryKey: QK.apresentadoras() }, (old) =>
         Array.isArray(old) ? old.filter((item) => asString(item.id, '') !== id) : old)
-      void client.invalidateQueries({ queryKey: ['usuarios'] })
-      void client.invalidateQueries({ queryKey: ['apresentadoras'] })
+      invalidateUserDirectory()
       invalidateFinanceiro(client)
     },
   })
-  const resetMutation = useMutation({ mutationFn: resetSenhaUsuario })
+  const resetMutation = useMutation({ mutationFn: resetSenhaUsuario, gcTime: 0 })
   const logoutMutation = useMutation({ mutationFn: forceLogoutUsuario })
-  const resendMutation = useMutation({
+  const resendInviteMutation = useMutation({
     mutationFn: reenviarConviteUsuario,
-    onSuccess: () => void client.invalidateQueries({ queryKey: ['usuarios'] }),
+    onSuccess: (result) => {
+      setInviteNotice(result.invite_enviado === true
+        ? 'Convite renovado e e-mail enviado.'
+        : 'Convite renovado, mas o e-mail não foi confirmado como enviado. Verifique a entrega antes de orientar a pessoa.')
+      void client.invalidateQueries({ queryKey: convitesQueryKey })
+      void client.invalidateQueries({ queryKey: usuariosQueryKey })
+    },
   })
   const createFaixaMutation = useMutation({
     mutationFn: ({ apresentadoraId, payload }: { apresentadoraId: string; payload: JsonRecord }) => createApresentadoraFaixaComissao(apresentadoraId, payload),
@@ -217,32 +251,40 @@ export function SettingsUsuariosPanel() {
     onSuccess: () => void client.invalidateQueries({ queryKey: ['apresentadora-faixas-comissao'] }),
   })
   const editMutation = useMutation({
-    mutationFn: async ({ user, form: ef }: { user: JsonRecord; form: typeof emptyEditForm }) => {
+    mutationFn: async ({ user, form: ef, original }: { user: JsonRecord; form: typeof emptyEditForm; original: typeof emptyEditForm }) => {
       const presenterIdResolved = presenterProfileId(user)
       const presenterPapel = isPresenterUser(user) || isPresenterRole(ef.papel) || isPresenterProfile(user)
       const presenterPayload: JsonRecord = {}
-      if (presenterPapel) {
-        presenterPayload.nome = ef.nome
-        presenterPayload.email = ef.email
-        presenterPayload.ativo = ef.ativo
-        if (ef.fixo !== '') presenterPayload.fixo = parseBRMoneyToDecimal(ef.fixo)
-        presenterPayload.foto_url = ef.foto_url || null
-        presenterPayload.data_inicio = ef.data_inicio || null
-        presenterPayload.data_fim = ef.data_fim || null
+      if (presenterPapel && isPresenterProfile(user)) {
+        if (ef.nome !== original.nome) presenterPayload.nome = ef.nome
+        if (ef.email !== original.email) presenterPayload.email = ef.email
+        if (ef.ativo !== original.ativo) presenterPayload.ativo = ef.ativo
       }
-      if (isPresenterProfile(user)) return updateApresentadora(presenterIdResolved, presenterPayload)
-      return updateUsuario(asString(user.id, ''), {
-        nome: ef.nome,
-        email: ef.email,
-        papel: ef.papel,
-        ativo: ef.ativo,
-        ...(presenterPapel ? presenterPayload : {}),
-      })
+      if (presenterPapel) {
+        if (ef.fixo !== original.fixo && ef.fixo !== '') presenterPayload.fixo = parseBRMoneyToDecimal(ef.fixo)
+        if (ef.foto_url !== original.foto_url) presenterPayload.foto_url = ef.foto_url || null
+        if (ef.data_inicio !== original.data_inicio) presenterPayload.data_inicio = ef.data_inicio || null
+        if (ef.data_fim !== original.data_fim) presenterPayload.data_fim = ef.data_fim || null
+      }
+      if (isPresenterProfile(user)) {
+        return Object.keys(presenterPayload).length ? updateApresentadora(presenterIdResolved, presenterPayload) : user
+      }
+
+      const accountPayload: JsonRecord = {}
+      if (ef.nome !== original.nome) accountPayload.nome = ef.nome
+      if (ef.email !== original.email) accountPayload.email = ef.email
+      if (ef.papel !== original.papel) accountPayload.papel = ef.papel
+      if (ef.ativo !== original.ativo) accountPayload.ativo = ef.ativo
+      const accountResult = Object.keys(accountPayload).length ? await updateUsuario(asString(user.id, ''), accountPayload) : null
+      const presenterOnlyPayload = Object.fromEntries(Object.entries(presenterPayload).filter(([key]) => !['nome', 'email', 'ativo'].includes(key)))
+      if (presenterPapel && Object.keys(presenterOnlyPayload).length) {
+        return updateApresentadora(presenterIdResolved, presenterOnlyPayload)
+      }
+      return accountResult ?? user
     },
     onSuccess: () => {
-      setEditingUser(null); setEditForm(emptyEditForm)
-      void client.invalidateQueries({ queryKey: ['usuarios'] })
-      void client.invalidateQueries({ queryKey: ['apresentadoras'] })
+      setEditingUser(null); setEditForm(emptyEditForm); setOriginalEditForm(emptyEditForm)
+      invalidateUserDirectory()
       invalidateFinanceiro(client)
       void client.invalidateQueries({ queryKey: QK.apresentadoraFaixasComissao() })
     },
@@ -250,40 +292,23 @@ export function SettingsUsuariosPanel() {
 
   // ---- Derived data --------------------------------------------------------
   const allRows = useMemo(() => {
-    const userRows = usuarios.data ?? []
-    const linkedPresenterIds = new Set(userRows.map((item) => asString(item.apresentadora_id, '')).filter(Boolean))
-    const linkedUserIds = new Set(userRows.map((item) => asString(item.id, '')).filter(Boolean))
-    const presenterOnlyRows = (apresentadoras.data ?? [])
-      .filter((item) => {
-        const apresentadoraId = asString(item.id, '')
-        const userId = asString(item.user_id, '')
-        return !linkedPresenterIds.has(apresentadoraId) && (!userId || !linkedUserIds.has(userId))
-      })
-      .map((item) => ({
-        ...item,
-        id: `apresentadora:${asString(item.id, '')}`,
-        user_id: asString(item.user_id, ''),
-        apresentadora_id: asString(item.id, ''),
-        papel: 'apresentador',
-        email: asString(item.email, 'sem acesso criado'),
-        ativo: ativoValue(item.ativo),
-        pode_apresentar_live: true,
-        origem_perfil: 'apresentadora',
-      }))
-    return [...userRows, ...presenterOnlyRows]
-  }, [usuarios.data, apresentadoras.data])
+    return attachPendingInvites(
+      consolidateSettingsUserRows(usuarios.data ?? [], apresentadoras.data ?? []),
+      convites.data ?? [],
+    )
+  }, [usuarios.data, apresentadoras.data, convites.data])
 
-  const filteredRows = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase()
-    return allRows.filter((item) => {
-      if (papelFilter !== 'all' && asString(item.papel) !== papelFilter) return false
-      if (ativoFilter !== 'all' && ativoValue(item.ativo) !== (ativoFilter === 'true')) return false
-      return matchesSearch(item, normalizedSearch)
-    })
-  }, [allRows, ativoFilter, papelFilter, searchTerm])
+  const rowsMatchingToolbar = useMemo(() => rowsMatchingSettingsToolbar(allRows, searchTerm, papelFilter), [allRows, papelFilter, searchTerm])
 
-  if (usuarios.isLoading || clientes.isLoading || apresentadoras.isLoading) return <LoadingState />
-  if (usuarios.isError) return <ErrorState message={extractErrorMessage(usuarios.error)} onRetry={() => void usuarios.refetch()} />
+  const viewCounts = useMemo(() => settingsViewCounts(rowsMatchingToolbar), [rowsMatchingToolbar])
+
+  const filteredRows = useMemo(() => filterSettingsUserRows(rowsMatchingToolbar, view), [rowsMatchingToolbar, view])
+
+  if (usuarios.isLoading || apresentadoras.isLoading || convites.isLoading) return <LoadingState />
+  if (usuarios.isError || apresentadoras.isError || convites.isError) {
+    const failedQuery = usuarios.isError ? usuarios : apresentadoras.isError ? apresentadoras : convites
+    return <ErrorState message={extractErrorMessage(failedQuery.error)} onRetry={() => void failedQuery.refetch()} />
+  }
 
   // ---- Handlers ------------------------------------------------------------
   function setField(key: keyof CreateFormState, value: string) {
@@ -307,7 +332,7 @@ export function SettingsUsuariosPanel() {
   function openEditUser(item: JsonRecord) {
     editMutation.reset()
     setEditingUser(item)
-    setEditForm({
+    const nextEditForm = {
       nome: asString(item.nome, ''),
       email: asString(item.email, ''),
       papel: asString(item.papel, 'gerente'),
@@ -316,7 +341,9 @@ export function SettingsUsuariosPanel() {
       foto_url: asString(item.foto_url ?? item.apresentadora_foto_url, ''),
       data_inicio: asString(item.data_inicio ?? '', '').slice(0, 10),
       data_fim: asString(item.data_fim ?? '', '').slice(0, 10),
-    })
+    }
+    setEditForm(nextEditForm)
+    setOriginalEditForm(nextEditForm)
   }
 
   function openCreateAccess(item: JsonRecord) {
@@ -352,7 +379,8 @@ export function SettingsUsuariosPanel() {
   function onEditSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!editingUser) return
-    editMutation.mutate({ user: editingUser, form: editForm })
+    if (sameEditForm(editForm, originalEditForm)) return
+    editMutation.mutate({ user: editingUser, form: editForm, original: originalEditForm })
   }
 
   function onDeleteUser(item: JsonRecord) {
@@ -360,6 +388,11 @@ export function SettingsUsuariosPanel() {
     if (!window.confirm(`Excluir/desativar o usuário "${label}"?`)) return
     if (isPresenterProfile(item)) { deletePresenterMutation.mutate(presenterProfileId(item)); return }
     deleteMutation.mutate(asString(item.id, ''))
+  }
+
+  function closeResetModal() {
+    setResetUser(null)
+    resetMutation.reset()
   }
 
   function submitFaixa() {
@@ -378,14 +411,12 @@ export function SettingsUsuariosPanel() {
     updatePending: updateMutation.isPending || updatePresenterMutation.isPending,
     deletePending: deleteMutation.isPending || deletePresenterMutation.isPending,
     resetPending: resetMutation.isPending,
-    resendPending: resendMutation.isPending,
     logoutPending: logoutMutation.isPending,
+    invitePending: resendInviteMutation.isPending,
     updateError: updateMutation.error ?? updatePresenterMutation.error,
     deleteError: deleteMutation.error ?? deletePresenterMutation.error,
-    resetError: resetMutation.error,
     logoutError: logoutMutation.error,
-    resendError: resendMutation.error,
-    resetData: resetMutation.data,
+    inviteError: resendInviteMutation.error,
   }
 
   return (
@@ -394,34 +425,45 @@ export function SettingsUsuariosPanel() {
         <CardHeader>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-base font-bold text-ink">Usuários e perfis</p>
-              <p className="mt-1 text-xs text-ink-muted">
-                {filteredRows.length} exibidos de {allRows.length} cadastros consolidados.
-              </p>
+              <p className="text-base font-bold text-ink">Usuários e equipe</p>
+              <p className="mt-1 text-xs text-ink-muted">Acessos e perfis vinculados à unidade.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" icon={RefreshCcw} onClick={() => { void usuarios.refetch(); void apresentadoras.refetch() }}>
+              <Button variant="secondary" icon={RefreshCcw} aria-label="Atualizar usuários e equipe" onClick={() => { void usuarios.refetch(); void apresentadoras.refetch(); void convites.refetch() }}>
                 Atualizar
               </Button>
               <Button icon={UserPlus} onClick={() => setCreateOpen(true)}>Novo acesso</Button>
             </div>
           </div>
-          <div className="mt-4 grid gap-2 lg:grid-cols-[1fr_180px_160px] lg:items-center">
+          <div className="mt-5 flex flex-wrap gap-1 border-b border-line" role="tablist" aria-label="Vistas de usuários e equipe">
+            {[
+              { value: 'all', label: 'Todos', count: viewCounts.all },
+              { value: 'active', label: 'Ativos', count: viewCounts.active },
+              { value: 'inactive', label: 'Inativos', count: viewCounts.inactive },
+              { value: 'without_access', label: 'Sem acesso', count: viewCounts.without_access },
+            ].map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                role="tab"
+                aria-selected={view === item.value}
+                className={`min-h-10 border-b-2 px-3 text-sm font-semibold transition ${view === item.value ? 'border-brand text-brand' : 'border-transparent text-ink-muted hover:text-ink'}`}
+                onClick={() => setView(item.value as typeof view)}
+              >
+                {item.label} <span className="ml-1 text-xs tabular-nums">{item.count}</span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-2 lg:grid-cols-[1fr_190px_auto] lg:items-center">
             <label className="relative block min-w-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-              <input className="design-input h-10 w-full px-10 text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar pessoa" />
-              {searchTerm ? <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-ink-muted hover:text-ink" onClick={() => setSearchTerm('')}>limpar</button> : null}
+              <input className="design-input h-10 w-full px-10 text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nome ou e-mail" />
             </label>
             <select className="design-input h-10 px-3 text-sm" value={papelFilter} onChange={(e) => setPapelFilter(e.target.value)}>
               <option value="all">Todos os papéis</option>
-              <option value="gerente">Gerente</option>
-              <option value="operacional">Operacional</option>
-              <option value="apresentador">Apresentadora</option>
-              <option value="cliente_parceiro">Cliente</option>
+              {papelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
-            <select className="design-input h-10 px-3 text-sm" value={ativoFilter} onChange={(e) => setAtivoFilter(e.target.value)}>
-              {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
+            {searchTerm || papelFilter !== 'all' ? <Button variant="secondary" onClick={() => { setSearchTerm(''); setPapelFilter('all') }}>Limpar filtros</Button> : null}
           </div>
         </CardHeader>
         <CardBody>
@@ -430,23 +472,58 @@ export function SettingsUsuariosPanel() {
             mutations={listMutations}
             actions={{
               onEdit: openEditUser,
-              onDelete: onDeleteUser,
               onToggleAtivo: (item) => {
                 const id = asString(item.id, '')
                 const presenterOnly = asString(item.origem_perfil) === 'apresentadora'
                 const ativo = ativoValue(item.ativo)
+                const label = asString(item.nome ?? item.email, 'usuário')
+                const action = ativo ? 'inativar' : 'reativar'
+                if (!window.confirm(`Confirma ${action} ${label}? ${ativo ? 'A pessoa perderá acesso até ser reativada.' : 'A pessoa voltará a poder acessar a plataforma.'}`)) return
                 const presenterId = presenterProfileId(item)
                 if (presenterOnly) { updatePresenterMutation.mutate({ id: presenterId, payload: { ativo: !ativo } }); return }
                 updateMutation.mutate({ id, payload: { ativo: !ativo } })
               },
-              onResetSenha: (id) => resetMutation.mutate(id),
-              onResendConvite: (id) => resendMutation.mutate(id),
-              onForceLogout: (id) => logoutMutation.mutate(id),
+              onResetSenha: (id) => {
+                const item = filteredRows.find((row) => asString(row.id, '') === id)
+                if (!item) return
+                resetMutation.reset()
+                setResetUser(item)
+              },
+              onForceLogout: (id) => {
+                const item = filteredRows.find((row) => asString(row.id, '') === id)
+                const label = asString(item?.nome ?? item?.email, 'usuário')
+                if (window.confirm(`Encerrar agora todas as sessões de ${label}? A pessoa precisará entrar novamente.`)) logoutMutation.mutate(id)
+              },
               onCreateAccess: openCreateAccess,
+              onResendInvite: (item) => {
+                const label = asString(item.nome ?? item.email, 'usuário')
+                if (!window.confirm(`Enviar um novo convite para ${label} (${asString(item.email, 'sem e-mail')})? O link anterior deixará de funcionar.`)) return
+                setInviteNotice('')
+                resendInviteMutation.reset()
+                resendInviteMutation.mutate(asString(item.id, ''))
+              },
             }}
           />
+          {inviteNotice ? <p role="status" className="mt-3 rounded-lg bg-surface-muted px-4 py-3 text-sm text-ink">{inviteNotice}</p> : null}
+          <p className="mt-3 text-xs text-ink-muted">
+            {filteredRows.length} exibido{filteredRows.length === 1 ? '' : 's'} de {rowsMatchingToolbar.length} registro{rowsMatchingToolbar.length === 1 ? '' : 's'} no recorte.
+          </p>
         </CardBody>
       </Card>
+
+      <ResetSenhaModal
+        open={Boolean(resetUser)}
+        nome={asString(resetUser?.nome, '')}
+        email={asString(resetUser?.email, '')}
+        password={resetMutation.isSuccess ? asString(resetMutation.data?.senha_temporaria, '') || null : null}
+        pending={resetMutation.isPending}
+        error={resetMutation.error}
+        onClose={closeResetModal}
+        onConfirm={() => {
+          const id = asString(resetUser?.id, '')
+          if (id) resetMutation.mutate(id)
+        }}
+      />
 
       {/* ---- Create modal ---- */}
       <Modal
@@ -491,7 +568,9 @@ export function SettingsUsuariosPanel() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => setAuditUserId(asString(editingPresenterId || editingUser.id, ''))}
+                onClick={() => setAuditTarget(isPresenterProfile(editingUser)
+                  ? { id: editingPresenterId, type: 'apresentadora', title: 'Histórico de alterações — apresentadora' }
+                  : { id: asString(editingUser.id, ''), type: 'user', title: 'Histórico de alterações — usuário' })}
               >
                 Histórico
               </Button>
@@ -567,11 +646,11 @@ export function SettingsUsuariosPanel() {
 
       {/* ---- Audit history modal ---- */}
       <HistoricoAuditModal
-        open={Boolean(auditUserId)}
-        onClose={() => setAuditUserId(null)}
-        entityType="apresentadora"
-        entityId={auditUserId ?? ''}
-        titulo="Histórico de alterações — apresentadora"
+        open={Boolean(auditTarget)}
+        onClose={() => setAuditTarget(null)}
+        entityType={auditTarget?.type ?? 'user'}
+        entityId={auditTarget?.id ?? ''}
+        titulo={auditTarget?.title ?? 'Histórico de alterações'}
       />
     </div>
   )

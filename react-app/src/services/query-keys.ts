@@ -66,9 +66,13 @@ export const QK = {
   masterConsolidated: (period?: { mes: number; ano: number }) =>
     period ? ['master-consolidated', period] as const : ['master-consolidated'] as const,
   masterCrm: ['master-crm'] as const,
-  configuracoes: (clienteMode?: boolean) =>
-    clienteMode !== undefined ? ['configuracoes', clienteMode] as const : ['configuracoes'] as const,
-  configuracoeRankingPublico: ['configuracoes-ranking-publico'] as const,
+  configuracoes: (clienteMode?: boolean, tenantId?: string) =>
+    tenantId ? ['configuracoes', clienteMode ?? false, tenantId] as const : clienteMode !== undefined ? ['configuracoes', clienteMode] as const : ['configuracoes'] as const,
+  configuracaoUsuarios: (tenantId: string | undefined, source: 'usuarios' | 'apresentadoras' | 'convites') =>
+    ['configuracoes', 'usuarios', tenantId ?? '', source, { include_inactive: true }] as const,
+  configuracaoIntegracaoTikTok: (tenantId?: string) => ['configuracoes', 'integracao', 'tiktok', tenantId ?? ''] as const,
+  configuracoeRankingPublico: (tenantId?: string) =>
+    tenantId ? ['configuracoes-ranking-publico', tenantId] as const : ['configuracoes-ranking-publico'] as const,
   publicRanking: ['public-ranking'] as const,
   publicRankingNacional: ['public-ranking', 'nacional'] as const,
   publicRankingApresentadoras: (unidadeId?: string) =>

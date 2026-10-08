@@ -13,6 +13,7 @@ interface AuthState {
   error: string | null
   bootstrap: () => void
   login: (email: string, senha: string) => Promise<string | null>
+  updateTenantDisplayName: (tenantId: string, name: string) => void
   markOnboardingCompleted: () => void
   logout: () => Promise<void>
   expire: () => void
@@ -37,10 +38,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: session.user, isLoading: false, error: null })
       return routeForRole(session.user.papel, session.user.onboarding_completed ?? true)
     } catch (error) {
-      const message = extractErrorMessage(error)
+      const responseStatus = error && typeof error === 'object' && 'response' in error
+        ? (error.response as { status?: unknown } | undefined)?.status
+        : undefined
+      const message = responseStatus === 401
+        ? 'E-mail ou senha inválidos. Confira os dados e tente novamente.'
+        : extractErrorMessage(error)
       set({ isLoading: false, error: message })
       return null
     }
+  },
+
+  updateTenantDisplayName: (tenantId, name) => {
+    const user = get().user
+    const tenantName = name.trim()
+    if (!user || user.tenant_id !== tenantId || !tenantName) return
+    const updated = { ...user, tenant_nome: tenantName }
+    saveUser(updated)
+    set({ user: updated })
   },
 
   markOnboardingCompleted: () => {

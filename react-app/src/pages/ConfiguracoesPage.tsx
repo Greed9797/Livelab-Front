@@ -1,30 +1,36 @@
-import { BarChart2, CircleDollarSign, Copy, ExternalLink, KeyRound, Lock, Moon, Plug, Save, Sun, Trophy, Users } from 'lucide-react'
+import { BarChart2, Copy, ExternalLink, KeyRound, Lock, Moon, Plug, Save, Sun, Trophy, Users } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { MoneyInput } from '../components/ui/MoneyInput'
-import { getClienteMeta, getClientePerfil, getConfiguracoes, getMetasMarcasHora, getMetaUnidade, getMetasApresentadoras, getMetaSupervisor, getRankingPublicoConfig, trocarSenha, updateConfiguracoes, updateRankingPublicoConfig, upsertMetaApresentadora, upsertMetaMarcaHora, upsertMetaSupervisor, upsertMetaUnidade } from '../services/domain'
+import { getClienteMeta, getClientePerfil, getConfiguracoes, getMetasMarcasHora, getMetaUnidade, getMetasApresentadoras, getMetaSupervisor, getRankingPublicoConfig, trocarSenha, updateConfiguracoes, updateRankingPublicoConfig, uploadConfiguracoesLogo, upsertMetaApresentadora, upsertMetaMarcaHora, upsertMetaSupervisor, upsertMetaUnidade } from '../services/domain'
 import { useToast } from '../components/ui/Toast'
 import { extractErrorMessage } from '../services/api'
 import { asNumber, asString, currentPeriod, formatMoney, periodLabel } from '../utils/format'
 import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
 import { useThemeStore } from '../stores/theme-store'
 import { SettingsUsuariosPanel } from './SettingsUsuariosPanel'
-import { useCurrentUser } from '../stores/auth-store'
+import { useAuthStore, useCurrentUser } from '../stores/auth-store'
 import { QK } from '../services/query-keys'
 import type { JsonRecord } from '../types/models'
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
+import { UnsavedChangesNotice } from '../components/ui/UnsavedChangesNotice'
+import { IntegracoesSettingsPanel } from '../components/configuracoes/IntegracoesSettingsPanel'
+import { rankingSettingsFrom, rankingSettingsPatch, unitSettingsFrom, unitSettingsPatch, unitSettingsValid, type RankingSettingsDraft, type UnitSettingsDraft } from '../components/configuracoes/settings-form'
 
-type SettingsTab = 'unidade' | 'usuarios' | 'metas' | 'comissoes-livelab' | 'ranking' | 'aparencia' | 'integracoes' | 'seguranca'
-const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'metas', 'comissoes-livelab', 'ranking', 'aparencia', 'integracoes', 'seguranca']
+type SettingsTab = 'unidade' | 'usuarios' | 'metas' | 'integracoes' | 'seguranca'
+const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'metas', 'integracoes', 'seguranca']
 
 export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boolean }) {
   const toast = useToast()
   const client = useQueryClient()
   const currentUser = useCurrentUser()
+  const updateTenantDisplayName = useAuthStore((state) => state.updateTenantDisplayName)
+  const navigate = useNavigate()
   // Apenas franqueador_master/franqueado veem os controles administrativos.
   // Demais papéis internos (operação, cabine, apresentador, etc.) só acessam
   // a seção de conta/segurança (trocar senha). Default-DENY: na dúvida, esconde.
@@ -33,13 +39,16 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     ? `${window.location.origin}/ranking?unidade=${currentUser.tenant_id}`
     : `${window.location.origin}/ranking`
   const [params, setParams] = useSearchParams()
-  const query = useQuery({ queryKey: QK.configuracoes(clienteMode), queryFn: getConfiguracoes, enabled: !clienteMode && isAdmin })
-  const rankingQuery = useQuery({ queryKey: QK.configuracoeRankingPublico, queryFn: getRankingPublicoConfig, enabled: !clienteMode && isAdmin })
+  const query = useQuery({ queryKey: QK.configuracoes(clienteMode, currentUser?.tenant_id), queryFn: getConfiguracoes, enabled: !clienteMode && isAdmin })
+  const rankingQuery = useQuery({ queryKey: QK.configuracoeRankingPublico(currentUser?.tenant_id), queryFn: getRankingPublicoConfig, enabled: !clienteMode && isAdmin })
   const period = currentPeriod()
   const perfilQuery = useQuery({ queryKey: QK.clientePerfil, queryFn: getClientePerfil, enabled: clienteMode })
   const metaQuery = useQuery({ queryKey: QK.clienteMeta(period), queryFn: () => getClienteMeta(period), enabled: clienteMode })
-  const [form, setForm] = useState<JsonRecord>({})
-  const [rankingForm, setRankingForm] = useState({
+  const [form, setForm] = useState<UnitSettingsDraft>({ nome: '', cnpj: '', email_contato: '', telefone_contato: '', cidade: '', uf: '' })
+  const [unitBaseline, setUnitBaseline] = useState<UnitSettingsDraft>({ nome: '', cnpj: '', email_contato: '', telefone_contato: '', cidade: '', uf: '' })
+  const [unitDirty, setUnitDirty] = useState(false)
+  const [unitValidationError, setUnitValidationError] = useState<string | null>(null)
+  const [rankingForm, setRankingForm] = useState<RankingSettingsDraft>({
     ativo: true,
     nome_publico: '',
     logo_url: '',
@@ -47,19 +56,57 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
     uf: '',
     meta_gmv: '',
   })
+  const [rankingBaseline, setRankingBaseline] = useState<RankingSettingsDraft>({ ativo: true, nome_publico: '', logo_url: '', cidade: '', uf: '', meta_gmv: '' })
+  const [rankingDirty, setRankingDirty] = useState(false)
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null)
   const [senha, setSenha] = useState({ senha_atual: '', nova_senha: '' })
   const requestedTabRaw = params.get('tab')
-  const requestedTab = (requestedTabRaw === 'apresentadoras' ? 'usuarios' : requestedTabRaw) as SettingsTab | null
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>(requestedTab && settingsTabs.includes(requestedTab) ? requestedTab : 'unidade')
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('unidade')
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
   const mutation = useMutation({
     mutationFn: updateConfiguracoes,
-    onSuccess: () => client.invalidateQueries({ queryKey: QK.configuracoes() }),
+    onSuccess: (saved) => {
+      const settings = saved.settings && typeof saved.settings === 'object' && !Array.isArray(saved.settings)
+        ? saved.settings as JsonRecord
+        : saved
+      const confirmed = unitSettingsFrom(settings)
+      if (currentUser?.tenant_id) client.setQueryData<JsonRecord>(QK.configuracoes(false, currentUser.tenant_id), (old) => ({ ...(old ?? {}), ...settings }))
+      setForm(confirmed)
+      setUnitBaseline(confirmed)
+      setUnitDirty(false)
+      setUnitValidationError(null)
+      if (currentUser?.tenant_id) updateTenantDisplayName(currentUser.tenant_id, confirmed.nome)
+      void client.invalidateQueries({ queryKey: QK.configuracoes() })
+      void client.invalidateQueries({ queryKey: QK.configuracoeRankingPublico() })
+      toast.push('Dados da unidade salvos.', 'success')
+    },
   })
   const rankingMutation = useMutation({
     mutationFn: updateRankingPublicoConfig,
-    onSuccess: () => client.invalidateQueries({ queryKey: QK.configuracoeRankingPublico }),
+    onSuccess: (saved) => {
+      const confirmed = rankingSettingsFrom(saved)
+      if (currentUser?.tenant_id) client.setQueryData(QK.configuracoeRankingPublico(currentUser.tenant_id), saved)
+      setRankingForm(confirmed)
+      setRankingBaseline(confirmed)
+      setRankingDirty(false)
+      void client.invalidateQueries({ queryKey: QK.configuracoeRankingPublico() })
+      toast.push('Identidade do ranking salva.', 'success')
+    },
+  })
+  const logoUploadMutation = useMutation({
+    mutationFn: uploadConfiguracoesLogo,
+    onSuccess: ({ url }) => {
+      setLogoUploadError(null)
+      setRankingDirty(true)
+      setRankingForm((current) => ({ ...current, logo_url: url }))
+      toast.push('Logo enviada. Salve a identidade do ranking para aplicá-la.', 'success')
+    },
+    onError: (error: unknown) => {
+      const message = extractErrorMessage(error)
+      setLogoUploadError(message)
+      toast.push(message, 'error')
+    },
   })
   // ── Metas: unidade + apresentadoras + supervisor + GMV/h por marca ────────
   const [metasMes, setMetasMes] = useState(new Date().toISOString().slice(0, 7))
@@ -152,20 +199,48 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   })
 
   useEffect(() => {
-    if (query.data) setForm(query.data)
-  }, [query.data])
+    if (!query.data || unitDirty) return
+    const loaded = unitSettingsFrom(query.data)
+    setForm(loaded)
+    setUnitBaseline(loaded)
+  }, [query.data, unitDirty])
 
   useEffect(() => {
-    if (!rankingQuery.data) return
-    setRankingForm({
-      ativo: rankingQuery.data.ativo !== false,
-      nome_publico: asString(rankingQuery.data.nome_publico, ''),
-      logo_url: asString(rankingQuery.data.logo_url, ''),
-      cidade: asString(rankingQuery.data.cidade, ''),
-      uf: asString(rankingQuery.data.uf, ''),
-      meta_gmv: rankingQuery.data.meta_gmv == null ? '' : formatBRLWithoutSymbol(rankingQuery.data.meta_gmv),
-    })
-  }, [rankingQuery.data])
+    if (!rankingQuery.data || rankingDirty) return
+    const loaded = rankingSettingsFrom(rankingQuery.data)
+    setRankingForm(loaded)
+    setRankingBaseline(loaded)
+  }, [rankingQuery.data, rankingDirty])
+
+  useEffect(() => {
+    if (requestedTabRaw === 'comissoes-livelab') {
+      navigate('/financeiro/comissoes/regras', { replace: true })
+      return
+    }
+    if (requestedTabRaw === 'apresentadoras') {
+      setSettingsTab('usuarios')
+      return
+    }
+    if (requestedTabRaw === 'ranking' || requestedTabRaw === 'aparencia') {
+      setSettingsTab('unidade')
+      return
+    }
+    const nextTab = requestedTabRaw as SettingsTab | null
+    setSettingsTab(nextTab && settingsTabs.includes(nextTab) ? nextTab : 'unidade')
+  }, [navigate, requestedTabRaw])
+
+  const pageCloseGuard = useUnsavedChanges({
+    open: !clienteMode && isAdmin,
+    dirty: unitDirty || rankingDirty,
+    busy: mutation.isPending || rankingMutation.isPending || logoUploadMutation.isPending,
+    onClose: () => {
+      setForm(unitBaseline)
+      setUnitDirty(false)
+      setRankingForm(rankingBaseline)
+      setRankingDirty(false)
+      setLogoUploadError(null)
+    },
+  })
 
   useEffect(() => {
     if (!metasSupervisorQuery.data) return
@@ -304,57 +379,90 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   }
 
   if (query.isLoading) return <LoadingState />
-  if (query.isError) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+  if (query.isError && !query.data) return <ErrorState message={extractErrorMessage(query.error)} onRetry={() => void query.refetch()} />
 
-  function setField(key: string, value: string) {
-    setForm((current) => ({ ...current, [key]: value }))
+  function setField(key: keyof UnitSettingsDraft, value: string) {
+    mutation.reset()
+    setUnitValidationError(null)
+    setForm((current) => {
+      const next = { ...current, [key]: value }
+      setUnitDirty(Object.keys(unitSettingsPatch(next, unitBaseline)).length > 0)
+      return next
+    })
+  }
+
+  function setRankingField<K extends keyof RankingSettingsDraft>(key: K, value: RankingSettingsDraft[K]) {
+    rankingMutation.reset()
+    setLogoUploadError(null)
+    setRankingForm((current) => {
+      const next = { ...current, [key]: value }
+      setRankingDirty(Object.keys(rankingSettingsPatch(next, rankingBaseline)).length > 0)
+      return next
+    })
+  }
+
+  function uploadRankingLogo(file: File | undefined) {
+    if (!file) return
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      setLogoUploadError('Formato não suportado. Use JPEG, PNG, WebP ou GIF.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoUploadError('A imagem deve ter no máximo 5 MB.')
+      return
+    }
+    setLogoUploadError(null)
+    logoUploadMutation.mutate(file)
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    mutation.mutate(form)
+    const payload = unitSettingsPatch(form, unitBaseline)
+    if (!unitSettingsValid(form)) {
+      setUnitValidationError('Informe o nome da unidade.')
+      return
+    }
+    if (Object.keys(payload).length === 0) return
+    mutation.mutate(payload)
   }
 
   function onRankingSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    rankingMutation.mutate({
-      ativo: rankingForm.ativo,
-      nome_publico: rankingForm.nome_publico || null,
-      logo_url: rankingForm.logo_url || null,
-      cidade: rankingForm.cidade || null,
-      uf: rankingForm.uf || null,
-      meta_gmv: rankingForm.meta_gmv ? parseBRMoneyToDecimal(rankingForm.meta_gmv) : null,
-    })
+    const payload = rankingSettingsPatch(rankingForm, rankingBaseline)
+    if (Object.keys(payload).length === 0) return
+    rankingMutation.mutate(payload)
   }
 
-  function switchSettingsTab(next: SettingsTab | 'apresentadoras') {
-    const resolved = next === 'apresentadoras' ? 'usuarios' : next
+  function switchSettingsTab(resolved: SettingsTab) {
     setSettingsTab(resolved)
     const nextParams = new URLSearchParams(params)
     if (resolved === 'unidade') nextParams.delete('tab')
     else nextParams.set('tab', resolved)
-    setParams(nextParams, { replace: true })
+    setParams(nextParams)
   }
+
+  const effectiveRankingLogo = rankingForm.logo_url || asString(rankingQuery.data?.logo_url, '')
 
   return (
     <div className="space-y-6">
       <PageHeader title="Configurações da unidade" subtitle="Dados da unidade, equipe e preferências de operação." />
 
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-1">
+      {pageCloseGuard.confirming ? <UnsavedChangesNotice guard={pageCloseGuard} /> : null}
+      {query.isError ? <ErrorState message={`${extractErrorMessage(query.error)}. Mostrando os últimos dados carregados.`} onRetry={() => void query.refetch()} /> : null}
+
+      <div role="group" aria-label="Seções de configurações" className="flex gap-1 overflow-x-auto border-b border-line pb-2">
         {[
-          ['unidade', Save, 'Unidade'],
+          ['unidade', Save, 'Unidade e aparência'],
           ['usuarios', Users, 'Usuários e equipe'],
           ['metas', BarChart2, 'Metas'],
-          ['comissoes-livelab', CircleDollarSign, 'Comissões Livelab'],
-          ['ranking', Trophy, 'Ranking público'],
-          ['aparencia', Sun, 'Aparência'],
           ['integracoes', Plug, 'Integrações'],
           ['seguranca', Lock, 'Segurança'],
         ].map(([key, Icon, label]) => (
           <button
             key={String(key)}
             aria-pressed={settingsTab === key}
-            className={settingsTab === key ? 'inline-flex h-10 items-center gap-2 rounded-[var(--radius-pill)] bg-button-primary px-4 text-sm font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20' : 'inline-flex h-10 items-center gap-2 rounded-[var(--radius-pill)] px-4 text-sm font-semibold text-ink-muted hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20'}
+            className={settingsTab === key ? 'inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-[var(--primary)] px-3 text-sm font-bold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30' : 'inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-semibold text-ink-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30'}
             onClick={() => switchSettingsTab(key as SettingsTab)}
             type="button"
           >
@@ -644,71 +752,49 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
         </div>
       ) : null}
 
-      {settingsTab === 'aparencia' ? (
-        <Card>
-        <CardHeader>
-          <p className="text-sm font-bold text-ink">Aparência</p>
-        </CardHeader>
-        <CardBody className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-ink">Tema da interface</p>
-            <p className="mt-1 text-xs text-ink-muted">A preferência fica salva neste navegador.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant={theme === 'light' ? 'primary' : 'secondary'} icon={Sun} onClick={() => setTheme('light')}>
-              Claro
-            </Button>
-            <Button type="button" variant={theme === 'dark' ? 'primary' : 'secondary'} icon={Moon} onClick={() => setTheme('dark')}>
-              Escuro
-            </Button>
-            <Button type="button" variant={theme === 'system' ? 'primary' : 'secondary'} icon={Sun} onClick={() => setTheme('system')}>
-              Sistema
-            </Button>
-          </div>
-        </CardBody>
-        </Card>
-      ) : null}
-
       {settingsTab === 'usuarios' ? <SettingsUsuariosPanel /> : null}
 
-      {settingsTab === 'comissoes-livelab' ? (
+      {settingsTab === 'unidade' ? (
         <Card>
           <CardHeader>
-            <p className="text-base font-bold text-ink">Comissões Livelab</p>
-            <p className="mt-1 text-xs text-ink-muted">% de comissão da franquia/franqueadora é configurado por marca em Clientes.</p>
+            <p className="text-sm font-bold text-ink">Dados da unidade</p>
           </CardHeader>
-          <CardBody className="space-y-3">
-            <p className="text-sm text-ink">
-              Cada marca tem <strong>% de comissão da franquia</strong>, <strong>% da franqueadora</strong> e um <strong>fixo mensal</strong> (somado à comissão uma vez por mês com atividade).
-              A comissão da apresentadora segue a escada por GMV mensal e não muda por marca: a <strong>escada padrão</strong> da unidade é gerenciada em <em>Financeiro → Comissões → Regras</em>, e a personalização por apresentadora fica em <em>Usuários e equipe</em>.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                className="inline-flex h-11 items-center justify-center rounded-full bg-button-primary px-5 text-sm font-bold text-button-primary-foreground hover:bg-button-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
-                to="/financeiro/comissoes/regras"
-              >
-                Regras de comissão
-              </Link>
-              <Link
-                className="inline-flex h-11 items-center justify-center rounded-full border border-line bg-surface px-5 text-sm font-bold text-ink hover:bg-surface-muted"
-                to="/clientes"
-              >
-                Editar marcas em Clientes
-              </Link>
-              <button
-                type="button"
-                className="inline-flex h-11 items-center justify-center rounded-full border border-line bg-surface px-5 text-sm font-bold text-ink hover:bg-surface-muted"
-                onClick={() => switchSettingsTab('usuarios')}
-              >
-                Personalizar em Usuários e equipe
-              </button>
-            </div>
-            <p className="text-xs text-ink-muted">Toda edição é registrada no audit log da marca.</p>
+          <CardBody>
+            <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+              {([
+                ['nome', 'Nome da unidade'],
+                ['cnpj', 'CNPJ'],
+                ['email_contato', 'E-mail'],
+                ['telefone_contato', 'Telefone'],
+                ['cidade', 'Cidade'],
+                ['uf', 'UF'],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="block">
+                  <span className="text-sm font-semibold text-ink">{label}</span>
+                  <input
+                    className="design-input mt-2 h-11 w-full px-4"
+                    type={key === 'email_contato' ? 'email' : key === 'telefone_contato' ? 'tel' : 'text'}
+                    required={key === 'nome'}
+                    maxLength={key === 'uf' ? 2 : key === 'cnpj' ? 32 : key === 'cidade' ? 80 : undefined}
+                    value={form[key]}
+                    onChange={(event) => setField(key, event.target.value)}
+                  />
+                </label>
+              ))}
+              {unitValidationError ? <p className="md:col-span-2 text-sm text-[var(--danger)]">{unitValidationError}</p> : null}
+              {mutation.isError ? <p className="md:col-span-2 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(mutation.error)}</p> : null}
+              {mutation.isSuccess ? <p className="md:col-span-2 rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Dados da unidade salvos.</p> : null}
+              <div className="md:col-span-2">
+                <Button type="submit" icon={Save} isLoading={mutation.isPending} disabled={mutation.isPending || Object.keys(unitSettingsPatch(form, unitBaseline)).length === 0 || !unitSettingsValid(form)}>
+                  Salvar dados da unidade
+                </Button>
+              </div>
+            </form>
           </CardBody>
         </Card>
       ) : null}
 
-      {settingsTab === 'ranking' ? (
+      {settingsTab === 'unidade' ? (
         <Card>
           <CardHeader>
             <p className="text-sm font-bold text-ink">Ranking público</p>
@@ -716,14 +802,15 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
           </CardHeader>
           <CardBody>
             {rankingQuery.isLoading ? <LoadingState label="Carregando ranking público" /> : null}
-            {rankingQuery.isError ? <ErrorState message={extractErrorMessage(rankingQuery.error)} onRetry={() => void rankingQuery.refetch()} /> : null}
-            {!rankingQuery.isLoading && !rankingQuery.isError ? (
+            {rankingQuery.isError && !rankingQuery.data ? <ErrorState message={extractErrorMessage(rankingQuery.error)} onRetry={() => void rankingQuery.refetch()} /> : null}
+            {rankingQuery.isError && rankingQuery.data ? <ErrorState message={`${extractErrorMessage(rankingQuery.error)}. Mostrando os últimos dados carregados.`} onRetry={() => void rankingQuery.refetch()} /> : null}
+            {!rankingQuery.isLoading && rankingQuery.data ? (
               <form className="grid gap-4 md:grid-cols-2" onSubmit={onRankingSubmit}>
                 <label className="flex items-center gap-3 rounded-2xl border border-line bg-surface-muted p-4 md:col-span-2">
                   <input
                     type="checkbox"
                     checked={rankingForm.ativo}
-                    onChange={(event) => setRankingForm((current) => ({ ...current, ativo: event.target.checked }))}
+                    onChange={(event) => setRankingField('ativo', event.target.checked)}
                   />
                   <span>
                     <span className="block text-sm font-semibold text-ink">Mostrar unidade no ranking público</span>
@@ -732,29 +819,35 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
                 </label>
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Nome público</span>
-                  <input className="design-input mt-2 h-11 w-full px-4" value={rankingForm.nome_publico} onChange={(event) => setRankingForm((current) => ({ ...current, nome_publico: event.target.value }))} />
+                  <input className="design-input mt-2 h-11 w-full px-4" placeholder={asString(rankingQuery.data?.nome_publico, 'Usar nome da unidade')} value={rankingForm.nome_publico} onChange={(event) => setRankingField('nome_publico', event.target.value)} />
                 </label>
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Logo pública</span>
-                  <input className="design-input mt-2 h-11 w-full px-4" value={rankingForm.logo_url} onChange={(event) => setRankingForm((current) => ({ ...current, logo_url: event.target.value }))} />
-                  <span className="mt-1 text-[11px] text-ink-muted">Deixe vazio para usar o favicon do site automaticamente.</span>
+                  <input className="design-input mt-2 h-11 w-full px-4" aria-label="URL da logo pública" placeholder="Usar logo da unidade" value={rankingForm.logo_url} onChange={(event) => setRankingField('logo_url', event.target.value)} />
+                  <label className="mt-2 flex min-h-10 cursor-pointer items-center gap-2 text-sm font-semibold text-ink">
+                    <span className="rounded-md border border-line px-3 py-2">Enviar imagem</span>
+                    <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={logoUploadMutation.isPending} onChange={(event) => { uploadRankingLogo(event.target.files?.[0]); event.currentTarget.value = '' }} />
+                    <span className="text-xs font-normal text-ink-muted">JPEG, PNG, WebP ou GIF, até 5 MB</span>
+                  </label>
+                  {effectiveRankingLogo ? <img src={effectiveRankingLogo} alt="Prévia da logo pública" className="mt-2 h-12 w-12 rounded-lg border border-line object-contain" /> : null}
+                  {logoUploadError ? <span className="mt-1 block text-xs text-[var(--danger)]">{logoUploadError}</span> : null}
                 </label>
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">Cidade</span>
-                  <input className="design-input mt-2 h-11 w-full px-4" value={rankingForm.cidade} onChange={(event) => setRankingForm((current) => ({ ...current, cidade: event.target.value }))} />
+                  <input className="design-input mt-2 h-11 w-full px-4" placeholder={asString(rankingQuery.data?.cidade, 'Usar cidade da unidade')} value={rankingForm.cidade} onChange={(event) => setRankingField('cidade', event.target.value)} />
                 </label>
                 <label className="block">
                   <span className="text-sm font-semibold text-ink">UF</span>
-                  <input className="design-input mt-2 h-11 w-full px-4" maxLength={2} value={rankingForm.uf} onChange={(event) => setRankingForm((current) => ({ ...current, uf: event.target.value.toUpperCase() }))} />
+                  <input className="design-input mt-2 h-11 w-full px-4" maxLength={2} placeholder={asString(rankingQuery.data?.uf, 'Herdar da unidade')} value={rankingForm.uf} onChange={(event) => setRankingField('uf', event.target.value.toUpperCase())} />
                 </label>
                 <label className="block md:col-span-2">
                   <span className="text-sm font-semibold text-ink">Meta pública opcional</span>
-                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={rankingForm.meta_gmv} onChange={(raw) => setRankingForm((current) => ({ ...current, meta_gmv: raw }))} />
+                  <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={rankingForm.meta_gmv} onChange={(raw) => setRankingField('meta_gmv', raw)} />
                 </label>
                 {rankingMutation.isError ? <p className="md:col-span-2 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(rankingMutation.error)}</p> : null}
-                {rankingMutation.isSuccess ? <p className="md:col-span-2 rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Ranking público atualizado.</p> : null}
+                {rankingMutation.isSuccess ? <p className="md:col-span-2 rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Identidade do ranking atualizada.</p> : null}
                 <div className="md:col-span-2 rounded-2xl border border-line bg-surface-muted p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Link público desta unidade</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">Link do ranking desta unidade</p>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
                     <input
                       readOnly
@@ -789,11 +882,11 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
                       </a>
                     </div>
                   </div>
-                  <p className="mt-2 text-[11px] text-ink-muted">Compartilhe este link com a equipe ou exiba em TV. Sem login.</p>
+                  <p className="mt-2 text-[11px] text-ink-muted">O acesso continua protegido pela autenticação atual do aplicativo.</p>
                 </div>
                 <div className="md:col-span-2">
-                  <Button type="submit" icon={Trophy} isLoading={rankingMutation.isPending}>
-                    Salvar ranking público
+                  <Button type="submit" icon={Trophy} isLoading={rankingMutation.isPending} disabled={rankingMutation.isPending || Object.keys(rankingSettingsPatch(rankingForm, rankingBaseline)).length === 0}>
+                    Salvar identidade do ranking
                   </Button>
                 </div>
               </form>
@@ -804,54 +897,20 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
 
       {settingsTab === 'unidade' ? (
         <Card>
-        <CardHeader>
-          <p className="text-sm font-bold text-ink">Dados da unidade</p>
-        </CardHeader>
-        <CardBody>
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
-            {([
-              ['nome_franquia', 'Nome da unidade'],
-              ['cnpj', 'CNPJ'],
-              ['email', 'E-mail'],
-              ['telefone', 'Telefone'],
-              ['cidade', 'Cidade'],
-              ['estado', 'Estado'],
-            ] as const).map(([key, label]) => (
-              <label key={key} className="block">
-                <span className="text-sm font-semibold text-ink">{label}</span>
-                <input
-                  className="design-input mt-2 h-11 w-full px-4"
-                  value={asString(form[key], '')}
-                  onChange={(event) => setField(key, event.target.value)}
-                />
-              </label>
-            ))}
-            {mutation.isError ? <p className="md:col-span-2 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(mutation.error)}</p> : null}
-            {mutation.isSuccess ? <p className="md:col-span-2 rounded-2xl bg-[var(--success-soft)] px-4 py-3 text-sm font-medium text-[var(--success)]">Configurações salvas.</p> : null}
-            <div className="md:col-span-2">
-              <Button type="submit" icon={Save} isLoading={mutation.isPending}>
-                Salvar
-              </Button>
-            </div>
-          </form>
-        </CardBody>
+          <CardHeader>
+            <p className="text-sm font-bold text-ink">Tema da interface</p>
+            <p className="mt-1 text-xs text-ink-muted">Preferência salva somente neste navegador.</p>
+          </CardHeader>
+          <CardBody className="flex flex-wrap gap-2">
+            <Button type="button" variant={theme === 'light' ? 'primary' : 'secondary'} icon={Sun} onClick={() => setTheme('light')}>Claro</Button>
+            <Button type="button" variant={theme === 'dark' ? 'primary' : 'secondary'} icon={Moon} onClick={() => setTheme('dark')}>Escuro</Button>
+            <Button type="button" variant={theme === 'system' ? 'primary' : 'secondary'} icon={Sun} onClick={() => setTheme('system')}>Sistema</Button>
+          </CardBody>
         </Card>
       ) : null}
 
       {settingsTab === 'integracoes' ? (
-        <Card>
-          <CardHeader>
-            <p className="text-sm font-bold text-ink">Integrações</p>
-          </CardHeader>
-          <CardBody className="grid gap-3 md:grid-cols-2">
-            {['TikTok', 'Appmax', 'E-mail transacional', 'Webhooks'].map((item) => (
-              <div key={item} className="rounded-2xl border border-line bg-surface-muted p-4">
-                <p className="text-sm font-bold text-ink">{item}</p>
-                <p className="mt-1 text-xs text-ink-muted">Status gerenciado pelo backend da unidade.</p>
-              </div>
-            ))}
-          </CardBody>
-        </Card>
+        <IntegracoesSettingsPanel tenantId={currentUser?.tenant_id ?? ''} settings={query.data ?? {}} />
       ) : null}
 
       {settingsTab === 'seguranca' ? (

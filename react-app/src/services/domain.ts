@@ -135,8 +135,20 @@ export function updateRankingPublicoConfig(payload: JsonRecord) {
   return apiPatch<JsonRecord>('/configuracoes/ranking-publico', payload)
 }
 
+export function getTikTokIntegrationStatus() {
+  return apiGet<JsonRecord>('/tiktok/status')
+}
+
+export function getTikTokConnectUrl() {
+  return apiGet<{ url?: string }>('/tiktok/connect')
+}
+
 export function getUsuarios(params: Record<string, unknown> = {}) {
   return apiGet<JsonRecord[]>('/usuarios', params)
+}
+
+export function getConvitesPendentes() {
+  return apiGet<JsonRecord[]>('/usuarios/convites-pendentes')
 }
 
 export function convidarUsuario(payload: JsonRecord) {
@@ -653,8 +665,8 @@ export function encerrarLive(id: string, payload: JsonRecord) {
   return apiPatch(`/lives/${id}/encerrar`, payload)
 }
 
-export function getApresentadoras() {
-  return apiGet<JsonRecord[]>('/apresentadoras')
+export function getApresentadoras(params: Record<string, unknown> = {}) {
+	return apiGet<JsonRecord[]>('/apresentadoras', params)
 }
 
 export function updateApresentadora(id: string, payload: JsonRecord) {
@@ -777,6 +789,10 @@ export function applyAnalyticsImport(batchId: string) {
 
 export function getConfiguracoes() {
   return apiGet<JsonRecord>('/configuracoes')
+}
+
+export function uploadConfiguracoesLogo(file: File) {
+  return apiUpload<{ url: string }>('/configuracoes/logo', file)
 }
 
 export function updateConfiguracoes(payload: JsonRecord) {
