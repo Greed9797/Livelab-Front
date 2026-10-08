@@ -45,6 +45,7 @@ describe('ReceitaPanel perdidos', () => {
     render(<QueryClientProvider client={new QueryClient()}><ToastProvider><ReceitaPanel mes="2026-09" podeEscrever /></ToastProvider></QueryClientProvider>)
     expect(await screen.findByText('Grupo Ação')).toBeTruthy()
     expect(screen.getAllByText('Perdido').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/^Recebido R\$/)).toBeNull()
     expect(screen.getByText(/motivo: Cliente encerrou/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Receber: Fixo/ })).toBeNull()
     expect(screen.getByRole('button', { name: /Receber: Comissão/ })).toBeTruthy()
@@ -59,6 +60,72 @@ describe('ReceitaPanel perdidos', () => {
     expect(confirmar.disabled).toBe(true)
     fireEvent.change(motivo, { target: { value: 'Cliente não pagará' } })
     expect(confirmar.disabled).toBe(false)
+  })
+})
+
+describe('ReceitaPanel perda parcial', () => {
+  it('separa o recebido da perda nas visões de competência e vencimento sem ocultar ações', async () => {
+    const api = await import('../../services/financeiro-receita')
+    const parcial = normalizarReceitaMensal({
+      mes: '2026-10', hoje: '2026-10-08',
+      competencia: { clientes: [{ cliente_id: 'cofari', cliente_nome: 'COFARI8500', marcas: [{
+        marca_id: 'cofari', marca_nome: 'COFARI8500', tipo_cobranca: 'fixo_mais_comissao', pct: 0, gmv: 0,
+        fixo: { id: 'cofari-parcial', descricao: 'COFARI8500', componente: 'fixo', valor_previsto: 8500, valor_pago: 7494.17, valor_perdido: 1005.83, status: 'perdido', perdido_em: '2026-10-07', data_vencimento: '2026-10-05', competencia: '2026-10-01' },
+        comissao: null,
+      }] }], avulsas: [], aportes: [] },
+      vencimento: { itens: [{ id: 'cofari-venc', descricao: 'COFARI8500', origem: 'avulsa', valor_previsto: 8500, valor_pago: 7494.17, valor_perdido: 1005.83, status: 'perdido', perdido_em: '2026-10-07', data_vencimento: '2026-10-05' }] },
+    }, '2026-10')
+    vi.mocked(api.getReceitaMensal).mockResolvedValueOnce(parcial)
+    render(<QueryClientProvider client={new QueryClient()}><ToastProvider><ReceitaPanel mes="2026-10" podeEscrever /></ToastProvider></QueryClientProvider>)
+    await screen.findByText('COFARI8500')
+    expect(screen.getAllByText('Recebido com perda').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Recebido R$ 7.494,17').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Perdido R$ 1.005,83').length).toBeGreaterThan(0)
+    expect(screen.getByText('Recebido R$ 7.494,17').className).toContain('text-[var(--success)]')
+    expect(screen.getByText('Perdido R$ 1.005,83').className).toContain('text-[var(--warning)]')
+    expect(screen.getByText('Recebido R$ 7.494,17').compareDocumentPosition(screen.getByText('Perdido R$ 1.005,83')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(document.querySelector('.line-through')).toBeNull()
+    expect(document.querySelector('.opacity-70')).toBeNull()
+    expect(screen.queryByText('Recebido R$ 8.500,00')).toBeNull()
+    expect(screen.getByText('Recebido R$ 7.494,17').closest('div')?.className).toContain('text-right')
+    fireEvent.click(screen.getByRole('tab', { name: 'Vencimento' }))
+    expect(screen.getByText('Recebido com perda')).toBeTruthy()
+    expect(screen.queryByText(/Em aberto/)).toBeNull()
+    expect(screen.getByText('Recebido R$ 7.494,17')).toBeTruthy()
+    expect(screen.getByText('Perdido R$ 1.005,83')).toBeTruthy()
+    expect(document.querySelector('.line-through')).toBeNull()
+    expect(document.querySelector('.opacity-70')).toBeNull()
+  })
+
+  it('rotula perda parcial ainda aberta e conserva ação de recebimento', async () => {
+    const api = await import('../../services/financeiro-receita')
+    vi.mocked(api.getReceitaMensal).mockResolvedValueOnce(normalizarReceitaMensal({
+      mes: '2026-10', competencia: { clientes: [{ cliente_id: 'c', cliente_nome: 'Cliente', marcas: [{ marca_id: 'm', marca_nome: 'Marca',
+        fixo: { id: 'aberto', componente: 'fixo', valor_previsto: 8500, valor_pago: 0, valor_perdido: 1005.83, status: 'parcial', data_vencimento: '2026-10-05', competencia: '2026-10-01' },
+      }] }], avulsas: [], aportes: [] }, vencimento: { itens: [] },
+    }, '2026-10'))
+    render(<QueryClientProvider client={new QueryClient()}><ToastProvider><ReceitaPanel mes="2026-10" podeEscrever /></ToastProvider></QueryClientProvider>)
+    await screen.findByText('Cliente')
+    expect(screen.getByText('Perda parcial')).toBeTruthy()
+    expect(screen.queryByText('Recebido R$ 0,00')).toBeNull()
+    expect(screen.getByText('Perdido R$ 1.005,83')).toBeTruthy()
+    expect(screen.getByText('Em aberto R$ 7.494,17')).toBeTruthy()
+    expect(screen.queryByText('Recebido R$ 8.500,00')).toBeNull()
+  })
+
+  it('usa recebido e perda calculada para título legado sem valor_perdido', async () => {
+    const api = await import('../../services/financeiro-receita')
+    vi.mocked(api.getReceitaMensal).mockResolvedValueOnce(normalizarReceitaMensal({
+      mes: '2026-10', competencia: { clientes: [], avulsas: [{ id: 'legado', descricao: 'Perda legado', grupo: 'servico',
+        valor_previsto: 8500, valor_pago: 7494.17, status: 'perdido', data_vencimento: '2026-10-05' }], aportes: [] },
+      vencimento: { itens: [] },
+    }, '2026-10'))
+    render(<QueryClientProvider client={new QueryClient()}><ToastProvider><ReceitaPanel mes="2026-10" podeEscrever={false} /></ToastProvider></QueryClientProvider>)
+    await screen.findByText('Perda legado')
+    expect(screen.getByText('Recebido R$ 7.494,17')).toBeTruthy()
+    expect(screen.getByText('Perdido R$ 1.005,83')).toBeTruthy()
+    expect(screen.getByText('Recebido com perda')).toBeTruthy()
+    expect(document.querySelector('.line-through')).toBeNull()
   })
 })
 
