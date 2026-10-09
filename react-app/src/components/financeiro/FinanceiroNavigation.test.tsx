@@ -5,85 +5,61 @@ import { FinanceiroNavigation, type FinanceiroTab } from './FinanceiroNavigation
 
 afterEach(cleanup)
 
-const destinations: [FinanceiroTab, string, string][] = [
-  ['lancamentos', 'Lançamentos', 'Todos os lançamentos'],
-  ['receber', 'Lançamentos', 'Receber'],
-  ['pagar', 'Lançamentos', 'Pagar'],
-  ['visao-geral', 'Lançamentos', 'Conferir: Visão geral'],
-  ['conciliacao', 'Lançamentos', 'Conferir: Conciliação'],
-  ['receita', 'Receitas e custos', 'Receita'],
-  ['custos-fixos', 'Receitas e custos', 'Custos fixos'],
-  ['custos-variaveis', 'Receitas e custos', 'Custos variáveis'],
-  ['comissoes', 'Comissões', 'Comissões'],
-  ['dre', 'Relatórios', 'DRE'],
-  ['fluxo', 'Relatórios', 'Fluxo de caixa'],
-  ['aging', 'Relatórios', 'Aging'],
-  ['fechamentos', 'Relatórios', 'Fechamentos'],
-]
-
 describe('FinanceiroNavigation', () => {
-  it.each(destinations)('deriva grupo e seção selecionados de %s', (tab, group, section) => {
-    const onChange = vi.fn()
-    render(<FinanceiroNavigation tab={tab} podeVerFechamentos onChange={onChange} />)
-    const groups = screen.getByRole('group', { name: 'Grupos do financeiro' })
-    expect(within(groups).getAllByRole('button')).toHaveLength(4)
-    expect(within(groups).getAllByRole('button', { current: 'page' })).toHaveLength(1)
-    expect(within(groups).getByRole('button', { name: group }).getAttribute('aria-current')).toBe('page')
-    expect(within(groups).getByRole('button', { name: group }).hasAttribute('aria-pressed')).toBe(false)
-    const sections = screen.getByRole('group', { name: `Seções de ${group}` })
-    expect(within(sections).getByRole('button', { name: section }).getAttribute('aria-current')).toBe('page')
-    fireEvent.click(within(groups).getByRole('button', { name: group }))
-    expect(onChange).not.toHaveBeenCalled()
+  it.each([
+    ['caixa', 'Caixa'],
+    ['vencimentos', 'Vencimentos'],
+    ['conciliacao', 'Conciliação'],
+    ['lancamentos', 'Vencimentos'],
+    ['receber', 'Mais'],
+    ['pagar', 'Mais'],
+    ['fluxo', 'Mais'],
+    ['dre', 'Mais'],
+    ['receita', 'Mais'],
+    ['comissoes', 'Mais'],
+  ] as [FinanceiroTab, string][])('marca a área principal de %s', (tab, label) => {
+    render(<FinanceiroNavigation tab={tab} podeVerFechamentos onChange={() => {}} />)
+    const areas = within(screen.getByRole('group', { name: 'Áreas principais do financeiro' }))
+    expect(areas.getAllByRole('button')).toHaveLength(4)
+    expect(areas.getAllByRole('button', { current: 'page' })).toHaveLength(1)
+    expect(areas.getByRole('button', { name: label }).getAttribute('aria-current')).toBe('page')
   })
 
   it.each([
-    ['Lançamentos', 'lancamentos'],
-    ['Receitas e custos', 'receita'],
-    ['Comissões', 'comissoes'],
-    ['Relatórios', 'dre'],
-  ] as const)('entra deterministicamente em %s', (group, target) => {
+    ['Caixa', 'caixa'],
+    ['Vencimentos', 'vencimentos'],
+    ['Conciliação', 'conciliacao'],
+    ['Mais', 'receita'],
+  ] as const)('entra deterministicamente em %s', (label, target) => {
     const onChange = vi.fn()
-    const tab = target === 'lancamentos' ? 'dre' : 'lancamentos'
-    render(<FinanceiroNavigation tab={tab} podeVerFechamentos onChange={onChange} />)
-    fireEvent.click(within(screen.getByRole('group', { name: 'Grupos do financeiro' })).getByRole('button', { name: group }))
+    render(<FinanceiroNavigation tab={target === 'caixa' ? 'dre' : 'caixa'} podeVerFechamentos onChange={onChange} />)
+    fireEvent.click(within(screen.getByRole('group', { name: 'Áreas principais do financeiro' })).getByRole('button', { name: label }))
     expect(onChange).toHaveBeenCalledExactlyOnceWith(target)
   })
 
-  it.each(destinations)('navega para %s sem guardar seleção interna', (tab, group, section) => {
+  it('mantém as áreas avançadas em Mais e navega sem estado interno', () => {
     const onChange = vi.fn()
-    const initialTab = group === 'Lançamentos' ? 'lancamentos' : group === 'Receitas e custos' ? 'receita' : group === 'Comissões' ? 'comissoes' : 'dre'
-    render(<FinanceiroNavigation tab={initialTab} podeVerFechamentos onChange={onChange} />)
-    const sections = within(screen.getByRole('group', { name: `Seções de ${group}` }))
-    fireEvent.click(sections.getByRole('button', { name: section }))
-    if (tab === initialTab) expect(onChange).not.toHaveBeenCalled()
-    else expect(onChange).toHaveBeenCalledExactlyOnceWith(tab)
-    expect(sections.getByRole('button', { current: 'page' }).getAttribute('aria-current')).toBe('page')
-    expect(sections.getByRole('button', { name: destinations.find(([value]) => value === initialTab)![2] }).getAttribute('aria-current')).toBe('page')
+    const { rerender } = render(<FinanceiroNavigation tab="dre" podeVerFechamentos onChange={onChange} />)
+    const more = within(screen.getByRole('group', { name: 'Itens de Mais' }))
+    expect(more.getByRole('button', { name: 'DRE', current: 'page' })).toBeTruthy()
+    expect(more.getByRole('button', { name: 'Fluxo de caixa' })).toBeTruthy()
+    expect(more.getByRole('button', { name: 'A receber (detalhado)' })).toBeTruthy()
+    expect(more.getByRole('button', { name: 'Custos fixos e recorrências' })).toBeTruthy()
+    fireEvent.click(more.getByRole('button', { name: 'Aging' }))
+    expect(onChange).toHaveBeenCalledExactlyOnceWith('aging')
+    expect(more.getByRole('button', { name: 'DRE', current: 'page' })).toBeTruthy()
+    rerender(<FinanceiroNavigation tab="aging" podeVerFechamentos onChange={onChange} />)
+    expect(screen.getByRole('button', { name: 'Aging' }).getAttribute('aria-current')).toBe('page')
   })
 
-  it('acompanha mudanças de tab externas sem chamar onChange', () => {
-    const onChange = vi.fn()
-    const { rerender } = render(<FinanceiroNavigation tab="pagar" podeVerFechamentos onChange={onChange} />)
-    expect(screen.queryByRole('button', { name: 'DRE' })).toBeNull()
-    rerender(<FinanceiroNavigation tab="fluxo" podeVerFechamentos onChange={onChange} />)
-    expect(screen.getByRole('button', { name: 'Fluxo de caixa' }).getAttribute('aria-current')).toBe('page')
-    expect(screen.queryByRole('button', { name: 'Pagar' })).toBeNull()
-    expect(onChange).not.toHaveBeenCalled()
-  })
-
-  it('remove Fechamentos ao perder a permissão, inclusive com tab recebido em fechamentos', () => {
+  it('remove Fechamentos ao perder permissão e volta a seleção visual para Caixa', () => {
     const onChange = vi.fn()
     const { rerender } = render(<FinanceiroNavigation tab="fechamentos" podeVerFechamentos onChange={onChange} />)
     expect(screen.getByRole('button', { name: 'Fechamentos' })).toBeTruthy()
     rerender(<FinanceiroNavigation tab="fechamentos" podeVerFechamentos={false} onChange={onChange} />)
     expect(screen.queryByRole('button', { name: 'Fechamentos' })).toBeNull()
-    const groups = within(screen.getByRole('group', { name: 'Grupos do financeiro' }))
-    expect(groups.getAllByRole('button', { current: 'page' })).toHaveLength(1)
-    expect(groups.getByRole('button', { name: 'Lançamentos', current: 'page' })).toBeTruthy()
-    const sections = within(screen.getByRole('group', { name: 'Seções de Lançamentos' }))
-    expect(sections.getAllByRole('button', { current: 'page' })).toHaveLength(1)
-    expect(sections.getByRole('button', { name: 'Todos os lançamentos', current: 'page' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'DRE' })).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Itens de Mais' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Caixa', current: 'page' })).toBeTruthy()
     expect(onChange).not.toHaveBeenCalled()
   })
 })

@@ -7,7 +7,7 @@ import { ErrorState } from '../components/ui/States'
 import { useToast } from '../components/ui/Toast'
 import { MonthSwitcher } from '../components/financeiro/primitives'
 import { FinanceiroNavigation, type FinanceiroTab } from '../components/financeiro/FinanceiroNavigation'
-import { PainelMes } from '../components/financeiro/PainelMes'
+import { CaixaOperacionalPanel, type CaixaDetalhe } from '../components/financeiro/CaixaOperacionalPanel'
 import { AgingPanel } from '../components/financeiro/AgingPanel'
 import { ReceberPagarPanel } from '../components/financeiro/ReceberPagarPanel'
 import { ResultadoVersionsPanel } from '../components/financeiro/ResultadoVersionsPanel'
@@ -27,22 +27,34 @@ import { ImpostoConfigModal } from '../components/financeiro/ImpostoConfigModal'
 import { ComissoesTab } from '../components/financeiro/LegacyTabs'
 import { PresenterSettlement } from '../components/financeiro/PresenterSettlement'
 import '../components/financeiro/financeiro.css'
-import { useBaixaMutation, useCustoMutations, useFinanceiroConfig, useLancamentos, usePainel, useReceitaAvulsaMutations } from '../hooks/useFinanceiro'
+import { useBaixaMutation, useCustoMutations, useFinanceiroConfig, useLancamentos, useReceitaAvulsaMutations } from '../hooks/useFinanceiro'
 import { extractErrorMessage } from '../services/api'
 import { useCurrentUser } from '../stores/auth-store'
-import type { Lancamento, Natureza } from '../types/financeiro'
+import type { Lancamento } from '../types/financeiro'
 import { canWrite } from '../utils/access'
 import { filtrarPorVencimentoNoMes, hojeSP, isMes, isReceitaAvulsa, janelaLancamentos, mesAtualSP, mesLabel, ultimoDiaMes, type VisaoLista } from '../utils/financeiro'
 import { formatPercent } from '../utils/format'
 import type { PeriodRange } from '../utils/period'
 
-const TABS: FinanceiroTab[] = ['lancamentos', 'visao-geral', 'receber', 'pagar', 'aging', 'fechamentos', 'receita', 'custos-fixos', 'custos-variaveis', 'dre', 'fluxo', 'conciliacao', 'comissoes']
-// Links antigos: "Por cliente" virou Receita e "Recorrentes" vive dentro de Custos fixos.
-const TAB_ALIASES: Record<string, FinanceiroTab> = { cliente: 'receita', recorrentes: 'custos-fixos' }
-function parseTab(v: string | null): FinanceiroTab | null {
+const TABS: FinanceiroTab[] = ['caixa', 'vencimentos', 'visao-geral', 'receber', 'pagar', 'aging', 'fechamentos', 'receita', 'custos-fixos', 'custos-variaveis', 'dre', 'fluxo', 'conciliacao', 'comissoes']
+// Links antigos continuam válidos e preservam todos os demais parâmetros da URL.
+const TAB_ALIASES: Record<string, FinanceiroTab> = {
+  lancamentos: 'vencimentos',
+  cliente: 'receita',
+  recorrentes: 'custos-fixos',
+}
+export function parseFinanceiroTab(v: string | null): FinanceiroTab | null {
   if (!v) return null
   if ((TABS as string[]).includes(v)) return v as FinanceiroTab
   return TAB_ALIASES[v] ?? null
+}
+
+export function normalizarAliasFinanceiro(params: URLSearchParams): URLSearchParams | null {
+  const alias = TAB_ALIASES[params.get('tab') ?? '']
+  if (!alias) return null
+  const next = new URLSearchParams(params)
+  next.set('tab', alias)
+  return next
 }
 
 export function FinanceiroPage() {
@@ -59,8 +71,11 @@ export function FinanceiroPage() {
   const paramMes = params.get('mes')
   const mes = isMes(paramMes) ? paramMes : mesAtualSP()
   const paramTab = params.get('tab')
-  const parsedTab = parseTab(paramTab)
-  const tab: FinanceiroTab = parsedTab === 'fechamentos' && !podeVerFechamentos ? 'lancamentos' : parsedTab ?? 'lancamentos'
+  const parsedTab = parseFinanceiroTab(paramTab)
+  const tab: FinanceiroTab = parsedTab === 'fechamentos' && !podeVerFechamentos ? 'caixa' : parsedTab ?? 'caixa'
+  const caixaDetalhe: CaixaDetalhe = params.get('caixa_detalhe') === 'entradas' || params.get('caixa_detalhe') === 'saidas'
+    ? params.get('caixa_detalhe') as Exclude<CaixaDetalhe, null>
+    : null
 
   const [filtro, setFiltro] = useState<FiltroLocal>(FILTRO_VAZIO)
   const [baixa, setBaixa] = useState<Lancamento | null>(null)
@@ -73,11 +88,10 @@ export function FinanceiroPage() {
   const [visao, setVisao] = useState<VisaoLista>('vencimento')
   const [incluirAnteriores, setIncluirAnteriores] = useState(false)
 
-  // Cada aba só busca o que usa: lançamentos na lista e no fluxo (fallback); painel só na lista.
-  const usaLancamentos = tab === 'lancamentos' || tab === 'fluxo'
+  // Cada área busca somente o seu contrato. Caixa não recorre a lançamentos/DRE como fallback.
+  const usaLancamentos = tab === 'vencimentos' || tab === 'fluxo'
   const janela = janelaLancamentos(mes, visao, visao === 'vencimento' && incluirAnteriores)
   const lancamentos = useLancamentos({ ...janela, ...(visao === 'vencimento' ? { vencimento_ate: `${mes}-${String(ultimoDiaMes(mes)).padStart(2, '0')}` } : {}) }, !isCliente && usaLancamentos)
-  const painel = usePainel(mes, !isCliente && tab === 'lancamentos')
   const config = useFinanceiroConfig(!isCliente)
   const baixaMut = useBaixaMutation()
   const custos = useCustoMutations()
@@ -93,11 +107,8 @@ export function FinanceiroPage() {
 
   // Normaliza o alias antigo na URL preservando mes/inicio/fim e demais params.
   useEffect(() => {
-    if (paramTab && TAB_ALIASES[paramTab]) {
-      const next = new URLSearchParams(params)
-      next.set('tab', TAB_ALIASES[paramTab])
-      setParams(next, { replace: true })
-    }
+    const next = normalizarAliasFinanceiro(params)
+    if (next) setParams(next, { replace: true })
   }, [paramTab, params, setParams])
 
   function updateParams(patch: Record<string, string | null>) {
@@ -113,12 +124,6 @@ export function FinanceiroPage() {
 
   const periodo: PeriodRange = { mode: 'single', inicio: mes, fim: mes }
   const aliquota = config.data?.aliquota_imposto_pct
-
-  function verAtrasados(natureza: Natureza) {
-    setVisao('vencimento')
-    setIncluirAnteriores(true)
-    setFiltro({ ...FILTRO_VAZIO, natureza, status: 'atrasado' })
-  }
 
   function toastOk(msg: string, variant: 'success' | 'error' = 'success') {
     toast.push(msg, variant)
@@ -158,7 +163,7 @@ export function FinanceiroPage() {
         subtitle={`${mesLabel(mes).replace(/^./, (c) => c.toUpperCase())} · o que entra, o que sai e o que está vencendo.`}
         actions={
           <>
-            <MonthSwitcher value={mes} onChange={(v) => updateParams({ mes: v === mesAtualSP() ? null : v, fin_comp_mes: null, fin_comp_inicio: null, fin_comp_fim: null, fin_pagina: null, fin_id: null })} />
+            <MonthSwitcher value={mes} onChange={(v) => updateParams({ mes: v === mesAtualSP() ? null : v, caixa_detalhe: null, fin_comp_mes: null, fin_comp_inicio: null, fin_comp_fim: null, fin_pagina: null, fin_id: null })} />
             {podeEscrever ? (
               <Button variant="secondary" icon={Plus} className="min-h-11 sm:min-h-0" onClick={() => setReceitaModal({ kind: 'nova' })}>
                 Nova receita
@@ -181,20 +186,25 @@ export function FinanceiroPage() {
       <FinanceiroNavigation
         tab={tab}
         podeVerFechamentos={podeVerFechamentos}
-        onChange={(v) => updateParams({ tab: v === 'lancamentos' ? null : v })}
+        onChange={(v) => updateParams({ tab: v === 'caixa' ? null : v })}
       />
 
-      {tab === 'lancamentos' ? (
+      {tab === 'caixa' ? (
+        <CaixaOperacionalPanel
+          mes={mes}
+          detalhe={caixaDetalhe}
+          podeEscrever={podeEscrever}
+          onConfigurar={() => setCaixaOpen(true)}
+          onMesChange={(value) => updateParams({ mes: value === mesAtualSP() ? null : value })}
+          onDetalheChange={(value, valueMes) => updateParams({
+            caixa_detalhe: value,
+            ...(valueMes ? { mes: valueMes === mesAtualSP() ? null : valueMes } : {}),
+          })}
+        />
+      ) : null}
+
+      {tab === 'vencimentos' ? (
         <div className="space-y-5">
-          <PainelMes
-            painel={painel.data}
-            isLoading={painel.isLoading}
-            isError={painel.isError}
-            podeEscrever={podeEscrever}
-            onConfigurar={() => setCaixaOpen(true)}
-            onRetry={() => void painel.refetch()}
-            onVerAtrasados={verAtrasados}
-          />
           {lancamentos.isError ? (
             <ErrorState message={extractErrorMessage(lancamentos.error)} onRetry={() => void lancamentos.refetch()} />
           ) : lancamentos.isLoading && !data ? (
@@ -220,7 +230,7 @@ export function FinanceiroPage() {
                 baixaMut.reset()
                 setDesfazer(l)
               }}
-              dataCorte={painel.data?.data_corte ?? config.data?.data_corte ?? null}
+              dataCorte={config.data?.data_corte ?? null}
               onEditar={(l) => (isReceitaAvulsa(l) ? setReceitaModal({ kind: 'editar', lancamento: l }) : setCustoModal({ kind: 'editar-lancamento', lancamento: l }))}
               onExcluir={(l) => {
                 custos.excluir.reset()

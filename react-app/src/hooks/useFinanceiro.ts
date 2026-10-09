@@ -23,6 +23,7 @@ import {
   deleteCustoRecorrente,
   deleteReceitaAvulsa,
   getCustosRecorrentes,
+  getCaixaOperacional,
   getDre,
   getFinanceiroConfig,
   getFluxoCaixa,
@@ -63,6 +64,11 @@ export function useFluxoCaixa(mes: string, saldoInicial: number, enabled = true)
     enabled,
     ...FIN_CACHE,
   })
+}
+
+/** Caixa atual e projeção diária contínua dos seis meses civis seguintes. */
+export function useCaixaOperacional(enabled = true) {
+  return useQuery({ queryKey: FQK.caixaOperacional, queryFn: getCaixaOperacional, enabled, ...FIN_CACHE })
 }
 
 export function useFinanceiroConfig(enabled = true) {
