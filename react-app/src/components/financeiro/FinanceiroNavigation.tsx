@@ -1,7 +1,7 @@
 import { Button } from '../ui/Button'
 
 export type FinanceiroTab =
-  | 'lancamentos' | 'receber' | 'pagar' | 'visao-geral' | 'conciliacao'
+  | 'caixa' | 'vencimentos' | 'lancamentos' | 'receber' | 'pagar' | 'visao-geral' | 'conciliacao'
   | 'receita' | 'custos-fixos' | 'custos-variaveis' | 'comissoes'
   | 'dre' | 'fluxo' | 'aging' | 'fechamentos'
 
@@ -11,69 +11,67 @@ interface FinanceiroNavigationProps {
   onChange: (tab: FinanceiroTab) => void
 }
 
-interface NavigationGroup {
+interface NavigationArea {
   label: string
   entry: FinanceiroTab
-  sections: { value: FinanceiroTab; label: string }[]
+  primary: boolean
 }
 
-const groups: NavigationGroup[] = [
-  {
-    label: 'Lançamentos', entry: 'lancamentos',
-    sections: [
-      { value: 'lancamentos', label: 'Todos os lançamentos' },
-      { value: 'receber', label: 'Receber' },
-      { value: 'pagar', label: 'Pagar' },
-      { value: 'visao-geral', label: 'Conferir: Visão geral' },
-      { value: 'conciliacao', label: 'Conferir: Conciliação' },
-    ],
-  },
-  {
-    label: 'Receitas e custos', entry: 'receita',
-    sections: [
-      { value: 'receita', label: 'Receita' },
-      { value: 'custos-fixos', label: 'Custos fixos' },
-      { value: 'custos-variaveis', label: 'Custos variáveis' },
-    ],
-  },
-  {
-    label: 'Comissões', entry: 'comissoes',
-    sections: [{ value: 'comissoes', label: 'Comissões' }],
-  },
-  {
-    label: 'Relatórios', entry: 'dre',
-    sections: [
-      { value: 'dre', label: 'DRE' },
-      { value: 'fluxo', label: 'Fluxo de caixa' },
-      { value: 'aging', label: 'Aging' },
-      { value: 'fechamentos', label: 'Fechamentos' },
-    ],
-  },
+const areas: NavigationArea[] = [
+  { label: 'Caixa', entry: 'caixa', primary: true },
+  { label: 'Vencimentos', entry: 'vencimentos', primary: true },
+  { label: 'Conciliação', entry: 'conciliacao', primary: true },
+  { label: 'Mais', entry: 'receita', primary: false },
 ]
+
+const moreSections: { value: FinanceiroTab; label: string }[] = [
+  { value: 'receber', label: 'A receber (detalhado)' },
+  { value: 'pagar', label: 'A pagar (detalhado)' },
+  { value: 'visao-geral', label: 'Conferência de dados' },
+  { value: 'receita', label: 'Receita' },
+  { value: 'custos-fixos', label: 'Custos fixos e recorrências' },
+  { value: 'custos-variaveis', label: 'Custos variáveis' },
+  { value: 'comissoes', label: 'Comissões' },
+  { value: 'dre', label: 'DRE' },
+  { value: 'fluxo', label: 'Fluxo de caixa' },
+  { value: 'aging', label: 'Aging' },
+  { value: 'fechamentos', label: 'Fechamentos' },
+]
+
+function areaFor(tab: FinanceiroTab): FinanceiroTab {
+  if (tab === 'caixa') return 'caixa'
+  if (tab === 'vencimentos' || tab === 'lancamentos') return 'vencimentos'
+  if (tab === 'conciliacao') return 'conciliacao'
+  return 'receita'
+}
 
 export function FinanceiroNavigation({ tab, podeVerFechamentos, onChange }: FinanceiroNavigationProps) {
   // A seleção visual respeita a permissão sem alterar a URL ou disparar navegação.
-  const effectiveTab = tab === 'fechamentos' && !podeVerFechamentos ? 'lancamentos' : tab
-  const activeGroup = groups.find((group) => group.sections.some((section) => section.value === effectiveTab))!
+  const effectiveTab = tab === 'fechamentos' && !podeVerFechamentos ? 'caixa' : tab
+  const activeArea = areaFor(effectiveTab)
+  const moreActive = activeArea === 'receita'
 
   return (
     <nav aria-label="Navegação do financeiro" className="min-w-0 space-y-3">
-      <div role="group" aria-label="Grupos do financeiro" className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
-        {groups.map((group) => (
+      <div role="group" aria-label="Áreas principais do financeiro" className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
+        {areas.map((area) => {
+          const active = area.primary ? activeArea === area.entry : moreActive
+          return (
           <Button
-            key={group.entry}
+            key={area.entry}
             type="button"
-            variant={group === activeGroup ? 'primary' : 'secondary'}
-            aria-current={group === activeGroup ? 'page' : undefined}
+            variant={active ? 'primary' : 'secondary'}
+            aria-current={active ? 'page' : undefined}
             className="h-auto min-h-[44px] min-w-0 whitespace-normal px-3 py-2 text-center"
-            onClick={() => { if (group !== activeGroup) onChange(group.entry) }}
+            onClick={() => { if (!active) onChange(area.entry) }}
           >
-            {group.label}
+            {area.label}
           </Button>
-        ))}
+          )
+        })}
       </div>
-      <div role="group" aria-label={`Seções de ${activeGroup.label}`} className="flex min-w-0 flex-wrap gap-2">
-        {activeGroup.sections.filter((section) => section.value !== 'fechamentos' || podeVerFechamentos).map((section) => (
+      {moreActive ? <div role="group" aria-label="Itens de Mais" className="flex min-w-0 flex-wrap gap-2">
+        {moreSections.filter((section) => section.value !== 'fechamentos' || podeVerFechamentos).map((section) => (
           <Button
             key={section.value}
             type="button"
@@ -85,7 +83,7 @@ export function FinanceiroNavigation({ tab, podeVerFechamentos, onChange }: Fina
             {section.label}
           </Button>
         ))}
-      </div>
+      </div> : null}
     </nav>
   )
 }

@@ -151,6 +151,95 @@ export interface FluxoCaixaResponse {
   totais: { entradas: PrevistoRealizado; saidas: PrevistoRealizado; saldo: PrevistoRealizado }
 }
 
+export interface CaixaOperacionalDia {
+  dia: string
+  saldo_inicial: number | null
+  entradas_realizadas: number
+  saidas_realizadas: number
+  entradas_projetadas: number
+  saidas_projetadas: number
+  reserva_vencida: number
+  saldo_final_projetado: number | null
+  saldo_disponivel_projetado: number | null
+}
+
+export interface CaixaOperacionalMes {
+  mes: string
+  saldo_inicial: number | null
+  entradas_realizadas: number
+  saidas_realizadas: number
+  entradas_projetadas: number
+  saidas_projetadas: number
+  reserva_vencida: number
+  saldo_final_projetado: number | null
+  saldo_disponivel_final: number | null
+  menor_saldo_diario: number | null
+  primeiro_dia_negativo: string | null
+}
+
+export interface CaixaOperacionalItem {
+  id: string
+  natureza: Natureza
+  origem: string
+  descricao: string
+  data_vencimento: string | null
+  valor_projetado: number
+  saldo_aberto: number | null
+  valor_original: number | null
+  liquidado_acumulado: number | null
+  virtual: boolean
+  inconsistente: boolean
+}
+
+export interface CaixaOperacionalMovimento {
+  id: string
+  natureza: Natureza
+  origem: string
+  descricao: string
+  data: string | null
+  valor: number
+  tipo: string
+  fonte: string
+}
+
+export interface CaixaOperacionalResponse {
+  data_base: string
+  horizonte: { inicio: string; fim: string; meses: number }
+  caixa: {
+    configurado: boolean
+    data_corte: string | null
+    saldo_abertura: number | null
+    saldo_atual: number | null
+    reserva_pagaveis_vencidos: number
+    saldo_disponivel: number | null
+    origem: string
+    escopo: string
+  }
+  serie_diaria: CaixaOperacionalDia[]
+  meses: CaixaOperacionalMes[]
+  indicadores: { menor_saldo_diario: number | null; primeiro_dia_negativo: string | null }
+  obrigacoes: CaixaOperacionalItem[]
+  movimentos: CaixaOperacionalMovimento[]
+  pendencias: {
+    recebiveis_vencidos: CaixaOperacionalItem[]
+    pagaveis_vencidos: CaixaOperacionalItem[]
+    sem_data: CaixaOperacionalItem[]
+    comissao_futura: string
+    comissoes_nao_estimadas: CaixaOperacionalItem[]
+    movimentos_futuros: CaixaOperacionalMovimento[]
+    historico: Array<Record<string, unknown>>
+  }
+  completude: {
+    saldo_configurado: boolean
+    obrigacoes_com_data: boolean
+    obrigacoes_consistentes: boolean
+    comissoes_futuras_estimadas: boolean
+    historico_obrigacoes_completo: boolean
+    repasses_pendentes_incluidos_no_saldo: boolean
+    escopo: string
+  }
+}
+
 export interface FinanceiroConfig {
   aliquota_imposto_pct: number
   /** 'YYYY-MM-DD' — tudo que vence antes é ignorado; null = sem corte. */
