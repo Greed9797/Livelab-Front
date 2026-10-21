@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { archiveLive, archivePresenterSubmission, confirmMarcaCondicao, consolidateOperationalDay, createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getMarcaCondicoes, getOperationalGoals, getVideos, iniciarLive, previewMarcaCondicao, publishLive, saveOperationalGoals, type LiveResumoDiaResponse, type OperationalGoalsPatch, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
+import { archiveLive, archivePresenterSubmission, confirmMarcaCondicao, consolidateOperationalDay, createCliente, createVideo, deleteApresentadora, deleteCabine, deleteLive, deleteUsuario, deleteVideo, ganharLead, getAgendaConflitos, getClienteAnalyticsDiario, getClienteConteudoLives, getClienteHome, getDailyAnalytics, getLead, getLiveAtualDaCabine, getLivePorId, getLives, getLivesPaginado, getLivesResumoDia, getLiveTiktokStatus, getMasterCrm, getMarcaCondicoes, getOperationalGoals, getVideos, iniciarLive, previewMarcaCondicao, publishLive, saveOperationalGoals, type LiveResumoDiaResponse, type OperationalGoalsPatch, updateApresentadora, updateLive, updateUsuario, updateVideo } from './domain'
 import { operationalGoalsRequest } from './domain'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
@@ -18,6 +18,16 @@ describe('domain live operations', () => {
     vi.mocked(apiPatch).mockReset()
     vi.mocked(apiPost).mockReset()
     vi.mocked(apiPut).mockReset()
+  })
+
+  it('uses only the reviewed client-portal endpoints and fixed history pagination', async () => {
+    vi.mocked(apiGet).mockResolvedValue({})
+    await getClienteHome({ mes: 9, ano: 2026 })
+    await getClienteConteudoLives({ mes: 9, ano: 2026 }, 50)
+    await getClienteAnalyticsDiario({ from: '2026-09-01', to: '2026-09-30' })
+    expect(apiGet).toHaveBeenNthCalledWith(1, '/cliente/home', { mes: 9, ano: 2026 })
+    expect(apiGet).toHaveBeenNthCalledWith(2, '/cliente/conteudo/lives', { mes: 9, ano: 2026, offset: 50 })
+    expect(apiGet).toHaveBeenNthCalledWith(3, '/cliente/analytics/diario', { from: '2026-09-01', to: '2026-09-30' })
   })
 
   it('posts the old start-live flow to /lives', async () => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { CircleDollarSign, Clock, Radio, ShoppingBag, TrendingUp } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { MetricCard } from '../ui/MetricCard'
@@ -7,77 +7,52 @@ import { LoadingState, ErrorState, EmptyState } from '../ui/States'
 import { getClienteAnalyticsDiario } from '../../services/domain'
 import { QK } from '../../services/query-keys'
 import { extractErrorMessage } from '../../services/api'
-import { asNumber, asString } from '../../utils/format'
-import { metric, moneyMetric, sumDailyTotals } from '../../pages/page-helpers'
-import type { JsonRecord } from '../../types/models'
+import { asString, formatMoney } from '../../utils/format'
+import { metric } from '../../pages/page-helpers'
+import type { Period } from '../../types/models'
 
-type Preset = 'hoje' | '7d' | '30d' | 'mes'
-const PRESETS: { key: Preset; label: string }[] = [
-  { key: 'hoje', label: 'Hoje' },
-  { key: '7d', label: '7 dias' },
-  { key: '30d', label: '30 dias' },
-  { key: 'mes', label: 'Mês atual' },
-]
-
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-function range(preset: Preset): { from: string; to: string } {
-  const today = new Date()
-  const to = ymd(today)
-  const shift = (days: number) => { const d = new Date(today); d.setDate(d.getDate() - days); return ymd(d) }
-  if (preset === 'hoje') return { from: to, to }
-  if (preset === '7d') return { from: shift(6), to }
-  if (preset === '30d') return { from: shift(29), to }
-  return { from: `${to.slice(0, 7)}-01`, to }
+function range(period: Period): { from: string; to: string } {
+  const month = String(period.mes).padStart(2, '0')
+  const lastDay = new Date(Date.UTC(period.ano, period.mes, 0)).getUTCDate()
+  return { from: `${period.ano}-${month}-01`, to: `${period.ano}-${month}-${String(lastDay).padStart(2, '0')}` }
 }
 function diaCurto(value: unknown): string {
   const m = asString(value, '').match(/^(\d{4})-(\d{2})-(\d{2})/)
   return m ? `${m[3]}/${m[2]}` : '—'
 }
 
-export function ClienteAnalyticsPanel() {
-  const [preset, setPreset] = useState<Preset>('30d')
-  const { from, to } = range(preset)
+export function ClienteAnalyticsPanel({ scope, period }: { scope: string; period: Period }) {
+  const { from, to } = range(period)
 
   const query = useQuery({
-    queryKey: QK.clienteAnalyticsDiario(from, to),
+    queryKey: QK.clienteAnalyticsDiario(scope, from, to),
     queryFn: () => getClienteAnalyticsDiario({ from, to }),
     staleTime: 60_000,
   })
 
-  const rows = useMemo(() => (Array.isArray(query.data) ? (query.data as JsonRecord[]) : []), [query.data])
-  const totals = useMemo(() => sumDailyTotals(rows), [rows])
-  const gmvPoints = useMemo(() => rows.map((r) => ({ label: diaCurto(r.dia), value: asNumber(r.gmv_total) })), [rows])
-  const pedidosPoints = useMemo(() => rows.map((r) => ({ label: diaCurto(r.dia), value: asNumber(r.pedidos) })), [rows])
-  const horasPoints = useMemo(() => rows.map((r) => ({ label: diaCurto(r.dia), value: Math.round(asNumber(r.horas_live) * 10) / 10 })), [rows])
+  const rows = useMemo(() => query.data ?? [], [query.data])
+  const totals = useMemo(() => rows.reduce((total, row) => ({
+    gmv: total.gmv === null || row.gmv_total === null ? null : total.gmv + row.gmv_total,
+    pedidos: total.pedidos === null || row.pedidos === null ? null : total.pedidos + row.pedidos,
+    horas: total.horas === null || row.horas_live === null ? null : total.horas + row.horas_live,
+    lives: total.lives + row.total_lives,
+  }), { gmv: 0 as number | null, pedidos: 0 as number | null, horas: 0 as number | null, lives: 0 }), [rows])
+  const gmvPoints = useMemo(() => rows.filter((r) => r.gmv_total !== null).map((r) => ({ label: diaCurto(r.dia), value: r.gmv_total as number })), [rows])
+  const pedidosPoints = useMemo(() => rows.filter((r) => r.pedidos !== null).map((r) => ({ label: diaCurto(r.dia), value: r.pedidos as number })), [rows])
+  const horasPoints = useMemo(() => rows.filter((r) => r.horas_live !== null).map((r) => ({ label: diaCurto(r.dia), value: Math.round((r.horas_live as number) * 10) / 10 })), [rows])
 
   const metrics = [
-    moneyMetric('GMV atribuído', totals.gmv_total, 'lives publicadas', 'brand'),
-    metric('Pedidos', totals.pedidos.toLocaleString('pt-BR'), 'no período', 'success'),
-    metric('Lives realizadas', totals.total_lives.toLocaleString('pt-BR'), 'no período', 'neutral'),
-    metric('Horas de live', totals.horas_live.toFixed(1), 'no período', 'neutral'),
-    moneyMetric('GMV / live', totals.gmv_por_live, 'GMV / lives', 'info'),
-    moneyMetric('GMV / hora', totals.gmv_por_hora, 'GMV / horas', 'success'),
+    metric('GMV', totals.gmv === null ? 'Não informado' : formatMoney(totals.gmv), 'lives revisadas', 'brand'),
+    metric('Pedidos', totals.pedidos === null ? 'Não informado' : totals.pedidos.toLocaleString('pt-BR'), 'no período', 'success'),
+    metric('Lives revisadas', totals.lives.toLocaleString('pt-BR'), 'no período', 'neutral'),
+    metric('Horas de live', totals.horas === null ? 'Não informado' : `${totals.horas.toFixed(1)}h`, 'no período', 'neutral'),
+    metric('GMV / live', totals.gmv === null || totals.lives === 0 ? 'Não informado' : formatMoney(totals.gmv / totals.lives), 'média do período', 'info'),
+    metric('GMV / hora', totals.gmv === null || totals.horas === null || totals.horas === 0 ? 'Não informado' : formatMoney(totals.gmv / totals.horas), 'média do período', 'success'),
   ]
   const icons = [CircleDollarSign, ShoppingBag, Radio, Clock, TrendingUp, TrendingUp]
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {PRESETS.map((p) => (
-          <button
-            key={p.key}
-            type="button"
-            onClick={() => setPreset(p.key)}
-            aria-pressed={preset === p.key}
-            className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20 ${preset === p.key ? 'bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover' : 'border border-line text-ink-muted hover:bg-surface-muted hover:text-ink'}`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
       {query.isLoading ? (
         <LoadingState label="Carregando analytics" />
       ) : query.isError ? (
@@ -90,10 +65,10 @@ export function ClienteAnalyticsPanel() {
             {metrics.map((item, i) => <MetricCard key={item.label} metric={item} icon={icons[i]} />)}
           </section>
           <section className="grid gap-4 xl:grid-cols-2">
-            <LinePanel title="GMV por dia" data={gmvPoints} />
-            <BarPanel title="Pedidos por dia" data={pedidosPoints} />
+            {gmvPoints.length > 0 ? <LinePanel title="GMV por dia" data={gmvPoints} /> : null}
+            {pedidosPoints.length > 0 ? <BarPanel title="Pedidos por dia" data={pedidosPoints} /> : null}
           </section>
-          <BarPanel title="Horas de live por dia" data={horasPoints} />
+          {horasPoints.length > 0 ? <BarPanel title="Horas de live por dia" data={horasPoints} /> : null}
         </>
       )}
     </div>

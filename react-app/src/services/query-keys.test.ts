@@ -38,7 +38,7 @@ describe('invalidateOperational', () => {
       ['live-union', 'live-1'],
       QK.financeiroOperacional('2026-09'),
       QK.comissoesDaLive('live-1'),
-      QK.clienteConteudoLives({ mes: 9, ano: 2026 }),
+      QK.clienteConteudoLives('tenant-1:user-1', { mes: 9, ano: 2026 }),
       QK.masterConsolidated({ mes: 9, ano: 2026 }),
     ]
     keys.forEach((key) => client.setQueryData(key, { stale: false }))
@@ -48,6 +48,13 @@ describe('invalidateOperational', () => {
 })
 
 describe('analytics daily query key', () => {
+  it('scopes client-portal data to the authenticated tenant and user', () => {
+    const period = { mes: 9, ano: 2026 }
+    expect(QK.clienteHome('tenant-a:user-a', period)).not.toEqual(QK.clienteHome('tenant-a:user-b', period))
+    expect(QK.clienteConteudoLives('tenant-a:user-a', period, 0)).not.toEqual(QK.clienteConteudoLives('tenant-b:user-a', period, 0))
+    expect(QK.clienteAnalyticsDiario('tenant-a:user-a', '2026-09-01', '2026-09-30')).not.toEqual(QK.clienteAnalyticsDiario('tenant-a:user-b', '2026-09-01', '2026-09-30'))
+  })
+
   it('isolates operational goals by tenant and selected calendar day', () => {
     expect(QK.operationalGoals('2026-10-07', 'tenant-a')).not.toEqual(QK.operationalGoals('2026-10-07', 'tenant-b'))
     expect(QK.operationalGoals('2026-10-07', 'tenant-a')).not.toEqual(QK.operationalGoals('2026-10-08', 'tenant-a'))
