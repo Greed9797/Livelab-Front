@@ -18,6 +18,12 @@
 
 T1 corrige a dependência temporal aprovada. T2 implementa o portal com o contrato do backend. T3 valida e registra a revisão.
 
+```mermaid
+graph LR
+  T1 --> T2
+  T2 --> T3
+```
+
 ## Task Breakdown
 
 ### T1: Estabilizar o teste temporal
@@ -33,13 +39,14 @@ Depends on: T1
 Tests: PORTAL-4,6,7,8,9 incluindo erro/vazio/zero/null, paginação e troca de conta
 Gate: Quick portal
 Done when: três áreas do portal, contratos tipados, consultas por conta e nenhuma tela ou chamada financeira.
-Status: in progress
+Status: complete
 Owner: frontend_portal
+Verification: testes focados de contratos/cache, render de troca de conta, meta null/zero, guard de ranking; typecheck oficial aprovado e 4 cenários Playwright desktop/mobile aprovados sem skips.
 
 ### T3: Validar pacote de publicação
 Depends on: T2
 Tests: gates completos, fluxo móvel com dados sintéticos e revisão independente
 Gate: Build
 Done when: typecheck, testes e build verdes; evidência de validação registrada e nenhum deploy executado.
-Status: pending
+Status: in progress
 Owner: root/verifier

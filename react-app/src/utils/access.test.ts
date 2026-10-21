@@ -18,9 +18,9 @@ describe('routeForRole', () => {
     expect(routeForRole('gerente_regional')).toBe('/master')
   })
 
-  it('routes client users according to onboarding state', () => {
+  it('routes client users directly to their portal regardless of legacy onboarding state', () => {
     expect(routeForRole('cliente_parceiro', true)).toBe('/cliente')
-    expect(routeForRole('cliente_parceiro', false)).toBe('/onboarding')
+    expect(routeForRole('cliente_parceiro', false)).toBe('/cliente')
   })
 
   it('routes both presenter aliases to their private home', () => {
@@ -84,6 +84,7 @@ describe('menuForUser', () => {
     expect(clientMenu).toContain('/cliente')
     expect(clientMenu).toContain('/cliente/conteudo')
     expect(clientMenu).toContain('/cliente/configuracoes')
+    expect(clientMenu).not.toContain('/cliente/financeiro')
     expect(clientMenu).not.toContain('/cliente/agenda')
     expect(clientMenu).not.toContain('/conhecimento')
     expect(clientMenu).not.toContain('/financeiro?tab=boletos')
@@ -127,7 +128,7 @@ describe('organização do menu sem ampliar permissões', () => {
   it('mantém configurações no grupo final para os perfis internos e cliente', () => {
     for (const papel of ['franqueado', 'franqueador_master', 'operacional', 'cliente_parceiro', 'apresentadora'] as const) {
       const items = menuForUser({ ...baseUser, papel })
-      expect(items.at(-1)?.label).toBe('Configurações')
+      expect(items.at(-1)?.label).toBe(papel === 'cliente_parceiro' ? 'Minha conta' : 'Configurações')
       expect(items.at(-1)?.placement).toBe('footer')
       const financePaths = items.filter(item => item.label === 'Financeiro').map(item => item.path)
       if (papel === 'franqueador_master') {
