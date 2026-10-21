@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { KnowledgeMaterial } from './knowledge'
 import {
   buildStarterTrail,
@@ -27,6 +27,15 @@ const sample = (overrides: Partial<KnowledgeMaterial> = {}): KnowledgeMaterial =
 })
 
 describe('knowledge training catalog', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-25T12:00:00.000Z'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('maps cover, duration, level and objective without inventing money', () => {
     const lesson = toCatalogLesson(sample({ cover_image_url: 'https://cdn.example.test/hook.jpg' }), 'unit')
     expect(lesson.coverUrl).toBe('https://cdn.example.test/hook.jpg')
