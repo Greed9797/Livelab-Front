@@ -48,5 +48,7 @@ Depends on: T2
 Tests: gates completos, fluxo móvel com dados sintéticos e revisão independente
 Gate: Build
 Done when: typecheck, testes e build verdes; evidência de validação registrada e nenhum deploy executado.
-Status: in progress
+Status: complete
 Owner: root/verifier
+
+Verification: validation.md PASS independente; typecheck, 971 testes sem skips, build e quatro cenários Playwright desktop/mobile aprovados. Seis mutações em scratch detectadas.

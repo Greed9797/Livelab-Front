@@ -45,13 +45,13 @@ Acceptance Criteria:
 
 | ID | Requirement | Status |
 | --- | --- | --- |
-| PORTAL-1 | Identidade inequívoca | implementing |
-| PORTAL-2 | Tenant, cliente e marca | implementing |
-| PORTAL-3 | Apenas revisadas elegíveis | implementing |
-| PORTAL-4 | DTO sem dados internos | implementing |
-| PORTAL-5 | Restrição central de rotas | implementing |
-| PORTAL-6 | Paginação e totais completos | implementing |
-| PORTAL-7 | Métricas sem dados inventados | implementing |
-| PORTAL-8 | Cache por conta e no-store | implementing |
-| PORTAL-9 | Portal e conta em mobile | implementing |
-| PORTAL-10 | SQL real, testes e revisão | implementing |
+| PORTAL-1 | Identidade inequívoca | verified |
+| PORTAL-2 | Tenant, cliente e marca | verified |
+| PORTAL-3 | Apenas revisadas elegíveis | verified |
+| PORTAL-4 | DTO sem dados internos | verified |
+| PORTAL-5 | Restrição central de rotas | verified |
+| PORTAL-6 | Paginação e totais completos | verified |
+| PORTAL-7 | Métricas sem dados inventados | verified |
+| PORTAL-8 | Cache por conta e no-store | verified |
+| PORTAL-9 | Portal e conta em mobile | verified |
+| PORTAL-10 | SQL real, testes e revisão | verified |
