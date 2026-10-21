@@ -2,13 +2,13 @@
 
 ## Problem Statement
 
-O cliente precisa acessar resultados revisados exclusivamente da própria marca contratante. O portal atual inclui lives sem revisão e dados de apresentadoras. Plano aprovado pelo usuário em 21/10/2026. Implementação local autorizada; publicação e criação de contas reais não autorizadas.
+O cliente precisa acessar resultados revisados exclusivamente da própria marca contratante. O portal atual inclui lives sem revisão e dados de apresentadoras. Plano aprovado pelo usuário em 21/10/2026. Implementação local autorizada inicialmente. Em 21/10/2026, o usuário também autorizou a publicação e indicou os dados do acesso piloto; a criação exige conferir o vínculo existente usando sessão administrativa.
 
 Routing: domínio backend/frontend e autorização; complexidade 4/5; risco alto de exposição entre clientes; execução root com trabalhadores de dados e UI; modelo herdado da sessão; revisão independente obrigatória antes de entrega.
 
 ## Out of Scope
 
-Financeiro, ranking, afiliadas, agenda, acompanhamento ao vivo, exportações, dados de apresentadoras, cadastro público, migrations, novas dependências, novos serviços, push, deploy e banco de produção.
+Financeiro, ranking, afiliadas, agenda, acompanhamento ao vivo, exportações, dados de apresentadoras, cadastro público, migrations, novas dependências, novos serviços e correções em massa no banco de produção. Push/deploy do código validado foram autorizados posteriormente nesta sessão.
 
 ## Assumptions & Open Questions
 
@@ -23,7 +23,7 @@ Financeiro, ranking, afiliadas, agenda, acompanhamento ao vivo, exportações, d
 | Erros de vínculo | 403, sem fallback | Isolamento falha fechado |
 | Alterações em testes legados | Atualizar contratos incompatíveis com este plano, mantendo cenários e asserts explícitos | A mudança de regra foi aprovada pelo usuário |
 
-Open questions: None. Publicação e identificação da marca piloto ficam pendentes de autorização futura, fora da implementação.
+Open questions: None. Publicação autorizada posteriormente; marca piloto e e-mail foram informados pelo usuário fora do repositório. A sessão administrativa para conferir e vincular o acesso ainda precisa ser disponibilizada.
 
 ## User Stories
 
