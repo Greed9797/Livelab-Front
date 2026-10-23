@@ -116,7 +116,8 @@ describe('trainingLessonToMaterial', () => {
       format: 'video',
     })
 
-    expect(material.video_version).toBeUndefined()
+    expect(material).not.toBeNull()
+    expect(material?.video_version).toBeUndefined()
   })
 
   it('accepts body/embed aliases from a richer lesson payload', () => {
