@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { KnowledgeLessonPage } from './KnowledgeLessonPage'
 import { ToastProvider } from '../ui/Toast'
 import type { TrainingLessonDetail, TrainingProgressSaveResponse } from '../../services/training'
@@ -15,6 +15,8 @@ vi.mock('./TrainingVideoPlayer', () => ({
     })}>Emit saved progress</button>
   ),
 }))
+
+afterEach(cleanup)
 
 const lesson: TrainingLessonDetail = {
   id: 'lesson-video',
