@@ -1,17 +1,28 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientesLayout } from './ClientesLayout'
+import { ProtectedRoute } from '../routes/ProtectedRoute'
+import { commercialRoles, masterRoles } from '../utils/access'
+
+const auth = vi.hoisted(() => ({ user: { id: 'user-1', tenant_id: 'tenant-1', papel: 'franqueado', onboarding_completed: true } }))
+vi.mock('../stores/auth-store', () => ({
+  useAuthStore: (select: (state: { user: typeof auth.user; isBootstrapped: boolean }) => unknown) => select({ user: auth.user, isBootstrapped: true }),
+}))
 
 afterEach(cleanup)
+beforeEach(() => { auth.user.papel = 'franqueado' })
 
 function show(initial = '/clientes') {
   render(<MemoryRouter initialEntries={[initial]}><Routes>
-    <Route path="/clientes" element={<ClientesLayout />}>
-      <Route index element={<p>Registros da carteira</p>} />
-      <Route path="crm" element={<p>Quadro de oportunidades</p>} />
+    <Route element={<ProtectedRoute allowedRoles={[...masterRoles, ...commercialRoles]} fallback="/denied" />}>
+      <Route path="/clientes" element={<ClientesLayout />}>
+        <Route index element={<p>Registros da carteira</p>} />
+        <Route path="crm" element={<p>Quadro de oportunidades</p>} />
+      </Route>
     </Route>
+    <Route path="/denied" element={<p>Acesso não autorizado</p>} />
   </Routes></MemoryRouter>)
 }
 
@@ -35,5 +46,12 @@ describe('Abas de Clientes', () => {
     expect(screen.getAllByRole('heading', { name: 'Clientes', level: 1 })).toHaveLength(1)
     expect(screen.getByText('Quadro de oportunidades')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'CRM' }).getAttribute('href')).toBe('/clientes/crm')
+  })
+
+  it.each(['cliente_parceiro', 'apresentadora', 'operacional'])('does not grant commercial access to %s', (papel) => {
+    auth.user.papel = papel
+    show('/clientes/crm')
+    expect(screen.getByText('Acesso não autorizado')).toBeTruthy()
+    expect(screen.queryByText('Quadro de oportunidades')).toBeNull()
   })
 })

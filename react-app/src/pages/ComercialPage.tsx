@@ -722,8 +722,6 @@ export function ComercialPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Clientes" subtitle="Clientes, afiliadas, marcas próprias e parceiras num só lugar. Só cliente gera receita." />
-
       <div className="space-y-4">
           <Card>
             <CardHeader>

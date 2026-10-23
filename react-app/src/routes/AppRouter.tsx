@@ -34,6 +34,8 @@ const RankingMarcasPage = lazy(() => import('../pages/RankingMarcasPage').then(m
 const ConfiguracoesPage = lazy(() => import('../pages/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
 const KnowledgePage = lazy(() => import('../pages/KnowledgeLibraryPage').then(m => ({ default: m.KnowledgeLibraryPage })))
 const OnboardingPage = lazy(() => import('../pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
+const ClientesLayout = lazy(() => import('../pages/ClientesLayout').then(m => ({ default: m.ClientesLayout })))
+const CrmPage = lazy(() => import('../pages/CrmPage').then(m => ({ default: m.CrmPage })))
 const TrainingManagementPage = lazy(() => import('../pages/TrainingManagementPage').then(m => ({ default: m.TrainingManagementPage })))
 const TrainingReportPage = lazy(() => import('../pages/TrainingReportPage').then(m => ({ default: m.TrainingReportPage })))
 const PresenterPortalHomePage = lazy(() => import('../pages/PresenterPortalHomePage'))
@@ -72,10 +74,13 @@ function RouterApplication() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={[...masterRoles, ...commercialRoles]} />}>
-              <Route path="/clientes" element={<Suspense fallback={<PageFallback />}><ComercialPage /></Suspense>} />
+              <Route path="/clientes" element={<Suspense fallback={<PageFallback />}><ClientesLayout /></Suspense>}>
+                <Route index element={<Suspense fallback={<PageFallback />}><ComercialPage /></Suspense>} />
+                <Route path="crm" element={<Suspense fallback={<PageFallback />}><CrmPage /></Suspense>} />
+              </Route>
               <Route path="/comercial" element={<LegacyPageRedirect to="/clientes" />} />
-              <Route path="/master/crm" element={<LegacyPageRedirect to="/clientes" />} />
-              <Route path="/leads" element={<LegacyPageRedirect to="/clientes" />} />
+              <Route path="/master/crm" element={<LegacyPageRedirect to="/clientes/crm" />} />
+              <Route path="/leads" element={<LegacyPageRedirect to="/clientes/crm" />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['cliente_parceiro']} />}>

@@ -32,10 +32,21 @@ beforeEach(() => {
   mocks.getLeads.mockResolvedValue([lead])
   mocks.getLead.mockResolvedValue(lead)
   mocks.updateLead.mockResolvedValue(lead)
+  mocks.createLead.mockResolvedValue(lead)
+  mocks.addLeadContato.mockResolvedValue({ id: 'contact-1' })
+  mocks.addLeadTarefa.mockResolvedValue({ id: 'task-1' })
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); clients.splice(0).forEach((client) => client.clear()) })
 
 describe('CRM dos clientes', () => {
+  it('lets a franchisee create a lead using the existing API', async () => {
+    showPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Novo lead' }))
+    fireEvent.change(screen.getByLabelText('Nome da marca/lead'), { target: { value: 'Nova marca' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Criar lead' }))
+    await waitFor(() => expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ nome: 'Nova marca', crm_etapa: 'lead_novo' })))
+  })
+
   it('does not reuse unscoped leads from another unit', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
     client.setQueryData(QK.leads, [{ ...lead, id: 'other-lead', nome: 'Outra unidade' }])
@@ -57,6 +68,16 @@ describe('CRM dos clientes', () => {
     expect(within(drawer).queryByRole('button', { name: 'Excluir' })).toBeNull()
   })
 
+  it('closes the previous unit draft when the authenticated unit changes', async () => {
+    const view = showPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Novo lead' }))
+    fireEvent.change(screen.getByLabelText('Nome da marca/lead'), { target: { value: 'Rascunho privado' } })
+    mocks.user = { ...mocks.user, tenant_id: 'tenant-2' }
+    view.rerender(<QueryClientProvider client={clients[0]}><MemoryRouter><CrmPage /></MemoryRouter></QueryClientProvider>)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByDisplayValue('Rascunho privado')).toBeNull()
+  })
+
   it('cancels marking a lead lost without writing to the API', async () => {
     vi.spyOn(window, 'prompt').mockReturnValue(null)
     showPage()
@@ -65,6 +86,50 @@ describe('CRM dos clientes', () => {
     const confirmation = await screen.findByRole('dialog', { name: /Marcar.*perdido/i })
     fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancelar' }))
     expect(mocks.updateLead).not.toHaveBeenCalled()
+  })
+
+  it('requires the loss reason and saves it only after confirmation', async () => {
+    showPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Marca Blumenau/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Marcar perdido' }))
+    const dialog = await screen.findByRole('dialog', { name: /Marcar.*perdido/i })
+    expect(mocks.updateLead).not.toHaveBeenCalled()
+    fireEvent.change(within(dialog).getByLabelText('Motivo da perda'), { target: { value: 'Orçamento adiado' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(mocks.updateLead).toHaveBeenCalledWith('lead-1', { crm_etapa: 'perdido', motivo_perda: 'Orçamento adiado' }))
+  })
+
+  it.each([
+    ['Registrar contato', 'Resumo do contato', 'Conversa inicial', 'addLeadContato'],
+    ['Criar tarefa', 'Título da tarefa', 'Enviar proposta', 'addLeadTarefa'],
+  ] as const)('saves %s with the current modal', async (button, label, value, method) => {
+    showPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Marca Blumenau/ }))
+    fireEvent.click(await screen.findByRole('button', { name: button }))
+    const dialog = await screen.findByRole('dialog', { name: button })
+    fireEvent.change(within(dialog).getByLabelText(label), { target: { value } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(mocks[method]).toHaveBeenCalledWith('lead-1', expect.objectContaining(method === 'addLeadContato' ? { resumo: value } : { titulo: value })))
+  })
+
+  it('offers conversion for a won lead that has no linked client yet', async () => {
+    mocks.getLead.mockResolvedValue({ ...lead, crm_etapa: 'ganho', convertido_cliente_id: null })
+    showPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Marca Blumenau/ }))
+    expect(await screen.findByRole('button', { name: 'Converter em cliente' })).toBeTruthy()
+  })
+
+  it('keeps an action error in its modal and removes it from view on cancel', async () => {
+    mocks.addLeadContato.mockRejectedValue(new Error('Falha ao registrar contato'))
+    showPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Marca Blumenau/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Registrar contato' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Registrar contato' })
+    fireEvent.change(within(dialog).getByLabelText('Resumo do contato'), { target: { value: 'Contato de teste' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+    await within(dialog).findByText('Falha ao registrar contato')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByText('Falha ao registrar contato')).toBeNull()
   })
 
   it('restores the original stage when saving a move and refetch both fail', async () => {
