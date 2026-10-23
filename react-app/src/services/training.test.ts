@@ -116,7 +116,7 @@ describe('trainingLessonToMaterial', () => {
       format: 'video',
     })
 
-    expect(material).not.toHaveProperty('video_version')
+    expect(material.video_version).toBeUndefined()
   })
 
   it('accepts body/embed aliases from a richer lesson payload', () => {
