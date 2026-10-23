@@ -164,6 +164,11 @@ export function canWriteMarcas(user: User | null): boolean {
   return Boolean(user && marcasWriteRoles.includes(user.papel))
 }
 
+// Espelha WRITE_LEADS; marketing já pode trabalhar no funil, sem herdar outras escritas.
+export function canWriteLeads(user: User | null): boolean {
+  return Boolean(user && ['franqueador_master', 'franqueado', 'gerente', 'gerente_comercial', 'marketing'].includes(user.papel))
+}
+
 // Configurações unificada (ex-"Minha conta"): todos os papéis internos/ops/cabine
 // + master + apresentador. Admins veem o painel completo; os demais só conta/segurança.
 // Cliente parceiro fica de fora — usa o atalho próprio '/cliente/configuracoes'.

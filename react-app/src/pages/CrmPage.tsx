@@ -14,7 +14,9 @@ import { asArray, asString } from '../utils/format'
 import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
 import { CRM_STAGES, leadTitle, moveLeadToStage, normalizeCrmStage, type CrmStageKey } from '../utils/crm'
 import { QK } from '../services/query-keys'
-import type { JsonRecord, Lead } from '../types/models'
+import { useCurrentUser } from '../stores/auth-store'
+import { canWriteLeads } from '../utils/access'
+import type { JsonRecord, Lead, User } from '../types/models'
 
 export { groupLeadsByStage, moveLeadToStage, normalizeCrmStage } from '../utils/crm'
 
@@ -34,6 +36,12 @@ const emptyLeadForm = {
 }
 
 export function CrmPage() {
+  const user = useCurrentUser()
+  return <CrmWorkspace key={`${user?.tenant_id}:${user?.id}`} user={user} />
+}
+
+function CrmWorkspace({ user }: { user: User | null }) {
+  const canEdit = canWriteLeads(user)
   const [search, setSearch] = useState('')
   const [activityFilter, setActivityFilter] = useState('todos')
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'detail' | null>(null)
@@ -41,10 +49,14 @@ export function CrmPage() {
   const [selectedLead, setSelectedLead] = useState<JsonRecord | null>(null)
   const [selectedLeadId, setSelectedLeadId] = useState('')
   const [leadForm, setLeadForm] = useState(emptyLeadForm)
+  const [action, setAction] = useState<{ kind: 'contact' | 'task' | 'lost' | 'delete' | 'win'; lead: JsonRecord } | null>(null)
+  const [actionText, setActionText] = useState('')
   const client = useQueryClient()
-  const leadsQuery = useQuery({ queryKey: QK.leads, queryFn: getLeads })
+  const leadsKey = [...QK.leads, user?.tenant_id, user?.id] as const
+  const detailKey = [...QK.leadById(selectedLeadId), user?.tenant_id, user?.id] as const
+  const leadsQuery = useQuery({ queryKey: leadsKey, queryFn: getLeads, enabled: Boolean(user?.tenant_id) })
   const leadDetailQuery = useQuery({
-    queryKey: QK.leadById(selectedLeadId),
+    queryKey: detailKey,
     queryFn: () => getLead(selectedLeadId),
     enabled: modalMode === 'detail' && Boolean(selectedLeadId),
   })
@@ -61,6 +73,8 @@ export function CrmPage() {
     setSelectedLead(null)
     setSelectedLeadId('')
     setLeadForm(emptyLeadForm)
+    setAction(null)
+    setActionText('')
   }
 
   const saveMutation = useMutation({
@@ -72,8 +86,16 @@ export function CrmPage() {
   })
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: JsonRecord }) => updateLead(id, payload),
-    onSuccess: invalidateCrm,
-    onError: invalidateCrm,
+    onMutate: async ({ id, payload }) => {
+      await client.cancelQueries({ queryKey: leadsKey })
+      const previous = client.getQueryData<Lead[]>(leadsKey)
+      client.setQueryData<Lead[]>(leadsKey, (current = []) => moveLeadToStage(current as unknown as JsonRecord[], id, payload.crm_etapa as CrmStageKey) as unknown as Lead[])
+      return { previous }
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) client.setQueryData(leadsKey, context.previous)
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: leadsKey }),
   })
   const deleteMutation = useMutation({
     mutationFn: deleteLead,
@@ -84,11 +106,11 @@ export function CrmPage() {
   })
   const contatoMutation = useMutation({
     mutationFn: ({ id, resumo }: { id: string; resumo: string }) => addLeadContato(id, { tipo: 'whatsapp', resumo }),
-    onSuccess: invalidateCrm,
+    onSuccess: () => { setAction(null); invalidateCrm() },
   })
   const tarefaMutation = useMutation({
     mutationFn: ({ id, titulo }: { id: string; titulo: string }) => addLeadTarefa(id, { titulo, concluida: false }),
-    onSuccess: invalidateCrm,
+    onSuccess: () => { setAction(null); invalidateCrm() },
   })
   const ganharMutation = useMutation({
     mutationFn: (id: string) => ganharLead(id),
@@ -129,7 +151,7 @@ export function CrmPage() {
   }, [activityFilter, leads, search])
 
   if (leadsQuery.isLoading) return <LoadingState />
-  if (leadsQuery.isError) return <ErrorState message={extractErrorMessage(leadsQuery.error)} onRetry={() => void leadsQuery.refetch()} />
+  if (leadsQuery.isError && !leadsQuery.data) return <ErrorState message={extractErrorMessage(leadsQuery.error)} onRetry={() => void leadsQuery.refetch()} />
 
   function setLeadField(key: keyof typeof emptyLeadForm, value: string) {
     setLeadForm((current) => ({ ...current, [key]: value }))
@@ -153,6 +175,8 @@ export function CrmPage() {
   }
 
   function openCreateForm() {
+    if (!canEdit) return
+    saveMutation.reset()
     setEditingId('')
     setSelectedLead(null)
     setLeadForm(emptyLeadForm)
@@ -166,6 +190,8 @@ export function CrmPage() {
   }
 
   function openEditForm(lead: JsonRecord) {
+    if (!canEdit) return
+    saveMutation.reset()
     setSelectedLead(lead)
     setEditingId(asString(lead.id, ''))
     fillForm(lead)
@@ -174,6 +200,7 @@ export function CrmPage() {
 
   function onLeadSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!canEdit || saveMutation.isPending) return
     saveMutation.mutate({
       nome: leadForm.nome,
       nicho: leadForm.nicho || undefined,
@@ -191,46 +218,54 @@ export function CrmPage() {
   }
 
   function moveLead(id: string, stage: CrmStageKey) {
+    if (!canEdit || updateMutation.isPending) return
     const currentLead = leads.find((lead) => asString(lead.id, '') === id) as JsonRecord | undefined
     if (!currentLead || normalizeCrmStage(currentLead) === stage) return
-    client.setQueryData<Lead[]>(QK.leads, (current = []) => moveLeadToStage(current as unknown as JsonRecord[], id, stage) as unknown as Lead[])
+    if (stage === 'perdido') { openAction('lost', currentLead); return }
     updateMutation.mutate({ id, payload: { crm_etapa: stage } })
   }
 
-  function registerContact(lead: JsonRecord) {
-    const resumo = window.prompt('Resumo do contato')
-    if (!resumo?.trim()) return
-    contatoMutation.mutate({ id: asString(lead.id, ''), resumo: resumo.trim() })
+  function openAction(kind: NonNullable<typeof action>['kind'], lead: JsonRecord) {
+    if (!canEdit) return
+    contatoMutation.reset()
+    tarefaMutation.reset()
+    perderMutation.reset()
+    deleteMutation.reset()
+    ganharMutation.reset()
+    setActionText('')
+    setAction({ kind, lead })
   }
 
-  function createTask(lead: JsonRecord) {
-    const titulo = window.prompt('Título da tarefa')
-    if (!titulo?.trim()) return
-    tarefaMutation.mutate({ id: asString(lead.id, ''), titulo: titulo.trim() })
+  function submitAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!action || !canEdit || actionPending) return
+    const id = asString(action.lead.id, '')
+    const text = actionText.trim()
+    if (action.kind === 'contact' && text) contatoMutation.mutate({ id, resumo: text })
+    if (action.kind === 'task' && text) tarefaMutation.mutate({ id, titulo: text })
+    if (action.kind === 'lost' && text) perderMutation.mutate({ id, motivo: text })
+    if (action.kind === 'delete') deleteMutation.mutate(id)
+    if (action.kind === 'win') ganharMutation.mutate(id)
   }
 
-  function markLost(lead: JsonRecord) {
-    const motivo = window.prompt('Motivo da perda')
-    perderMutation.mutate({ id: asString(lead.id, ''), motivo: motivo?.trim() || undefined })
-  }
-
-  function deleteSelectedLead(lead: JsonRecord) {
-    if (!window.confirm(`Excluir o lead "${leadTitle(lead)}"?`)) return
-    deleteMutation.mutate(asString(lead.id, ''))
-  }
-
-  const mutationError = updateMutation.error ?? deleteMutation.error ?? contatoMutation.error ?? tarefaMutation.error ?? ganharMutation.error ?? perderMutation.error
+  const mutationError = updateMutation.error
+  const actionPending = contatoMutation.isPending || tarefaMutation.isPending || perderMutation.isPending || deleteMutation.isPending || ganharMutation.isPending
+  const actionError = contatoMutation.error ?? tarefaMutation.error ?? perderMutation.error ?? deleteMutation.error ?? ganharMutation.error
+  const actionTitle = action?.kind === 'contact' ? 'Registrar contato' : action?.kind === 'task' ? 'Criar tarefa' : action?.kind === 'lost' ? 'Marcar lead como perdido' : action?.kind === 'delete' ? 'Excluir lead' : 'Converter em cliente'
+  const actionLabel = action?.kind === 'contact' ? 'Resumo do contato' : action?.kind === 'task' ? 'Título da tarefa' : 'Motivo da perda'
   const drawerLead = (leadDetailQuery.data as unknown as JsonRecord | undefined) ?? selectedLead
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-base font-bold text-ink">CRM</p>
-          <p className="mt-1 text-sm text-ink-muted">Kanban comercial com drag and drop, detalhe em popup e ações de pipeline.</p>
+          <h2 className="text-base font-bold text-ink">Oportunidades</h2>
+          <p className="mt-1 text-sm text-ink-muted">Acompanhe leads, contatos e próximas ações da sua unidade.</p>
         </div>
-        <Button icon={Plus} onClick={openCreateForm}>Novo lead</Button>
+        {canEdit ? <Button icon={Plus} onClick={openCreateForm}>Novo lead</Button> : null}
       </div>
+
+      {leadsQuery.isError ? <ErrorState message={extractErrorMessage(leadsQuery.error)} onRetry={() => void leadsQuery.refetch()} /> : null}
 
       <Card>
         <CardBody className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
@@ -239,11 +274,12 @@ export function CrmPage() {
             <input
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-ink-muted"
               placeholder="Buscar lead, responsável, origem ou etapa"
+              aria-label="Buscar leads"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
-          <select className="design-input h-11 min-w-48 px-3 text-sm" value={activityFilter} onChange={(event) => setActivityFilter(event.target.value)}>
+          <select aria-label="Filtrar atividade" className="design-input h-11 min-w-48 px-3 text-sm" value={activityFilter} onChange={(event) => setActivityFilter(event.target.value)}>
             <option value="todos">Todos</option>
             <option value="parados">Parados</option>
             <option value="com_tarefa">Com tarefa</option>
@@ -256,10 +292,11 @@ export function CrmPage() {
         leads={visibleLeads as unknown as JsonRecord[]}
         onOpenLead={openDetail}
         onMoveLead={moveLead}
+        canMove={canEdit && !updateMutation.isPending && !actionPending}
       />
 
       {mutationError ? (
-        <p className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
+        <p role="alert" className="rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">
           {extractErrorMessage(mutationError)}
         </p>
       ) : null}
@@ -269,6 +306,7 @@ export function CrmPage() {
         title={modalMode === 'edit' ? 'Editar lead' : 'Novo lead'}
         subtitle="Campos básicos do pipeline comercial."
         onClose={closeModal}
+        closeDisabled={saveMutation.isPending}
         size="lg"
       >
         <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" id="lead-form" onSubmit={onLeadSubmit}>
@@ -327,7 +365,7 @@ export function CrmPage() {
           {saveMutation.isError ? <p className="md:col-span-2 xl:col-span-4 rounded-2xl bg-[var(--danger-soft)] px-4 py-3 text-sm font-medium text-[var(--danger)]">{extractErrorMessage(saveMutation.error)}</p> : null}
           <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-4">
             <Button type="submit" icon={Plus} isLoading={saveMutation.isPending}>{editingId ? 'Salvar lead' : 'Criar lead'}</Button>
-            <Button type="button" variant="secondary" onClick={closeModal}>Cancelar</Button>
+            <Button type="button" variant="secondary" onClick={closeModal} disabled={saveMutation.isPending}>Cancelar</Button>
           </div>
         </form>
       </Modal>
@@ -336,14 +374,33 @@ export function CrmPage() {
         open={modalMode === 'detail' && Boolean(drawerLead)}
         lead={drawerLead ?? null}
         loading={leadDetailQuery.isFetching}
+        error={leadDetailQuery.isError ? extractErrorMessage(leadDetailQuery.error) : undefined}
+        onRetry={() => void leadDetailQuery.refetch()}
+        canEdit={canEdit}
+        busy={actionPending || updateMutation.isPending}
         onClose={closeModal}
         onEdit={openEditForm}
-        onAddContact={registerContact}
-        onAddTask={createTask}
-        onWin={(lead) => ganharMutation.mutate(asString(lead.id, ''))}
-        onLose={markLost}
-        onDelete={deleteSelectedLead}
+        onAddContact={(lead) => openAction('contact', lead)}
+        onAddTask={(lead) => openAction('task', lead)}
+        onWin={(lead) => openAction('win', lead)}
+        onLose={(lead) => openAction('lost', lead)}
+        onDelete={(lead) => openAction('delete', lead)}
       />
+      <Modal open={Boolean(action)} title={actionTitle} subtitle={action ? leadTitle(action.lead) : undefined} onClose={() => setAction(null)} closeDisabled={actionPending}>
+        <form className="space-y-4" onSubmit={submitAction}>
+          {action?.kind === 'delete' ? <p className="text-sm text-ink-muted">Confirme a exclusão deste lead. Esta ação remove o registro e seu histórico.</p>
+            : action?.kind === 'win' ? <p className="text-sm text-ink-muted">O lead será convertido em cliente conforme as condições já configuradas para sua unidade.</p>
+              : <label className="grid gap-2 text-sm font-semibold text-ink">
+                {actionLabel}
+                <textarea className="design-input min-h-24 w-full px-3 py-2" value={actionText} onChange={(event) => setActionText(event.target.value)} required maxLength={action?.kind === 'task' ? 180 : 2000} />
+              </label>}
+          {actionError ? <p role="alert" className="text-sm text-[var(--danger)]">{extractErrorMessage(actionError)}</p> : null}
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" variant={action?.kind === 'delete' ? 'danger' : 'primary'} isLoading={actionPending}>{action?.kind === 'delete' ? 'Excluir lead' : action?.kind === 'win' ? 'Converter em cliente' : 'Salvar'}</Button>
+            <Button type="button" variant="secondary" disabled={actionPending} onClick={() => setAction(null)}>Cancelar</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

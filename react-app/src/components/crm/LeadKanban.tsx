@@ -10,24 +10,27 @@ interface LeadKanbanProps {
   leads: JsonRecord[]
   onOpenLead: (lead: JsonRecord) => void
   onMoveLead: (leadId: string, stage: CrmStageKey) => void
+  canMove?: boolean
 }
 
-export function LeadKanban({ leads, onOpenLead, onMoveLead }: LeadKanbanProps) {
+export function LeadKanban({ leads, onOpenLead, onMoveLead, canMove = false }: LeadKanbanProps) {
   const [dragLeadId, setDragLeadId] = useState('')
   const leadsByStage = groupLeadsByStage(leads)
 
   return (
-    <div className="overflow-x-auto pb-2">
-      <section className="grid min-w-[1500px] grid-cols-8 gap-4">
+    <div className="min-w-0 max-w-full overflow-x-auto pb-2">
+      <section aria-label="Funil de oportunidades" className="grid w-max grid-cols-8 gap-3 sm:gap-4">
         {leadsByStage.map(({ stage, leads: stageLeads }) => (
           <Card
             key={stage.key}
-            className="min-h-96"
-            onDragOver={(event) => event.preventDefault()}
+            role="region"
+            aria-label={stage.label}
+            className="min-h-96 w-[min(82vw,17rem)]"
+            onDragOver={(event) => { if (canMove) event.preventDefault() }}
             onDrop={(event) => {
               event.preventDefault()
               const leadId = event.dataTransfer.getData('text/plain') || dragLeadId
-              if (leadId) onMoveLead(leadId, stage.key)
+              if (canMove && leadId) onMoveLead(leadId, stage.key)
               setDragLeadId('')
             }}
           >
@@ -42,7 +45,7 @@ export function LeadKanban({ leads, onOpenLead, onMoveLead }: LeadKanbanProps) {
                 <button
                   key={asString(lead.id)}
                   type="button"
-                  draggable
+                  draggable={canMove}
                   onDragStart={(event) => {
                     const id = asString(lead.id, '')
                     setDragLeadId(id)
@@ -51,21 +54,21 @@ export function LeadKanban({ leads, onOpenLead, onMoveLead }: LeadKanbanProps) {
                   }}
                   onDragEnd={() => setDragLeadId('')}
                   onClick={() => onOpenLead(lead)}
-                  className="w-full cursor-grab rounded-2xl border border-line bg-surface-muted p-3 text-left transition hover:border-brand/50 active:cursor-grabbing"
+                  className="w-full rounded-2xl border border-line bg-surface-muted p-3 text-left transition hover:border-brand/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="truncate text-sm font-bold text-ink">{leadTitle(lead)}</p>
-                    <GripVertical className="h-4 w-4 shrink-0 text-ink-muted" />
+                    {canMove ? <GripVertical aria-hidden="true" className="h-4 w-4 shrink-0 text-ink-muted" /> : null}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-ink-muted">
                     <span>{asString(lead.responsavel_nome, 'sem responsável')}</span>
                     <span>{formatMoney(leadValue(lead))}</span>
                   </div>
                   <p className="mt-2 text-[11px] text-ink-muted">Atualizado {formatDate(asString(lead.atualizado_em ?? lead.criado_em, ''))}</p>
-                  <p className="mt-2 text-[11px] font-semibold text-brand">Clique para abrir · arraste para mover</p>
+                  <p className="mt-2 text-[11px] font-semibold text-brand">{canMove ? 'Abrir detalhes · arraste ou edite para mover' : 'Abrir detalhes'}</p>
                 </button>
               ))}
-              {stageLeads.length === 0 ? <p className="rounded-xl border border-dashed border-line p-4 text-center text-xs text-ink-muted">Solte um lead aqui</p> : null}
+              {stageLeads.length === 0 ? <p className="rounded-xl border border-dashed border-line p-4 text-center text-xs text-ink-muted">{canMove ? 'Arraste um lead para esta etapa' : 'Nenhum lead nesta etapa'}</p> : null}
             </CardBody>
           </Card>
         ))}

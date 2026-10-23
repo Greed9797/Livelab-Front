@@ -2,6 +2,7 @@ import { ClipboardCheck, Edit2, PhoneCall, Trash2, Trophy, XCircle } from 'lucid
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { ErrorState } from '../ui/States'
 import { asArray, asString, formatDate, formatMoney } from '../../utils/format'
 import { leadTitle, leadValue, normalizeCrmStage, stageLabel } from '../../utils/crm'
 import type { JsonRecord } from '../../types/models'
@@ -10,6 +11,10 @@ interface LeadDrawerProps {
   lead: JsonRecord | null
   open: boolean
   loading?: boolean
+  canEdit?: boolean
+  busy?: boolean
+  error?: string
+  onRetry?: () => void
   onClose: () => void
   onEdit: (lead: JsonRecord) => void
   onAddContact: (lead: JsonRecord) => void
@@ -32,6 +37,10 @@ export function LeadDrawer({
   lead,
   open,
   loading = false,
+  canEdit = false,
+  busy = false,
+  error,
+  onRetry,
   onClose,
   onEdit,
   onAddContact,
@@ -57,7 +66,8 @@ export function LeadDrawer({
       size="lg"
     >
       {loading ? <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-ink-muted">Carregando lead...</p> : null}
-      {lead ? (
+      {error ? <ErrorState message={error} onRetry={onRetry} /> : null}
+      {lead && !error && !loading ? (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={normalizeCrmStage(lead) === 'ganho' ? 'success' : normalizeCrmStage(lead) === 'perdido' ? 'danger' : 'brand'}>{stageLabel(lead.crm_etapa)}</Badge>
@@ -90,14 +100,14 @@ export function LeadDrawer({
             </div>
           ) : null}
 
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" icon={Edit2} onClick={() => onEdit(lead)}>Editar</Button>
-            <Button variant="secondary" icon={PhoneCall} onClick={() => onAddContact(lead)}>Registrar contato</Button>
-            <Button variant="secondary" icon={ClipboardCheck} onClick={() => onAddTask(lead)}>Criar tarefa</Button>
-            {normalizeCrmStage(lead) !== 'ganho' ? <Button variant="secondary" icon={Trophy} onClick={() => onWin(lead)}>Converter/ganhar</Button> : null}
-            {normalizeCrmStage(lead) !== 'perdido' ? <Button variant="ghost" icon={XCircle} onClick={() => onLose(lead)}>Marcar perdido</Button> : null}
-            <Button variant="danger" icon={Trash2} onClick={() => onDelete(lead)}>Excluir</Button>
-          </div>
+          {canEdit ? <div className="flex flex-wrap gap-2">
+            <Button disabled={busy} variant="secondary" icon={Edit2} onClick={() => onEdit(lead)}>Editar</Button>
+            <Button disabled={busy} variant="secondary" icon={PhoneCall} onClick={() => onAddContact(lead)}>Registrar contato</Button>
+            <Button disabled={busy} variant="secondary" icon={ClipboardCheck} onClick={() => onAddTask(lead)}>Criar tarefa</Button>
+            {!lead.convertido_cliente_id ? <Button disabled={busy} variant="secondary" icon={Trophy} onClick={() => onWin(lead)}>Converter em cliente</Button> : null}
+            {normalizeCrmStage(lead) !== 'perdido' ? <Button disabled={busy} variant="ghost" icon={XCircle} onClick={() => onLose(lead)}>Marcar perdido</Button> : null}
+            <Button disabled={busy} variant="danger" icon={Trash2} onClick={() => onDelete(lead)}>Excluir</Button>
+          </div> : null}
 
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="rounded-2xl border border-line bg-surface-muted p-4">
