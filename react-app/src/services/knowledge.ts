@@ -36,7 +36,9 @@ export interface KnowledgeMaterial extends JsonRecord {
   external_url?: string | null
   video_provider?: 'youtube' | 'panda' | 'none'
   video_id?: string | null
+  video_library_id?: string | null
   video_url?: string | null
+  video_version?: number
   tags?: string[]
   status: KnowledgeMaterialStatus
   revision: number

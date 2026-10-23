@@ -21,8 +21,8 @@ const sample = (overrides: Partial<KnowledgeMaterial> = {}): KnowledgeMaterial =
   status: 'published',
   revision: 1,
   tags: ['nivel:iniciante', 'tema:live', 'funcao:apresentadora', 'duracao:6', 'destaque'],
-  published_at: '2026-09-10T10:00:00.000Z',
-  atualizado_em: '2026-09-18T10:00:00.000Z',
+  published_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+  atualizado_em: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
   ...overrides,
 })
 

@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 import type { KnowledgeAttachment, KnowledgeMaterial, KnowledgeMaterialType } from './knowledge'
 
 export type TrainingProgressState = 'not_started' | 'in_progress' | 'completed'
@@ -8,6 +8,12 @@ export interface TrainingLessonProgress {
   started_at: string | null
   last_opened_at: string | null
   completed_at: string | null
+  watched_percent?: number | null
+  last_position_seconds?: number
+  duration_seconds?: number | null
+  position_revision?: number
+  video_version?: number
+  completion_source?: 'legacy' | 'watched' | null
 }
 
 export interface TrainingSourceRef {
@@ -56,6 +62,8 @@ export interface TrainingLesson {
   video_url?: string | null
   video_provider?: 'youtube' | 'panda' | 'none' | string | null
   video_id?: string | null
+  video_library_id?: string | null
+  video_version?: number
   embed_url?: string | null
   external_url?: string | null
   attachments?: KnowledgeAttachment[]
@@ -72,6 +80,7 @@ export interface TrainingTrail {
   id: string
   slug: string
   title: string
+  cover_image_url?: string | null
   outcome?: string | null
   audience_roles?: string[]
   topics?: string[]
@@ -84,6 +93,7 @@ export interface TrainingTrail {
   completed_lessons?: number
   progress_pct?: number
   resume_path?: string | null
+  ordered_lessons?: TrainingLesson[]
   modules: TrainingModule[]
 }
 
@@ -127,6 +137,7 @@ export interface TrainingLessonDetail extends TrainingLesson {
   module: { id?: string; title?: string; sort_order?: number }
   resume_path: string
   outline: TrainingModule[]
+  ordered_lessons?: TrainingLesson[]
 }
 
 export interface TrainingProgressResponse {
@@ -158,6 +169,66 @@ export interface TrainingHomeFilters {
   topic?: string
   platform?: string
   format?: string
+}
+
+export interface TrainingAdminLesson {
+  id: string
+  title: string
+  cover_image_url?: string | null
+  video_provider: 'youtube' | 'panda'
+  video_id?: string | null
+  video_library_id?: string | null
+  video_url?: string | null
+  video_version?: number
+  global_position?: number
+  sort_order?: number
+}
+
+export interface TrainingAdminTrail {
+  id: string
+  slug: string
+  title: string
+  cover_image_url?: string | null
+  sort_order?: number
+  lessons: TrainingAdminLesson[]
+}
+
+export interface TrainingReportRow {
+  user_id: string
+  user_name: string
+  user_email?: string | null
+  trail_id: string
+  trail_title: string
+  lesson_id: string
+  lesson_title: string
+  state: TrainingProgressState
+  watched_percent: number | null
+  completed_at: string | null
+  completion_source: 'legacy' | 'watched' | null
+}
+
+export interface TrainingReportResponse {
+  items: TrainingReportRow[]
+  page: number
+  page_size: number
+  has_more: boolean
+  users: Array<{ id: string; nome: string }>
+  trails: Array<{ id: string; title: string }>
+}
+
+export interface TrainingProgressInput {
+  video_version: number
+  duration_seconds: number
+  last_position_seconds: number
+  position_revision: number
+  intervals: Array<[number, number]>
+  playback_started: true
+}
+
+export interface TrainingProgressSaveResponse extends TrainingLessonProgress {
+  lesson_id: string
+  state: TrainingProgressState
+  position_accepted?: boolean
 }
 
 export function trainingLessonPath(trailSlug: string, lessonId: string) {
@@ -201,6 +272,8 @@ export function trainingLessonToMaterial(lesson: TrainingLesson): KnowledgeMater
     external_url,
     video_provider,
     video_id,
+    video_library_id: lesson.video_library_id ?? null,
+    video_version: lesson.video_version,
     video_url,
     status: 'published',
     revision: 1,
@@ -253,4 +326,62 @@ export function addTrainingBookmark(lessonId: string) {
 
 export function removeTrainingBookmark(lessonId: string) {
   return apiDelete<void>(`/training/bookmarks/${encodeURIComponent(lessonId)}`)
+}
+
+export function getAdminTrainingTrails() {
+  return apiGet<{ items: TrainingAdminTrail[] }>('/training/admin/trails')
+}
+
+export function createAdminTrainingTrail(payload: { title: string; cover_image_url?: string | null; sort_order?: number }) {
+  return apiPost<TrainingAdminTrail>('/training/admin/trails', payload)
+}
+
+export function updateAdminTrainingTrail(id: string, payload: { title?: string; cover_image_url?: string | null; sort_order?: number }) {
+  return apiPatch<TrainingAdminTrail>(`/training/admin/trails/${encodeURIComponent(id)}`, payload)
+}
+
+export function deleteAdminTrainingTrail(id: string) {
+  return apiDelete<void>(`/training/admin/trails/${encodeURIComponent(id)}`)
+}
+
+export function reorderAdminTrainingTrails(ids: string[]) {
+  return apiPost<void>('/training/admin/trails/reorder', { ids })
+}
+
+export interface TrainingAdminLessonInput {
+  trail_id?: string
+  title: string
+  cover_image_url?: string | null
+  video_provider: 'youtube' | 'panda'
+  video_input: string
+  video_library_id?: string | null
+  sort_order?: number
+}
+
+export function createAdminTrainingLesson(trailId: string, payload: TrainingAdminLessonInput) {
+  return apiPost<TrainingAdminLesson>(`/training/admin/trails/${encodeURIComponent(trailId)}/lessons`, payload)
+}
+
+export function updateAdminTrainingLesson(id: string, payload: Partial<TrainingAdminLessonInput>) {
+  return apiPatch<TrainingAdminLesson>(`/training/admin/lessons/${encodeURIComponent(id)}`, payload)
+}
+
+export function deleteAdminTrainingLesson(id: string) {
+  return apiDelete<void>(`/training/admin/lessons/${encodeURIComponent(id)}`)
+}
+
+export function reorderAdminTrainingLessons(trailId: string, ids: string[]) {
+  return apiPost<void>(`/training/admin/trails/${encodeURIComponent(trailId)}/lessons/reorder`, { ids })
+}
+
+export function getTrainingReport(params: { user_id?: string; trail_id?: string; page?: number; page_size?: number } = {}) {
+  return apiGet<TrainingReportResponse>('/training/reports', params)
+}
+
+export function saveTrainingProgress(lessonId: string, payload: TrainingProgressInput) {
+  return apiPost<TrainingProgressSaveResponse>(`/training/lessons/${encodeURIComponent(lessonId)}/progress`, payload)
+}
+
+export function formatWatchedPercent(value: number | null | undefined) {
+  return value == null ? 'Não medido' : `${Math.round(value)}%`
 }

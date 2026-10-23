@@ -56,6 +56,9 @@ export const internalRoles: Role[] = [
   'comercial_readonly',
 ]
 
+export const trainingManagementRoles: Role[] = ['franqueador_master']
+export const trainingReportRoles: Role[] = ['franqueador_master', 'franqueado', 'gerente']
+
 export const commercialRoles: Role[] = [
   'franqueado',
   'gerente',

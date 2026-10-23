@@ -8,7 +8,7 @@ export function getHomeDashboard(params: { mes?: string } = {}) {
   return apiGet<JsonRecord>('/home/dashboard', params.mes ? { mes: params.mes } : undefined)
 }
 
-export function uploadImageAsset(file: File, folder: 'apresentadoras' | 'clientes' | 'marcas' | 'logos' = 'logos') {
+export function uploadImageAsset(file: File, folder: 'apresentadoras' | 'clientes' | 'marcas' | 'logos' | 'treinamentos' = 'logos') {
   return apiUpload<JsonRecord>('/uploads/image', file, { folder })
 }
 

@@ -24,11 +24,11 @@ import {
   getTrainingLesson,
   getTrainingTrails,
   removeTrainingBookmark,
-  startTrainingLesson,
   trainingLessonPath,
   trainingLessonToMaterial,
   type TrainingLesson,
   type TrainingLessonDetail,
+  type TrainingProgressSaveResponse,
   type TrainingUpdate,
 } from '../services/training'
 
@@ -94,6 +94,8 @@ function CategoryManager({ open, categories, busy, onClose, onCreate, onUpdate, 
 
 export function KnowledgeLibraryPage() {
   const user = useCurrentUser(); const tenantId = user?.tenant_id; const manager = isManager(user?.papel)
+  const canViewTrainingReport = ['franqueador_master', 'franqueado', 'gerente'].includes(user?.papel ?? '')
+  const canManageTraining = user?.papel === 'franqueador_master'
   const navigate = useNavigate()
   const route = useParams<{ trailSlug?: string; lessonId?: string }>()
   const [params, setParams] = useSearchParams()
@@ -114,7 +116,6 @@ export function KnowledgeLibraryPage() {
   const [learnerFilters, setLearnerFilters] = useState<TrainingFilters>(emptyTrainingFilters)
   const articleHeading = useRef<HTMLHeadingElement>(null)
   const saveIdempotencyKeyRef = useRef<string | null>(null)
-  const lessonStartedRef = useRef<Set<string>>(new Set())
   const client = useQueryClient()
   const homeRole = learnerFilters.role || undefined
   const articleRef = params.get('material') ?? ''
@@ -131,14 +132,7 @@ export function KnowledgeLibraryPage() {
   const trainingBookmarks = useQuery({ queryKey: QK.trainingBookmarks(tenantId, user?.id), queryFn: getTrainingBookmarks, enabled: Boolean(tenantId && !admin && tab === 'saved') })
   const trainingLesson = useQuery({
     queryKey: QK.trainingLesson(tenantId, lessonId ?? ''),
-    queryFn: async () => {
-      const id = lessonId!
-      if (!lessonStartedRef.current.has(id)) {
-        await startTrainingLesson(id)
-        lessonStartedRef.current.add(id)
-      }
-      return getTrainingLesson(id, false)
-    },
+    queryFn: () => getTrainingLesson(lessonId!, false),
     enabled: Boolean(tenantId && lessonId),
   })
   const categories = useQuery({ queryKey: QK.knowledgeUnitCategories(tenantId), queryFn: manager ? getKnowledgeUnitCategoriesForManagement : getKnowledgeUnitCategories, enabled: Boolean(tenantId && (admin || editorOpen || categoryModalOpen)) })
@@ -334,6 +328,7 @@ export function KnowledgeLibraryPage() {
       <>
         <Suspense fallback={<LoadingState label="Abrindo aula" />}>
           <KnowledgeLessonPage
+            key={`${tenantId}:${user?.id}:${trainingLesson.data.id}:${trainingLesson.data.video_version ?? 1}`}
             lesson={trainingLesson.data}
             material={sourceMaterial}
             manager={manager && (sourceRef?.kind === 'unit_material' || sourceRef?.origin === 'unidade')}
@@ -353,6 +348,18 @@ export function KnowledgeLibraryPage() {
               : undefined}
             onCopyLink={async () => { await navigator.clipboard.writeText(window.location.href) }}
             onComplete={() => completeLesson.mutateAsync(trainingLesson.data.id)}
+            onProgressSaved={(progress: TrainingProgressSaveResponse) => {
+              const lessonQueryKey = QK.trainingLesson(tenantId, trainingLesson.data.id)
+              const current = client.getQueryData<TrainingLessonDetail>(lessonQueryKey)
+              const stateChanged = Boolean(current && current.progress.state !== progress.state)
+              client.setQueryData(lessonQueryKey, (latest: TrainingLessonDetail | undefined) => latest
+                ? { ...latest, progress: { ...latest.progress, ...progress } }
+                : latest)
+              void client.invalidateQueries({ queryKey: QK.trainingProgress(tenantId, user?.id) })
+              void client.invalidateQueries({ queryKey: QK.trainingHome(tenantId) })
+              void client.invalidateQueries({ queryKey: QK.trainingTrails(tenantId) })
+              if (stateChanged) void client.invalidateQueries({ queryKey: lessonQueryKey })
+            }}
             onFollowResume={(path) => navigate(path)}
             onBookmark={() => { void toggleBookmark.mutateAsync(trainingLesson.data) }}
             onOpenAttachment={sourceRef?.kind === 'unit_material' || sourceRef?.origin === 'unidade' ? (id, attachment) => { void openAttachment(id, attachment) } : undefined}
@@ -423,6 +430,7 @@ export function KnowledgeLibraryPage() {
     if (!trainingHome.data) return <LoadingState label="Carregando a Base de treinamento" />
     return (
       <>
+        {(canManageTraining || canViewTrainingReport) ? <div className="flex flex-wrap gap-2">{canManageTraining ? <Button type="button" variant="secondary" onClick={() => navigate('/conhecimento/treinamentos/gerenciar')}>Gerenciar trilhas</Button> : null}{canViewTrainingReport ? <Button type="button" variant="ghost" onClick={() => navigate('/conhecimento/treinamentos/relatorio')}>Relatório de treinamento</Button> : null}</div> : null}
         <KnowledgeLearnerHome
           tab={trailSlug && !lessonId ? 'trails' : tab}
           onTab={(next) => {
@@ -455,6 +463,8 @@ export function KnowledgeLibraryPage() {
         subtitle="Biblioteca interna: criação, categorias, status e origem. A home da aprendiz fica em Base de treinamento TikTok."
         actions={(
           <div className="flex flex-wrap gap-2">
+            {canViewTrainingReport ? <Button type="button" variant="ghost" onClick={() => navigate('/conhecimento/treinamentos/relatorio')}>Relatório de treinamento</Button> : null}
+            {canManageTraining ? <Button type="button" variant="ghost" onClick={() => navigate('/conhecimento/treinamentos/gerenciar')}>Gerenciar trilhas</Button> : null}
             <Button type="button" variant="ghost" onClick={() => navigate('/conhecimento')}>Voltar ao treinamento</Button>
             <Button type="button" icon={Plus} onClick={openNew}>Novo material</Button>
           </div>

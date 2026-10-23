@@ -6,10 +6,11 @@ import { Button } from '../ui/Button'
 import { Card, CardBody, CardHeader } from '../ui/Card'
 import { EmptyState } from '../ui/States'
 import { KnowledgeVideoEmbed } from './KnowledgeVideoEmbed'
+import { TrainingVideoPlayer } from './TrainingVideoPlayer'
 import { safeExternalUrl, type KnowledgeAttachment, type KnowledgeMaterial } from '../../services/knowledge'
 import { sanitizeKnowledgeMarkdown } from '../../services/knowledge-markdown'
 import { FORMAT_LABEL, LEVEL_LABEL, TOPIC_LABEL, formatDuration } from '../../services/knowledge-training'
-import type { TrainingCompleteResponse, TrainingLesson, TrainingLessonDetail } from '../../services/training'
+import type { TrainingCompleteResponse, TrainingLesson, TrainingLessonDetail, TrainingProgressSaveResponse } from '../../services/training'
 import { formatDate } from '../../utils/format'
 import clsx from 'clsx'
 
@@ -24,6 +25,7 @@ export function KnowledgeLessonPage({
   onEdit,
   onCopyLink,
   onComplete,
+  onProgressSaved,
   onFollowResume,
   onBookmark,
   onOpenAttachment,
@@ -38,6 +40,7 @@ export function KnowledgeLessonPage({
   onEdit?: () => void
   onCopyLink?: () => Promise<void> | void
   onComplete: () => Promise<TrainingCompleteResponse>
+  onProgressSaved?: (progress: TrainingProgressSaveResponse) => void
   onFollowResume?: (path: string) => void
   onBookmark: () => void
   onOpenAttachment?: (materialId: string, attachment: { id: string }) => void
@@ -46,6 +49,7 @@ export function KnowledgeLessonPage({
   const [copied, setCopied] = useState(false)
   const [resumePath, setResumePath] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
+  const [savedVideoProgress, setSavedVideoProgress] = useState<TrainingProgressSaveResponse | null>(null)
   const source = material ? safeExternalUrl(material.external_url) : null
   const html = sanitizeKnowledgeMarkdown(material?.content_markdown)
   const rawAttachments = material?.attachments ?? material?.anexos
@@ -57,14 +61,29 @@ export function KnowledgeLessonPage({
       || material.video_id
     ),
   )
+  const playerProvider = lesson.video_provider === 'youtube' || lesson.video_provider === 'panda'
+    ? lesson.video_provider
+    : material?.video_provider === 'youtube' || material?.video_provider === 'panda'
+      ? material.video_provider
+      : null
+  const playerVideoId = lesson.video_id || material?.video_id || null
+  const playerVideoUrl = lesson.video_url || material?.video_url || null
+  const isVideoLesson = lesson.format === 'video' || Boolean(playerProvider && (playerVideoId || playerVideoUrl))
+  const hasTrackedVideoProgress = Number.isInteger(lesson.video_version) && (lesson.video_version ?? 0) > 0
+  const playerVersion = lesson.video_version ?? 1
+  const outline = lesson.ordered_lessons?.length
+    ? [{ id: 'ordered-lessons', title: 'Aulas da trilha', lessons: lesson.ordered_lessons }]
+    : lesson.outline
   const reserveVideo = !hasVideo && (lesson.format === 'video' || Boolean(lesson.video_url || lesson.video_id || (lesson.video_provider && lesson.video_provider !== 'none')))
   const nextId = lesson.next_lesson_id
-  const next = nextId ? lesson.outline.flatMap((module) => module.lessons).find((item) => item.id === nextId) : null
-  const status = lesson.progress?.state ?? 'not_started'
+  const next = nextId ? outline.flatMap((module) => module.lessons).find((item) => item.id === nextId) : null
+  const status = savedVideoProgress?.state ?? lesson.progress?.state ?? 'not_started'
+  const watchedPercent = savedVideoProgress?.watched_percent ?? lesson.progress?.watched_percent
   const objectives = lesson.objectives?.length ? lesson.objectives : (lesson.outcome ? [lesson.outcome] : [])
   const topic = lesson.topics?.[0]
-  const completedRequired = lesson.outline.flatMap((module) => module.lessons).filter((item) => item.required !== false && item.progress?.state === 'completed').length
-  const requiredTotal = lesson.outline.flatMap((module) => module.lessons).filter((item) => item.required !== false).length
+  const trailLessons = outline.flatMap((module) => module.lessons)
+  const completedCount = trailLessons.filter((item) => item.progress?.state === 'completed').length
+  const lessonCount = trailLessons.length
 
   async function copy() {
     if (!onCopyLink) return
@@ -74,7 +93,7 @@ export function KnowledgeLessonPage({
   }
 
   async function handleComplete() {
-    if (status === 'completed' || completing) return
+    if ((isVideoLesson && hasTrackedVideoProgress) || status === 'completed' || completing) return
     setCompleting(true)
     try {
       const result = await onComplete()
@@ -85,6 +104,11 @@ export function KnowledgeLessonPage({
     } finally {
       setCompleting(false)
     }
+  }
+
+  function handleProgressSaved(progress: TrainingProgressSaveResponse) {
+    setSavedVideoProgress(progress)
+    onProgressSaved?.(progress)
   }
 
   function originBadge() {
@@ -137,7 +161,19 @@ export function KnowledgeLessonPage({
               </button>
             </div>
           ) : null}
-          {hasVideo && material ? <KnowledgeVideoEmbed material={material} /> : reserveVideo ? <div className="aspect-video overflow-hidden rounded-2xl border border-line bg-black" aria-hidden /> : null}
+          {hasTrackedVideoProgress && onProgressSaved && playerProvider && (playerVideoId || playerVideoUrl) ? (
+            <TrainingVideoPlayer
+              lessonId={lesson.id}
+              title={lesson.title}
+              provider={playerProvider}
+              videoId={playerVideoId}
+              videoUrl={playerVideoUrl}
+              libraryId={lesson.video_library_id}
+              videoVersion={playerVersion}
+              progress={lesson.progress}
+              onProgressSaved={handleProgressSaved}
+            />
+          ) : hasVideo && material ? <KnowledgeVideoEmbed material={material} /> : reserveVideo ? <div className="aspect-video overflow-hidden rounded-2xl border border-line bg-black" aria-hidden /> : null}
           {source ? (
             <a className="inline-flex h-11 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-muted" href={source} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4" />Abrir material
@@ -167,26 +203,30 @@ export function KnowledgeLessonPage({
           {html ? (
             <article className="break-words text-sm leading-7 text-ink [&_a]:text-brand [&_a]:underline [&_h1]:mt-6 [&_h1]:text-2xl [&_h2]:mt-6 [&_h2]:text-xl [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-xl [&_pre]:bg-surface-muted [&_pre]:p-3 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} />
           ) : (
-            <EmptyState title={source || attachments.length ? 'Use o vídeo ou os recursos acima' : 'Conteúdo ainda não disponível'} />
+            <EmptyState title={isVideoLesson || source || attachments.length ? 'Use o vídeo ou os recursos acima' : 'Conteúdo ainda não disponível'} />
           )}
           <div className="sticky bottom-3 z-10 flex flex-col gap-2 rounded-2xl border border-line bg-surface/95 p-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink-muted" aria-live="polite">
-              {status === 'completed' ? 'Aula concluída' : 'Conclusão é explícita — abrir não marca como feita.'}
-              {requiredTotal ? ` · Trilha ${completedRequired}/${requiredTotal}` : ''}
+              {status === 'completed' ? 'Aula concluída' : isVideoLesson && hasTrackedVideoProgress ? 'A reprodução salva o progresso assistido.' : 'Conclusão é explícita — abrir não marca como feita.'}
+              {isVideoLesson && watchedPercent != null ? ` · ${Math.round(watchedPercent)}% assistido` : null}
+              {isVideoLesson && watchedPercent == null && status === 'completed' && lesson.progress?.completion_source === 'legacy' ? ' · progresso assistido não medido' : null}
+              {lessonCount ? ` · Trilha ${completedCount}/${lessonCount}` : ''}
             </p>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant={status === 'completed' ? 'secondary' : 'primary'} icon={Check} onClick={() => void handleComplete()} disabled={status === 'completed' || completing} isLoading={completing}>
-                {status === 'completed' ? 'Concluída' : 'Marcar como concluída'}
-              </Button>
+              {!(isVideoLesson && hasTrackedVideoProgress) ? (
+                <Button type="button" variant={status === 'completed' ? 'secondary' : 'primary'} icon={Check} onClick={() => void handleComplete()} disabled={status === 'completed' || completing} isLoading={completing}>
+                  {status === 'completed' ? 'Concluída' : 'Marcar como concluída'}
+                </Button>
+              ) : status === 'completed' ? <span className="inline-flex h-11 items-center px-4 text-sm font-semibold text-ink-muted">Concluída</span> : null}
               {resumePath ? <Button type="button" variant="secondary" onClick={() => onFollowResume?.(resumePath)}>Ir para a próxima</Button> : null}
               {!resumePath && next ? <Button type="button" variant="secondary" onClick={() => onOpen(next.id)}>Próxima: {next.title}</Button> : null}
             </div>
           </div>
-          {lesson.outline.length ? (
+          {outline.length ? (
             <details className="rounded-2xl border border-line bg-surface-muted/40 p-4">
               <summary className="cursor-pointer text-sm font-bold text-ink">Sumário da trilha</summary>
               <ol className="mt-3 space-y-3">
-                {lesson.outline.map((item) => (
+                {outline.map((item) => (
                   <li key={item.id}>
                     <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">{item.title}</p>
                     <ul className="mt-1 space-y-1">

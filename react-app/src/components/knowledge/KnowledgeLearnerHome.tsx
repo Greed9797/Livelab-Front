@@ -304,11 +304,12 @@ export function KnowledgeLearnerHome({
           {(trails.length ? trails : starter ? [starter] : []).map((trail) => (
             <Card key={trail.id || trail.slug}>
               <CardBody className="space-y-3">
+                {safeExternalUrl(trail.cover_image_url) ? <img src={trail.cover_image_url!} alt="" className="h-40 w-full rounded-xl object-cover" /> : null}
                 <h2 className="text-xl font-bold text-ink">{trail.title}</h2>
                 <p className="text-sm text-[var(--text-secondary)]">{trail.outcome}</p>
-                <p className="text-sm text-ink-muted">{trail.modules?.length ?? 0} módulos · {trail.completed_lessons ?? 0}/{trail.required_lessons ?? trail.lesson_count ?? 0} aulas obrigatórias</p>
+                <p className="text-sm text-ink-muted">{trail.completed_lessons ?? 0}/{trail.lesson_count ?? trail.required_lessons ?? 0} aulas concluídas</p>
                 <ol className="space-y-4">
-                  {(trail.modules ?? []).map((module) => (
+                  {(trail.ordered_lessons ? [{ id: trail.id, title: 'Aulas da trilha', lessons: trail.ordered_lessons }] : trail.modules ?? []).map((module) => (
                     <li key={module.id} className="space-y-2">
                       <p className="text-sm font-bold text-ink">{module.title}</p>
                       <LessonGrid lessons={module.lessons} onOpen={(lesson) => onOpen(lesson, trail.slug)} onBookmark={onBookmark} />

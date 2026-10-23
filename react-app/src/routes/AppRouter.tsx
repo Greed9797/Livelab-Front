@@ -4,7 +4,7 @@ import { LoadingState } from '../components/ui/States'
 import { ErrorBoundary } from '../components/ui/ErrorBoundary'
 import { UnsavedChangesProvider } from '../components/ui/UnsavedChangesProvider'
 import { Shell } from '../components/layout/Shell'
-import { cabineRoles, clienteRoles, commercialRoles, configuracoesRoles, financeRoles, financeiroPageRoles, internalRoles, livesPageRoles, masterRoles, opsRoles } from '../utils/access'
+import { cabineRoles, clienteRoles, commercialRoles, configuracoesRoles, financeRoles, financeiroPageRoles, internalRoles, livesPageRoles, masterRoles, opsRoles, trainingManagementRoles, trainingReportRoles } from '../utils/access'
 import { ProtectedRoute } from './ProtectedRoute'
 import { LegacyPageRedirect } from './LegacyPageRedirect'
 import { LoginPage } from '../pages/LoginPage'
@@ -34,6 +34,8 @@ const RankingMarcasPage = lazy(() => import('../pages/RankingMarcasPage').then(m
 const ConfiguracoesPage = lazy(() => import('../pages/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
 const KnowledgePage = lazy(() => import('../pages/KnowledgeLibraryPage').then(m => ({ default: m.KnowledgeLibraryPage })))
 const OnboardingPage = lazy(() => import('../pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
+const TrainingManagementPage = lazy(() => import('../pages/TrainingManagementPage').then(m => ({ default: m.TrainingManagementPage })))
+const TrainingReportPage = lazy(() => import('../pages/TrainingReportPage').then(m => ({ default: m.TrainingReportPage })))
 const PresenterPortalHomePage = lazy(() => import('../pages/PresenterPortalHomePage'))
 const PresenterPortalLivesPage = lazy(() => import('../pages/PresenterPortalLivesPage'))
 
@@ -149,6 +151,12 @@ function RouterApplication() {
               <Route path="/conhecimento" element={<Suspense fallback={<PageFallback />}><KnowledgePage /></Suspense>} />
               <Route path="/conhecimento/trilhas/:trailSlug" element={<Suspense fallback={<PageFallback />}><KnowledgePage /></Suspense>} />
               <Route path="/conhecimento/trilhas/:trailSlug/aulas/:lessonId" element={<Suspense fallback={<PageFallback />}><KnowledgePage /></Suspense>} />
+            </Route>
+            <Route element={<ProtectedRoute allowedRoles={trainingManagementRoles} />}>
+              <Route path="/conhecimento/treinamentos/gerenciar" element={<Suspense fallback={<PageFallback />}><TrainingManagementPage /></Suspense>} />
+            </Route>
+            <Route element={<ProtectedRoute allowedRoles={trainingReportRoles} />}>
+              <Route path="/conhecimento/treinamentos/relatorio" element={<Suspense fallback={<PageFallback />}><TrainingReportPage /></Suspense>} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Route>

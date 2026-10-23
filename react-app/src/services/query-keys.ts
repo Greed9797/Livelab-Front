@@ -93,6 +93,8 @@ export const QK = {
   trainingLesson: (tenantId: string | undefined, id: string) => ['training', tenantId ?? '', 'lesson', id, 'start-false'] as const,
   trainingProgress: (tenantId?: string, userId?: string) => ['training', tenantId ?? '', 'progress', userId ?? ''] as const,
   trainingBookmarks: (tenantId?: string, userId?: string) => ['training', tenantId ?? '', 'bookmarks', userId ?? ''] as const,
+  trainingAdminTrails: (tenantId?: string) => ['training', tenantId ?? '', 'admin-trails'] as const,
+  trainingReport: (tenantId?: string, params?: Record<string, unknown>) => ['training', tenantId ?? '', 'report', params ?? {}] as const,
   ativoOperacional: (params?: { kind?: string; id?: string }) =>
     params ? ['ativo-operacional', params] as const : ['ativo-operacional'] as const,
   marcaCondicoes: (marcaId?: string) => marcaId ? ['marca-condicoes', marcaId] as const : ['marca-condicoes'] as const,
