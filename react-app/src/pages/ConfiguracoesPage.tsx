@@ -25,6 +25,10 @@ import { rankingSettingsFrom, rankingSettingsPatch, unitSettingsFrom, unitSettin
 type SettingsTab = 'unidade' | 'usuarios' | 'metas' | 'integracoes' | 'seguranca'
 const settingsTabs: SettingsTab[] = ['unidade', 'usuarios', 'metas', 'integracoes', 'seguranca']
 
+export function formatClienteMeta(value: unknown): string {
+  return typeof value === 'number' && Number.isFinite(value) ? formatMoney(value) : 'Não informado'
+}
+
 export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boolean }) {
   const toast = useToast()
   const client = useQueryClient()
@@ -42,8 +46,9 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
   const query = useQuery({ queryKey: QK.configuracoes(clienteMode, currentUser?.tenant_id), queryFn: getConfiguracoes, enabled: !clienteMode && isAdmin })
   const rankingQuery = useQuery({ queryKey: QK.configuracoeRankingPublico(currentUser?.tenant_id), queryFn: getRankingPublicoConfig, enabled: !clienteMode && isAdmin })
   const period = currentPeriod()
-  const perfilQuery = useQuery({ queryKey: QK.clientePerfil, queryFn: getClientePerfil, enabled: clienteMode })
-  const metaQuery = useQuery({ queryKey: QK.clienteMeta(period), queryFn: () => getClienteMeta(period), enabled: clienteMode })
+  const clientScope = `${currentUser?.tenant_id ?? ''}:${currentUser?.id ?? ''}`
+  const perfilQuery = useQuery({ queryKey: QK.clientePerfil(clientScope), queryFn: getClientePerfil, enabled: clienteMode && Boolean(currentUser) })
+  const metaQuery = useQuery({ queryKey: QK.clienteMeta(clientScope, period), queryFn: () => getClienteMeta(period), enabled: clienteMode && Boolean(currentUser) })
   const [form, setForm] = useState<UnitSettingsDraft>({ nome: '', cnpj: '', email_contato: '', telefone_contato: '', cidade: '', uf: '' })
   const [unitBaseline, setUnitBaseline] = useState<UnitSettingsDraft>({ nome: '', cnpj: '', email_contato: '', telefone_contato: '', cidade: '', uf: '' })
   const [unitDirty, setUnitDirty] = useState(false)
@@ -279,13 +284,13 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
 
     return (
       <div className="space-y-6">
-        <PageHeader title="Configurações da conta" subtitle="Dados do perfil e preferências do cliente parceiro." />
+        <PageHeader title="Minha conta" subtitle="Dados do perfil e segurança da sua conta." />
 
         <section className="grid gap-4 lg:grid-cols-[1fr_0.85fr]">
           <Card>
             <CardHeader>
               <p className="text-base font-bold text-ink">Perfil vinculado</p>
-              <p className="mt-1 text-xs text-ink-muted">Esses dados vêm de `/cliente/perfil`; edição cadastral completa segue pelo admin da unidade.</p>
+              <p className="mt-1 text-xs text-ink-muted">Dados cadastrados pela unidade. Para alterar, entre em contato com a equipe.</p>
             </CardHeader>
             <CardBody className="grid gap-4 md:grid-cols-2">
               {([
@@ -315,7 +320,7 @@ export function ConfiguracoesPage({ clienteMode = false }: { clienteMode?: boole
               <CardBody>
                 <div className="rounded-2xl bg-brand-soft p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.1em] text-brand">Meta atual</p>
-                  <p className="num mt-2 text-2xl font-bold text-ink">{formatMoney(metaQuery.data?.meta_gmv)}</p>
+                  <p className="num mt-2 text-2xl font-bold text-ink">{formatClienteMeta(metaQuery.data?.meta_gmv)}</p>
                 </div>
                 <p className="mt-3 rounded-2xl border border-line bg-surface-muted px-4 py-3 text-sm text-ink-muted">
                   A meta é definida pela unidade. Nesta fase o cliente apenas acompanha o valor.

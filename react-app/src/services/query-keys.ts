@@ -37,19 +37,19 @@ export const QK = {
   apresentadoraFaixasComissao: (id?: string) =>
     id ? ['apresentadora-faixas-comissao', id] as const : ['apresentadora-faixas-comissao'] as const,
   comissaoFaixasDefault: ['comissao-faixas-default'] as const,
-  clientePerfil: ['cliente-perfil'] as const,
+  clientePerfil: (scope: string) => ['cliente-perfil', scope] as const,
   clienteReservas: ['cliente-reservas'] as const,
-  clienteMeta: (period?: { mes: number; ano: number }) =>
-    period ? ['cliente-meta', period.ano, period.mes] as const : ['cliente-meta'] as const,
+  clienteMeta: (scope: string, period?: { mes: number; ano: number }) =>
+    period ? ['cliente-meta', scope, period.ano, period.mes] as const : ['cliente-meta', scope] as const,
   clienteAgenda: (params?: { start?: string; end?: string }) =>
     params ? ['cliente-agenda', params] as const : ['cliente-agenda'] as const,
   clienteDashboard: (period?: { mes: number; ano: number }) =>
     period ? ['cliente-dashboard', period] as const : ['cliente-dashboard'] as const,
   clienteLives: (period?: { mes: number; ano: number }) =>
     period ? ['cliente-lives', period] as const : ['cliente-lives'] as const,
-  clienteHome: (period: { mes: number; ano: number }) => ['cliente-home', period.ano, period.mes] as const,
-  clienteConteudoLives: (period: { mes: number; ano: number }) => ['cliente-conteudo-lives', period.ano, period.mes] as const,
-  clienteAnalyticsDiario: (from: string, to: string) => ['cliente-analytics-diario', from, to] as const,
+  clienteHome: (scope: string, period: { mes: number; ano: number }) => ['cliente-home', scope, period.ano, period.mes] as const,
+  clienteConteudoLives: (scope: string, period: { mes: number; ano: number }, offset = 0) => ['cliente-conteudo-lives', scope, period.ano, period.mes, offset] as const,
+  clienteAnalyticsDiario: (scope: string, from: string, to: string) => ['cliente-analytics-diario', scope, from, to] as const,
   clienteFinanceiro: (period: { mes: number; ano: number }) => ['cliente-financeiro', period.ano, period.mes] as const,
   crmSummary: ['crm-summary'] as const,
   financeiroResumo: (key?: string) => (key ? ['financeiro-resumo', key] as const : ['financeiro-resumo'] as const),

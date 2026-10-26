@@ -32,17 +32,62 @@ export function getMasterConsolidated(period: Period, status = 'all') {
   return apiGet<JsonRecord>('/master/consolidado', { periodo: periodToParam(period), status })
 }
 
-// ── Portal do cliente final (Fase 2) — leitura, sempre filtrado pelo JWT ──
-export function getClienteHome(period: Period) {
-  return apiGet<JsonRecord>('/cliente/home', { mes: period.mes, ano: period.ano })
+// ── Portal do cliente final — leitura, sempre filtrada pelo JWT ────────────
+// O contrato é deliberadamente estreito: esta área nunca consome dados
+// financeiros, operacionais ou de apresentadoras.
+export interface ClientePortalHome {
+  periodo: Period
+  marca: { id: string; nome: string }
+  gmv_mes: number | null
+  lives_mes: number
+  horas_live_mes: number | null
+  pedidos: number | null
+  gmv_por_live: number | null
+  gmv_por_hora: number | null
+  series_mensais: Array<{ mes: string; gmv: number | null; lives: number }>
 }
 
-export function getClienteConteudoLives(period: Period) {
-  return apiGet<JsonRecord>('/cliente/conteudo/lives', { mes: period.mes, ano: period.ano })
+export interface ClientePortalLive {
+  id: string
+  iniciado_em: string
+  encerrado_em: string
+  duracao_min: number | null
+  gmv: number | null
+  pedidos: number | null
+  status: 'encerrada'
+  status_publicacao: 'revisado' | 'publicado'
+}
+
+export interface ClientePortalLives {
+  periodo: Period
+  resumo: { gmv: number | null; lives: number; pedidos: number | null; horas: number | null }
+  total: number
+  limit: 50
+  offset: number
+  lives: ClientePortalLive[]
+}
+
+export interface ClientePortalDaily {
+  dia: string
+  gmv_total: number | null
+  gmv_lives: number | null
+  total_lives: number
+  pedidos: number | null
+  horas_live: number | null
+  gmv_por_hora: number | null
+  gmv_por_live: number | null
+}
+
+export function getClienteHome(period: Period) {
+  return apiGet<ClientePortalHome>('/cliente/home', { mes: period.mes, ano: period.ano })
+}
+
+export function getClienteConteudoLives(period: Period, offset = 0) {
+  return apiGet<ClientePortalLives>('/cliente/conteudo/lives', { mes: period.mes, ano: period.ano, offset })
 }
 
 export function getClienteAnalyticsDiario(params: { from: string; to: string }) {
-  return apiGet<JsonRecord[]>('/cliente/analytics/diario', params)
+  return apiGet<ClientePortalDaily[]>('/cliente/analytics/diario', params)
 }
 
 export function getClienteFinanceiro(period: Period) {

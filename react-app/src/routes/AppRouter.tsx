@@ -21,7 +21,6 @@ const MasterConsolidatedPage = lazy(() => import('../pages/MasterConsolidatedPag
 const ComercialPage = lazy(() => import('../pages/ComercialPage').then(m => ({ default: m.ComercialPage })))
 const ClienteDashboardPage = lazy(() => import('../pages/ClienteDashboardPage').then(m => ({ default: m.ClienteDashboardPage })))
 const ClienteConteudoPage = lazy(() => import('../pages/ClienteConteudoPage').then(m => ({ default: m.ClienteConteudoPage })))
-const ClienteFinanceiroPage = lazy(() => import('../pages/ClienteFinanceiroPage').then(m => ({ default: m.ClienteFinanceiroPage })))
 const ConteudoPage = lazy(() => import('../pages/ConteudoPage').then(m => ({ default: m.ConteudoPage })))
 const AnalyticsPage = lazy(() => import('../pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })))
 const FinanceiroPage = lazy(() => import('../pages/FinanceiroPage').then(m => ({ default: m.FinanceiroPage })))
@@ -33,7 +32,6 @@ const RankingApresentadorasPage = lazy(() => import('../pages/RankingApresentado
 const RankingMarcasPage = lazy(() => import('../pages/RankingMarcasPage').then(m => ({ default: m.RankingMarcasPage })))
 const ConfiguracoesPage = lazy(() => import('../pages/ConfiguracoesPage').then(m => ({ default: m.ConfiguracoesPage })))
 const KnowledgePage = lazy(() => import('../pages/KnowledgeLibraryPage').then(m => ({ default: m.KnowledgeLibraryPage })))
-const OnboardingPage = lazy(() => import('../pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 const TrainingManagementPage = lazy(() => import('../pages/TrainingManagementPage').then(m => ({ default: m.TrainingManagementPage })))
 const TrainingReportPage = lazy(() => import('../pages/TrainingReportPage').then(m => ({ default: m.TrainingReportPage })))
 const PresenterPortalHomePage = lazy(() => import('../pages/PresenterPortalHomePage'))
@@ -55,7 +53,7 @@ function RouterApplication() {
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={clienteRoles} />}>
-          <Route path="/onboarding" element={<Suspense fallback={<PageFallback />}><OnboardingPage /></Suspense>} />
+          <Route path="/onboarding" element={<Navigate to="/cliente" replace />} />
         </Route>
 
         <Route element={<ProtectedRoute />}>
@@ -83,7 +81,7 @@ function RouterApplication() {
               <Route path="/cliente/dashboard" element={<Navigate to="/cliente" replace />} />
               <Route path="/cliente/conteudo" element={<Suspense fallback={<PageFallback />}><ClienteConteudoPage /></Suspense>} />
               <Route path="/cliente/lives" element={<Navigate to="/cliente/conteudo" replace />} />
-              <Route path="/cliente/financeiro" element={<Suspense fallback={<PageFallback />}><ClienteFinanceiroPage /></Suspense>} />
+              <Route path="/cliente/financeiro" element={<Navigate to="/cliente" replace />} />
               <Route path="/cliente/agenda" element={<Navigate to="/cliente" replace />} />
               <Route path="/cliente/configuracoes" element={<Suspense fallback={<PageFallback />}><ConfiguracoesPage clienteMode /></Suspense>} />
             </Route>

@@ -1,4 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import type { PresenterSettlementDetails, PresenterSettlementRow } from './remuneration'
 
 export type PresenterSubmissionStatus = 'pendente' | 'devolvida' | 'aprovada' | 'cancelada'
 
@@ -131,6 +132,16 @@ export function getPresenterPortalLives(mes: string) {
 
 export function getPresenterPortalOptions() {
   return apiGet<PresenterPortalOptions>('/portal/apresentadora/opcoes')
+}
+
+export type OwnMonthlyReport = {
+  mes: string
+  fechamento: PresenterSettlementRow
+  detalhes: PresenterSettlementDetails
+}
+
+export function getOwnMonthlyReport(mes: string) {
+  return apiGet<OwnMonthlyReport>('/portal/apresentadora/relatorio-mensal', { mes })
 }
 
 export function createPresenterSubmission(payload: PresenterSubmissionPayload) {

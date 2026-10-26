@@ -215,14 +215,14 @@ export function normalizeRole(role: Role): OfficialRole {
   }
 }
 
-export function routeForRole(role?: Role, onboardingCompleted = true): string {
+export function routeForRole(role?: Role, _onboardingCompleted = true): string {
   if (!role) return '/login'
 
   const normalized = normalizeRole(role)
 
   if (normalized === 'franqueador_master') return '/master'
   if (normalized === 'apresentador') return '/minha-home'
-  if (normalized === 'cliente_parceiro') return onboardingCompleted ? '/cliente' : '/onboarding'
+  if (normalized === 'cliente_parceiro') return '/cliente'
   if (['franqueado', 'operacional'].includes(normalized)) return '/'
 
   return '/login'
@@ -264,11 +264,10 @@ export const menuItems: MenuItem[] = [
   // Admins (franqueador_master/franqueado) veem o painel completo; os demais só a seção de conta/segurança.
   // Cliente parceiro tem o próprio atalho separado ('/cliente/configuracoes').
   { label: 'Configurações', path: '/configuracoes', icon: Settings, roles: configuracoesRoles, placement: 'footer' },
-  // Cliente parceiro: Home, Conteúdo, Financeiro, Configurações.
-  { label: 'Home', path: '/cliente', icon: Home, roles: clienteRoles },
-  { label: 'Conteúdo', path: '/cliente/conteudo', icon: Presentation, roles: clienteRoles },
-  { label: 'Financeiro', path: '/cliente/financeiro', icon: CircleDollarSign, roles: clienteRoles },
-  { label: 'Configurações', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles, placement: 'footer' },
+  // Portal de cliente: somente resultados publicados, lives e a própria conta.
+  { label: 'Resultados', path: '/cliente', icon: Home, roles: clienteRoles },
+  { label: 'Lives', path: '/cliente/conteudo', icon: Presentation, roles: clienteRoles },
+  { label: 'Minha conta', path: '/cliente/configuracoes', icon: Settings, roles: clienteRoles, placement: 'footer' },
 ]
 
 export function menuForUser(user: User | null): MenuItem[] {
