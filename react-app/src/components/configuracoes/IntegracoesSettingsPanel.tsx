@@ -9,6 +9,7 @@ import { extractErrorMessage } from '../../services/api'
 import { getTikTokConnectUrl, getTikTokIntegrationStatus, updateConfiguracoes } from '../../services/domain'
 import { QK } from '../../services/query-keys'
 import type { JsonRecord } from '../../types/models'
+import { CadastrosApiKeySettings } from './CadastrosApiKeySettings'
 
 type Props = {
   tenantId: string
@@ -113,6 +114,7 @@ export function IntegracoesSettingsPanel({ tenantId, settings }: Props) {
 
   return (
     <div className="space-y-4">
+      <CadastrosApiKeySettings tenantId={tenantId} />
       <Card>
         <CardHeader>
           <div className="flex items-start gap-3">
