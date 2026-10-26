@@ -23,6 +23,7 @@ function show(initial = '/clientes') {
       </Route>
     </Route>
     <Route path="/denied" element={<p>Acesso não autorizado</p>} />
+    <Route path="/cliente" element={<p>Portal do cliente</p>} />
   </Routes></MemoryRouter>)
 }
 
@@ -48,10 +49,14 @@ describe('Abas de Clientes', () => {
     expect(screen.getByRole('link', { name: 'CRM' }).getAttribute('href')).toBe('/clientes/crm')
   })
 
-  it.each(['cliente_parceiro', 'apresentadora', 'operacional'])('does not grant commercial access to %s', (papel) => {
+  it.each([
+    ['cliente_parceiro', 'Portal do cliente'],
+    ['apresentadora', 'Acesso não autorizado'],
+    ['operacional', 'Acesso não autorizado'],
+  ])('does not grant commercial access to %s', (papel, destination) => {
     auth.user.papel = papel
     show('/clientes/crm')
-    expect(screen.getByText('Acesso não autorizado')).toBeTruthy()
+    expect(screen.getByText(destination)).toBeTruthy()
     expect(screen.queryByText('Quadro de oportunidades')).toBeNull()
   })
 })
