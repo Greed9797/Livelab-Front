@@ -25,42 +25,26 @@ npm run build        # lint:hooks + tsc -b + vite build
 
 **Gates antes de qualquer entrega:** `npm run typecheck && npm run test`, os dois verdes.
 
-## Deploy — leia antes de publicar
+## Deploy e estado publicado
 
-Produção é **https://app.grupolivelab.com.br** (Vercel, projeto `liveshop-saas-frontend-react`,
-scope `greed9797s-projects`, token em `$VERCEL_TOKEN`).
+Consulte [o registro do release de produção de 26/10/2026](docs/production-release-2026-10-26.md)
+antes de tratar uma branch local como o estado publicado. Ele registra o SHA e a branch
+confirmados, a versão servida, a execução do workflow e as verificações realizadas.
 
-```bash
-cd react-app && npx vercel@latest --prod --token "$VERCEL_TOKEN"
-```
+O deploy é feito pelo GitHub Actions em `.github/workflows/frontend-deploy.yml`. Push em
+`feat/multi-apresentadora-agenda` ou `migration/react-vercel`, ou `workflow_dispatch`, inicia
+typecheck, testes e build antes da publicação. O workflow usa o build remoto da Vercel e injeta
+a URL de produção da API pelo job. Não publique um build local `--prebuilt`: o valor sensível de
+`VITE_API_URL` pode virar o literal `[SENSITIVE]` no bundle.
 
-**NUNCA use `--prebuilt`.** Isso já derrubou a produção: `VITE_API_URL` está marcada como
-*sensitive* no projeto Vercel, então `vercel pull` devolve o literal `"[SENSITIVE]"` em vez do
-valor. Um build local com `--prebuilt` assa esse texto no bundle, `resolveBaseUrl()` (em
-`src/services/api.ts`) lança no import e o app morre em tela branca antes de renderizar. Nada
-acusa: typecheck passa, testes passam, o build "conclui". O erro só existe no navegador do usuário.
+Após um deploy, confira `https://app.grupolivelab.com.br/version.json` e valide a página no
+navegador. O timestamp da versão confirma qual build serve o domínio; sozinho, não verifica o
+fluxo autenticado de cada papel. As limitações de smoke descritas no registro de release também
+se aplicam.
 
-Existe `react-app/.env.production` versionado como rede de segurança, mas ele **não fecha o
-buraco**: no Vite, `.env.production.local` (que é o que o `vercel pull` escreve) tem precedência
-sobre `.env.production`.
-
-**Sempre confira depois de publicar** — deploy sem smoke test é aposta:
-
-```bash
-curl -s https://app.grupolivelab.com.br/version.json     # o timestamp tem que ser novo
-curl -s https://app.grupolivelab.com.br/assets/index-*.js | grep -c '\[SENSITIVE\]'   # tem que ser 0
-```
-E abra a página: ela precisa redirecionar para `/login` e renderizar o formulário.
-
-## Branches
-
-O trabalho recente acontece em **`feat/multi-apresentadora-agenda`**. Push nela (ou em
-`migration/react-vercel`) dispara o deploy de produção pelo GitHub Actions
-(`.github/workflows/frontend-deploy.yml`).
-
-`migration/react-vercel` é nominalmente a branch de produção, mas está **defasada do que está no
-ar** — os últimos deploys saíram da branch de feature. Se for publicar, confira em qual commit o
-build realmente está antes de assumir que essa branch é a verdade.
+O checkout primário pode conter trabalho local mais recente ou mais antigo que a produção. A
+presença de uma rota, branch ou commit nesse checkout não prova que ela está publicada. Use o SHA
+do registro e consulte o código desse commit quando precisar conferir comportamento publicado.
 
 ## Estrutura
 

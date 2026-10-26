@@ -187,12 +187,33 @@ O conic sheen requer `@property --cabine-ang` (suporte: Chrome 85+, Safari 15.4+
 
 ## CORS / Deploy
 
+- **Produção atual:** use o [registro do release de 26/10/2026](../docs/production-release-2026-10-26.md)
+  para confirmar o SHA publicado. O checkout primário `codex/cliente-portal-marca`
+  pode não corresponder à produção.
+- **Deploy:** GitHub Actions (`../../.github/workflows/frontend-deploy.yml`) publica
+  após typecheck, testes e build. Push em `feat/multi-apresentadora-agenda` ou
+  `migration/react-vercel`, ou `workflow_dispatch`, aciona o workflow. Ele faz build
+  remoto pela Vercel e injeta `VITE_API_URL` no job; não use `--prebuilt`.
 - **Prod:** Vercel → Railway (domínio Vercel precisa estar em `CORS_ORIGIN` do Railway)
 - **Dev local:** proxy Vite (`VITE_DEV_API_PROXY_TARGET`) contorna o CORS
 - **`VITE_API_URL`:** URL completa com `/v1`, ex: `https://liveshop-saas-api-production.up.railway.app/v1`
 - **Cadastro unificado:** `.env.production` define `VITE_CADASTRO_UNIFICADO=true` no build. A lista e os formulários de criação/edição passam a usar `/v1/cadastros`. O cadastro não cria login; o acesso deve ser criado separadamente.
 - **Receita/DRE:** “Gerar títulos” reconcilia a competência mediante confirmação. O DRE anual lê `caixa.saldo_inicio_mes`; `null` é “Não configurado”, e `0` é saldo zero.
 - **Smoke em produção:** definir `E2E_BASE_URL=https://app.grupolivelab.com.br` e credenciais de uma conta de teste via `E2E_EMAIL`/`E2E_PASSWORD`, então executar `npm run e2e:production-smoke`. Sem essas credenciais, não considerar as telas verificadas com login real.
+
+## CRM e treinamentos no release publicado
+
+Confira o SHA publicado no [registro de produção](../docs/production-release-2026-10-26.md)
+antes de atribuir estas rotas ao código do checkout atual. No release registrado,
+Clientes/Carteira usa `/clientes` e o CRM usa `/clientes/crm`, ambos para os papéis
+`masterRoles` e `commercialRoles`. A rota `/comercial` redireciona para `/clientes`;
+`/master/crm` e `/leads` redirecionam para `/clientes/crm`.
+
+O gerenciamento de treinamentos fica em `/conhecimento/treinamentos/gerenciar`
+(`franqueador_master`). O relatório fica em
+`/conhecimento/treinamentos/relatorio` (`franqueador_master`, `franqueado` e
+`gerente`). `/conhecimento` oferece conteúdo a usuários autenticados. A API também
+valida o escopo de tenant.
 
 ## Referências
 

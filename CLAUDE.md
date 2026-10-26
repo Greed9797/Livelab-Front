@@ -25,13 +25,34 @@ O único app deste repositório é `react-app/` (React 18 + TypeScript + Vite). 
 
 ### Branch e deploy (produção)
 
-- **Produção:** https://app.grupolivelab.com.br (Vercel, projeto `liveshop-saas-frontend-react`, scope `greed9797s-projects`).
-- **Deploy automático:** push em `feat/multi-apresentadora-agenda` ou `migration/react-vercel` dispara `.github/workflows/frontend-deploy.yml` (typecheck + testes + build antes; qualquer falha aborta sem publicar). Na prática os deploys recentes saem de `feat/multi-apresentadora-agenda` — parta dela para mudanças.
-- **Deploy manual (exceção):** seguir `react-app/DEPLOY-HANDOFF.md`; token em `$VERCEL_TOKEN`. **Nunca** usar `--prebuilt` (ver `AGENTS.md`).
-- Gates antes de publicar: `npm run typecheck`, `npm run test` e `npm run build` em `react-app/`.
-- `react-app/.env.production` define `VITE_CADASTRO_UNIFICADO=true`; o workflow de produção embute a URL da API no build. Criar/editar cadastro usa `/v1/cadastros`; o acesso de login do novo cliente é criado separadamente. A flag é de build: trocar o valor exige novo deploy.
-- Smoke autenticado somente de leitura: `E2E_BASE_URL=https://app.grupolivelab.com.br E2E_EMAIL=... E2E_PASSWORD=... npm run e2e:production-smoke` em `react-app/`, com conta de teste. O teste bloqueia escritas exceto o POST de login.
-- Conferir que foi ao ar: `curl -s https://app.grupolivelab.com.br/version.json` — o timestamp `v` deve ser recente (é o ts do build).
+- **Produção:** https://app.grupolivelab.com.br (Vercel, projeto
+  `liveshop-saas-frontend-react`). O scope Vercel validado para o release atual é
+  `leonardoames-projects`; o scope de uma sessão local do CLI pode ser diferente.
+- **Estado atual:** consulte o [registro de produção de 26/10/2026](docs/production-release-2026-10-26.md)
+  para SHA, branch, versão e execução do workflow confirmados. O checkout primário
+  `codex/cliente-portal-marca` não representa esse release por padrão.
+- **Deploy pelo GitHub Actions:** push em `feat/multi-apresentadora-agenda` ou
+  `migration/react-vercel`, ou `workflow_dispatch`, executa `.github/workflows/frontend-deploy.yml`.
+  O workflow roda typecheck, testes e build, então publica com build remoto e a URL
+  da API de produção injetada no job.
+- Gates locais antes de publicar: `npm run typecheck`, `npm run test` e
+  `npm run build` em `react-app/`.
+- Não use `--prebuilt` para publicar: o build local pode embutir `[SENSITIVE]` no
+  lugar de `VITE_API_URL`.
+- `react-app/.env.production` define `VITE_CADASTRO_UNIFICADO=true`. A flag é
+  embutida no build; criar ou editar cadastro usa `/v1/cadastros`, e o acesso de
+  login do novo cliente é criado separadamente.
+- O smoke de produção é somente de leitura, exceto pelo POST de login. Com uma
+  conta de teste, rode este comando em `react-app/`:
+
+  ```bash
+  E2E_BASE_URL=https://app.grupolivelab.com.br E2E_EMAIL=... E2E_PASSWORD=... npm run e2e:production-smoke
+  ```
+
+  Este release não validou fluxos autenticados com todos os papéis.
+- Depois do deploy, confira `https://app.grupolivelab.com.br/version.json` e abra a
+  aplicação. Timestamp novo confirma o build servido, não o funcionamento autenticado
+  de todos os papéis. Veja no registro os limites da validação de produção.
 - Receita tem o botão **Gerar títulos**; a operação reconcilia os títulos do mês via `POST /v1/financeiro/receitas/gerar` após confirmação. O DRE anual mostra o caixa inicial por mês; sem data de corte, exibe **Não configurado**.
 - `livelab-3601f.web.app` é o app antigo (Flutter/Firebase), a desativar; produção real = `app.grupolivelab.com.br`.
 
@@ -73,7 +94,9 @@ react-app/src/
 | `/` | DashboardPage | internalRoles |
 | `/master` | MasterDashboardPage | masterRoles |
 | `/master/consolidado` | MasterConsolidatedPage | masterRoles |
-| `/comercial` | ComercialPage | masterRoles + commercialRoles |
+| `/clientes` | ClientesLayout + Carteira | masterRoles + commercialRoles |
+| `/clientes/crm` | ClientesLayout + CrmPage | masterRoles + commercialRoles |
+| `/comercial` | Redirect to `/clientes` | masterRoles + commercialRoles |
 | `/conteudo` | ConteudoPage | cabineRoles + apresentador |
 | `/apresentadoras` | ApresentadorasPage | opsRoles |
 | `/metas` | MetasPage | opsRoles |
@@ -82,3 +105,15 @@ react-app/src/
 | `/configuracoes` | ConfiguracoesPage | franqueado+ |
 | `/cliente` | ClienteDashboardPage | cliente_parceiro |
 | `/ranking` | PublicRankingPage | público |
+
+### CRM e treinamentos no release publicado
+
+Confira o SHA do [registro de produção](docs/production-release-2026-10-26.md)
+antes de usar estas rotas como evidência do checkout local. No release publicado,
+as rotas antigas `/master/crm` e `/leads` também redirecionam para `/clientes/crm`.
+
+O treinamento autenticado fica em `/conhecimento`. A gestão em
+`/conhecimento/treinamentos/gerenciar` é restrita a `franqueador_master`; o relatório
+em `/conhecimento/treinamentos/relatorio` atende `franqueador_master`, `franqueado`
+e `gerente`. O front-end faz o controle de acesso da interface; a API também valida
+a autorização e o escopo de tenant.

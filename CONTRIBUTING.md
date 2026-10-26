@@ -1,5 +1,7 @@
 # Contribuindo — Frontend Livelab
 
+Estado verificado de produção: [STATUS.md](STATUS.md) e [registro de publicação](docs/production-release-2026-10-26.md). Confirme o SHA remoto antes de preparar outra entrega e preserve alterações locais não publicadas.
+
 ## Branch e PR
 
 1. Parta de `feat/multi-apresentadora-agenda` (é dela que sai a produção hoje).

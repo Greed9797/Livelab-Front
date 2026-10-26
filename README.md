@@ -25,8 +25,16 @@ npm run build
 ## Produção
 
 - App: https://app.grupolivelab.com.br (Vercel, projeto `liveshop-saas-frontend-react`).
-- Deploy: automático pelo GitHub Actions (`.github/workflows/frontend-deploy.yml`) a cada push em `feat/multi-apresentadora-agenda` ou `migration/react-vercel`. Manual só em exceção: `react-app/DEPLOY-HANDOFF.md`.
-- Conferir: `curl -s https://app.grupolivelab.com.br/version.json` (timestamp `v` recente).
+- Deploy: GitHub Actions (`.github/workflows/frontend-deploy.yml`) valida tipos,
+  testes e build antes do deploy de produção. Os gatilhos são push em
+  `feat/multi-apresentadora-agenda` ou `migration/react-vercel`, e execução manual
+  pelo workflow dispatch.
+- Estado publicado e procedimento de verificação: [release de produção de
+  26/10/2026](docs/production-release-2026-10-26.md). A branch do checkout local
+  pode diferir da branch do release; confira o SHA documentado antes de concluir
+  que o código local está em produção.
+- Conferir diretamente: `curl -s https://app.grupolivelab.com.br/version.json`
+  (timestamp `v` recente).
 - API: repositório `Livelab-back`, no Railway (`https://liveshop-saas-api-production.up.railway.app/v1`).
 
 Mais detalhes: `AGENTS.md` (convenções e armadilhas) e `CLAUDE.md` (estrutura e rotas).

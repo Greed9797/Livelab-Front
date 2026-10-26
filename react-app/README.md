@@ -41,12 +41,18 @@ O build gera `dist/`, compatível com Vercel como static site.
 
 ## Deploy na Vercel
 
-Configuração sugerida:
+O deploy de produção usa o GitHub Actions em
+`../.github/workflows/frontend-deploy.yml`. Push nas branches
+`feat/multi-apresentadora-agenda` ou `migration/react-vercel`, e `workflow_dispatch`,
+executa typecheck, testes, build e deploy remoto pela Vercel. O job injeta a URL da API
+de produção; não use um build local com `--prebuilt`, que pode assar `[SENSITIVE]` no
+bundle no lugar de `VITE_API_URL`.
 
-- Root Directory: `react-app`
-- Build Command: `npm run build`
-- Output Directory: `dist`
-- Environment Variable: `VITE_API_URL=https://.../v1`
+O [registro do release publicado de 26/10/2026](../docs/production-release-2026-10-26.md)
+é a referência para branch, commit, versão e verificações atuais. O código do checkout
+local pode divergir do código que serve produção.
+
+Para validar um build local, rode `npm run build`; isso não publica o bundle.
 
 O backend Fastify usa allowlist CORS. Antes de publicar em Vercel, inclua o domínio final da Vercel em `CORS_ORIGIN` no backend, por exemplo:
 
@@ -56,14 +62,34 @@ CORS_ORIGIN=https://app.grupolivelab.com.br,https://seu-projeto.vercel.app
 
 Validação feita em 2026-05-12: Railway responde `/health`, aceita preflight de `https://app.grupolivelab.com.br` e `https://livelab-3601f.web.app`, mas rejeita `http://127.0.0.1:5173` e domínios Vercel não cadastrados.
 
+### CRM e carteira no release publicado
+
+No release registrado, Clientes/Carteira fica em `/clientes` e o CRM em
+`/clientes/crm`. As rotas legadas `/master/crm` e `/leads` redirecionam para
+`/clientes/crm`. Essas rotas descrevem o SHA publicado; confira o registro antes de
+compará-las com um checkout local diferente.
+
+### Treinamentos no release publicado
+
+- `/conhecimento` oferece trilhas e aulas para usuários autenticados.
+- `/conhecimento/treinamentos/gerenciar` permite ao papel `franqueador_master`
+  gerenciar trilhas e aulas.
+- `/conhecimento/treinamentos/relatorio` oferece relatório a
+  `franqueador_master`, `franqueado` e `gerente`, dentro do escopo permitido pela API.
+
+Vídeos permanecem nos provedores de origem; excluir uma aula ou trilha não remove o
+vídeo remoto. A validação em produção deste release não revalidou o domínio de conta
+Panda próprio.
+
 ### Flag `VITE_CADASTRO_UNIFICADO` (cadastro unificado)
 
 A tela **Clientes** (`/clientes`) pode ler a lista do endpoint novo `GET /v1/cadastros`
 (clientes, afiliadas, marcas próprias e parceiras na mesma lista, com coluna "Tipo",
 indicação "não gera receita" e o botão "Promover a cliente").
 
-- **Desligada por padrão.** Só o valor exato `true` liga; ausente, `false` ou `0` mantêm a
-  junção atual `/clientes` + `/marcas`.
+- **Ativa no build de produção de 26/10/2026:** `.env.production` define
+  `VITE_CADASTRO_UNIFICADO=true`. No código, somente o valor exato `true` liga;
+  ausente, `false` ou `0` mantêm a junção `/clientes` + `/marcas`.
 - Mesmo ligada, se o backend responder 404/405/501 em `/v1/cadastros` (backend antigo),
   a tela cai sozinha na junção atual — nada quebra. "Promover a cliente" só aparece quando
   a lista veio do endpoint novo.
@@ -92,9 +118,12 @@ indicação "não gera receita" e o botão "Promover a cliente").
 ## Ainda falta
 
 - Upload multipart de logo no onboarding quando o backend expuser endpoint próprio.
-- CRUD admin da Knowledge Base se a base passar a ser gerenciada pelo painel.
+- Completar a validação autenticada de treinamentos em produção com os papéis de
+  franqueado e master; consulte as limitações do
+  [registro de release](../docs/production-release-2026-10-26.md).
 - Expandir E2E real para CRUDs destrutivos quando houver massa de teste dedicada.
-- Smoke test no domínio Vercel e, depois, em `app.grupolivelab.com.br`.
+- Completar smoke autenticado de leitura com contas de teste master e franqueado
+  em `app.grupolivelab.com.br`; este release não cobriu esses papéis.
 
 ## QA ponta a ponta
 
