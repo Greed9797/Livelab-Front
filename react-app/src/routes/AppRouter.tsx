@@ -50,9 +50,7 @@ function RouterApplication() {
         <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
         <Route path="/aceitar-convite" element={<AceitarConvitePage />} />
         <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path="/ranking" element={<PublicRankingPage />} />
-        </Route>
+        <Route path="/ranking" element={<PublicRankingPage />} />
 
         <Route element={<ProtectedRoute allowedRoles={clienteRoles} />}>
           <Route path="/onboarding" element={<Navigate to="/cliente" replace />} />
