@@ -105,13 +105,33 @@ api.interceptors.response.use(
   },
 )
 
+function isSuspendedLegacyApiHost(error: AxiosError): boolean {
+  const base = String(error.config?.baseURL ?? '')
+  const responseUrl = String(error.request?.responseURL ?? '')
+  if (base.includes('api.grupolivelab.com.br') || responseUrl.includes('api.grupolivelab.com.br')) {
+    return true
+  }
+  const data = error.response?.data
+  if (typeof data === 'string' && /service suspended|suspended by its owner/i.test(data)) {
+    return true
+  }
+  return false
+}
+
 export function extractErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const status = error.response?.status ?? 0
     // 401/5xx/rede: mensagem genérica primeiro — nunca repassar texto bruto do
     // servidor para o usuário em erros internos (evita vazar detalhe interno).
     if (status === 401) return 'Sessão expirada. Faça login novamente.'
-    if (status >= 500) return 'O servidor está indisponível no momento.'
+    if (status >= 500) {
+      // api.grupolivelab.com.br responde 503 "Service Suspended" — não é queda da
+      // API Railway; builds antigos com VITE_API_URL errada caíam nesta mensagem.
+      if (isSuspendedLegacyApiHost(error)) {
+        return 'A API antiga (api.grupolivelab.com.br) está suspensa. Atualize a página (Ctrl+F5) para carregar a versão que usa a API Railway.'
+      }
+      return 'O servidor está indisponível no momento.'
+    }
     if (error.code === 'ECONNABORTED') return 'Tempo limite excedido ao comunicar com o servidor.'
     if (error.message === 'Network Error') return 'Não foi possível conectar ao servidor.'
     // 4xx: repassa a mensagem de validação do backend (útil ao usuário).
