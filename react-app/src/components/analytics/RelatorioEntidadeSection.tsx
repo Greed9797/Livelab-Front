@@ -9,7 +9,7 @@ import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
 import { getComissoesApresentadoras, getComissoesMarcas, getDailyAnalytics, getMarca } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
-import { asArray, asNumber, asString, formatMoney, unwrapList } from '../../utils/format'
+import { asArray, asNumber, asString, formatMoney, getRecord, unwrapList } from '../../utils/format'
 import { metric, moneyMetric, sumDailyTotals } from '../../pages/page-helpers'
 import { QK } from '../../services/query-keys'
 import type { JsonRecord, Metric } from '../../types/models'
@@ -29,6 +29,13 @@ function diaCurto(value: unknown): string {
   const raw = asString(value, '')
   const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
   return m ? `${m[3]}/${m[2]}` : raw || '—'
+}
+
+// Meta de vídeos do período: soma das metas diárias (dias úteis) que o
+// /analytics/diario devolve quando o relatório é de apresentadora. null = sem meta.
+function metaVideosDoPeriodo(data: unknown): number | null {
+  const metas = Object.values(getRecord(getRecord(data).meta_videos_por_dia))
+  return metas.length ? metas.reduce<number>((sum, value) => sum + asNumber(value), 0) : null
 }
 
 function brDate(iso: string): string {
@@ -66,6 +73,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
     .slice()
     .sort((a, b) => asString(a.dia).localeCompare(asString(b.dia)))
   const totals = sumDailyTotals(rows)
+  const metaVideos = metaVideosDoPeriodo(query.data)
   const pendingLives = rows.reduce((total, row) => total + asNumber(row.total_lives_pendentes_aprovacao), 0)
   const emConciliacao = rows.some(row => row.em_conciliacao)
 
@@ -75,7 +83,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
   const franquiaPctNum = asNumber(franquiaPctFromApi ?? franquiaPct)
   const semFranquiaPct = tipo === 'marca' && !marcaPctQuery.isLoading && franquiaPctNum <= 0
 
-  function buildMetrics(t: ReturnType<typeof sumDailyTotals>, row: JsonRecord | undefined = comissaoRow, dailyRows: JsonRecord[] = rows): Metric[] {
+  function buildMetrics(t: ReturnType<typeof sumDailyTotals>, row: JsonRecord | undefined = comissaoRow, dailyRows: JsonRecord[] = rows, metaVideosPeriodo: number | null = metaVideos): Metric[] {
     const hasPending = dailyRows.some(item => item.pendente_aprovacao)
     const pendingOnly = hasPending && dailyRows.every(item => item.pendente_aprovacao && item.comissao_apresentadora == null)
     // Comissão de franquia: SEMPRE preferir o valor do endpoint /comissoes/marcas —
@@ -91,11 +99,13 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
       moneyMetric('GMV vídeos', t.gmv_videos, 'vendas em vídeo', 'info'),
       metric('Horas de live', t.horas_live.toFixed(1), 'lives encerradas', 'neutral'),
       metric('Lives realizadas', t.total_lives.toLocaleString('pt-BR'), 'no mês', 'neutral'),
-      metric('Vídeos', t.total_videos.toLocaleString('pt-BR'), 'no mês', 'neutral'),
+      metaVideosPeriodo == null
+        ? metric('Vídeos', t.total_videos.toLocaleString('pt-BR'), 'no período', 'neutral')
+        : metric('Vídeos', `${t.total_videos.toLocaleString('pt-BR')} / ${metaVideosPeriodo.toLocaleString('pt-BR')}`, 'realizado / meta (dias úteis)', t.total_videos >= metaVideosPeriodo ? 'success' : 'warning'),
       metric('Pedidos', t.pedidos.toLocaleString('pt-BR'), 'atribuídos', 'success'),
       moneyMetric('Ticket médio', t.ticket_medio, 'GMV / pedidos', 'neutral'),
       moneyMetric('GMV / hora', t.gmv_por_hora, 'GMV lives / horas de live', 'success'),
-      moneyMetric('GMV / live', t.gmv_por_live, 'GMV total / live', 'info'),
+      moneyMetric('GMV / live', t.gmv_por_live, 'GMV lives / live', 'info'),
       ...comissaoMetrics,
       ...(hasPending ? [
         metric('Impressões pendentes', dailyRows.reduce((sum, item) => sum + asNumber(item.impressoes_pendentes_aprovacao), 0).toLocaleString('pt-BR'), 'Declaradas; aguardam validação', 'neutral'),
@@ -151,11 +161,11 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
         titulo: nomeEntidade || (tipo === 'marca' ? 'Marca' : 'Apresentadora'),
         subtitulo: `${tipo === 'marca' ? 'Relatório por marca' : 'Relatório por apresentadora'}${pdfRows.some(r => r.em_conciliacao) ? ' · Em conciliação: total consolidado indisponível' : pdfRows.some(r => r.pendente_aprovacao) ? ' · Total provisório: inclui pendentes de aprovação' : ''}`,
         mes: mesToken,
-        metrics: buildMetrics(sumDailyTotals(pdfRows), freshComissao, pdfRows).map((m) => ({ label: m.label, value: m.value })),
+        metrics: buildMetrics(sumDailyTotals(pdfRows), freshComissao, pdfRows, metaVideosDoPeriodo(fresh.data ?? query.data)).map((m) => ({ label: m.label, value: m.value })),
         tables: [{
           title: 'Detalhamento diário',
-          head: ['Dia', 'Início', 'Fim', 'Marca', 'GMV lives', 'R$ comissão', '% comissão', 'Horas', 'Pedidos'],
-          rightAlign: [4, 5, 6, 7, 8],
+          head: ['Dia', 'Início', 'Fim', 'Marca', 'GMV lives', 'R$ comissão', '% comissão', 'Horas', 'Pedidos', 'Vídeos'],
+          rightAlign: [4, 5, 6, 7, 8, 9],
           body: pdfRows.map((r) => {
             const c = rowComissao(r)
             return [
@@ -168,6 +178,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
               c ? `${c.pct.toFixed(2)}%` : '—',
               asNumber(r.horas_live).toFixed(1),
               asNumber(r.pedidos ?? r.total_pedidos).toLocaleString('pt-BR'),
+              asNumber(r.total_videos).toLocaleString('pt-BR'),
             ]
           }),
         }],
@@ -244,6 +255,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
                     { key: 'comissao_pct', header: '% comissão', align: 'right', render: (r) => { const c = rowComissao(r); return c ? `${c.pct.toFixed(2)}%` : '—' } },
                     { key: 'horas_live', header: 'Horas', align: 'right', render: (r) => asNumber(r.horas_live).toFixed(1) },
                     { key: 'pedidos', header: 'Pedidos', align: 'right', render: (r) => asNumber(r.pedidos ?? r.total_pedidos).toLocaleString('pt-BR') },
+                    { key: 'total_videos', header: 'Vídeos', align: 'right', render: (r) => asNumber(r.total_videos).toLocaleString('pt-BR') },
                   ]}
                 />
               </div>

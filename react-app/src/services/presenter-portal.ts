@@ -1,5 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
-import type { PresenterSettlementDetails, PresenterSettlementRow } from './remuneration'
+import type { PresenterHoursGoal, PresenterSettlementDetails, PresenterSettlementRow, PresenterSpecialDay } from './remuneration'
 
 export type PresenterSubmissionStatus = 'pendente' | 'devolvida' | 'aprovada' | 'cancelada'
 
@@ -39,7 +39,7 @@ export type PresenterPortalRankingRow = {
 export type PresenterPortalHome = {
   perfil: { id: string; nome: string; foto_url: string | null }
   desempenho: PresenterPortalPerformance
-  remuneracao: { mes?: string; fixo: number | null; comissao?: number | null; adicionais?: number | null; total?: number | null; extras?: Array<{ id: string; tipo: string; data_referencia: string; descricao: string; valor: number }> }
+  remuneracao: { mes?: string; fixo: number | null; comissao?: number | null; bonus_fim_de_semana?: number | null; adicionais?: number | null; total?: number | null; horas?: PresenterHoursGoal | null; dias_especiais?: PresenterSpecialDay[]; extras?: Array<{ id: string; tipo: string; data_referencia: string; descricao: string; valor: number; substituido_por_bonus?: boolean }> }
   ranking: PresenterPortalRankingRow[]
 }
 
@@ -158,6 +158,47 @@ export function resubmitPresenterSubmission(id: string) {
 
 export function cancelPresenterSubmission(id: string) {
   return apiDelete<PresenterSubmission>(`/portal/apresentadora/submissoes/${encodeURIComponent(id)}`)
+}
+
+// Vídeo registrado pela própria apresentadora. Vai para video_registros (nunca
+// para lives) e conta no relatório na hora; o GMV segue a aprovação financeira.
+export interface PresenterVideo {
+  id: string
+  marca_id: string
+  marca_nome?: string | null
+  data: string
+  quantidade: number
+  plataforma: string
+  gmv_atribuido: string | number
+  pedidos_atribuidos: number
+  observacoes: string | null
+  venda_status?: string | null
+  editavel: boolean
+}
+
+export interface PresenterVideoPayload {
+  marca_id: string
+  data: string
+  quantidade: number
+  gmv_atribuido: string
+  pedidos_atribuidos: number
+  observacoes: string | null
+}
+
+export function getPresenterPortalVideos(mes: string) {
+  return apiGet<{ mes: string; total_videos: number; items: PresenterVideo[] }>('/portal/apresentadora/videos', { mes })
+}
+
+export function createPresenterVideo(payload: PresenterVideoPayload) {
+  return apiPost<PresenterVideo>('/portal/apresentadora/videos', payload)
+}
+
+export function updatePresenterVideo(id: string, payload: PresenterVideoPayload) {
+  return apiPatch<PresenterVideo>(`/portal/apresentadora/videos/${encodeURIComponent(id)}`, payload)
+}
+
+export function deletePresenterVideo(id: string) {
+  return apiDelete<{ ok: true; id: string }>(`/portal/apresentadora/videos/${encodeURIComponent(id)}`)
 }
 
 export function getPresenterReviewQueue(status = 'pendente') {

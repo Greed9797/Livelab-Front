@@ -23,6 +23,7 @@ import { asArray, asNumber, asString, formatMoney } from '../utils/format'
 import { FALLBACK_ESCADA } from '../utils/faixaComissao'
 import { formatBRLWithoutSymbol, parseBRMoneyToDecimal } from '../utils/money'
 import { QK } from '../services/query-keys'
+import { FeriadosSection } from '../components/financeiro/FeriadosSection'
 import type { JsonRecord } from '../types/models'
 
 type Tab = 'marca' | 'apresentadora'
@@ -394,6 +395,8 @@ export function ComissoesConfigPage() {
       <EscadaPadraoSection />
 
       <FechamentoMesSection />
+
+      <FeriadosSection />
 
       <div className="flex gap-2 border-b border-line">
         <button

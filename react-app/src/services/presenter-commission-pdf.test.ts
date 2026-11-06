@@ -29,7 +29,7 @@ describe('PDF de comissão da apresentadora', () => {
     expect(buildRelatorioPdf).toHaveBeenCalledWith(ownCommissionPdfInput(report))
     const input = vi.mocked(buildRelatorioPdf).mock.calls[0][0]
     expect(input.titulo).toBe('Relatório mensal — Ana')
-    expect(input.metrics.map((metric) => metric.label)).toEqual(['GMV de lives', 'GMV por hora', 'Lives encerradas', 'Fixo', 'Comissão', 'Extras', 'Total a pagar'])
+    expect(input.metrics.map((metric) => metric.label)).toEqual(['GMV de lives', 'GMV por hora', 'Lives encerradas', 'Fixo', 'Comissão', 'Bônus fds/feriado', 'Ajustes excepcionais', 'Total a pagar', 'Horas em dias úteis / meta'])
   })
 
   it('não monta o PDF quando o fechamento é de outra apresentadora', async () => {

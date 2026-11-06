@@ -2,6 +2,8 @@ export type OperationalGoalsConfig = {
   horas_por_apresentador: number
   cabines_consideradas: number
   turnos: { inicio: string; fim: string }[]
+  /** Meta diária de vídeos por apresentadora (dias úteis); ausente = sem meta. */
+  videos_por_apresentador?: number
 }
 
 export type OperationalGoalsPatch = {

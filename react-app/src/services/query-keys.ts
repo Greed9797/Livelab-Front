@@ -131,6 +131,7 @@ export const QK = {
       : (['cliente-sessoes', period.ano, period.mes] as const),
   presenterPortalHome: (tenantId: string, actorId: string, mes: string) => ['presenter-portal-home', tenantId, actorId, mes] as const,
   presenterPortalLives: (tenantId: string, actorId: string, mes: string) => ['presenter-portal-lives', tenantId, actorId, mes] as const,
+  presenterPortalVideos: (tenantId: string, actorId: string, mes: string) => ['presenter-portal-videos', tenantId, actorId, mes] as const,
   presenterReviewQueue: (tenantId: string, actorId: string, status: string) => ['presenter-review-queue', tenantId, actorId, status] as const,
 }
 

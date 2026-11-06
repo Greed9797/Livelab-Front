@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost } from './api'
+import { apiDelete, apiGet, apiPost, apiPut } from './api'
 
 export type PresenterExtraType = 'fim_de_semana' | 'bonificacao'
 
@@ -8,6 +8,30 @@ export interface PresenterExtra {
   data_referencia: string | null
   descricao: string
   valor: number | string
+  /** Diária manual de fds lançada depois do bônus automático: listada, fora do total. */
+  substituido_por_bonus?: boolean
+}
+
+export type SpecialDayType = 'sabado' | 'domingo' | 'feriado'
+
+export interface PresenterSpecialDay {
+  data: string
+  tipo: SpecialDayType
+  feriado: string | null
+  horas: number
+  blocos_4h: number
+  bonus: number | string
+  gmv: number
+  comissao: number
+}
+
+export interface PresenterHoursGoal {
+  dias_uteis: number
+  /** Horas exigidas (6h × dias úteis do vínculo); null sem vínculo no mês. */
+  meta: number | null
+  realizadas_dias_uteis: number
+  dias_especiais: number
+  bateu_meta: boolean | null
 }
 
 export interface PresenterSettlementRow {
@@ -15,15 +39,18 @@ export interface PresenterSettlementRow {
   nome: string
   fixo: number | string
   comissao: number | string
+  bonus_fim_de_semana?: number | string
   adicionais: number | string
   total: number | string
+  horas?: PresenterHoursGoal | null
+  dias_especiais?: PresenterSpecialDay[]
   extras: PresenterExtra[]
 }
 
 export interface PresenterSettlement {
   mes: string
   apresentadoras: PresenterSettlementRow[]
-  totais: { fixo: number | string; comissao: number | string; adicionais: number | string; total: number | string }
+  totais: { fixo: number | string; comissao: number | string; bonus_fim_de_semana?: number | string; adicionais: number | string; total: number | string }
   pode_editar: boolean
 }
 
@@ -90,4 +117,26 @@ export function createPresenterExtra(payload: {
 
 export function deletePresenterExtra(id: string) {
   return apiDelete(`/financeiro/adicionais-apresentadoras/${encodeURIComponent(id)}`)
+}
+
+export interface Holiday {
+  data: string
+  nome: string
+  ativo: boolean
+  /** calendario = nacional/Blumenau embutido; unidade = criado pela gestão. */
+  origem: 'calendario' | 'unidade'
+  ajustado: boolean
+}
+
+export function getHolidays(ano: number) {
+  return apiGet<{ ano: number; items: Holiday[]; pode_editar: boolean }>('/feriados', { ano })
+}
+
+export function saveHoliday(data: string, payload: { nome: string; ativo: boolean }) {
+  return apiPut<Holiday>(`/feriados/${encodeURIComponent(data)}`, payload)
+}
+
+/** Remove o ajuste da unidade: a data volta ao calendário embutido. */
+export function resetHoliday(data: string) {
+  return apiDelete(`/feriados/${encodeURIComponent(data)}`)
 }

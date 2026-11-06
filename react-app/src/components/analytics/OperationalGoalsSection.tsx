@@ -160,6 +160,7 @@ function GoalsEditor({ data, busy, onClose, onSave }: { data: OperationalData; b
   const [baseFloor, setBaseFloor] = useState(moneyString(data.produtividade.piso ?? 300))
   const [hours, setHours] = useState(String(current?.horas_por_apresentador ?? 5.5))
   const [cabins, setCabins] = useState(String(current?.cabines_consideradas ?? 6))
+  const [videos, setVideos] = useState(current?.videos_por_apresentador == null ? '' : String(current.videos_por_apresentador))
   const [shifts, setShifts] = useState(current?.turnos?.length ? current.turnos : [{ inicio: '08:00', fim: '13:30' }, { inicio: '14:00', fim: '19:30' }])
   const [peopleFloors, setPeopleFloors] = useState(() => Object.fromEntries(data.apresentadoras.map((entity) => [entity.id, entity.piso_origem === 'especifico' ? moneyString(entity.piso) : ''])) as Record<string, string>)
   const [brandFloors, setBrandFloors] = useState(() => Object.fromEntries(data.marcas.map((entity) => [entity.id, entity.piso_origem === 'especifico' ? moneyString(entity.piso) : ''])) as Record<string, string>)
@@ -167,9 +168,13 @@ function GoalsEditor({ data, busy, onClose, onSave }: { data: OperationalData; b
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
-    const target = parseMoney(monthly), floor = parseMoney(baseFloor), perPresenter = Number(hours), cabinsCount = Number(cabins)
+    const target = parseMoney(monthly), floor = parseMoney(baseFloor), perPresenter = Number(hours), cabinsCount = Number(cabins), videosGoal = videos.trim() ? Number(videos) : null
     if (![target, floor, perPresenter, cabinsCount].every(Number.isFinite) || target < 0 || floor < 0 || perPresenter <= 0 || perPresenter > 24 || !Number.isInteger(cabinsCount) || cabinsCount < 1 || cabinsCount > 100) {
       setError('Revise os valores. Horas por apresentador devem ficar entre 0 e 24; cabines, entre 1 e 100.')
+      return
+    }
+    if (videosGoal != null && (!Number.isInteger(videosGoal) || videosGoal < 0 || videosGoal > 100)) {
+      setError('A meta de vídeos deve ser um número inteiro entre 0 e 100.')
       return
     }
     if (!shifts.length || shifts.some((shift) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(shift.inicio) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(shift.fim) || shift.fim <= shift.inicio)) {
@@ -183,7 +188,7 @@ function GoalsEditor({ data, busy, onClose, onSave }: { data: OperationalData; b
       return
     }
     setError('')
-    onSave({ ano_mes: data.ano_mes, meta_gmv: target, meta_gmv_hora: floor, configuracao: { horas_por_apresentador: perPresenter, cabines_consideradas: cabinsCount, turnos: shifts }, pisos_apresentadoras: normalizedPeople, pisos_marcas: normalizedBrands })
+    onSave({ ano_mes: data.ano_mes, meta_gmv: target, meta_gmv_hora: floor, configuracao: { horas_por_apresentador: perPresenter, cabines_consideradas: cabinsCount, turnos: shifts, ...(videosGoal == null ? {} : { videos_por_apresentador: videosGoal }) }, pisos_apresentadoras: normalizedPeople, pisos_marcas: normalizedBrands })
   }
 
   return <form onSubmit={submit} className="space-y-6">
@@ -193,6 +198,7 @@ function GoalsEditor({ data, busy, onClose, onSave }: { data: OperationalData; b
       <label className="space-y-2 text-sm font-semibold text-ink">Piso padrão de GMV/h<input required inputMode="decimal" placeholder="Ex.: 300,00" value={baseFloor} onChange={(e) => setBaseFloor(e.target.value)} className="design-input h-11 w-full px-3" aria-label="Piso padrão de GMV por hora" /></label>
       <label className="space-y-2 text-sm font-semibold text-ink">Horas meta por apresentador<input required type="number" min="0.25" max="24" step="0.25" value={hours} onChange={(e) => setHours(e.target.value)} className="design-input h-11 w-full px-3" /></label>
       <label className="space-y-2 text-sm font-semibold text-ink">Cabines consideradas<input required type="number" min="1" max="100" step="1" value={cabins} onChange={(e) => setCabins(e.target.value)} className="design-input h-11 w-full px-3" /></label>
+      <label className="space-y-2 text-sm font-semibold text-ink">Vídeos meta por apresentador (dia útil)<input type="number" min="0" max="100" step="1" placeholder="Sem meta" value={videos} onChange={(e) => setVideos(e.target.value)} className="design-input h-11 w-full px-3" /></label>
     </div>
     <section className="space-y-3">
       <div><h3 className="text-sm font-bold text-ink">Turnos da operação</h3><p className="mt-1 text-xs text-ink-muted">Intervalos sem sobreposição; pausas ficam entre o fim de um turno e o início do próximo.</p></div>
