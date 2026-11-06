@@ -21,7 +21,7 @@ import { useCurrentUser } from '../../stores/auth-store'
 export const settlementKey = (tenantId: string, mes: string) => ['financeiro-fechamento-apresentadoras', tenantId, mes] as const
 const VALID_MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/
 /** Competência em que o bônus de fds/feriado passa a ser automático (back: BONUS_DIA_ESPECIAL_DESDE). */
-export const AUTO_BONUS_FROM = '2026-11'
+export const AUTO_BONUS_FROM = '2026-10'
 const SPECIAL_DAY_LABEL = { sabado: 'Sábado', domingo: 'Domingo', feriado: 'Feriado' } as const
 
 export function specialDayLabel(day: PresenterSpecialDay): string {
