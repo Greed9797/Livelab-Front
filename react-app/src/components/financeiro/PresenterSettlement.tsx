@@ -47,13 +47,20 @@ export function SettlementTotalCards({ row }: { row: PresenterSettlementRow }) {
 }
 
 /** Tabela de sábados/domingos/feriados para o PDF do fechamento e do relatório. */
-export function specialDaysPdfTable(days: PresenterSpecialDay[]): PdfTable {
+export function bonusRuleLabel(mes: string): string {
+  if (mes < AUTO_BONUS_FROM) return 'sem bônus automático (diária manual)'
+  return mes < BLOCK_BONUS_FROM ? 'R$ 100,00 por dia com live' : 'R$ 100,00 a cada 4h fechadas'
+}
+
+export function specialDaysPdfTable(days: PresenterSpecialDay[], mes: string): PdfTable {
+  // Coluna de blocos só existe quando a regra é por 4h (a partir de 2026-11).
+  const porBloco = mes >= BLOCK_BONUS_FROM
   return {
-    title: 'Sábados, domingos e feriados',
-    head: ['Data', 'Dia', 'Horas', 'Blocos de 4h', 'Bônus', 'GMV', 'Comissão'],
-    rightAlign: [2, 3, 4, 5, 6],
+    title: `Sábados, domingos e feriados · bônus: ${bonusRuleLabel(mes)}`,
+    head: ['Data', 'Dia', 'Horas', ...(porBloco ? ['Blocos de 4h'] : []), 'Bônus', 'GMV', 'Comissão'],
+    rightAlign: porBloco ? [2, 3, 4, 5, 6] : [2, 3, 4, 5],
     body: days.map((day) => [
-      formatDate(day.data), specialDayLabel(day), hoursText(day.horas), day.blocos_4h == null ? '—' : String(day.blocos_4h),
+      formatDate(day.data), specialDayLabel(day), hoursText(day.horas), ...(porBloco ? [String(day.blocos_4h ?? 0)] : []),
       formatMoney(day.bonus, true), formatMoney(day.gmv, true), formatMoney(day.comissao, true),
     ]),
   }
@@ -142,7 +149,7 @@ function memoryRuleLabel(memory: PresenterSettlementDetails['memoria'][number]):
 export function buildSettlementPdfInput(row: PresenterSettlementRow, mes: string, details: PresenterSettlementDetails): RelatorioPdfInput {
   const performance = details.performance
   const tables: RelatorioPdfInput['tables'] = []
-  if (row.dias_especiais?.length) tables.push(specialDaysPdfTable(row.dias_especiais))
+  if (row.dias_especiais?.length) tables.push(specialDaysPdfTable(row.dias_especiais, mes))
   tables.push({
       title: 'Histórico de lives',
       head: ['Data', 'Marca', 'Cabine', 'Duração', 'GMV', 'Pedidos', 'Comissão'],

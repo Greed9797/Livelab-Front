@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSettlementPdfInput, getMonthWeekendDates, hoursGoalLabel, monthLabel, settlementCsv } from './PresenterSettlement'
+import { buildSettlementPdfInput, specialDaysPdfTable, getMonthWeekendDates, hoursGoalLabel, monthLabel, settlementCsv } from './PresenterSettlement'
 import type { PresenterSettlementDetails } from '../../services/remuneration'
 
 describe('PresenterSettlement helpers', () => {
@@ -57,7 +57,7 @@ describe('PresenterSettlement helpers', () => {
       ['Bônus fds/feriado', 'R$ 300,00'], ['Ajustes excepcionais', 'R$ 0,00'], ['Total a pagar', 'R$ 3.200,00'],
       ['Horas em dias úteis / meta', '121h30 de 120h00 · bateu a meta'],
     ])
-    expect(pdf.tables[0].title).toBe('Sábados, domingos e feriados')
+    expect(pdf.tables[0].title).toBe('Sábados, domingos e feriados · bônus: R$ 100,00 a cada 4h fechadas')
     expect(pdf.tables[0].body).toEqual([
       ['15/11/2026', 'Domingo', '4h30', '1', 'R$ 100,00', 'R$ 5.000,00', 'R$ 100,00'],
       ['20/11/2026', 'Feriado · Consciência Negra', '8h00', '2', 'R$ 200,00', 'R$ 5.000,00', 'R$ 100,00'],
@@ -71,5 +71,12 @@ describe('PresenterSettlement helpers', () => {
     expect(header.split(';').slice(0, 6)).toEqual(['Apresentadora', 'Fixo', 'Comissão', 'Bônus fds/feriado', 'Ajustes excepcionais', 'Total a pagar'])
     expect(ana.split(';')).toEqual(['Ana', '2.700,00', '200,00', '300,00', '0,00', '3.200,00', '120', '121,5', 'Sim', '9', '15/11/2026 Domingo 4h30 | 20/11/2026 Feriado · Consciência Negra 8h00'])
     expect(total.split(';').slice(0, 6)).toEqual(['Total', '2.700,00', '200,00', '300,00', '0,00', '3.200,00'])
+  })
+
+  it('outubro/2026: PDF mostra bônus por dia, sem coluna de blocos de 4h', () => {
+    const t = specialDaysPdfTable([{ data: '2026-10-24', tipo: 'sabado', feriado: null, horas: 3.47, blocos_4h: null, bonus: 100, gmv: 10, comissao: 1 }], '2026-10')
+    expect(t.title).toBe('Sábados, domingos e feriados · bônus: R$ 100,00 por dia com live')
+    expect(t.head).not.toContain('Blocos de 4h')
+    expect(t.body[0][3]).toBe('R$ 100,00')
   })
 })

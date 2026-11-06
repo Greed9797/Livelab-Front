@@ -14,7 +14,7 @@ import { extractErrorMessage } from '../../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord, unwrapList } from '../../utils/format'
 import { metric, moneyMetric, sumDailyTotals } from '../../pages/page-helpers'
 import { QK } from '../../services/query-keys'
-import { hoursGoalLabel, monthLabel, settlementKey, SettlementTotalCards, specialDayLabel, specialDaysPdfTable } from '../financeiro/PresenterSettlement'
+import { bonusRuleLabel, hoursGoalLabel, monthLabel, settlementKey, SettlementTotalCards, specialDayLabel, specialDaysPdfTable } from '../financeiro/PresenterSettlement'
 import { useCurrentUser } from '../../stores/auth-store'
 import type { PdfMetric } from '../../utils/pdfReport'
 import type { JsonRecord, Metric } from '../../types/models'
@@ -208,7 +208,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
           ...buildMetrics(sumDailyTotals(pdfRows), freshComissao, pdfRows, metaVideosDoPeriodo(fresh.data ?? query.data)).map((m) => ({ label: m.label, value: m.value })),
           ...(fechamentoRow ? closingPdfMetrics(fechamentoRow, mesFechamento) : []),
         ],
-        tables: [...(fechamentoRow?.dias_especiais?.length ? [specialDaysPdfTable(fechamentoRow.dias_especiais)] : []), {
+        tables: [...(fechamentoRow?.dias_especiais?.length ? [specialDaysPdfTable(fechamentoRow.dias_especiais, mesFechamento)] : []), {
           title: 'Detalhamento diário',
           head: ['Dia', 'Início', 'Fim', 'Marca', 'GMV lives', 'R$ comissão', '% comissão', 'Horas', 'Pedidos', 'Vídeos'],
           rightAlign: [4, 5, 6, 7, 8, 9],
@@ -293,7 +293,7 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
               {fechamentoRow ? (
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div><p className="text-sm font-bold text-ink">Fechamento do mês · {monthLabel(mesFechamento)}</p>{mesInteiro ? null : <p className="mt-0.5 text-xs text-ink-muted">Valores do mês inteiro, não só de {periodoLabel}.</p>}</div>
+                    <div><p className="text-sm font-bold text-ink">Fechamento do mês · {monthLabel(mesFechamento)}</p><p className="mt-0.5 text-xs text-ink-muted">Bônus sáb/dom/feriado: {bonusRuleLabel(mesFechamento)}.</p>{mesInteiro ? null : <p className="mt-0.5 text-xs text-ink-muted">Valores do mês inteiro, não só de {periodoLabel}.</p>}</div>
                     {fechamentoRow.horas ? (
                       <Badge tone={fechamentoRow.horas.bateu_meta ? 'success' : 'warning'}>{fechamentoRow.horas.bateu_meta ? 'Bateu a meta de horas' : 'Abaixo da meta de horas'}</Badge>
                     ) : null}
