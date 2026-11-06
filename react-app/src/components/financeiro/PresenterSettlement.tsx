@@ -14,11 +14,11 @@ import { createPresenterExtra, deletePresenterExtra, getPresenterSettlement, get
 import { extractErrorMessage } from '../../services/api'
 import { formatDate, formatMoney } from '../../utils/format'
 import { parseBRMoneyToDecimal } from '../../utils/money'
-import type { RelatorioPdfInput } from '../../utils/pdfReport'
+import type { PdfTable, RelatorioPdfInput } from '../../utils/pdfReport'
 import { gerarCsv } from '../../utils/exportar-csv'
 import { useCurrentUser } from '../../stores/auth-store'
 
-const settlementKey = (tenantId: string, mes: string) => ['financeiro-fechamento-apresentadoras', tenantId, mes] as const
+export const settlementKey = (tenantId: string, mes: string) => ['financeiro-fechamento-apresentadoras', tenantId, mes] as const
 const VALID_MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/
 /** Competência em que o bônus de fds/feriado passa a ser automático (back: BONUS_DIA_ESPECIAL_DESDE). */
 export const AUTO_BONUS_FROM = '2026-11'
@@ -33,6 +33,28 @@ const hoursText = (hours: number) => (hours > 0 ? formatDurationHours(hours) : '
 export function hoursGoalLabel(horas?: PresenterHoursGoal | null): string {
   if (!horas || horas.meta == null) return '—'
   return `${hoursText(horas.realizadas_dias_uteis)} de ${hoursText(horas.meta)}`
+}
+
+/** Cards Fixo/Comissão/Bônus/Ajustes/Total a pagar. Usado no modal e no Relatório da apresentadora. */
+export function SettlementTotalCards({ row }: { row: PresenterSettlementRow }) {
+  return (
+    <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {[['Fixo', row.fixo], ['Comissão', row.comissao], ['Bônus fds/feriado', row.bonus_fim_de_semana ?? 0], ['Ajustes', row.adicionais], ['Total a pagar', row.total]].map(([label, value]) => <div key={String(label)} className={`rounded-xl px-3 py-3 ${label === 'Total a pagar' ? 'bg-brand-soft' : 'bg-surface-muted'}`}><p className="text-xs font-semibold text-ink-muted">{label}</p><p className={`num mt-1 font-bold text-ink ${label === 'Total a pagar' ? 'text-lg' : 'text-base'}`}>{formatMoney(value, true)}</p></div>)}
+    </section>
+  )
+}
+
+/** Tabela de sábados/domingos/feriados para o PDF do fechamento e do relatório. */
+export function specialDaysPdfTable(days: PresenterSpecialDay[]): PdfTable {
+  return {
+    title: 'Sábados, domingos e feriados',
+    head: ['Data', 'Dia', 'Horas', 'Blocos de 4h', 'Bônus', 'GMV', 'Comissão'],
+    rightAlign: [2, 3, 4, 5, 6],
+    body: days.map((day) => [
+      formatDate(day.data), specialDayLabel(day), hoursText(day.horas), String(day.blocos_4h),
+      formatMoney(day.bonus, true), formatMoney(day.gmv, true), formatMoney(day.comissao, true),
+    ]),
+  }
 }
 
 function extraLabel(extra: PresenterExtra): string {
@@ -118,15 +140,7 @@ function memoryRuleLabel(memory: PresenterSettlementDetails['memoria'][number]):
 export function buildSettlementPdfInput(row: PresenterSettlementRow, mes: string, details: PresenterSettlementDetails): RelatorioPdfInput {
   const performance = details.performance
   const tables: RelatorioPdfInput['tables'] = []
-  if (row.dias_especiais?.length) tables.push({
-    title: 'Sábados, domingos e feriados',
-    head: ['Data', 'Dia', 'Horas', 'Blocos de 4h', 'Bônus', 'GMV', 'Comissão'],
-    rightAlign: [2, 3, 4, 5, 6],
-    body: row.dias_especiais.map((day) => [
-      formatDate(day.data), specialDayLabel(day), hoursText(day.horas), String(day.blocos_4h),
-      formatMoney(day.bonus, true), formatMoney(day.gmv, true), formatMoney(day.comissao, true),
-    ]),
-  })
+  if (row.dias_especiais?.length) tables.push(specialDaysPdfTable(row.dias_especiais))
   tables.push({
       title: 'Histórico de lives',
       head: ['Data', 'Marca', 'Cabine', 'Duração', 'GMV', 'Pedidos', 'Comissão'],
@@ -295,9 +309,7 @@ function SettlementModal({ row, mes, editable, writeBlocked, onClose, onChanged 
   return (
     <Modal open={Boolean(row)} title={`Fechamento mensal: ${row?.nome ?? ''}`} subtitle={monthLabel(mes)} size="lg" onClose={onClose} closeDisabled={interactionBlocked} footer={<div className="flex w-full flex-wrap justify-between gap-2"><Link aria-disabled={interactionBlocked || undefined} onClick={(event) => { if (interactionBlocked) event.preventDefault() }} className={`inline-flex h-[42px] items-center gap-2 px-2 text-sm font-semibold text-ink hover:text-[var(--primary)] ${interactionBlocked ? 'pointer-events-none opacity-45' : ''}`} to={row ? `/apresentadoras/${row.apresentadora_id}` : '/apresentadoras'}><ExternalLink className="h-4 w-4" />Abrir perfil</Link><Button type="button" variant="secondary" icon={Download} onClick={exportPdf} disabled={interactionBlocked} isLoading={exporting}>Exportar relatório mensal</Button></div>}>
       {row ? <div className="space-y-5">
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {[['Fixo', row.fixo], ['Comissão', row.comissao], ['Bônus fds/feriado', row.bonus_fim_de_semana ?? 0], ['Ajustes', row.adicionais], ['Total a pagar', row.total]].map(([label, value]) => <div key={String(label)} className={`rounded-xl px-3 py-3 ${label === 'Total a pagar' ? 'bg-brand-soft' : 'bg-surface-muted'}`}><p className="text-xs font-semibold text-ink-muted">{label}</p><p className={`num mt-1 font-bold text-ink ${label === 'Total a pagar' ? 'text-lg' : 'text-base'}`}>{formatMoney(value, true)}</p></div>)}
-        </section>
+        <SettlementTotalCards row={row} />
         <section className="space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div><h3 className="text-sm font-bold text-ink">Horas e dias especiais</h3><p className="mt-0.5 text-xs text-ink-muted">Meta de 6h por dia útil (seg–sex, sem feriado) para garantir o fixo. Live em sábado, domingo ou feriado paga 2% de comissão{autoBonus ? ' e R$ 100,00 a cada 4h fechadas' : ''}.</p></div>

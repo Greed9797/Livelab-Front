@@ -5,13 +5,18 @@ import { AlertTriangle, CircleDollarSign, Clock, FileDown, Film, Radio, ReceiptT
 import { MetricCard } from '../ui/MetricCard'
 import { DataTable } from '../ui/DataTable'
 import { Card, CardBody, CardHeader } from '../ui/Card'
+import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
 import { getComissoesApresentadoras, getComissoesMarcas, getDailyAnalytics, getMarca } from '../../services/domain'
+import { getPresenterSettlement, type PresenterSettlementRow, type PresenterSpecialDay } from '../../services/remuneration'
 import { extractErrorMessage } from '../../services/api'
 import { asArray, asNumber, asString, formatMoney, getRecord, unwrapList } from '../../utils/format'
 import { metric, moneyMetric, sumDailyTotals } from '../../pages/page-helpers'
 import { QK } from '../../services/query-keys'
+import { hoursGoalLabel, monthLabel, settlementKey, SettlementTotalCards, specialDayLabel, specialDaysPdfTable } from '../financeiro/PresenterSettlement'
+import { useCurrentUser } from '../../stores/auth-store'
+import type { PdfMetric } from '../../utils/pdfReport'
 import type { JsonRecord, Metric } from '../../types/models'
 
 interface RelatorioEntidadeSectionProps {
@@ -36,6 +41,29 @@ function diaCurto(value: unknown): string {
 function metaVideosDoPeriodo(data: unknown): number | null {
   const metas = Object.values(getRecord(getRecord(data).meta_videos_por_dia))
   return metas.length ? metas.reduce<number>((sum, value) => sum + asNumber(value), 0) : null
+}
+
+// Tag do dia: feriado (nome vem do fechamento) ou Sáb/Dom pela própria data (sem fuso: Date.UTC).
+function diaTag(dia: string, especiais: PresenterSpecialDay[] = []): string | null {
+  const feriado = especiais.find((d) => d.data === dia && d.tipo === 'feriado')
+  if (feriado) return specialDayLabel(feriado)
+  const m = dia.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return null
+  const dow = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay()
+  return dow === 0 ? 'Dom' : dow === 6 ? 'Sáb' : null
+}
+
+function closingPdfMetrics(row: PresenterSettlementRow, mes: string): PdfMetric[] {
+  // O fechamento é do mês inteiro, mesmo quando o relatório filtra só parte dele.
+  return [
+    { label: 'Fechamento (mês inteiro)', value: monthLabel(mes) },
+    { label: 'Fixo', value: formatMoney(row.fixo, true) },
+    { label: 'Comissão do fechamento', value: formatMoney(row.comissao, true) },
+    { label: 'Bônus fds/feriado', value: formatMoney(row.bonus_fim_de_semana ?? 0, true) },
+    { label: 'Ajustes excepcionais', value: formatMoney(row.adicionais, true) },
+    { label: 'Total a pagar', value: formatMoney(row.total, true) },
+    { label: 'Horas em dias úteis / meta', value: hoursGoalLabel(row.horas) },
+  ]
 }
 
 function brDate(iso: string): string {
@@ -68,6 +96,21 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
     enabled: tipo === 'marca' && Boolean(marcaId),
     staleTime: 0,
   })
+
+  // Fechamento mensal da apresentadora: mesma query key do Financeiro > Fechamento (cache compartilhado).
+  // Erro (403) ou sem linha = seção some; o resto do relatório segue.
+  const user = useCurrentUser()
+  const mesFechamento = from.slice(0, 7)
+  const fechamentoAtivo = tipo === 'apresentadora' && Boolean(apresentadoraId) && from.slice(0, 7) === to.slice(0, 7)
+  const settlementQuery = useQuery({
+    queryKey: settlementKey(user?.tenant_id ?? 'anonymous', mesFechamento),
+    queryFn: () => getPresenterSettlement(mesFechamento),
+    enabled: fechamentoAtivo,
+    retry: false,
+  })
+  const [anoF, mesF] = mesFechamento.split('-').map(Number)
+  const mesInteiro = from === `${mesFechamento}-01` && to === `${mesFechamento}-${String(new Date(Date.UTC(anoF, mesF, 0)).getUTCDate()).padStart(2, '0')}`
+  const fechamentoRow = fechamentoAtivo ? settlementQuery.data?.apresentadoras.find((a) => a.apresentadora_id === apresentadoraId) : undefined
 
   const rows = unwrapList<JsonRecord>(query.data)
     .slice()
@@ -161,8 +204,11 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
         titulo: nomeEntidade || (tipo === 'marca' ? 'Marca' : 'Apresentadora'),
         subtitulo: `${tipo === 'marca' ? 'Relatório por marca' : 'Relatório por apresentadora'}${pdfRows.some(r => r.em_conciliacao) ? ' · Em conciliação: total consolidado indisponível' : pdfRows.some(r => r.pendente_aprovacao) ? ' · Total provisório: inclui pendentes de aprovação' : ''}`,
         mes: mesToken,
-        metrics: buildMetrics(sumDailyTotals(pdfRows), freshComissao, pdfRows, metaVideosDoPeriodo(fresh.data ?? query.data)).map((m) => ({ label: m.label, value: m.value })),
-        tables: [{
+        metrics: [
+          ...buildMetrics(sumDailyTotals(pdfRows), freshComissao, pdfRows, metaVideosDoPeriodo(fresh.data ?? query.data)).map((m) => ({ label: m.label, value: m.value })),
+          ...(fechamentoRow ? closingPdfMetrics(fechamentoRow, mesFechamento) : []),
+        ],
+        tables: [...(fechamentoRow?.dias_especiais?.length ? [specialDaysPdfTable(fechamentoRow.dias_especiais)] : []), {
           title: 'Detalhamento diário',
           head: ['Dia', 'Início', 'Fim', 'Marca', 'GMV lives', 'R$ comissão', '% comissão', 'Horas', 'Pedidos', 'Vídeos'],
           rightAlign: [4, 5, 6, 7, 8, 9],
@@ -241,12 +287,42 @@ export function RelatorioEntidadeSection({ from, to, marcaId, apresentadoraId, n
                   <MetricCard key={item.label} metric={item} icon={icons[index]} />
                 ))}
               </div>
+              {tipo === 'apresentadora' && from.slice(0, 7) !== to.slice(0, 7) ? (
+                <p className="rounded-xl bg-surface-muted px-4 py-3 text-sm text-ink-muted">O fechamento é mensal: selecione um único mês para ver o valor a pagar.</p>
+              ) : null}
+              {fechamentoRow ? (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div><p className="text-sm font-bold text-ink">Fechamento do mês · {monthLabel(mesFechamento)}</p>{mesInteiro ? null : <p className="mt-0.5 text-xs text-ink-muted">Valores do mês inteiro, não só de {periodoLabel}.</p>}</div>
+                    {fechamentoRow.horas ? (
+                      <Badge tone={fechamentoRow.horas.bateu_meta ? 'success' : 'warning'}>{fechamentoRow.horas.bateu_meta ? 'Bateu a meta de horas' : 'Abaixo da meta de horas'}</Badge>
+                    ) : null}
+                  </div>
+                  <SettlementTotalCards row={fechamentoRow} />
+                  {fechamentoRow.horas ? (
+                    <p className="text-sm text-ink-muted">Horas em dias úteis: <span className="num font-semibold text-ink">{hoursGoalLabel(fechamentoRow.horas)}</span> · {fechamentoRow.horas.dias_uteis} dias úteis</p>
+                  ) : null}
+                  {fechamentoRow.dias_especiais?.length ? (
+                    <DataTable<PresenterSpecialDay>
+                      data={fechamentoRow.dias_especiais}
+                      columns={[
+                        { key: 'data', header: 'Data', render: (r) => diaCurto(r.data) },
+                        { key: 'tipo', header: 'Dia', render: (r) => specialDayLabel(r) },
+                        { key: 'horas', header: 'Horas', render: (r) => `${r.horas.toFixed(1)}h` },
+                        { key: 'bonus', header: 'Bônus', render: (r) => formatMoney(r.bonus, true) },
+                        { key: 'gmv', header: 'GMV', render: (r) => formatMoney(r.gmv, true) },
+                        { key: 'comissao', header: 'Comissão', render: (r) => formatMoney(r.comissao, true) },
+                      ]}
+                    />
+                  ) : <p className="text-sm text-ink-muted">Nenhuma live em sábado, domingo ou feriado neste mês.</p>}
+                </div>
+              ) : null}
               <div>
                 <p className="mb-2 text-sm font-bold text-ink">Detalhamento diário</p>
                 <DataTable<JsonRecord>
                   data={rows}
                   columns={[
-                    { key: 'dia', header: 'Dia', render: (r) => diaCurto(r.dia) },
+                    { key: 'dia', header: 'Dia', render: (r) => <span>{diaCurto(asString(r.dia))}{diaTag(asString(r.dia), fechamentoRow?.dias_especiais) ? <Badge tone="neutral">{diaTag(asString(r.dia), fechamentoRow?.dias_especiais)}</Badge> : null}</span> },
                     { key: 'hora_inicio', header: 'Início', render: (r) => asString(r.hora_inicio, '—') },
                     { key: 'hora_fim', header: 'Fim', render: (r) => asString(r.hora_fim, '—') },
                     { key: 'marca_nome', header: 'Marca', render: (r) => asString(r.marca_nome, '—') },
