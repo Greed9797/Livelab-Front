@@ -22,6 +22,8 @@ export const settlementKey = (tenantId: string, mes: string) => ['financeiro-fec
 const VALID_MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/
 /** Competência em que o bônus de fds/feriado passa a ser automático (back: BONUS_DIA_ESPECIAL_DESDE). */
 export const AUTO_BONUS_FROM = '2026-10'
+// Outubro/2026 paga R$100 por dia especial; a partir daqui, por bloco de 4h.
+export const BLOCK_BONUS_FROM = '2026-11'
 const SPECIAL_DAY_LABEL = { sabado: 'Sábado', domingo: 'Domingo', feriado: 'Feriado' } as const
 
 export function specialDayLabel(day: PresenterSpecialDay): string {
@@ -51,7 +53,7 @@ export function specialDaysPdfTable(days: PresenterSpecialDay[]): PdfTable {
     head: ['Data', 'Dia', 'Horas', 'Blocos de 4h', 'Bônus', 'GMV', 'Comissão'],
     rightAlign: [2, 3, 4, 5, 6],
     body: days.map((day) => [
-      formatDate(day.data), specialDayLabel(day), hoursText(day.horas), String(day.blocos_4h),
+      formatDate(day.data), specialDayLabel(day), hoursText(day.horas), day.blocos_4h == null ? '—' : String(day.blocos_4h),
       formatMoney(day.bonus, true), formatMoney(day.gmv, true), formatMoney(day.comissao, true),
     ]),
   }
@@ -312,7 +314,7 @@ function SettlementModal({ row, mes, editable, writeBlocked, onClose, onChanged 
         <SettlementTotalCards row={row} />
         <section className="space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <div><h3 className="text-sm font-bold text-ink">Horas e dias especiais</h3><p className="mt-0.5 text-xs text-ink-muted">Meta de 6h por dia útil (seg–sex, sem feriado) para garantir o fixo. Live em sábado, domingo ou feriado paga 2% de comissão{autoBonus ? ' e R$ 100,00 a cada 4h fechadas' : ''}.</p></div>
+            <div><h3 className="text-sm font-bold text-ink">Horas e dias especiais</h3><p className="mt-0.5 text-xs text-ink-muted">Meta de 6h por dia útil (seg–sex, sem feriado) para garantir o fixo. Live em sábado, domingo ou feriado paga 2% de comissão{autoBonus ? (mes >= BLOCK_BONUS_FROM ? ' e R$ 100,00 a cada 4h fechadas' : ' e R$ 100,00 por dia com live') : ''}.</p></div>
             {row.horas?.bateu_meta == null ? null : <Badge tone={row.horas.bateu_meta ? 'success' : 'warning'}>{row.horas.bateu_meta ? 'Bateu a meta de horas' : 'Abaixo da meta de horas'}</Badge>}
           </div>
           <p className="text-sm text-ink">Horas em dias úteis: <span className="num font-semibold">{hoursGoalLabel(row.horas)}</span>{row.horas?.meta == null ? '' : ` · ${row.horas.dias_uteis} dias úteis`}</p>

@@ -19,7 +19,7 @@ export interface PresenterSpecialDay {
   tipo: SpecialDayType
   feriado: string | null
   horas: number
-  blocos_4h: number
+  blocos_4h: number | null
   bonus: number | string
   gmv: number
   comissao: number
