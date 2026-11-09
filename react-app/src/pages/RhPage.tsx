@@ -25,7 +25,7 @@ import { QK } from '../services/query-keys'
 import { useCurrentUser } from '../stores/auth-store'
 import type { RhColaborador, RhFolhaRow, RhFolhaStatus, TableColumn } from '../types/models'
 import { canWriteRh } from '../utils/access'
-import { asNumber, formatDate, formatMoney } from '../utils/format'
+import { asNumber, formatDate, formatMoney, formatPercent } from '../utils/format'
 import { aniversariantesDoMes, competenciaAtual, metaAtingida, resumoFolha, totalFolha } from '../utils/rh'
 
 type RhTab = 'colaboradores' | 'folha' | 'aniversariantes'
@@ -49,6 +49,7 @@ interface ColaboradorForm {
   data_admissao: string
   data_desligamento: string
   salario_fixo: string
+  comissao_pct: string
   ativo: boolean
   observacoes: string
 }
@@ -64,6 +65,7 @@ const FORM_VAZIO: ColaboradorForm = {
   data_admissao: '',
   data_desligamento: '',
   salario_fixo: '',
+  comissao_pct: '',
   ativo: true,
   observacoes: '',
 }
@@ -95,6 +97,7 @@ function formFromColaborador(colaborador: RhColaborador): ColaboradorForm {
     data_admissao: colaborador.data_admissao ?? '',
     data_desligamento: colaborador.data_desligamento ?? '',
     salario_fixo: moneyValue(colaborador.salario_fixo),
+    comissao_pct: moneyValue(colaborador.comissao_pct),
     ativo: colaborador.ativo,
     observacoes: colaborador.observacoes ?? '',
   }
@@ -112,6 +115,7 @@ function payloadFromForm(form: ColaboradorForm): RhColaboradorPayload {
     data_admissao: form.data_admissao || null,
     data_desligamento: form.data_desligamento || null,
     salario_fixo: form.salario_fixo.trim() ? asNumber(form.salario_fixo) : null,
+    comissao_pct: asNumber(form.comissao_pct),
     ativo: form.ativo,
     observacoes: form.observacoes.trim() || null,
   }
@@ -223,6 +227,9 @@ function ColaboradorModal({
           </Field>
           <Field label="Salário fixo (R$)">
             <MoneyInput className={inputClass} value={form.salario_fixo} onChange={(raw) => setField('salario_fixo', raw)} placeholder="0,00" />
+          </Field>
+          <Field label="Comissão (%)">
+            <input type="number" min="0" max="100" step="0.01" className={inputClass} value={form.comissao_pct} onChange={(event) => setField('comissao_pct', event.target.value)} placeholder="0" />
           </Field>
           <Field label="E-mail">
             <input type="email" className={inputClass} value={form.email} onChange={(event) => setField('email', event.target.value)} />
@@ -453,6 +460,12 @@ export function RhPage() {
       render: (item) => <span className="num">{formatMoney(item.salario_fixo)}</span>,
     },
     {
+      key: 'comissao_pct',
+      header: 'Comissão %',
+      align: 'right',
+      render: (item) => <span className="num">{formatPercent(item.comissao_pct)}</span>,
+    },
+    {
       key: 'status',
       header: 'Status',
       render: (item) => <Badge tone={item.ativo ? 'success' : 'neutral'}>{item.ativo ? 'Ativo' : 'Inativo'}</Badge>,
@@ -663,7 +676,7 @@ export function RhPage() {
               data={colaboradores}
               rowKey={(item) => item.id}
               stackOnMobile
-              mobileColumnKeys={['nome', 'cargo', 'aniversario', 'status']}
+              mobileColumnKeys={['nome', 'cargo', 'aniversario', 'comissao_pct', 'status']}
             />
           ) : null}
 

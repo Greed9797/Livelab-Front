@@ -223,6 +223,7 @@ export interface RhColaborador {
   data_admissao: string | null
   data_desligamento: string | null
   salario_fixo: number | string | null
+  comissao_pct: number | string | null
   ativo: boolean
   observacoes: string | null
 }

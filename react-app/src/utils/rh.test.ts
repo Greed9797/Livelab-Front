@@ -37,6 +37,7 @@ function colaborador(overrides: Partial<RhColaborador> = {}): RhColaborador {
     data_admissao: null,
     data_desligamento: null,
     salario_fixo: 0,
+    comissao_pct: 0,
     ativo: true,
     observacoes: null,
     ...overrides,
