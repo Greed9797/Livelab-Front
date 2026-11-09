@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Building2, Cake, CalendarDays, Check, Lock, Pencil, Plus, PowerOff, Users, Wallet, type LucideIcon } from 'lucide-react'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useState, lazy, Suspense, type FormEvent, type ReactNode } from 'react'
 import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -28,15 +28,18 @@ import { canWriteRh } from '../utils/access'
 import { asNumber, formatDate, formatMoney, formatPercent } from '../utils/format'
 import { aniversariantesDoMes, competenciaAtual, metaAtingida, resumoFolha, resumoPorSetor, totalFolha, type RhSetorResumo } from '../utils/rh'
 
-type RhTab = 'visao-geral' | 'colaboradores' | 'folha' | 'aniversariantes' | 'setores'
+type RhTab = 'visao-geral' | 'colaboradores' | 'organograma' | 'folha' | 'aniversariantes' | 'setores'
 
 const TABS: Array<{ id: RhTab; label: string }> = [
   { id: 'visao-geral', label: 'Visão Geral' },
   { id: 'colaboradores', label: 'Colaboradores' },
+  { id: 'organograma', label: 'Organograma' },
   { id: 'folha', label: 'Folha do mês' },
   { id: 'aniversariantes', label: 'Aniversariantes' },
-  { id: 'setores', label: 'Setores' },
+  { id: 'setores', label: 'Por Setor' },
 ]
+
+const RhOrganograma = lazy(() => import('../components/rh/RhOrganograma').then((module) => ({ default: module.RhOrganograma })))
 
 const STATUS_LABEL: Record<RhStatus, string> = {
   ativo: 'Ativo',
@@ -492,6 +495,12 @@ export function RhPage() {
   const semSalario = ativos.filter((colaborador) => asNumber(colaborador.salario_fixo) <= 0)
   const semAniversario = ativos.filter((colaborador) => !colaborador.data_nascimento)
   const semResponsavel = ativos.filter((colaborador) => !colaborador.responsavel_id)
+  const raizes = ativos.filter((colaborador) => !colaborador.responsavel_id)
+  const reportesDiretos = new Map<string, number>()
+  for (const colaborador of ativos) {
+    if (!colaborador.responsavel_id) continue
+    reportesDiretos.set(colaborador.responsavel_id, (reportesDiretos.get(colaborador.responsavel_id) ?? 0) + 1)
+  }
 
   const setoresDisponiveis = Array.from(
     new Set(colaboradores.map((colaborador) => (colaborador.setor ?? '').trim()).filter(Boolean)),
@@ -839,7 +848,7 @@ export function RhPage() {
                 <ResumoCard icon={Wallet} label="Total da folha do mês" value={formatMoney(totais.total)} />
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <SectionCard title="Composição por setor" subtitle="Headcount ativo e participação">
                   {setoresResumo.length === 0 ? (
                     <p className="text-sm text-ink-muted">Sem setores cadastrados.</p>
@@ -858,6 +867,29 @@ export function RhPage() {
                       ))}
                     </div>
                   )}
+                </SectionCard>
+
+                <SectionCard title="Hierarquia — Nível Raiz" subtitle={`${raizes.length} sem gestor definido`}>
+                  {raizes.length === 0 ? (
+                    <p className="text-sm text-ink-muted">Todos os colaboradores ativos têm responsável.</p>
+                  ) : (
+                    <ul className="divide-y divide-line">
+                      {raizes.slice(0, 8).map((colaborador) => (
+                        <li key={colaborador.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-ink">{colaborador.nome}</p>
+                            <p className="truncate text-xs text-ink-muted">{colaborador.cargo || colaborador.setor || '—'}</p>
+                          </div>
+                          <span className="num shrink-0 text-xs text-ink-muted">
+                            {reportesDiretos.get(colaborador.id) ?? 0} direto(s)
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="mt-3 flex justify-end">
+                    <Button variant="secondary" onClick={() => setTab('organograma')}>Abrir organograma</Button>
+                  </div>
                 </SectionCard>
 
                 <SectionCard title="Alertas de cadastro" subtitle="Colaboradores ativos com pendência">
@@ -961,6 +993,18 @@ export function RhPage() {
                 mobileColumnKeys={['nome', 'cargo', 'status', 'contrato']}
               />
             </div>
+          ) : null}
+
+          {tab === 'organograma' ? (
+            <Suspense fallback={<LoadingState label="Carregando organograma" />}>
+              <RhOrganograma
+                colaboradores={colaboradores}
+                podeEscrever={podeEscrever}
+                onEdit={(colaborador) => setColaboradorModal({ colaborador })}
+                onUpdateResponsavel={(id, responsavelId) => atualizar.mutate({ id, payload: { responsavel_id: responsavelId } })}
+                atualizando={atualizar.isPending}
+              />
+            </Suspense>
           ) : null}
 
           {tab === 'folha' ? (
