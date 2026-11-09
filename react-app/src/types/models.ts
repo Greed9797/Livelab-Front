@@ -211,6 +211,10 @@ export interface AgendaTurno {
 
 export type RhFolhaStatus = 'rascunho' | 'fechado' | 'pago'
 
+export type RhStatus = 'ativo' | 'inativo' | 'ferias' | 'afastado'
+
+export type RhTipoContrato = 'clt' | 'pj' | 'estagio' | 'freelancer'
+
 export interface RhColaborador {
   id: string
   nome: string
@@ -224,6 +228,12 @@ export interface RhColaborador {
   data_desligamento: string | null
   salario_fixo: number | string | null
   comissao_pct: number | string | null
+  status: RhStatus
+  tipo_contrato: RhTipoContrato
+  centro_custo: string[] | null
+  responsavel_id: string | null
+  ote_comissao: string | null
+  chave_pix: string | null
   ativo: boolean
   observacoes: string | null
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RhColaborador, RhFolhaRow } from '../types/models'
-import { aniversariantesDoMes, metaAtingida, resumoFolha, totalFolha } from './rh'
+import { aniversariantesDoMes, metaAtingida, resumoFolha, resumoPorSetor, totalFolha } from './rh'
 
 function folhaRow(overrides: Partial<RhFolhaRow> = {}): RhFolhaRow {
   return {
@@ -38,6 +38,12 @@ function colaborador(overrides: Partial<RhColaborador> = {}): RhColaborador {
     data_desligamento: null,
     salario_fixo: 0,
     comissao_pct: 0,
+    status: 'ativo',
+    tipo_contrato: 'clt',
+    centro_custo: null,
+    responsavel_id: null,
+    ote_comissao: null,
+    chave_pix: null,
     ativo: true,
     observacoes: null,
     ...overrides,
@@ -92,5 +98,31 @@ describe('aniversariantesDoMes', () => {
     )
 
     expect(lista.map((item) => item.nome)).toEqual(['Dia 05', 'Dia 20'])
+  })
+})
+
+describe('resumoPorSetor', () => {
+  it('agrupa por setor, conta ativos e soma a folha por colaborador', () => {
+    const resumo = resumoPorSetor(
+      [
+        colaborador({ id: 'a', setor: 'RH', status: 'ativo' }),
+        colaborador({ id: 'b', setor: 'RH', status: 'ferias' }),
+        colaborador({ id: 'c', setor: 'Vendas', status: 'ativo' }),
+        colaborador({ id: 'd', setor: null, status: 'ativo' }),
+      ],
+      [
+        folhaRow({ colaborador_id: 'a', salario_fixo: 1000, comissao: 100 }),
+        folhaRow({ colaborador_id: 'b', salario_fixo: 500, descontos: 50 }),
+        folhaRow({ colaborador_id: 'c', salario_fixo: '800' }),
+        folhaRow({ colaborador_id: 'd', salario_fixo: 200 }),
+      ],
+    )
+
+    expect(resumo.map((item) => [item.setor, item.ativos, item.total, item.folha])).toEqual([
+      ['RH', 1, 2, 1550],
+      ['Vendas', 1, 1, 800],
+      ['Sem setor', 1, 1, 200],
+    ])
+    expect(resumo.every((item) => Math.abs(item.percentual - 100 / 3) < 1e-9)).toBe(true)
   })
 })
