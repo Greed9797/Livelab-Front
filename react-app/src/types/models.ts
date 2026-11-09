@@ -204,3 +204,60 @@ export interface AgendaTurno {
   data_inicio: string
   data_fim: string
 }
+
+// ── RH (Setor RH) ────────────────────────────────────────────────────────────
+// Datas são calendário puro em 'YYYY-MM-DD' (ou null). Dinheiro pode chegar
+// como string do backend; sempre normalizar com asNumber antes de calcular.
+
+export type RhFolhaStatus = 'rascunho' | 'fechado' | 'pago'
+
+export interface RhColaborador {
+  id: string
+  nome: string
+  cargo: string | null
+  setor: string | null
+  email: string | null
+  telefone: string | null
+  cpf: string | null
+  data_nascimento: string | null
+  data_admissao: string | null
+  data_desligamento: string | null
+  salario_fixo: number | string | null
+  ativo: boolean
+  observacoes: string | null
+}
+
+export interface RhFolhaRow {
+  colaborador_id: string
+  nome: string
+  cargo: string | null
+  setor: string | null
+  ativo: boolean
+  folha_id: string | null
+  competencia: string | null
+  salario_fixo: number | string | null
+  meta_valor: number | string | null
+  meta_realizado: number | string | null
+  comissao: number | string | null
+  bonus: number | string | null
+  descontos: number | string | null
+  total: number | string | null
+  status: RhFolhaStatus | null
+  observacoes: string | null
+}
+
+export interface RhFolhaTotais {
+  salario_fixo: number
+  meta_valor: number
+  meta_realizado: number
+  comissao: number
+  bonus: number
+  descontos: number
+  total: number
+}
+
+export interface RhFolhaResponse {
+  mes: string
+  colaboradores: RhFolhaRow[]
+  totais: RhFolhaTotais
+}

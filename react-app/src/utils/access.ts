@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  BriefcaseBusiness,
   Building2,
   ChartNoAxesCombined,
   ChartSpline,
@@ -80,6 +81,15 @@ export const financeRoles: Role[] = [
 // Página /financeiro. O master entra aqui e não no array financeRoles: aquele
 // conjunto é a equipe financeira e outras rotas reutilizam.
 export const financeiroPageRoles: Role[] = [...financeRoles, 'franqueador_master']
+
+// /rh — mesma audiência da página financeira. Escrita segue um recorte menor.
+export const rhRoles: Role[] = [...financeiroPageRoles]
+
+export const rhWriteRoles: Role[] = ['franqueador_master', 'franqueado', 'gerente', 'financeiro']
+
+export function canWriteRh(user: User | null): boolean {
+  return Boolean(user && rhWriteRoles.includes(user.papel))
+}
 
 export function canAprovarComissoes(papel?: string | null): boolean {
   return papel === 'franqueador_master' || papel === 'franqueado'
@@ -263,6 +273,7 @@ export const menuItems: MenuItem[] = [
   { label: 'Analytics', path: '/analytics-dashboard', icon: ChartSpline, roles: [...masterRoles, ...financeRoles, ...commercialRoles] },
   { label: 'Financeiro', path: '/financeiro', icon: CircleDollarSign, roles: financeiroPageRoles },
   { label: 'Financeiro', path: '/financeiro/comissoes/regras', icon: CircleDollarSign, roles: ['franqueador_master'] },
+  { label: 'Setor RH', path: '/rh', icon: BriefcaseBusiness, roles: rhRoles },
   { label: 'Base', path: '/conhecimento', icon: BookOpen, roles: [...masterRoles, ...internalRoles, 'apresentador', 'apresentadora'] },
   { label: 'Ranking', path: '/ranking/apresentadoras', icon: Trophy, roles: opsRoles },
   // Configurações unificada: todos os papéis internos/ops/cabine + apresentador alcançam.

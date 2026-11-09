@@ -1,4 +1,4 @@
-import type { AgendaTurno, Cabine, JsonRecord, Lead, LiveAtual, Period } from '../types/models'
+import type { AgendaTurno, Cabine, JsonRecord, Lead, LiveAtual, Period, RhColaborador, RhFolhaResponse, RhFolhaRow, RhFolhaStatus } from '../types/models'
 import { api, apiDelete, apiGet, apiGetBlob, apiPatch, apiPost, apiPut, apiUpload } from './api'
 import { periodToParam } from '../utils/format'
 import { fetchAllPaginatedRows } from '../utils/fetchPaginatedExport'
@@ -936,4 +936,49 @@ export function getMetasMarcasHora(anoMes?: string) {
 
 export function upsertMetaMarcaHora(marcaId: string, anoMes: string, metaGmvHora: number) {
   return apiPut<JsonRecord>(`/metas/marcas-hora/${marcaId}`, { meta_gmv_hora: metaGmvHora }, { ano_mes: anoMes })
+}
+
+// ── RH ───────────────────────────────────────────────────────────────────────
+// Contrato: colaboradores + folha mensal por competência. Dinheiro pode vir
+// como string; a normalização fica nos helpers de utils/rh.ts e na página.
+
+export type RhColaboradorPayload = Omit<RhColaborador, 'id'>
+
+export type RhFolhaSavePayload = {
+  mes: string
+  salario_fixo?: number
+  meta_valor?: number
+  meta_realizado?: number
+  comissao?: number
+  bonus?: number
+  descontos?: number
+  observacoes?: string
+}
+
+export function getRhColaboradores(params?: { include_inactive?: boolean }) {
+  return apiGet<RhColaborador[]>('/rh/colaboradores', params)
+}
+
+export function createRhColaborador(payload: RhColaboradorPayload) {
+  return apiPost<RhColaborador>('/rh/colaboradores', payload)
+}
+
+export function updateRhColaborador(id: string, payload: Partial<RhColaboradorPayload>) {
+  return apiPatch<RhColaborador>(`/rh/colaboradores/${id}`, payload)
+}
+
+export function deleteRhColaborador(id: string) {
+  return apiDelete<void>(`/rh/colaboradores/${id}`)
+}
+
+export function getRhFolha(mes: string) {
+  return apiGet<RhFolhaResponse>('/rh/folha', { mes })
+}
+
+export function saveRhFolha(colaboradorId: string, payload: RhFolhaSavePayload) {
+  return apiPut<RhFolhaRow>(`/rh/folha/${colaboradorId}`, payload)
+}
+
+export function setRhFolhaStatus(id: string, status: RhFolhaStatus) {
+  return apiPatch<RhFolhaRow>(`/rh/folha/${id}/status`, { status })
 }

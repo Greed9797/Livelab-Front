@@ -59,6 +59,8 @@ export const QK = {
   financeiroFranqueadora: (key?: string) => (key ? ['financeiro-franqueadora', key] as const : ['financeiro-franqueadora'] as const),
   financeiroClienteOperacional: (params?: { clienteKind?: string; clienteId?: string; periodo?: string }) =>
     params ? ['financeiro-cliente-operacional', params] as const : ['financeiro-cliente-operacional'] as const,
+  rhColaboradores: ['rh-colaboradores'] as const,
+  rhFolha: (mes: string) => ['rh-folha', mes] as const,
   masterDashboard: (period?: { mes: number; ano: number }) =>
     period ? ['master-dashboard', period] as const : ['master-dashboard'] as const,
   masterUnits: (period?: { mes: number; ano: number }, status?: string) =>
