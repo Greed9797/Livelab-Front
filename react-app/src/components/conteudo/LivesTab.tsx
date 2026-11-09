@@ -209,6 +209,13 @@ export function countedDayLives(lives: JsonRecord[]): JsonRecord[] {
   return lives.filter(l => l.registro_tipo !== 'submissao' || (l.revisao_status === 'pendente' && !l.em_conciliacao))
 }
 
+/** O dia vai no formato do cliente com Marca/Cliente filtrado, ou com uma busca que deixou só lives de um cliente. */
+export function isClientDay(lives: JsonRecord[], hasMarcaFilter: boolean, hasSearch: boolean): boolean {
+  if (hasMarcaFilter) return true
+  const nomes = new Set(lives.map((l) => asString(l.marca_nome ?? l.cliente_nome, '')))
+  return hasSearch && nomes.size === 1 && !nomes.has('')
+}
+
 /** Texto para o cliente: o "Copiar relatório" de cada live, em ordem de horário, e o GMV do dia no fim. */
 export function buildClientDayReport(lives: JsonRecord[]): string {
   const reports = [...lives]
@@ -726,14 +733,16 @@ export function LivesTab({
   }
 
   async function handleCopyDaySummary(dateKey: string) {
-    // Com Marca/Cliente filtrado o texto vai para o cliente: relatório de cada live + GMV do dia.
+    // Dia de um cliente só (filtro Marca/Cliente ou busca): relatório de cada live + GMV do dia.
     const groupIdx = dayGroups.findIndex((g) => g.dateKey === dateKey)
-    if (marcaFilterId && ((groupIdx === dayGroups.length - 1 && page < pageCount - 1) || (groupIdx === 0 && page > 0))) {
+    const dayLives = groupIdx >= 0 ? countedDayLives(dayGroups[groupIdx].lives) : []
+    const clientDay = groupIdx >= 0 && isClientDay(dayLives, Boolean(marcaFilterId), Boolean(searchQuery.trim()))
+    if (clientDay && ((groupIdx === dayGroups.length - 1 && page < pageCount - 1) || (groupIdx === 0 && page > 0))) {
       // shortcut: monta com as lives desta página; um dia cortado pela paginação sairia incompleto.
       toast.push('Este dia continua em outra página. Aumente o tamanho da página para copiar o dia inteiro.', 'error')
       return
     }
-    const clientText = marcaFilterId && groupIdx >= 0 ? buildClientDayReport(countedDayLives(dayGroups[groupIdx].lives)) : null
+    const clientText = clientDay ? buildClientDayReport(dayLives) : null
     setCopyingDayKey(dateKey)
     const result = await runCopyDaySummaryAction(dateKey, {
       fetchResumo: clientText === null ? getLivesResumoDia : async () => ({ texto_whatsapp: clientText }),

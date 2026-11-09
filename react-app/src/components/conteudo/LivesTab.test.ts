@@ -9,6 +9,7 @@ import {
   fetchDaySummaryWhatsAppText,
   gmvPorHora,
   groupLivesBySaoPauloDay,
+  isClientDay,
   runCopyDaySummaryAction,
   type LiveColumnKey,
 } from './LivesTab'
@@ -206,5 +207,20 @@ describe('buildClientDayReport', () => {
 
   it('returns empty text when no live has a start time', () => {
     expect(buildClientDayReport([{ gmv: 10 }])).toBe('')
+  })
+})
+
+describe('isClientDay', () => {
+  const mirante = { marca_nome: 'Loja Mirante' }
+  it('uses the client format whenever Marca/Cliente is filtered', () => {
+    expect(isClientDay([mirante, { marca_nome: 'Atto' }], true, false)).toBe(true)
+  })
+  it('uses the client format when a search leaves a single client in the day', () => {
+    expect(isClientDay([mirante, mirante], false, true)).toBe(true)
+  })
+  it('keeps the management summary without filters or with several clients', () => {
+    expect(isClientDay([mirante, mirante], false, false)).toBe(false)
+    expect(isClientDay([mirante, { marca_nome: 'Atto' }], false, true)).toBe(false)
+    expect(isClientDay([], false, true)).toBe(false)
   })
 })
