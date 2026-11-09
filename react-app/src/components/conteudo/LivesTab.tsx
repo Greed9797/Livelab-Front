@@ -35,7 +35,7 @@ import { publicationStatusLabel } from '../../pages/conteudo-helpers'
 import { asNumber, asString, formatMoney } from '../../utils/format'
 import { getSaoPauloDateInput } from '../../utils/sao-paulo-date'
 import { officialLiveGmv } from '../../utils/live-gmv'
-import { getLiveUnionCapabilities, getLivesResumoDia, fetchAllLivesPaginado, type LiveResumoDiaResponse } from '../../services/domain'
+import { getLiveUnionCapabilities, getLivesResumoDia, fetchAllLivesPaginado, type LiveResumoDiaResponse, type LivesResumoDiaParams } from '../../services/domain'
 import { extractErrorMessage } from '../../services/api'
 import { PAGINATED_EXPORT_ROW_CAP } from '../../utils/fetchPaginatedExport'
 import { approvePresenterSubmissionsWithoutConflict, type BatchApprovePresenterSubmissionsResult, type BatchApproveSubmissionRef } from '../../services/presenter-portal'
@@ -185,15 +185,18 @@ export function groupLivesBySaoPauloDay(lives: JsonRecord[]) {
 }
 
 type LivesResumoDiaFetcher = (
-  params: { data: string; status?: string },
+  params: LivesResumoDiaParams,
 ) => Promise<Pick<LiveResumoDiaResponse, 'texto_whatsapp'>>
+
+export type DaySummaryFilters = Omit<LivesResumoDiaParams, 'data'>
 
 /** Server `texto_whatsapp` only — no client fallback (see LIV-1). */
 export async function fetchDaySummaryWhatsAppText(
   dateKey: string,
   fetchResumo: LivesResumoDiaFetcher = getLivesResumoDia,
+  filters: DaySummaryFilters = {},
 ): Promise<string> {
-  const res = await fetchResumo({ data: dateKey })
+  const res = await fetchResumo({ ...filters, data: dateKey })
   const text = typeof res?.texto_whatsapp === 'string' ? res.texto_whatsapp.trim() : ''
   if (!text) {
     throw new Error('DAY_SUMMARY_UNAVAILABLE')
@@ -209,9 +212,10 @@ export async function runCopyDaySummaryAction(
     toastSuccess: (message: string) => void
     toastError: (message: string) => void
   },
+  filters: DaySummaryFilters = {},
 ): Promise<'ok' | 'error'> {
   try {
-    const text = await fetchDaySummaryWhatsAppText(dateKey, deps.fetchResumo)
+    const text = await fetchDaySummaryWhatsAppText(dateKey, deps.fetchResumo, filters)
     await deps.writeClipboard(text)
     deps.toastSuccess('Resumo do dia copiado para o WhatsApp!')
     return 'ok'
@@ -712,6 +716,12 @@ export function LivesTab({
       writeClipboard: (text) => navigator.clipboard.writeText(text),
       toastSuccess: (message) => toast.push(message, 'success'),
       toastError: (message) => toast.push(message, 'error'),
+    }, {
+      // Mesmos filtros da lista: com Marca/Cliente ativo, o resumo sai só com as lives dessa marca.
+      status: statusFilter,
+      marca_id: marcaFilterId || undefined,
+      apresentadora_id: apresentadoraFilterId || undefined,
+      cabine_id: cabineFilterId || undefined,
     })
     if (result === 'ok') {
       setCopiedDayKey(dateKey)

@@ -118,6 +118,18 @@ describe('LivesTab copiar resumo do dia', () => {
     expect(text).toBe('Resumo oficial do servidor')
   })
 
+  it('forwards active list filters to the day summary request', async () => {
+    const fetchResumo = vi.fn(async () => ({ texto_whatsapp: 'Resumo Alto calçados' }))
+    const result = await runCopyDaySummaryAction('2026-11-08', {
+      fetchResumo,
+      writeClipboard: vi.fn(async () => {}),
+      toastSuccess: vi.fn(),
+      toastError: vi.fn(),
+    }, { status: 'encerrada', marca_id: 'marca-1' })
+    expect(result).toBe('ok')
+    expect(fetchResumo).toHaveBeenCalledWith({ status: 'encerrada', marca_id: 'marca-1', data: '2026-11-08' })
+  })
+
   it('does not copy or toast success when the API fails', async () => {
     const writeClipboard = vi.fn()
     const toastSuccess = vi.fn()

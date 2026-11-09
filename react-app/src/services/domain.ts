@@ -656,7 +656,15 @@ export interface LiveResumoDiaResponse {
   texto_whatsapp: string
 }
 
-export function getLivesResumoDia(params: { data: string; status?: string }) {
+export type LivesResumoDiaParams = {
+  data: string
+  status?: string
+  marca_id?: string
+  apresentadora_id?: string
+  cabine_id?: string
+}
+
+export function getLivesResumoDia(params: LivesResumoDiaParams) {
   return apiGet<LiveResumoDiaResponse>('/lives/resumo-dia', params)
 }
 
