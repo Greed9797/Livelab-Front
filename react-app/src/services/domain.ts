@@ -662,6 +662,7 @@ export type LivesResumoDiaParams = {
   marca_id?: string
   apresentadora_id?: string
   cabine_id?: string
+  q?: string
 }
 
 export function getLivesResumoDia(params: LivesResumoDiaParams) {

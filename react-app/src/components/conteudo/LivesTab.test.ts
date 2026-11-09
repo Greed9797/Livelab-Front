@@ -125,9 +125,9 @@ describe('LivesTab copiar resumo do dia', () => {
       writeClipboard: vi.fn(async () => {}),
       toastSuccess: vi.fn(),
       toastError: vi.fn(),
-    }, { status: 'encerrada', marca_id: 'marca-1' })
+    }, { status: 'encerrada', marca_id: 'marca-1', q: 'atto' })
     expect(result).toBe('ok')
-    expect(fetchResumo).toHaveBeenCalledWith({ status: 'encerrada', marca_id: 'marca-1', data: '2026-11-08' })
+    expect(fetchResumo).toHaveBeenCalledWith({ status: 'encerrada', marca_id: 'marca-1', q: 'atto', data: '2026-11-08' })
   })
 
   it('does not copy or toast success when the API fails', async () => {

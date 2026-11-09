@@ -722,6 +722,7 @@ export function LivesTab({
       marca_id: marcaFilterId || undefined,
       apresentadora_id: apresentadoraFilterId || undefined,
       cabine_id: cabineFilterId || undefined,
+      q: searchQuery.trim() || undefined,
     })
     if (result === 'ok') {
       setCopiedDayKey(dateKey)
