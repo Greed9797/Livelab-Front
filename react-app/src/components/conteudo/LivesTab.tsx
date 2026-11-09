@@ -56,7 +56,7 @@ import {
   type LivePendingKind,
 } from './live-helpers'
 import { InlineApresentadoraCell, InlineGmvCell, InlinePedidosCell } from './LiveInlineCells'
-import { LiveDetailModal } from './LiveDetailModal'
+import { LiveDetailModal, buildReport } from './LiveDetailModal'
 import { LivePendingPanel } from './LivePendingPanel'
 import { LiveMergeModal } from './LiveMergeModal'
 import type { DateRange } from './live-date-range'
@@ -202,6 +202,22 @@ export async function fetchDaySummaryWhatsAppText(
     throw new Error('DAY_SUMMARY_UNAVAILABLE')
   }
   return text
+}
+
+/** Lives que entram no total do dia (mesma regra do "GMV do dia" do cabeçalho). */
+export function countedDayLives(lives: JsonRecord[]): JsonRecord[] {
+  return lives.filter(l => l.registro_tipo !== 'submissao' || (l.revisao_status === 'pendente' && !l.em_conciliacao))
+}
+
+/** Texto para o cliente: o "Copiar relatório" de cada live, em ordem de horário, e o GMV do dia no fim. */
+export function buildClientDayReport(lives: JsonRecord[]): string {
+  const reports = [...lives]
+    .sort((a, b) => Date.parse(asString(a.iniciado_em, '')) - Date.parse(asString(b.iniciado_em, '')))
+    .map(buildReport)
+    .filter(Boolean)
+  if (!reports.length) return ''
+  const gmv = lives.reduce((sum, l) => sum + officialLiveGmv(l), 0)
+  return [...reports, `*GMV do dia: ${formatMoney(gmv)}*`].join('\n\n')
 }
 
 export async function runCopyDaySummaryAction(
@@ -710,9 +726,17 @@ export function LivesTab({
   }
 
   async function handleCopyDaySummary(dateKey: string) {
+    // Com Marca/Cliente filtrado o texto vai para o cliente: relatório de cada live + GMV do dia.
+    const groupIdx = dayGroups.findIndex((g) => g.dateKey === dateKey)
+    if (marcaFilterId && ((groupIdx === dayGroups.length - 1 && page < pageCount - 1) || (groupIdx === 0 && page > 0))) {
+      // shortcut: monta com as lives desta página; um dia cortado pela paginação sairia incompleto.
+      toast.push('Este dia continua em outra página. Aumente o tamanho da página para copiar o dia inteiro.', 'error')
+      return
+    }
+    const clientText = marcaFilterId && groupIdx >= 0 ? buildClientDayReport(countedDayLives(dayGroups[groupIdx].lives)) : null
     setCopyingDayKey(dateKey)
     const result = await runCopyDaySummaryAction(dateKey, {
-      fetchResumo: getLivesResumoDia,
+      fetchResumo: clientText === null ? getLivesResumoDia : async () => ({ texto_whatsapp: clientText }),
       writeClipboard: (text) => navigator.clipboard.writeText(text),
       toastSuccess: (message) => toast.push(message, 'success'),
       toastError: (message) => toast.push(message, 'error'),
@@ -844,7 +868,7 @@ export function LivesTab({
   const dayGroupAggregates = useMemo(
     () =>
       dayGroups.map((group) => {
-        const active = group.lives.filter(l => l.registro_tipo !== 'submissao' || (l.revisao_status === 'pendente' && !l.em_conciliacao))
+        const active = countedDayLives(group.lives)
         const totalMins = active.reduce((s, l) => s + calcDuration(l).mins, 0)
         const totalGmv = active.reduce((s, l) => s + asNumber(officialLiveGmv(l)), 0)
         const publicadas = group.lives.filter((l) => {

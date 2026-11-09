@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_LIVE_COLUMNS,
   LIVE_COLUMN_OPTIONS,
+  buildClientDayReport,
   buildLivesGridTemplate,
   fetchDaySummaryWhatsAppText,
   gmvPorHora,
@@ -184,5 +185,26 @@ describe('LivesTab copiar resumo do dia', () => {
     expect(writeClipboard).toHaveBeenCalledWith('Texto do dia')
     expect(toastSuccess).toHaveBeenCalledWith('Resumo do dia copiado para o WhatsApp!')
     expect(toastError).not.toHaveBeenCalled()
+  })
+})
+
+describe('buildClientDayReport', () => {
+  it('lists each live report in time order and ends with the day GMV', () => {
+    const live = (inicio: string, fim: string, gmv: number) => ({
+      marca_nome: 'Loja Mirante', iniciado_em: inicio, encerrado_em: fim, gmv, manual_orders: 1,
+    })
+    const text = buildClientDayReport([
+      live('2026-11-06T13:37:00Z', '2026-11-06T16:34:00Z', 160),
+      live('2026-11-06T11:10:00Z', '2026-11-06T13:14:00Z', 219),
+    ])
+    const blocks = text.split('\n\n📊 ')
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0]).toContain('08:10 às 10:14')
+    expect(blocks[1]).toContain('10:37 às 13:34')
+    expect(text).toMatch(/\n\n\*GMV do dia: R\$\s379,00\*$/)
+  })
+
+  it('returns empty text when no live has a start time', () => {
+    expect(buildClientDayReport([{ gmv: 10 }])).toBe('')
   })
 })
