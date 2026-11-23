@@ -36,6 +36,7 @@ type EditForm = {
   hora_fim: string
   fat_gerado: string
   manual_gmv: string
+  premiacao: string
   qtd_pedidos: string
   manual_orders: string
   manual_views: string
@@ -66,6 +67,7 @@ const emptyForm: EditForm = {
   hora_fim: '',
   fat_gerado: '',
   manual_gmv: '',
+  premiacao: '',
   qtd_pedidos: '',
   manual_orders: '',
   manual_views: '',
@@ -301,6 +303,7 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
       hora_fim: toTimeInput(live.encerrado_em ?? live.previsto_fim),
       fat_gerado: formatBRLWithoutSymbol(officialLiveGmvRaw(live)),
       manual_gmv: formatBRLWithoutSymbol(officialLiveGmvRaw(live)),
+      premiacao: live.premiacao == null ? '' : formatBRLWithoutSymbol(live.premiacao),
       qtd_pedidos: asString(live.manual_orders ?? live.qtd_pedidos ?? live.final_orders_count, ''),
       manual_orders: asString(live.manual_orders, ''),
       manual_views: asString(live.manual_views, ''),
@@ -358,7 +361,9 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     if (!live?.id) return
     setError(null)
 
-    if (form.hora_inicio && form.hora_fim && form.hora_fim <= form.hora_inicio) {
+    const camposDeHorario = ['data', 'hora_inicio', 'hora_fim'] as const
+    const horarioMudou = camposDeHorario.some((campo) => form[campo] !== prefillRef.current[campo])
+    if (horarioMudou && form.hora_inicio && form.hora_fim && form.hora_fim <= form.hora_inicio) {
       setError('O término deve ser depois do início.')
       return
     }
@@ -390,11 +395,16 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
     setIfChanged('origem_dados', form.origem_dados, live.origem_dados)
     setIfChanged('resumo', form.resumo, live.resumo)
 
-    if (form.data) payload.data = form.data
-    if (form.hora_inicio) payload.hora_inicio = form.hora_inicio
-    if (form.hora_fim) payload.hora_fim = form.hora_fim
+    if (horarioMudou) {
+      for (const campo of camposDeHorario) {
+        if (form[campo]) payload[campo] = form[campo]
+      }
+    }
 
     Object.assign(payload, montarCamposNumericos(form, prefillRef.current, gmvVeioDoTikTok))
+    if (form.tipo === 'afiliado' && form.premiacao !== prefillRef.current.premiacao) {
+      payload.premiacao = form.premiacao ? parseBRMoneyToDecimal(form.premiacao) : null
+    }
 
     if (Object.keys(payload).length === 0) {
       setError('Nenhum campo modificado.')
@@ -532,6 +542,12 @@ export function EditarLiveModal({ open, onClose, live, onSaved, onDividir }: Pro
               <span className="text-sm font-semibold text-ink">Verba Ads investida</span>
               <MoneyInput className="design-input mt-2 h-11 w-full px-3" value={form.ads_cost} onChange={(v) => setField('ads_cost', v)} />
             </label>
+            {form.tipo === 'afiliado' ? (
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Bonificação (R$)</span>
+                <MoneyInput className="design-input mt-2 h-11 w-full px-3" value={form.premiacao} onChange={(value) => setField('premiacao', value)} />
+              </label>
+            ) : null}
           </div>
         </ModalSection>
 

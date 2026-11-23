@@ -13,6 +13,7 @@ export type ManualLiveForm = {
   fat_gerado: string
   qtd_pedidos: string
   manual_views: string
+  premiacao?: string
   manual_likes: string
   manual_comments?: string
   manual_shares?: string
@@ -139,6 +140,7 @@ export function buildManualLivePayload(form: ManualLiveForm): JsonRecord {
     manual_shares: form.manual_shares ? parseManualCounterToInt(form.manual_shares) : undefined,
     manual_diamonds: form.manual_diamonds ? parseManualCounterToInt(form.manual_diamonds) : undefined,
     manual_gmv: gmv,
+    ...(form.tipo === 'afiliado' && form.premiacao ? { premiacao: parseBRMoneyToDecimal(form.premiacao) } : {}),
     ...buildFunilPayload(form),
     resumo: form.resumo || undefined,
     status_publicacao: form.status_publicacao,

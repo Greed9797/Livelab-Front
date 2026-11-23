@@ -58,7 +58,7 @@ interface LiveDetailModalProps {
   onCopyReport: (report: string) => void
   onEdit: (live: JsonRecord) => void
   onSplitApresentadoras: (live: JsonRecord) => void
-  onDelete: (live: JsonRecord) => void
+  onDelete?: (live: JsonRecord) => void
   onArchive?: (live: JsonRecord) => void
   deleteLiveMutation: UseMutationResult<unknown, Error, string>
   onUnionChanged?: () => void
@@ -181,6 +181,7 @@ export function LiveDetailModal({
                   `${formatDate(asString(live.iniciado_em, ''))} ${fmtTime(live.iniciado_em)}–${fmtTime(live.encerrado_em)}`,
                 ],
                 ['Duração', calcDuration(live).text],
+                ...(live.tipo === 'afiliado' && live.premiacao != null ? [['Bonificação', formatMoney(asNumber(live.premiacao))]] : []),
                 [
                   presenterNames.length > 1 ? 'Apresentadoras' : 'Apresentadora',
                   presenterNames.join(' · ') || '—',
@@ -232,15 +233,17 @@ export function LiveDetailModal({
                     Arquivar
                   </Button>
                 ) : null}
-                <Button
-                  variant="ghost"
-                  className="text-[var(--danger)]"
-                  icon={Trash2}
-                  isLoading={deleteLiveMutation.isPending}
-                  onClick={() => onDelete(live)}
-                >
-                  Excluir live
-                </Button>
+                {onDelete ? (
+                  <Button
+                    variant="ghost"
+                    className="text-[var(--danger)]"
+                    icon={Trash2}
+                    isLoading={deleteLiveMutation.isPending}
+                    onClick={() => onDelete(live)}
+                  >
+                    Excluir live
+                  </Button>
+                ) : null}
               </div>
             </ModalSection>
           ) : null}

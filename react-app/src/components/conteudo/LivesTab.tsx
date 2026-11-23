@@ -517,7 +517,7 @@ export interface LivesTabProps {
   onSplitApresentadoras: (live: JsonRecord) => void
   onMergeCompleted?: (liveId: string, unionId: string) => void
   onUnionChanged?: () => void
-  onDeleteLive: (live: JsonRecord) => void
+  onDeleteLive?: (live: JsonRecord) => void
   onArchiveLive?: (live: JsonRecord) => void
   onCloseLiveModal: () => void
   onCopyLiveReport: (text: string) => void
@@ -2176,24 +2176,21 @@ export function LivesTab({
               }}
             />
           ) : null}
-          <hr
-            style={{
-              border: 'none',
-              height: 1,
-              background: 'var(--border)',
-              margin: '4px 2px',
-            }}
-          />
-          <MenuBtn
-            icon={<Trash2 style={{ width: 13, height: 13 }} />}
-            label="Excluir"
-            danger
-            onClick={() => {
-              const live = kebabMenu.live
-              setKebabMenu(null)
-              onDeleteLive(live)
-            }}
-          />
+          {onDeleteLive ? (
+            <>
+              <hr style={{ border: 'none', height: 1, background: 'var(--border)', margin: '4px 2px' }} />
+              <MenuBtn
+                icon={<Trash2 style={{ width: 13, height: 13 }} />}
+                label="Excluir"
+                danger
+                onClick={() => {
+                  const live = kebabMenu.live
+                  setKebabMenu(null)
+                  onDeleteLive(live)
+                }}
+              />
+            </>
+          ) : null}
         </div>,
         document.body,
       ) : null}

@@ -36,6 +36,7 @@ const emptyForm: MetricsForm = {
   fat_gerado: '0',
   qtd_pedidos: '0',
   manual_views: '',
+  premiacao: '',
   manual_likes: '',
   manual_comments: '',
   manual_shares: '',
@@ -104,6 +105,7 @@ function formFromLive(live: JsonRecord): MetricsForm {
     fat_gerado: formatBRLWithoutSymbol(officialLiveGmv(live)),
     qtd_pedidos: asString(live.manual_orders ?? live.final_orders_count ?? 0, '0'),
     manual_views: asString(live.manual_views ?? ''),
+    premiacao: live.premiacao == null ? '' : formatBRLWithoutSymbol(live.premiacao),
     manual_likes: asString(live.manual_likes ?? ''),
     manual_comments: asString(live.manual_comments ?? ''),
     manual_shares: asString(live.manual_shares ?? ''),
@@ -246,7 +248,7 @@ export function RegistrarMetricasLiveModal({
   }
 
   function setType(value: string) {
-    setForm((current) => ({ ...current, tipo: value, cliente_id: '', marca_id: '' }))
+    setForm((current) => ({ ...current, tipo: value, cliente_id: '', marca_id: '', premiacao: '' }))
   }
 
   function setAccount(value: string) {
@@ -270,6 +272,7 @@ export function RegistrarMetricasLiveModal({
       qtd_pedidos: payload.qtd_pedidos,
       resumo: payload.resumo,
       manual_gmv: payload.manual_gmv,
+      premiacao: payload.premiacao,
       manual_orders: payload.manual_orders,
       manual_views: payload.manual_views,
       manual_likes: payload.manual_likes,
@@ -387,6 +390,12 @@ export function RegistrarMetricasLiveModal({
           <span className="text-sm font-semibold text-ink">Verba Ads investida</span>
           <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.ads_cost ?? ''} onChange={(raw) => setField('ads_cost', raw)} />
         </label>
+        {form.tipo === 'afiliado' ? (
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">Bonificação (R$)</span>
+            <MoneyInput className="design-input mt-2 h-11 w-full px-4" value={form.premiacao ?? ''} onChange={(value) => setField('premiacao', value)} />
+          </label>
+        ) : null}
         {[
           ['qtd_pedidos', 'Pedidos'],
           ['live_impressions', 'Impressões da live'],
