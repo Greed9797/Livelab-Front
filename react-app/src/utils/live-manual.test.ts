@@ -33,6 +33,18 @@ describe('buildManualLivePayload', () => {
     })
   })
 
+  it('sends a separate bonus only for affiliate lives with a value', () => {
+    const bonus = { ...baseForm, tipo: 'afiliado', premiacao: '65,33' }
+    expect(buildManualLivePayload(bonus)).toMatchObject({
+      premiacao: 65.33,
+      fat_gerado: 1142,
+      manual_gmv: 1142,
+    })
+    expect(buildManualLivePayload({ ...bonus, premiacao: '0,00' }).premiacao).toBe(0)
+    expect(buildManualLivePayload({ ...bonus, premiacao: '' })).not.toHaveProperty('premiacao')
+    expect(buildManualLivePayload({ ...bonus, tipo: 'cliente' })).not.toHaveProperty('premiacao')
+  })
+
   it('accepts BR thousand separators in operational counters', () => {
     expect(buildManualLivePayload({
       ...baseForm,

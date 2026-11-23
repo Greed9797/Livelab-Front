@@ -153,6 +153,7 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
   // página para consultar; escondemos as ações de escrita em vez de deixar o backend 403.
   const currentUser = useCurrentUser()
   const podeEscrever = canWrite(currentUser)
+  const podeExcluirLive = ['franqueador_master', 'franqueado', 'gerente', 'produtor_live'].some((papel) => currentUser?.papel === papel)
   const canReviewPresenterSubmissions = Boolean(currentUser && ['franqueador_master', 'franqueado', 'gerente', 'operacional', 'produtor_live'].includes(currentUser.papel))
   const canMergeLives = Boolean(currentUser && ['franqueador_master', 'franqueado', 'gerente', 'operacional'].includes(currentUser.papel))
   const [params, setParams] = useSearchParams()
@@ -618,11 +619,11 @@ export function ConteudoPage({ view = 'agenda' }: { view?: ConteudoTab }) {
           onOpenEditLive={(live) => {
             openLiveForEditing(live) // sem rede, editar com a linha disponível é melhor que travar
           }}
-          onDeleteLive={(live) => {
+          onDeleteLive={podeExcluirLive ? (live) => {
             const label = asString(live.marca_nome ?? live.cliente_nome ?? live.id, 'live')
-            if (!window.confirm(`Excluir a live "${label}"?`)) return
+            if (!window.confirm(`Excluir definitivamente a live "${label}"? Esta ação não pode ser desfeita.`)) return
             deleteLiveMutation.mutate(asString(live.id, ''))
-          }}
+          } : undefined}
           onArchiveLive={(live) => {
             const label = asString(live.marca_nome ?? live.cliente_nome ?? live.id, 'live')
             const message = live.registro_tipo === 'submissao'
